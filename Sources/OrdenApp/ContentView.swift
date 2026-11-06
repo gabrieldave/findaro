@@ -10,17 +10,21 @@ struct ContentView: View {
     private let sidebarWidth: CGFloat = 212
     private let detailMinWidth: CGFloat = 400
 
+    /// Se actualiza en cada resize — fuerza redibujar sidebar + iconos al momento.
+    @State private var layoutGeneration: Int = 0
+    @State private var windowWidth: CGFloat = 0
+
     var body: some View {
         HStack(spacing: 0) {
             SidebarView()
                 .frame(width: sidebarWidth)
                 .frame(minWidth: sidebarWidth, idealWidth: sidebarWidth, maxWidth: sidebarWidth)
                 .frame(maxHeight: .infinity, alignment: .top)
-                .fixedSize(horizontal: true, vertical: false)
                 .layoutPriority(1)
-                .clipped()
                 .background(OrdenTheme.windowFill)
                 .accessibilityLabel("Menú lateral")
+                // Al terminar un resize (layoutGeneration++) reaparece si SwiftUI lo había “congelado”
+                .id("sidebar-\(layoutGeneration)")
 
             Divider().opacity(0.35)
 
@@ -28,12 +32,30 @@ struct ContentView: View {
                 // minWidth 0: comprime el detalle, NUNCA el sidebar
                 .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
                 .layoutPriority(0)
+                .environment(\.ordenWindowWidth, max(0, windowWidth - sidebarWidth))
+                .environment(\.ordenLayoutGeneration, layoutGeneration)
         }
         .frame(
             minWidth: sidebarWidth + detailMinWidth,
             minHeight: 480
         )
         .background(OrdenTheme.windowFill)
+        // Dependencia explícita: cualquier lectura invalida layout al cambiar el ancho
+        .animation(nil, value: layoutGeneration)
+        .animation(nil, value: windowWidth)
+        .background(
+            WindowLayoutProbe(
+                onChange: { size in applyWindowWidth(size.width) },
+                onLiveResizeEnd: { size in
+                    applyWindowWidth(size.width)
+                    // Al soltar el resize: mismo “refresco” que cambiar el modo de vista
+                    layoutGeneration &+= 1
+                }
+            )
+        )
+        .readLayoutWidth { w in
+            applyWindowWidth(w)
+        }
         .searchable(text: $browser.searchText, placement: .toolbar, prompt: "Filtrar en esta carpeta")
         .onAppear { SelectionCancelMonitor.install(browser: browser) }
         .onDisappear { SelectionCancelMonitor.remove() }
@@ -140,6 +162,19 @@ struct ContentView: View {
             return .handled
         }
         // Esc también vía SelectionCancelMonitor (NSEvent) — más fiable con foco en búsqueda
+    }
+
+    private func applyWindowWidth(_ w: CGFloat) {
+        guard w > 1 else { return }
+        let prevCols = max(1, Int((max(0, windowWidth - sidebarWidth) + 14) / 132))
+        let nextCols = max(1, Int((max(0, w - sidebarWidth) + 14) / 132))
+        if abs(w - windowWidth) >= 0.5 {
+            windowWidth = w
+        }
+        // Sube generación cuando cambia cuántas columnas de iconos caben (o al primer layout)
+        if nextCols != prevCols || layoutGeneration == 0 {
+            layoutGeneration &+= 1
+        }
     }
 
     private var detailColumn: some View {

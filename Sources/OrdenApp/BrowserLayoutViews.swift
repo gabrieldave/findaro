@@ -72,6 +72,8 @@ func browserSelectEntry(_ browser: BrowserModel, entry: FileEntry, openOnDoubleC
 
 struct IconsBrowserView: View {
     @EnvironmentObject private var browser: BrowserModel
+    @Environment(\.ordenWindowWidth) private var windowWidth
+    @Environment(\.ordenLayoutGeneration) private var layoutGeneration
 
     /// Celda fija — layout y hit-test DEBEN usar el mismo `colCount`.
     private let cellW: CGFloat = 118
@@ -79,7 +81,7 @@ struct IconsBrowserView: View {
     private let spacing: CGFloat = 14
     private let gridPadding: CGFloat = 16
 
-    @State private var containerWidth: CGFloat = 0
+    @State private var localWidth: CGFloat = 0
     @State private var marqueeStart: CGPoint?
     @State private var marqueeCurrent: CGPoint?
     @State private var marqueeBase: Set<String> = []
@@ -87,10 +89,16 @@ struct IconsBrowserView: View {
     @State private var folderDragPaths: [String] = []
     @State private var folderDragStarted = false
 
+    /// Ancho efectivo: preferir medida local; si no, la del resize de ventana.
+    private var containerWidth: CGFloat {
+        if localWidth > 1 { return localWidth }
+        if windowWidth > 1 { return windowWidth - 32 } // padding del detail
+        return 900
+    }
+
     /// Columnas reales: mismo número para LazyVGrid y para el marquee.
     private var colCount: Int {
-        let width = containerWidth > 0 ? containerWidth : 900
-        let inner = max(cellW, width - gridPadding * 2)
+        let inner = max(cellW, containerWidth - gridPadding * 2)
         return max(1, Int(floor((inner + spacing) / (cellW + spacing))))
     }
 
@@ -124,6 +132,7 @@ struct IconsBrowserView: View {
                                 .frame(width: cellW, height: cellH)
                         }
                     }
+                    .id("icons-grid-\(colCount)-\(layoutGeneration)")
                     .padding(gridPadding)
 
                     // Zona vacía: igual que lista — clic cancela; arrastre inicia marquee
@@ -154,15 +163,11 @@ struct IconsBrowserView: View {
                 .highPriorityGesture(iconsMarqueeGesture)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(
-                GeometryReader { geo in
-                    Color.clear
-                        .onAppear { containerWidth = geo.size.width }
-                        .onChange(of: geo.size.width) { _, w in
-                            containerWidth = w
-                        }
+            .readLayoutWidth { w in
+                if abs(w - localWidth) >= 1 {
+                    localWidth = w
                 }
-            )
+            }
             .onTapGesture {
                 browser.cancelSelection()
             }
@@ -175,6 +180,10 @@ struct IconsBrowserView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .onChange(of: browser.selectionCancelToken) { _, _ in
+            resetMarquee()
+        }
+        .onChange(of: layoutGeneration) { _, _ in
+            // El resize ya actualizó windowWidth; limpiar marquee a medias
             resetMarquee()
         }
     }
