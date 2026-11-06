@@ -2,13 +2,12 @@ import SwiftUI
 import AppKit
 import OrdenCore
 
-/// Feedback visual del hold 1s → listo para arrastrar/mover.
+/// Feedback visual del modo «listo para mover» (⌘+clic).
 enum FileDragArmChrome {
     static let holdDuration: TimeInterval = 1.0
-    /// Mientras armas, un temblor mayor cancela el hold (no el marquee del padre).
     static let maxWiggle: CGFloat = 14
 
-    /// Anillo de carga mientras mantienes pulsado + badge cuando ya está armado.
+    /// Badge cuando ya está armado (⌘+clic).
     struct Overlay: View {
         @EnvironmentObject private var browser: BrowserModel
         let path: String
@@ -114,8 +113,8 @@ enum FileDragArmChrome {
                         .font(.subheadline.weight(.bold))
                         Text(
                             browser.fileDragArmedPaths.count == 1
-                                ? "Sin soltar, arrastra a otra carpeta"
-                                : "Sin soltar, arrástralos juntos a una carpeta"
+                                ? "Arrastra a otra carpeta · Esc cancela"
+                                : "Arrástralos juntos a una carpeta · Esc cancela"
                         )
                             .font(.caption)
                             .opacity(0.9)
@@ -140,62 +139,13 @@ enum FileDragArmChrome {
     }
 }
 
-/// Hold sobre la fila: progreso 0→1 y arma el drag sin pelearse del todo con el marquee.
-private struct FileDragArmPressModifier: ViewModifier {
-    @EnvironmentObject private var browser: BrowserModel
-    let entry: FileEntry
-
-    @State private var pressOrigin: CGPoint?
-    @State private var armedThisPress = false
-
-    func body(content: Content) -> some View {
-        content.simultaneousGesture(
-            DragGesture(minimumDistance: 0, coordinateSpace: .local)
-                .onChanged { value in
-                    if pressOrigin == nil {
-                        pressOrigin = value.startLocation
-                        armedThisPress = false
-                        // Gesto de la fila: dueño del armado (carpetas y archivos).
-                        browser.beginArmingFileDrag(for: entry)
-                    }
-
-                    let dist = hypot(value.translation.width, value.translation.height)
-                    // Más tolerancia en carpetas: el icono/nombre tiembla más al hacer hold.
-                    let limit = entry.isDirectory
-                        ? FileDragArmChrome.maxWiggle * 1.6
-                        : FileDragArmChrome.maxWiggle
-                    if dist > limit, !browser.hasArmedFileDrag {
-                        // Temblor grande antes de armar → cancela hold (el padre hará marquee).
-                        browser.endArmingPress(for: entry)
-                        pressOrigin = nil
-                        return
-                    }
-                    if browser.hasArmedFileDrag {
-                        armedThisPress = true
-                    }
-                }
-                .onEnded { _ in
-                    // Si aún no armó, suelta = clic normal (solo selección).
-                    if !browser.hasArmedFileDrag {
-                        browser.endArmingPress(for: entry)
-                    } else {
-                        // Ya armado: limpia anillo pero deja el estado "listo" unos segundos.
-                        browser.endArmingPress(for: entry)
-                    }
-                    pressOrigin = nil
-                    armedThisPress = false
-                }
-        )
-    }
-}
-
 extension View {
     func fileDragArmHighlight(path: String) -> some View {
         modifier(FileDragArmChrome.Highlight(path: path))
     }
 
+    /// El armado va por ⌘+clic en `FileDragArmMonitor` (ya no por hold).
     func fileDragArmPress(entry: FileEntry, browser: BrowserModel) -> some View {
-        modifier(FileDragArmPressModifier(entry: entry))
-            .environmentObject(browser)
+        self.environmentObject(browser)
     }
 }

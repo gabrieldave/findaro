@@ -630,9 +630,15 @@ private struct ColumnRow: View {
     }
 
     private func handleClick() {
-        // Doble clic → TapGesture/monitor. Un clic en carpeta abre la columna siguiente.
+        // Doble clic → monitor. ⌘+clic arma mover (monitor); no abras columna.
         let flags = NSEvent.modifierFlags
-        if flags.contains(.shift) || flags.contains(.command) || browser.multiSelectMode {
+        if flags.contains(.command) {
+            if !browser.selectedIDs.contains(entry.id) {
+                browser.selectOnly(entry.id)
+            }
+            return
+        }
+        if flags.contains(.shift) || browser.multiSelectMode {
             browser.clickSelect(entry.id)
             return
         }

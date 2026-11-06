@@ -31,7 +31,7 @@ final class BrowserModel: ObservableObject {
     @Published private(set) var canGoForward = false
     private var backStack: [String] = []
     private var forwardStack: [String] = []
-    /// Hold 1s sobre un ítem: listo para arrastrar/mover (clic rápido solo selecciona).
+    /// ⌘+clic: listo para arrastrar/mover (naranja). Clic normal solo selecciona.
     @Published private(set) var fileDragArmedPaths: [String] = []
     /// Paths en progreso de armado (toda la selección si hay varias).
     @Published private(set) var fileDragArmingPaths: Set<String> = []
@@ -922,7 +922,7 @@ final class BrowserModel: ObservableObject {
         }
     }
 
-    /// Mantener 1s sobre un archivo: arma arrastre nativo (mover/copiar).
+    /// Arma arrastre nativo (mover/copiar). Atajo: ⌘+clic.
     /// Si había varios seleccionados (y este está en la selección), arma todos.
     func armFileDrag(for entry: FileEntry) {
         armingProgressTask?.cancel()
@@ -945,8 +945,8 @@ final class BrowserModel: ObservableObject {
         }
         fileDragArmedUntil = Date().addingTimeInterval(10)
         statusMessage = fileDragArmedPaths.count == 1
-            ? "Listo para mover — arrastra ahora"
-            : "\(fileDragArmedPaths.count) listos — arrastra ahora"
+            ? "Listo para mover — arrastra al destino (⌘+clic)"
+            : "\(fileDragArmedPaths.count) listos — arrastra al destino"
 
         if !alreadyArmed {
             NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)

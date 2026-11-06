@@ -997,7 +997,7 @@ struct FileBrowserPane: View {
         DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named("fileList"))
             .onChanged { value in
                 if marqueeStart == nil {
-                    // Hold 1s → listo: el arrastre mueve archivos (no marquee)
+                    // Con modo naranja (⌘+clic): el arrastre mueve archivos (no marquee)
                     if browser.hasArmedFileDrag {
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
@@ -1267,12 +1267,17 @@ struct FileRowButton: View {
 
     private func selectRow() {
         // El doble clic lo resuelve FileDragArmMonitor (NSEvent.clickCount real).
-        // Aquí solo selección; open() en Button suele ver siempre clickCount == 1.
+        // ⌘+clic arma «listo para mover» en el monitor; aquí no uses ⌘ para multi-select.
         let flags = NSEvent.modifierFlags
         if flags.contains(.shift) {
             browser.selectRange(to: entry.id)
-        } else if browser.multiSelectMode || flags.contains(.command) {
+        } else if browser.multiSelectMode {
             browser.toggleSelection(entry.id)
+        } else if flags.contains(.command) {
+            // El monitor ya armó; deja (o pone) la selección.
+            if !browser.selectedIDs.contains(entry.id) {
+                browser.selectOnly(entry.id)
+            }
         } else {
             browser.selectOnly(entry.id)
         }
@@ -1287,7 +1292,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Selección y bandeja") {
-                Text("Clic = uno · Arrastrar = rectángulo · Hold 1s = arrastrar archivo · ⌘C → bandeja (copiar) · ⌘X → bandeja (mover) · ⌘V suelta la bandeja aquí · ⌘Z deshace")
+                Text("Clic = uno · Arrastrar = rectángulo · ⌘+clic = listo para mover (naranja) · casillas o «Varios» = multi · ⌘C/⌘X bandeja · ⌘V suelta · ⌘Z deshace")
             }
             Section("Usar Ordena siempre (rápido)") {
                 Text("macOS no deja borrar Finder. Ordena se usa como tu explorador con estos trucos:")

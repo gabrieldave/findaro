@@ -2,19 +2,13 @@ import AppKit
 import SwiftUI
 import OrdenCore
 
-/// Monitor AppKit: hold 1s + doble clic sin pelear con el marquee de SwiftUI.
+/// Monitor AppKit: ⌘+clic arma «listo para mover»; doble clic abre.
 @MainActor
 final class FileDragArmMonitor {
     static let shared = FileDragArmMonitor()
 
     private var monitor: Any?
-    private var downPoint: CGPoint?
-    private var downTime: Date?
-    private var tickTimer: Timer?
     private weak var browser: BrowserModel?
-
-    /// Solo cancelamos/armamos desde el monitor si el mouseDown cayó en una fila conocida.
-    private var monitorOwnedPress = false
 
     /// Frames de filas en coordenadas de la key window.
     private var rowFrames: [String: CGRect] = [:]
@@ -27,7 +21,7 @@ final class FileDragArmMonitor {
         self.browser = browser
         guard monitor == nil else { return }
         monitor = NSEvent.addLocalMonitorForEvents(
-            matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
+            matching: [.leftMouseDown]
         ) { [weak self] event in
             self?.handle(event)
             return event
@@ -44,98 +38,45 @@ final class FileDragArmMonitor {
     }
 
     private func handle(_ event: NSEvent) {
-        guard let browser else { return }
-        switch event.type {
-        case .leftMouseDown:
-            let path = pathAt(event.locationInWindow)
-            let isDouble: Bool = {
-                if event.clickCount >= 2 { return true }
-                guard let path,
-                      lastClickPath == path,
-                      let last = lastClickAt,
-                      Date().timeIntervalSince(last) < 0.5 else { return false }
-                return true
-            }()
+        guard let browser, event.type == .leftMouseDown else { return }
+        let path = pathAt(event.locationInWindow)
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let cmd = flags.contains(.command)
+        let shift = flags.contains(.shift)
+        let opt = flags.contains(.option)
 
-            if isDouble, let path,
-               let entry = browser.visibleEntries.first(where: { $0.path == path }) {
-                cancelMonitorPress(clearArming: true)
-                lastClickPath = nil
-                lastClickAt = nil
-                browser.selectOnly(entry.id)
-                browser.activateEntry(entry)
-                return
-            }
+        let isDouble: Bool = {
+            if event.clickCount >= 2 { return true }
+            guard let path,
+                  lastClickPath == path,
+                  let last = lastClickAt,
+                  Date().timeIntervalSince(last) < 0.5 else { return false }
+            return true
+        }()
 
-            lastClickPath = path
-            lastClickAt = Date()
-
-            downPoint = event.locationInWindow
-            downTime = Date()
-            tickTimer?.invalidate()
-            tickTimer = nil
-            monitorOwnedPress = false
-
-            if let path,
-               let entry = browser.visibleEntries.first(where: { $0.path == path }) {
-                monitorOwnedPress = true
-                browser.beginArmingFileDrag(for: entry)
-                tickTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-                    Task { @MainActor in self?.tick() }
-                }
-            }
-
-        case .leftMouseDragged:
-            // No tocar el armado que inició el gesto SwiftUI de la fila.
-            guard monitorOwnedPress, let origin = downPoint else { return }
-            let p = event.locationInWindow
-            let dist = hypot(p.x - origin.x, p.y - origin.y)
-            if dist > FileDragArmChrome.maxWiggle, !browser.hasArmedFileDrag {
-                cancelMonitorPress(clearArming: true)
-            }
-
-        case .leftMouseUp:
-            if monitorOwnedPress {
-                if let path = browser.fileDragArmingPath,
-                   let entry = browser.visibleEntries.first(where: { $0.path == path }) {
-                    browser.endArmingPress(for: entry)
-                }
-            }
-            cancelMonitorPress(clearArming: false)
-
-        default:
-            break
+        if isDouble, let path,
+           let entry = browser.visibleEntries.first(where: { $0.path == path }) {
+            lastClickPath = nil
+            lastClickAt = nil
+            browser.clearArmedFileDrag()
+            browser.selectOnly(entry.id)
+            browser.activateEntry(entry)
+            return
         }
-    }
 
-    private func tick() {
-        guard monitorOwnedPress,
-              let browser,
-              let start = downTime,
-              browser.fileDragArmingPath != nil else { return }
-        let elapsed = Date().timeIntervalSince(start)
-        if elapsed >= FileDragArmChrome.holdDuration {
-            if let path = browser.fileDragArmingPath,
-               let entry = browser.visibleEntries.first(where: { $0.path == path }) {
-                browser.armFileDrag(for: entry)
-            }
-            tickTimer?.invalidate()
-            tickTimer = nil
-        }
-    }
+        lastClickPath = path
+        lastClickAt = Date()
 
-    private func cancelMonitorPress(clearArming: Bool) {
-        tickTimer?.invalidate()
-        tickTimer = nil
-        if clearArming, monitorOwnedPress, let browser {
-            if let path = browser.fileDragArmingPath,
-               let entry = browser.visibleEntries.first(where: { $0.path == path }) {
-                browser.endArmingPress(for: entry)
-            }
+        // ⌘+clic (sin Shift/⌥): modo naranja «listo para mover».
+        guard cmd, !shift, !opt,
+              let path,
+              let entry = browser.visibleEntries.first(where: { $0.path == path })
+        else { return }
+
+        if !browser.selectedIDs.contains(entry.id) {
+            browser.selectOnly(entry.id)
         }
-        monitorOwnedPress = false
-        downPoint = nil
-        downTime = nil
+        browser.armFileDrag(for: entry)
     }
 
     private func pathAt(_ pointInWindow: CGPoint) -> String? {
