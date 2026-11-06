@@ -25,8 +25,6 @@ struct WindowLayoutProbe: NSViewRepresentable {
         var onChange: ((CGSize) -> Void)?
         var onLiveResizeEnd: ((CGSize) -> Void)?
         private var last: CGSize = .zero
-        private var resizeObserver: NSObjectProtocol?
-        private var endResizeObserver: NSObjectProtocol?
 
         override init(frame frameRect: NSRect) {
             super.init(frame: frameRect)
@@ -39,33 +37,40 @@ struct WindowLayoutProbe: NSViewRepresentable {
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            clearObservers()
-            guard let window else { return }
-
-            resizeObserver = NotificationCenter.default.addObserver(
-                forName: NSWindow.didResizeNotification,
-                object: window,
-                queue: .main
-            ) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    self?.reportIfNeeded(force: true)
-                }
-            }
-            endResizeObserver = NotificationCenter.default.addObserver(
-                forName: NSWindow.didEndLiveResizeNotification,
-                object: window,
-                queue: .main
-            ) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    guard let self else { return }
-                    self.reportIfNeeded(force: true)
-                    let size = self.last.width > 1
-                        ? self.last
-                        : (self.window?.contentView?.bounds.size ?? .zero)
-                    self.onLiveResizeEnd?(size)
-                }
-            }
+            guard window != nil else { return }
             reportIfNeeded(force: true)
+        }
+
+        override func viewWillMove(toWindow newWindow: NSWindow?) {
+            super.viewWillMove(toWindow: newWindow)
+            // Observamos vía NotificationCenter con selector (sin deinit Sendable issues)
+            NotificationCenter.default.removeObserver(self)
+            if let newWindow {
+                NotificationCenter.default.addObserver(
+                    self,
+                    selector: #selector(windowDidResize(_:)),
+                    name: NSWindow.didResizeNotification,
+                    object: newWindow
+                )
+                NotificationCenter.default.addObserver(
+                    self,
+                    selector: #selector(windowDidEndLiveResize(_:)),
+                    name: NSWindow.didEndLiveResizeNotification,
+                    object: newWindow
+                )
+            }
+        }
+
+        @objc private func windowDidResize(_ note: Notification) {
+            reportIfNeeded(force: true)
+        }
+
+        @objc private func windowDidEndLiveResize(_ note: Notification) {
+            reportIfNeeded(force: true)
+            let size = last.width > 1
+                ? last
+                : (window?.contentView?.bounds.size ?? .zero)
+            onLiveResizeEnd?(size)
         }
 
         override func layout() {
@@ -93,24 +98,8 @@ struct WindowLayoutProbe: NSViewRepresentable {
             onChange?(size)
         }
 
-        private func clearObservers() {
-            if let resizeObserver {
-                NotificationCenter.default.removeObserver(resizeObserver)
-                self.resizeObserver = nil
-            }
-            if let endResizeObserver {
-                NotificationCenter.default.removeObserver(endResizeObserver)
-                self.endResizeObserver = nil
-            }
-        }
-
         deinit {
-            if let resizeObserver {
-                NotificationCenter.default.removeObserver(resizeObserver)
-            }
-            if let endResizeObserver {
-                NotificationCenter.default.removeObserver(endResizeObserver)
-            }
+            NotificationCenter.default.removeObserver(self)
         }
     }
 }
