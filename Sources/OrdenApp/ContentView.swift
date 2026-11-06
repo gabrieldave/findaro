@@ -51,10 +51,11 @@ struct ContentView: View {
                 }
 
                 Button {
-                    browser.clearSelection()
+                    browser.cancelSelection()
                 } label: {
                     Label("Ninguno", systemImage: "xmark.circle")
                 }
+                .help("Esc — cancelar selección")
                 .disabled(browser.selectedIDs.isEmpty)
 
                 Button {
@@ -107,6 +108,10 @@ struct ContentView: View {
             guard !press.modifiers.contains(.command) else { return .ignored }
             guard browser.selectedIDs.count == 1 else { return .ignored }
             browser.promptRename()
+            return .handled
+        }
+        .onKeyPress(.escape) {
+            browser.cancelSelection()
             return .handled
         }
     }
@@ -485,27 +490,23 @@ struct FileBrowserPane: View {
                     header
                     Divider().opacity(0.35)
                     ScrollView {
-                        ZStack(alignment: .topLeading) {
-                            LazyVStack(spacing: 0) {
-                                ForEach(Array(browser.visibleEntries.enumerated()), id: \.element.id) { index, entry in
-                                    FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
-                                        .background(
-                                            GeometryReader { geo in
-                                                Color.clear.preference(
-                                                    key: RowFrameKey.self,
-                                                    value: [entry.id: geo.frame(in: .named("fileList"))]
-                                                )
-                                            }
-                                        )
-                                }
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(browser.visibleEntries.enumerated()), id: \.element.id) { index, entry in
+                                FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
+                                    .background {
+                                        GeometryReader { geo in
+                                            Color.clear.preference(
+                                                key: RowFrameKey.self,
+                                                value: [entry.id: geo.frame(in: .named("fileList"))]
+                                            )
+                                        }
+                                    }
                             }
-                            .frame(maxWidth: .infinity, alignment: .top)
-
-                            // Zona vacía debajo de las filas: también inicia marquee
-                            Color.clear
-                                .frame(minHeight: 120)
-                                .frame(maxWidth: .infinity)
-
+                        }
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .coordinateSpace(name: "fileList")
+                        .onPreferenceChange(RowFrameKey.self) { rowFrames = $0 }
+                        .overlay(alignment: .topLeading) {
                             if let rect = marqueeRect {
                                 RoundedRectangle(cornerRadius: 3, style: .continuous)
                                     .fill(OrdenTheme.accent.opacity(0.18))
@@ -518,15 +519,12 @@ struct FileBrowserPane: View {
                                     .allowsHitTesting(false)
                             }
                         }
-                        .coordinateSpace(name: "fileList")
-                        .onPreferenceChange(RowFrameKey.self) { rowFrames = $0 }
                         .contentShape(Rectangle())
-                        // highPriority: el arrastre gana al Button; el clic corto sigue seleccionando
                         .highPriorityGesture(marqueeGesture)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -535,7 +533,17 @@ struct FileBrowserPane: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onChange(of: browser.selectionCancelToken) { _, _ in
+            resetMarquee()
+        }
+    }
+
+    private func resetMarquee() {
+        marqueeStart = nil
+        marqueeCurrent = nil
+        suppressMarquee = false
+        marqueeBase = []
     }
 
     private var marqueeRect: CGRect? {
@@ -575,10 +583,7 @@ struct FileBrowserPane: View {
                 if !suppressMarquee {
                     applyMarquee()
                 }
-                marqueeStart = nil
-                marqueeCurrent = nil
-                suppressMarquee = false
-                marqueeBase = []
+                resetMarquee()
             }
     }
 

@@ -52,7 +52,7 @@ struct OrdenApp: App {
                 Divider()
                 Button("Seleccionar todos") { browser.selectAllVisible() }
                     .keyboardShortcut("a", modifiers: .command)
-                Button("Quitar selección") { browser.clearSelection() }
+                Button("Quitar selección") { browser.cancelSelection() }
                     .keyboardShortcut(.escape, modifiers: [])
                 Button("Modo varios") { browser.multiSelectMode.toggle() }
                     .keyboardShortcut("m", modifiers: [.command, .shift])

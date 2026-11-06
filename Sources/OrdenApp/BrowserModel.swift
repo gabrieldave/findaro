@@ -27,6 +27,8 @@ final class BrowserModel: ObservableObject {
     @Published var nameDraft = ""
     /// Ruta pendiente de renombrar (si el diálogo está abierto).
     @Published var renameTargetPath: String?
+    /// Se incrementa con Esc / cancelar para resetear gestos (marquee).
+    @Published var selectionCancelToken: Int = 0
 
     let store: PreferencesStore
     private var measureTask: Task<Void, Never>?
@@ -136,6 +138,13 @@ final class BrowserModel: ObservableObject {
         selectedIDs = []
         selectionAnchorID = nil
         statusMessage = "Nada seleccionado"
+    }
+
+    /// Esc: quita selección y cancela marquee / gestos a medias.
+    func cancelSelection() {
+        clearSelection()
+        selectionCancelToken &+= 1
+        statusMessage = "Selección cancelada"
     }
 
     func toggleSelectAllVisible() {
