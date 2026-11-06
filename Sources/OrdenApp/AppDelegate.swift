@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.collectionBehavior.insert(.moveToActiveSpace)
         }
         GlobalHotKey.install()
+        // Paso «usar Ordena para carpetas»: se registra solo, sin buscar menús.
+        _ = OpenFolderBridge.setAsDefaultFolderHandler()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
