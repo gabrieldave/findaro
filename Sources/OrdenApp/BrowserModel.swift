@@ -96,6 +96,8 @@ final class BrowserModel: ObservableObject {
     @Published var showDeepSearchPanel = false
     @Published var deepSearchQuery: String = ""
     @Published var deepSearchRoot: String = ""
+    @Published var showDeepSearchDialog = false
+    @Published var deepSearchDraft = ""
     private var deepSearchTask: Task<Void, Never>?
 
     // MARK: Smart merge
@@ -587,10 +589,29 @@ final class BrowserModel: ObservableObject {
 
     // MARK: - Stubs Fase 1c–5 (compilan; UI se activa fase a fase)
 
+    /// ⌘4 / botón Subcarpetas: si ya hay texto en el filtro, busca; si no, pide qué buscar.
+    func promptDeepSearch() {
+        let existing = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !existing.isEmpty {
+            startDeepSearch(query: existing)
+            return
+        }
+        deepSearchDraft = deepSearchQuery
+        showDeepSearchDialog = true
+    }
+
+    func submitDeepSearchFromDialog() {
+        let q = deepSearchDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return }
+        showDeepSearchDialog = false
+        searchText = q
+        startDeepSearch(query: q)
+    }
+
     func startDeepSearch(query: String? = nil) {
         let q = (query ?? searchText).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else {
-            statusMessage = "Escribe algo en el filtro y pulsa Return o ⌘4"
+            promptDeepSearch()
             return
         }
         cancelDeepSearch()

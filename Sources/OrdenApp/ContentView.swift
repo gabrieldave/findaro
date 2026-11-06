@@ -280,7 +280,7 @@ struct SortBar: View {
             }
 
             Button {
-                browser.startDeepSearch()
+                browser.promptDeepSearch()
             } label: {
                 Label(
                     browser.deepSearchRunning ? "Buscando…" : "Subcarpetas",
@@ -290,9 +290,8 @@ struct SortBar: View {
             .buttonStyle(.borderedProminent)
             .tint(browser.showDeepSearchPanel ? .orange : OrdenTheme.accent)
             .controlSize(.regular)
-            .disabled(browser.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                      && !browser.deepSearchRunning)
-            .help("Busca el texto del filtro en esta carpeta y abajo (Return o ⌘4)")
+            .disabled(browser.deepSearchRunning)
+            .help("Busca en esta carpeta y abajo · ⌘4")
 
             if !browser.downloadsTodayMode {
                 Menu {
@@ -1372,6 +1371,13 @@ private struct BrowserDialogsModifier: ViewModifier {
                 Button("Cancelar", role: .cancel) {}
             } message: {
                 Text("Pega una ruta absoluta o empieza con ~/ … Atajo ⌘3")
+            }
+            .alert("Buscar en subcarpetas", isPresented: $browser.showDeepSearchDialog) {
+                TextField("Qué buscar (nombre)", text: $browser.deepSearchDraft)
+                Button("Buscar") { browser.submitDeepSearchFromDialog() }
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text("Mira dentro de \(shortPath(browser.currentPath)) y carpetas abajo · ⌘4")
             }
             .sheet(item: $browser.pendingMergePreview) { preview in
                 MergePreviewSheet(preview: preview)
