@@ -429,14 +429,12 @@ struct SidebarView: View {
     @EnvironmentObject private var browser: BrowserModel
     /// Se incrementa al montar/desmontar discos para refrescar Ubicaciones.
     @State private var volumesTick: Int = 0
+    @State private var favoritesDropTargeted = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 2) {
-                favoritesHeader
-                ForEach(favoriteItems) { item in
-                    sidebarButton(item, isFavoriteSlot: true)
-                }
+                favoritesDropZone
 
                 sectionHeader("Ubicaciones")
                     .padding(.top, 12)
@@ -573,34 +571,65 @@ struct SidebarView: View {
         return items
     }
 
-    private var favoritesHeader: some View {
-        HStack(spacing: 4) {
-            Text("Favoritos")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            Spacer(minLength: 4)
-            Button {
-                browser.addCurrentFolderToFavorites()
-            } label: {
-                Image(systemName: "plus.circle.fill")
-                    .font(.body)
-                    .foregroundStyle(OrdenTheme.accent)
+    private var favoritesDropZone: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Text("Favoritos")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 4)
+                Button {
+                    browser.addCurrentFolderToFavorites()
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.body)
+                        .foregroundStyle(OrdenTheme.accent)
+                }
+                .buttonStyle(.plain)
+                .help("Añadir la carpeta actual a Favoritos")
+                Button {
+                    browser.pickFolderAsFavorite()
+                } label: {
+                    Image(systemName: "folder.badge.plus")
+                        .font(.body)
+                        .foregroundStyle(OrdenTheme.accent)
+                }
+                .buttonStyle(.plain)
+                .help("Elegir otra carpeta…")
             }
-            .buttonStyle(.plain)
-            .help("Añadir la carpeta actual a Favoritos")
-            Button {
-                browser.pickFolderAsFavorite()
-            } label: {
-                Image(systemName: "folder.badge.plus")
-                    .font(.body)
-                    .foregroundStyle(OrdenTheme.accent)
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 6)
+
+            ForEach(favoriteItems) { item in
+                sidebarButton(item, isFavoriteSlot: true)
             }
-            .buttonStyle(.plain)
-            .help("Elegir otra carpeta…")
+
+            Text(favoritesDropTargeted ? "Suelta para fijar" : "Arrastra carpetas aquí")
+                .font(.caption2)
+                .foregroundStyle(favoritesDropTargeted ? OrdenTheme.accent : .secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 14)
-        .padding(.bottom, 6)
+        .padding(.bottom, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(
+                    favoritesDropTargeted ? OrdenTheme.accent : Color.clear,
+                    style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])
+                )
+                .padding(.horizontal, 6)
+        )
+        .background(
+            favoritesDropTargeted
+                ? OrdenTheme.accent.opacity(0.12)
+                : Color.clear,
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+        )
+        .onDrop(of: [UTType.fileURL], isTargeted: $favoritesDropTargeted) { providers in
+            browser.importFavoritesFromProviders(providers)
+        }
     }
 
     private func sectionHeader(_ title: String) -> some View {
@@ -880,10 +909,25 @@ struct FileRowButton: View {
             .help("Marcar / desmarcar")
             .padding(.leading, 10)
 
+            // Icono aparte: arrastrar carpeta → Favoritos (sin pelear con el marquee de la fila)
+            Group {
+                if entry.isDirectory {
+                    FileTypeIcon(category: entry.category, size: 17)
+                        .frame(width: 22, height: 28)
+                        .contentShape(Rectangle())
+                        .help("Arrastra a Favoritos")
+                        .onDrag {
+                            NSItemProvider(contentsOf: URL(fileURLWithPath: entry.path))
+                                ?? NSItemProvider()
+                        }
+                } else {
+                    FileTypeIcon(category: entry.category, size: 17)
+                        .frame(width: 22, height: 28)
+                }
+            }
+
             Button(action: selectRow) {
                 HStack(alignment: .center, spacing: 12) {
-                    FileTypeIcon(category: entry.category, size: 17)
-
                     VStack(alignment: .leading, spacing: 3) {
                         Text(entry.name)
                             .font(.body)

@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import OrdenCore
 import AppKit
+import UniformTypeIdentifiers
 
 @MainActor
 final class BrowserModel: ObservableObject {
@@ -274,6 +275,44 @@ final class BrowserModel: ObservableObject {
         if folders.count > 1 {
             statusMessage = "\(folders.count) carpetas en Favoritos"
         }
+    }
+
+    /// Soltar carpetas (desde Ordena o Finder) sobre Favoritos.
+    @discardableResult
+    func importFavoritesFromProviders(_ providers: [NSItemProvider]) -> Bool {
+        var paths: [String] = []
+        let group = DispatchGroup()
+        for provider in providers {
+            group.enter()
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                defer { group.leave() }
+                if let data = item as? Data,
+                   let url = URL(dataRepresentation: data, relativeTo: nil) {
+                    paths.append(url.path)
+                } else if let url = item as? URL {
+                    paths.append(url.path)
+                }
+            }
+        }
+        group.notify(queue: .main) { [weak self] in
+            guard let self else { return }
+            var added = 0
+            for path in paths {
+                var isDir: ObjCBool = false
+                if FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue {
+                    if !self.isFavorite(path) {
+                        self.addFavorite(path)
+                        added += 1
+                    }
+                }
+            }
+            if added == 0 && !paths.isEmpty {
+                self.statusMessage = "Suelta carpetas (no archivos sueltos)"
+            } else if added > 1 {
+                self.statusMessage = "\(added) carpetas en Favoritos"
+            }
+        }
+        return true
     }
 
     func applyRule(_ newRule: SortRule, scope: SortSaveScope) {
