@@ -1005,8 +1005,10 @@ final class BrowserModel: ObservableObject {
         }
     }
 
-    /// Arma arrastre nativo (mover/copiar). Atajo: ⌘+clic — sticky + multi.
-    /// Suma el ítem a la selección y arma todos los seleccionados.
+    /// ⌘+clic sticky:
+    /// - ítem nuevo → lo suma (solo ese; no vecinos)
+    /// - ítem ya en el grupo naranja → lo quita (toggle)
+    /// - primer encendido sobre una selección multi ya hecha (⇧/checkbox) → arma ese grupo
     func armFileDrag(for entry: FileEntry) {
         armingProgressTask?.cancel()
         armingProgressTask = nil
@@ -1014,27 +1016,49 @@ final class BrowserModel: ObservableObject {
         fileDragArmingPrimaryPath = nil
         fileDragArmProgress = 1
 
-        let alreadyArmed = hasArmedFileDrag && fileDragArmedPaths.contains(entry.path)
-
-        // Multi: nunca reemplazar — suma este ítem y arma el grupo entero.
-        if !selectedIDs.contains(entry.id) {
-            selectedIDs.insert(entry.id)
-        }
-        if selectionAnchorID == nil {
-            selectionAnchorID = entry.id
-        }
-        selectionFocusID = entry.id
-
-        let group = selectedEntries.map(\.path)
-        fileDragArmedPaths = group.isEmpty ? [entry.path] : group
-
-        statusMessage = fileDragArmedPaths.count == 1
-            ? "Modo mover ON — suma más con ⌘+clic / ⇧ · Esc cancela"
-            : "\(fileDragArmedPaths.count) listos — arrastra cuando quieras · Esc cancela"
-
-        if !alreadyArmed {
+        // Toggle OFF: segundo ⌘+clic sobre el mismo ítem armado.
+        if hasArmedFileDrag, selectedIDs.contains(entry.id) {
+            selectedIDs.remove(entry.id)
+            if selectionFocusID == entry.id {
+                selectionFocusID = selectedIDs.first
+            }
+            if selectionAnchorID == entry.id {
+                selectionAnchorID = selectedIDs.first
+            }
+            syncArmedWithSelection()
             NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+            if hasArmedFileDrag {
+                statusMessage = "\(fileDragArmedPaths.count) listos — ⌘+clic quita · Esc cancela"
+            } else {
+                statusMessage = "Modo mover OFF"
+            }
+            objectWillChange.send()
+            return
         }
+
+        if !hasArmedFileDrag {
+            // Encender: si ya había varios marcados e incluyo este → arma el grupo.
+            // Si no, solo ESTE ítem (evita heredar un marquee accidental).
+            if !(selectedIDs.contains(entry.id) && selectedIDs.count > 1) {
+                selectedIDs = [entry.id]
+                selectionAnchorID = entry.id
+            }
+            selectionFocusID = entry.id
+        } else {
+            // Ya en naranja: suma solo el clicados.
+            selectedIDs.insert(entry.id)
+            selectionFocusID = entry.id
+            if selectionAnchorID == nil {
+                selectionAnchorID = entry.id
+            }
+        }
+
+        fileDragArmedPaths = selectedEntries.map(\.path)
+        statusMessage = fileDragArmedPaths.count == 1
+            ? "Modo mover ON — ⌘+clic suma/quita · Esc cancela"
+            : "\(fileDragArmedPaths.count) listos — ⌘+clic suma/quita · Esc cancela"
+
+        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
         objectWillChange.send()
     }
 

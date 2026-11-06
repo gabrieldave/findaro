@@ -136,9 +136,33 @@ private final class FileDragArmFrameNSView: NSView {
     private func report() {
         guard !path.isEmpty, window != nil, !bounds.isEmpty else { return }
         let rect = convert(bounds, to: nil)
-        Task { @MainActor in
-            FileDragArmMonitor.shared.updateRowFrame(path: path, frameInWindow: rect)
+        let p = path
+        // Síncrono en main: si va en Task, el primer ⌘+clic no encuentra frame.
+        if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                FileDragArmMonitor.shared.updateRowFrame(path: p, frameInWindow: rect)
+            }
+        } else {
+            DispatchQueue.main.async {
+                FileDragArmMonitor.shared.updateRowFrame(path: p, frameInWindow: rect)
+            }
         }
+    }
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        if newWindow == nil, !path.isEmpty {
+            let p = path
+            if Thread.isMainThread {
+                MainActor.assumeIsolated {
+                    FileDragArmMonitor.shared.removeRowFrame(path: p)
+                }
+            } else {
+                DispatchQueue.main.async {
+                    FileDragArmMonitor.shared.removeRowFrame(path: p)
+                }
+            }
+        }
+        super.viewWillMove(toWindow: newWindow)
     }
 }
 
@@ -163,6 +187,9 @@ private struct FileDragArmFrameReader: NSViewRepresentable {
 extension View {
     func reportFileDragArmFrame(path: String) -> some View {
         background(FileDragArmFrameReader(path: path))
+            .onDisappear {
+                FileDragArmMonitor.shared.removeRowFrame(path: path)
+            }
     }
 
     func enableFileDragArmMonitor(browser: BrowserModel) -> some View {

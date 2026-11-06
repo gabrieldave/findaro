@@ -997,7 +997,12 @@ struct FileBrowserPane: View {
         DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named("fileList"))
             .onChanged { value in
                 if marqueeStart == nil {
-                    // Con modo naranja (⌘+clic sticky): arrastre mueve archivos (no marquee)
+                    let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                    // ⌘ es modo naranja (suma/quita 1), NUNCA marquee — eso seleccionaba vecinos.
+                    if flags.contains(.command), !browser.hasArmedFileDrag {
+                        return
+                    }
+                    // Con modo naranja: arrastre mueve archivos (no marquee)
                     if browser.hasArmedFileDrag {
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
@@ -1005,7 +1010,6 @@ struct FileBrowserPane: View {
                         folderDragStarted = false
                         return
                     }
-                    // Todavía cargando el hold: no robes el gesto para marquee
                     if browser.fileDragArmingPath != nil {
                         return
                     }
@@ -1013,8 +1017,7 @@ struct FileBrowserPane: View {
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
                     folderDragPaths = []
-                    let flags = NSEvent.modifierFlags
-                    marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
+                    marqueeAdditive = flags.contains(.shift)
                     marqueeBase = marqueeAdditive ? browser.selectedIDs : []
                     if !marqueeAdditive {
                         browser.clearSelection()

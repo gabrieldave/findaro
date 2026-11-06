@@ -232,6 +232,10 @@ struct IconsBrowserView: View {
         DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named("iconsGrid"))
             .onChanged { value in
                 if marqueeStart == nil {
+                    let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                    if flags.contains(.command), !browser.hasArmedFileDrag {
+                        return
+                    }
                     if browser.hasArmedFileDrag {
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
@@ -243,8 +247,7 @@ struct IconsBrowserView: View {
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
                     folderDragPaths = []
-                    let flags = NSEvent.modifierFlags
-                    marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
+                    marqueeAdditive = flags.contains(.shift)
                     marqueeBase = marqueeAdditive ? browser.selectedIDs : []
                     if !marqueeAdditive { browser.clearSelection() }
                 }
@@ -511,6 +514,10 @@ private struct ColumnPane: View {
         DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named(spaceName))
             .onChanged { value in
                 if marqueeStart == nil {
+                    let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                    if flags.contains(.command), !browser.hasArmedFileDrag {
+                        return
+                    }
                     if browser.hasArmedFileDrag {
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
@@ -522,8 +529,7 @@ private struct ColumnPane: View {
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
                     folderDragPaths = []
-                    let flags = NSEvent.modifierFlags
-                    marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
+                    marqueeAdditive = flags.contains(.shift)
                     marqueeBase = marqueeAdditive ? browser.selectedIDs : []
                     if !marqueeAdditive { browser.clearSelection() }
                 }
