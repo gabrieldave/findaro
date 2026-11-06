@@ -1,11 +1,11 @@
 import Foundation
+import CoreServices
 
-/// Observa altas/bajas/renombres en una carpeta (no subárbol) con debounce.
+/// Observa cambios en una carpeta con FSEvents (más fiable que DispatchSource en macOS).
 public final class FolderWatcher: @unchecked Sendable {
     public var onChange: (() -> Void)?
 
-    private var source: DispatchSourceFileSystemObject?
-    private var dirFD: Int32 = -1
+    private var stream: FSEventStreamRef?
     private var watchedPath: String?
     private var debounceWork: DispatchWorkItem?
     private let queue = DispatchQueue(label: "app.ordena.folder-watcher")
@@ -16,38 +16,57 @@ public final class FolderWatcher: @unchecked Sendable {
         stop()
     }
 
-    /// Si ya mira la misma ruta, no reinicia el descriptor (evita bucles al recargar).
     public func watch(path: String) {
         let standardized = (path as NSString).standardizingPath
-        if watchedPath == standardized, source != nil { return }
+        if watchedPath == standardized, stream != nil { return }
         stop()
-        let fd = open(standardized, O_EVTONLY)
-        guard fd >= 0 else { return }
-        dirFD = fd
+
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: standardized, isDirectory: &isDir),
+              isDir.boolValue else { return }
+
         watchedPath = standardized
-        let src = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd,
-            eventMask: [.write, .extend, .attrib, .delete, .rename, .revoke, .link],
-            queue: queue
+        var context = FSEventStreamContext(
+            version: 0,
+            info: Unmanaged.passUnretained(self).toOpaque(),
+            retain: nil,
+            release: nil,
+            copyDescription: nil
         )
-        src.setEventHandler { [weak self] in
-            self?.scheduleNotify()
-        }
-        src.setCancelHandler { [weak self] in
-            if let self, self.dirFD >= 0 {
-                close(self.dirFD)
-                self.dirFD = -1
-            }
-        }
-        source = src
-        src.resume()
+        let paths = [standardized] as CFArray
+        let flags = UInt32(
+            kFSEventStreamCreateFlagUseCFTypes
+                | kFSEventStreamCreateFlagFileEvents
+                | kFSEventStreamCreateFlagNoDefer
+        )
+        guard let created = FSEventStreamCreate(
+            nil,
+            { _, info, _, _, _, _ in
+                guard let info else { return }
+                let watcher = Unmanaged<FolderWatcher>.fromOpaque(info).takeUnretainedValue()
+                watcher.scheduleNotify()
+            },
+            &context,
+            paths,
+            FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+            0.35,
+            flags
+        ) else { return }
+
+        stream = created
+        FSEventStreamSetDispatchQueue(created, queue)
+        FSEventStreamStart(created)
     }
 
     public func stop() {
         debounceWork?.cancel()
         debounceWork = nil
-        source?.cancel()
-        source = nil
+        if let stream {
+            FSEventStreamStop(stream)
+            FSEventStreamInvalidate(stream)
+            FSEventStreamRelease(stream)
+        }
+        stream = nil
         watchedPath = nil
     }
 
@@ -57,6 +76,6 @@ public final class FolderWatcher: @unchecked Sendable {
             self?.onChange?()
         }
         debounceWork = work
-        queue.asyncAfter(deadline: .now() + .milliseconds(400), execute: work)
+        queue.asyncAfter(deadline: .now() + .milliseconds(450), execute: work)
     }
 }
