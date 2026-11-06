@@ -667,94 +667,45 @@ struct SidebarView: View {
 
     /// Igual que Finder → Ubicaciones (las que existan en este Mac).
     private var locationItems: [SidebarItem] {
-        var items: [SidebarItem] = []
+        _ = volumesTick
         let fm = FileManager.default
         let home = fm.homeDirectoryForCurrentUser.path
 
         let iCloud = (home as NSString).appendingPathComponent(
             "Library/Mobile Documents/com~apple~CloudDocs"
         )
-        if fm.fileExists(atPath: iCloud) {
-            items.append(SidebarItem(
-                id: "loc-icloud",
-                title: "iCloud Drive",
-                path: iCloud,
-                systemImage: "icloud.fill"
-            ))
-        }
-
-        // Google Drive / Dropbox / OneDrive en CloudStorage
+        var clouds: [SidebarLocations.CloudFolder] = []
         let cloudRoot = (home as NSString).appendingPathComponent("Library/CloudStorage")
-        if let clouds = try? fm.contentsOfDirectory(atPath: cloudRoot) {
-            for name in clouds.sorted() {
+        if let names = try? fm.contentsOfDirectory(atPath: cloudRoot) {
+            for name in names where !name.hasPrefix(".") {
                 let path = (cloudRoot as NSString).appendingPathComponent(name)
                 var isDir: ObjCBool = false
                 guard fm.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else { continue }
-                let title: String
-                let icon: String
-                let lower = name.lowercased()
-                if lower.contains("google") {
-                    title = "Google Drive"
-                    icon = "externaldrive.fill.badge.icloud"
-                } else if lower.contains("dropbox") {
-                    title = "Dropbox"
-                    icon = "externaldrive.fill.badge.icloud"
-                } else if lower.contains("onedrive") || lower.contains("one drive") {
-                    title = "OneDrive"
-                    icon = "externaldrive.fill.badge.icloud"
-                } else {
-                    title = name
-                    icon = "externaldrive.fill"
-                }
-                items.append(SidebarItem(id: "loc-cloud-\(name)", title: title, path: path, systemImage: icon))
+                clouds.append(.init(name: name, path: path))
             }
         }
 
-        let homeName = URL(fileURLWithPath: home).lastPathComponent
-        items.append(SidebarItem(
-            id: "loc-home",
-            title: homeName,
-            path: home,
-            systemImage: "house.fill"
-        ))
-
-        items.append(SidebarItem(
-            id: "loc-root",
-            title: "Macintosh HD",
-            path: "/",
-            systemImage: "internaldrive.fill"
-        ))
-
-        // USB / discos externos / DMGs montados en /Volumes
-        _ = volumesTick
-        if let vols = try? fm.contentsOfDirectory(atPath: "/Volumes") {
-            for name in vols.sorted() {
+        var volumes: [SidebarLocations.Volume] = []
+        if let names = try? fm.contentsOfDirectory(atPath: "/Volumes") {
+            for name in names {
                 let path = "/Volumes/\(name)"
                 var isDir: ObjCBool = false
                 guard fm.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else { continue }
-                // Evita duplicar el volumen del sistema si aparece como /Volumes/Macintosh HD
-                let standardized = (path as NSString).standardizingPath
-                if standardized == "/" { continue }
-                items.append(SidebarItem(
-                    id: "loc-vol-\(name)",
-                    title: name,
-                    path: path,
-                    systemImage: "externaldrive.fill"
-                ))
+                let resolved = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+                volumes.append(.init(name: name, path: path, resolvedPath: resolved))
             }
         }
 
         let trash = (home as NSString).appendingPathComponent(".Trash")
-        if fm.fileExists(atPath: trash) {
-            items.append(SidebarItem(
-                id: "loc-trash",
-                title: "Basurero",
-                path: trash,
-                systemImage: "trash.fill"
-            ))
+        return SidebarLocations.make(
+            homePath: home,
+            iCloudPath: fm.fileExists(atPath: iCloud) ? iCloud : nil,
+            cloudFolders: clouds,
+            volumes: volumes,
+            trashPath: fm.fileExists(atPath: trash) ? trash : nil
+        ).map {
+            SidebarItem(id: $0.id, title: $0.title, path: $0.path, systemImage: $0.systemImage)
         }
-
-        return items
     }
 
     private var favoritesDropZone: some View {
