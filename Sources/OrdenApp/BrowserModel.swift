@@ -264,7 +264,7 @@ final class BrowserModel: ObservableObject {
 
     func addSelectionToFavorites() {
         let folders = selectedEntries.filter(\.isDirectory)
-        guard let first = folders.first else {
+        guard !folders.isEmpty else {
             statusMessage = "Selecciona una carpeta (o usa la carpeta actual)"
             return
         }
