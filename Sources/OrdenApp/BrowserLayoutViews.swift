@@ -725,6 +725,7 @@ struct GalleryBrowserView: View {
 }
 
 private struct GalleryPreview: View {
+    @EnvironmentObject private var browser: BrowserModel
     let entry: FileEntry
 
     var body: some View {
@@ -739,11 +740,13 @@ private struct GalleryPreview: View {
             }
             Text(entry.name)
                 .font(.headline)
-            Text(entry.path)
-                .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
+            if browser.showRowPaths {
+                Text(entry.path)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+            }
         }
     }
 }

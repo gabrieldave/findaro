@@ -10,14 +10,17 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public var favorites: [String]
     public var lastPath: String?
     public var viewMode: BrowserViewMode
+    /// Mostrar la ruta completa bajo el nombre en la lista.
+    public var showRowPaths: Bool
 
     public init(
-        schemaVersion: Int = 9,
+        schemaVersion: Int = 10,
         globalRule: SortRule = .downloads,
         folderOverrides: [String: SortRule] = [:],
         favorites: [String] = [],
         lastPath: String? = nil,
-        viewMode: BrowserViewMode = .list
+        viewMode: BrowserViewMode = .list,
+        showRowPaths: Bool = true
     ) {
         self.schemaVersion = schemaVersion
         self.globalRule = globalRule
@@ -25,6 +28,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         self.favorites = favorites
         self.lastPath = lastPath
         self.viewMode = viewMode
+        self.showRowPaths = showRowPaths
     }
 
     /// Override de carpeta si existe; si no, el global (estilo Descargas por defecto).
@@ -37,7 +41,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode
+        case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode, showRowPaths
     }
 
     public init(from decoder: Decoder) throws {
@@ -48,6 +52,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         favorites = try c.decodeIfPresent([String].self, forKey: .favorites) ?? []
         lastPath = try c.decodeIfPresent(String.self, forKey: .lastPath)
         viewMode = try c.decodeIfPresent(BrowserViewMode.self, forKey: .viewMode) ?? .list
+        showRowPaths = try c.decodeIfPresent(Bool.self, forKey: .showRowPaths) ?? true
     }
 }
 
@@ -95,7 +100,7 @@ public final class PreferencesStore: @unchecked Sendable {
     private static func freshDefaults() -> OrdenPreferences {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return OrdenPreferences(
-            schemaVersion: 9,
+            schemaVersion: 10,
             globalRule: .downloads,
             folderOverrides: [:],
             favorites: [
@@ -104,7 +109,8 @@ public final class PreferencesStore: @unchecked Sendable {
                 (home as NSString).appendingPathComponent("Documents"),
                 (home as NSString).appendingPathComponent("Projects")
             ],
-            lastPath: (home as NSString).appendingPathComponent("Downloads")
+            lastPath: (home as NSString).appendingPathComponent("Downloads"),
+            showRowPaths: true
         )
     }
 
@@ -128,6 +134,10 @@ public final class PreferencesStore: @unchecked Sendable {
         if next.schemaVersion < 9 {
             next.viewMode = .list
             next.schemaVersion = 9
+        }
+        if next.schemaVersion < 10 {
+            next.showRowPaths = true
+            next.schemaVersion = 10
         }
         return next
     }

@@ -77,6 +77,8 @@ final class BrowserModel: ObservableObject {
     /// Se incrementa con Esc / cancelar para resetear gestos (marquee).
     @Published var selectionCancelToken: Int = 0
     @Published var viewMode: BrowserViewMode
+    /// Mostrar `/ruta/completa` bajo el nombre en cada fila.
+    @Published var showRowPaths: Bool
     /// Pilas de rutas para vista Columnas (Miller).
     @Published var columnPaths: [String] = []
 
@@ -91,6 +93,7 @@ final class BrowserModel: ObservableObject {
         self.currentPath = start
         self.rule = store.preferences.rule(for: start)
         self.viewMode = store.preferences.viewMode
+        self.showRowPaths = store.preferences.showRowPaths
         self.columnPaths = [start]
         reload()
         refreshHistoryFlags()
@@ -102,6 +105,12 @@ final class BrowserModel: ObservableObject {
         if mode == .columns {
             columnPaths = [currentPath]
         }
+        objectWillChange.send()
+    }
+
+    func setShowRowPaths(_ show: Bool) {
+        showRowPaths = show
+        store.update { $0.showRowPaths = show }
         objectWillChange.send()
     }
 

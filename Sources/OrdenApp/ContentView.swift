@@ -131,6 +131,22 @@ struct ContentView: View {
                 }
                 .disabled(browser.selectedIDs.isEmpty)
 
+                Toggle(isOn: Binding(
+                    get: { browser.showRowPaths },
+                    set: { browser.setShowRowPaths($0) }
+                )) {
+                    Label(
+                        browser.showRowPaths ? "Ocultar rutas" : "Mostrar rutas",
+                        systemImage: browser.showRowPaths
+                            ? "list.bullet.rectangle"
+                            : "list.bullet"
+                    )
+                }
+                .toggleStyle(.button)
+                .help(browser.showRowPaths
+                    ? "Ocultar la ruta bajo el nombre"
+                    : "Mostrar la ruta bajo el nombre")
+
                 Button(action: browser.reload) {
                     Label("Actualizar", systemImage: "arrow.clockwise")
                 }
@@ -1130,17 +1146,19 @@ struct FileRowButton: View {
                     }
                     .frame(width: 28, height: 28)
 
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: browser.showRowPaths ? 3 : 0) {
                         Text(entry.name)
                             .font(.body)
                             .lineLimit(1)
                             .foregroundStyle(.primary)
                         // Sin textSelection aquí: se come el doble clic para abrir.
-                        Text(entry.path)
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
+                        if browser.showRowPaths {
+                            Text(entry.path)
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
