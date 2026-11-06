@@ -1,6 +1,7 @@
 import AppKit
 
 /// El botón rojo (✕) oculta la ventana; la app sigue viva en el Dock (atajo ⌃⌥O).
+@MainActor
 enum CloseToHide {
     private static var observer: NSObjectProtocol?
 
@@ -12,7 +13,9 @@ enum CloseToHide {
             queue: .main
         ) { note in
             guard let window = note.object as? NSWindow else { return }
-            configure(window)
+            Task { @MainActor in
+                CloseToHide.configure(window)
+            }
         }
         for window in NSApp.windows {
             configure(window)
@@ -28,6 +31,7 @@ enum CloseToHide {
     }
 }
 
+@MainActor
 final class WindowCloseProxy: NSObject {
     static let shared = WindowCloseProxy()
 
