@@ -838,16 +838,15 @@ struct FileBrowserPane: View {
                     marqueeCurrent = value.location
 
                     let flags = NSEvent.modifierFlags
-                    // ⇧/⌘ = marquee (rango/varios). Sin modificador sobre carpeta = arrastrar.
+                    // Arrastrar carpetas SOLO si ya estaban seleccionadas (como Finder).
+                    // Si la carpeta no está seleccionada → marquee (puedes marcar varias).
+                    // ⇧/⌘ siempre fuerzan marquee / selección múltiple.
                     if !flags.contains(.shift), !flags.contains(.command),
-                       let hit = entryAtY(value.startLocation.y), hit.isDirectory {
+                       let hit = entryAtY(value.startLocation.y),
+                       hit.isDirectory,
+                       browser.selectedIDs.contains(hit.id) {
                         let selectedDirs = browser.selectedEntries.filter(\.isDirectory).map(\.path)
-                        if browser.selectedIDs.contains(hit.id), !selectedDirs.isEmpty {
-                            folderDragPaths = selectedDirs
-                        } else {
-                            folderDragPaths = [hit.path]
-                            browser.selectOnly(hit.id)
-                        }
+                        folderDragPaths = selectedDirs.isEmpty ? [hit.path] : selectedDirs
                         folderDragStarted = false
                         return
                     }
@@ -1110,7 +1109,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Selección") {
-                Text("Clic = uno · Arrastrar (también desde vacío o desde ya seleccionado) = rectángulo · Casilla / Varios / ⌘ = varios · ⇧ = rango · Archivos a Dropover vía Bandeja")
+                Text("Clic = uno · Arrastrar = rectángulo · ⇧ clic = rango · ⌘ clic = sumar/quitar · Jalar carpeta ya seleccionada = a Favoritos · Botón «A Favoritos»")
             }
             Section("Ordena") {
                 LabeledContent("Ámbito", value: browser.scopeBadge)
