@@ -1,13 +1,13 @@
 import AppKit
 import Foundation
 
-/// Revisa GitHub Releases y ofrece instalar el .dmg más reciente.
+/// Revisa el feed público (ordena.iareal.net) y ofrece instalar el .dmg más reciente.
+/// El repo de GitHub es privado: no sirve para descargas anónimas.
 @MainActor
 final class AppUpdateChecker: ObservableObject {
     static let shared = AppUpdateChecker()
 
-    static let githubOwner = "gabrieldave"
-    static let githubRepo = "orden"
+    static let feedURL = URL(string: "https://ordena.iareal.net/downloads/latest.json")!
     private static let lastCheckKey = "ordena.lastUpdateCheck"
     private static let checkInterval: TimeInterval = 60 * 60 * 6 // 6 h
 
@@ -36,7 +36,7 @@ final class AppUpdateChecker: ObservableObject {
 
         do {
             guard let release = try await fetchLatestRelease() else {
-                if interactive { statusMessage = "No hay release con .dmg en GitHub" }
+                if interactive { statusMessage = "No hay actualización publicada" }
                 return
             }
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastCheckKey)
@@ -61,22 +61,19 @@ final class AppUpdateChecker: ObservableObject {
     }
 
     private func fetchLatestRelease() async throws -> ReleaseInfo? {
-        var req = URLRequest(
-            url: URL(string: "https://api.github.com/repos/\(Self.githubOwner)/\(Self.githubRepo)/releases/latest")!
-        )
-        req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        var req = URLRequest(url: Self.feedURL)
         req.setValue("Ordena-UpdateChecker", forHTTPHeaderField: "User-Agent")
+        req.cachePolicy = .reloadIgnoringLocalCacheData
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse, (200 ... 299).contains(http.statusCode) else {
             throw URLError(.badServerResponse)
         }
-        let decoded = try JSONDecoder().decode(GitHubRelease.self, from: data)
-        let tag = decoded.tag_name
-        let version = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
-        guard let asset = decoded.assets.first(where: { $0.name.lowercased().hasSuffix(".dmg") }),
-              let dmg = URL(string: asset.browser_download_url),
-              let notes = URL(string: decoded.html_url)
+        let decoded = try JSONDecoder().decode(PublicFeed.self, from: data)
+        guard let dmg = URL(string: decoded.dmg_url),
+              let notes = URL(string: decoded.notes_url)
         else { return nil }
+        let version = decoded.version
+        let tag = decoded.tag ?? "v\(version)"
         return ReleaseInfo(tag: tag, version: version, dmgURL: dmg, notesURL: notes)
     }
 
@@ -167,12 +164,9 @@ final class AppUpdateChecker: ObservableObject {
     }
 }
 
-private struct GitHubRelease: Decodable {
-    let tag_name: String
-    let html_url: String
-    let assets: [Asset]
-    struct Asset: Decodable {
-        let name: String
-        let browser_download_url: String
-    }
+private struct PublicFeed: Decodable {
+    let version: String
+    let tag: String?
+    let dmg_url: String
+    let notes_url: String
 }

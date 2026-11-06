@@ -1335,7 +1335,7 @@ struct SettingsView: View {
                 Button("Buscar actualizaciones…") {
                     Task { await AppUpdateChecker.shared.check(interactive: true) }
                 }
-                Text("Cada 6 h revisa GitHub Releases. Si hay una nueva, pregunta y se instala sola.")
+                Text("Cada 6 h revisa ordena.iareal.net. Si hay una nueva, pregunta y se instala sola.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
