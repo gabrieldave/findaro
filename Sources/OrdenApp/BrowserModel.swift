@@ -159,15 +159,27 @@ final class BrowserModel: ObservableObject {
 
     private func handleFolderWatcherEvent() {
         if let until = ignoreWatcherUntil, until > Date() { return }
-        reload(preserveSelection: true)
+        let before = Set(entries.map(\.id))
+        reload(preserveSelection: true, fromWatcher: true)
+        let after = Set(entries.map(\.id))
+        if before != after {
+            statusMessage = "Carpeta actualizada"
+        }
     }
 
     private func startWatchingCurrentFolder() {
         folderWatcher.watch(path: currentPath)
     }
 
-    func reload(preserveSelection: Bool = false) {
+    /// Tras ops locales: ignora el watcher un momento para no recargar dos veces.
+    func noteLocalFileMutation(quietSeconds: TimeInterval = 0.7) {
+        ignoreWatcherUntil = Date().addingTimeInterval(quietSeconds)
+    }
+
+    func reload(preserveSelection: Bool = false, fromWatcher: Bool = false) {
         let previous = preserveSelection ? selectedIDs : []
+        let prevFocus = selectionFocusID
+        let prevAnchor = selectionAnchorID
         measureTask?.cancel()
         do {
             let loaded = try DirectoryLoader.load(path: currentPath)
@@ -175,6 +187,16 @@ final class BrowserModel: ObservableObject {
             errorMessage = nil
             if preserveSelection {
                 selectedIDs = previous.intersection(Set(entries.map(\.id)))
+                if let prevFocus, selectedIDs.contains(prevFocus) {
+                    selectionFocusID = prevFocus
+                } else {
+                    selectionFocusID = selectedIDs.first
+                }
+                if let prevAnchor, selectedIDs.contains(prevAnchor) {
+                    selectionAnchorID = prevAnchor
+                } else {
+                    selectionAnchorID = selectedIDs.first
+                }
             }
             folderTotalBytes = FolderSizer.sum(entries.filter { !$0.isDirectory })
             startMeasuringSizes()
@@ -183,7 +205,9 @@ final class BrowserModel: ObservableObject {
             folderTotalBytes = 0
             errorMessage = error.localizedDescription
         }
-        startWatchingCurrentFolder()
+        if !fromWatcher {
+            startWatchingCurrentFolder()
+        }
     }
 
     func setViewMode(_ mode: BrowserViewMode) {
@@ -1137,6 +1161,7 @@ final class BrowserModel: ObservableObject {
         selectedIDs = []
         selectionAnchorID = nil
         selectionFocusID = nil
+        noteLocalFileMutation()
         reload()
         if moved > 0 {
             statusMessage = moved == 1 ? "1 elemento a la Papelera" : "\(moved) elementos a la Papelera"
@@ -1155,6 +1180,7 @@ final class BrowserModel: ObservableObject {
         guard !name.isEmpty else { return }
         do {
             let path = try FileOps.createFolder(named: name, in: currentPath)
+            noteLocalFileMutation()
             reload()
             selectOnly(path)
             statusMessage = "Carpeta creada: \(URL(fileURLWithPath: path).lastPathComponent)"
@@ -1179,6 +1205,7 @@ final class BrowserModel: ObservableObject {
         guard !newName.isEmpty else { return }
         do {
             let newPath = try FileOps.rename(path: path, to: newName)
+            noteLocalFileMutation()
             reload()
             selectOnly(newPath)
             statusMessage = "Renombrado a \(newName)"
@@ -1202,10 +1229,12 @@ final class BrowserModel: ObservableObject {
                 count += 1
             } catch {
                 statusMessage = "No se pudo duplicar \(entry.name): \(error.localizedDescription)"
+                noteLocalFileMutation()
                 reload()
                 return
             }
         }
+        noteLocalFileMutation()
         reload()
         if let lastPath {
             selectOnly(lastPath)
@@ -1387,6 +1416,7 @@ final class BrowserModel: ObservableObject {
                 move: false
             )
             pushUndo(.copied(created: pairs.map(\.to)))
+            noteLocalFileMutation()
             reload()
             statusMessage = pairs.count == 1 ? "1 archivo pegado" : "\(pairs.count) archivos pegados"
         } catch {
@@ -1688,6 +1718,7 @@ final class BrowserModel: ObservableObject {
             }
             folderDropTargetPath = nil
             clearArmedFileDrag()
+            noteLocalFileMutation()
             reload()
             let name = URL(fileURLWithPath: dest).lastPathComponent
             statusMessage = copy
