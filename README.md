@@ -1,40 +1,34 @@
-# Orden
+# Orden — un Finder mejor
 
-Gestor de archivos para macOS que **sí recuerda** cómo quieres ordenar.
+App de macOS **aparte** del Finder de Apple. No parchea preferencias del sistema: es tu gestor de archivos con orden que sí se entiende.
 
-## El problema del Finder
+## Abrir (esto es lo que importa)
 
-Finder mezcla tres conceptos (`Arrange` / `Group` / `Sort`), olvida preferencias por carpeta y el orden natural falla. En macOS 27.0.1 seguía igual.
+Doble clic en:
 
-## Qué hace Orden distinto
+- **Escritorio → `Orden.app`**
+- o **`~/Applications/Orden.app`**
 
-1. **Un solo modelo de orden** — claves claras + «Carpetas arriba» siempre.
-2. **Frase visible** en la barra: `Carpetas arriba · Nombre A→Z · números naturales`.
-3. **Preferencias propias** (JSON en Application Support), no `.DS_Store`.
-4. **Multi-criterio** — p. ej. Clase + Nombre.
-5. **Orden natural** — `file2` antes que `file10`.
-6. **Perfil Descargas smart** — carpetas `01_…` por nombre; archivos por fecha agregada.
-7. **Atajos tipo Finder** — Return/⌘↓ abrir, Space vista rápida, ⌘⌫ Papelera, ⌘↑ arriba.
+Debe aparecer en el Dock como **Orden**.
 
-## Requisitos
-
-- macOS 15+
-- Xcode 27 / Swift 6
-
-## Probar
+Para reconstruir:
 
 ```bash
 cd ~/Projects/orden
-swift test
-swift run Orden
+./scripts/package-app.sh
+open ~/Desktop/Orden.app
 ```
 
-O:
+## Qué hace distinto al Finder
+
+1. **Un solo modelo de orden** — sin pelear Arrange / Group / Sort.
+2. **Frase visible** arriba con la regla actual.
+3. **Descargas smart** — carpetas `01_…` por nombre; archivos por fecha.
+4. **Preferencias propias** (no `.DS_Store`).
+5. **Atajos** — Return/⌘↓ abrir · Space vista rápida · ⌘⌫ Papelera · ⌘↑ arriba.
+
+## Tests
 
 ```bash
-./scripts/run.sh
+swift test
 ```
-
-## Estado
-
-MVP local: lista + favoritos + motor de orden con tests. Aún no sustituye diálogos Abrir/Guardar del sistema.

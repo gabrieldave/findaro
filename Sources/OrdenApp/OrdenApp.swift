@@ -1,16 +1,19 @@
 import SwiftUI
 import OrdenCore
+import AppKit
 
 @main
 struct OrdenApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var browser = BrowserModel()
 
     var body: some Scene {
-        WindowGroup("Orden") {
+        WindowGroup {
             ContentView()
                 .environmentObject(browser)
-                .frame(minWidth: 880, minHeight: 520)
+                .frame(minWidth: 960, minHeight: 600)
         }
+        .defaultSize(width: 1100, height: 700)
         .commands {
             CommandGroup(replacing: .newItem) {}
 
