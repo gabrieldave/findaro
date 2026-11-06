@@ -117,26 +117,26 @@ struct ContentView: View {
     }
 
     private var detailColumn: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 6) {
             SortBar()
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .padding(.bottom, 6)
+                .padding(.top, 8)
 
             FolderStatsBar()
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
-                .padding(.bottom, 6)
 
             FileActionsBar()
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
-                .padding(.bottom, 6)
 
             FileBrowserPane()
                 .padding(.horizontal, 16)
-                .padding(.bottom, 6)
-                .layoutPriority(1)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             DropShelfView()
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 6)
 
@@ -144,12 +144,11 @@ struct ContentView: View {
                 Text(status)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 8)
+                    .padding(.bottom, 6)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(OrdenTheme.windowFill)
         .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
             browser.importDroppedFiles(providers: providers)
@@ -243,7 +242,9 @@ struct SortBar: View {
             }
             .menuStyle(.borderedButton)
         }
-        .ordenGlassCard(cornerRadius: 16)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     @ViewBuilder
@@ -310,16 +311,17 @@ struct FolderStatsBar: View {
                 .help("Clic para copiar la ruta de esta carpeta")
             }
 
-            if browser.cleanupMode || !browser.heaviestPreview.isEmpty {
+            // Solo en modo limpieza — evita una segunda franja permanente
+            if browser.cleanupMode {
                 HStack(spacing: 8) {
-                    Text(browser.cleanupMode ? "Top peso ahora:" : "Más pesados:")
+                    Text("Top peso:")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
                     ForEach(browser.heaviestPreview.prefix(4)) { entry in
                         Text("\(entry.name) (\(FolderSizer.format(entry.size)))")
                             .font(.caption2)
                             .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 3)
                             .background(OrdenTheme.accent.opacity(0.15), in: Capsule())
                             .lineLimit(1)
                             .help(entry.path)
@@ -332,9 +334,9 @@ struct FolderStatsBar: View {
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -400,9 +402,9 @@ struct FileActionsBar: View {
             .disabled(browser.selectedIDs.isEmpty)
             .help("⌘⌫")
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -433,6 +435,7 @@ struct SidebarView: View {
         .scrollContentBackground(.hidden)
         .background(OrdenTheme.windowFill)
         .navigationTitle("Orden")
+        .toolbar(removing: .title) // evita título grande que empuja el detalle
     }
 
     private func shortName(_ path: String) -> String {
@@ -450,21 +453,14 @@ struct SidebarView: View {
     }
 }
 
-// MARK: - Preferencias de frames (marquee)
-
-private struct RowFrameKey: PreferenceKey {
-    static let defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { $1 })
-    }
-}
-
-// MARK: - File pane (clic + marquee como Finder)
+// MARK: - File pane (clic + marquee; sin GeometryReader = sin hueco)
 
 struct FileBrowserPane: View {
     @EnvironmentObject private var browser: BrowserModel
 
-    @State private var rowFrames: [String: CGRect] = [:]
+    /// Altura aproximada por fila (nombre + ruta + padding). Marquee por índice, sin GeometryReader.
+    private let rowHeight: CGFloat = 52
+
     @State private var marqueeStart: CGPoint?
     @State private var marqueeCurrent: CGPoint?
     @State private var marqueeBase: Set<String> = []
@@ -472,40 +468,37 @@ struct FileBrowserPane: View {
     @State private var suppressMarquee = false
 
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
             if let error = browser.errorMessage {
                 ContentUnavailableView(
                     "No se pudo abrir",
                     systemImage: "exclamationmark.folder",
                     description: Text(error)
                 )
-            } else if browser.visibleEntries.isEmpty {
-                ContentUnavailableView(
-                    "Vacío",
-                    systemImage: "folder",
-                    description: Text("No hay elementos con este filtro.")
-                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                VStack(spacing: 0) {
-                    header
-                    Divider().opacity(0.35)
+                header
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Divider().opacity(0.35)
+
+                if browser.visibleEntries.isEmpty {
+                    ContentUnavailableView(
+                        "Vacío",
+                        systemImage: "folder",
+                        description: Text("No hay elementos con este filtro.")
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
                     ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(Array(browser.visibleEntries.enumerated()), id: \.element.id) { index, entry in
                                 FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
-                                    .background {
-                                        GeometryReader { geo in
-                                            Color.clear.preference(
-                                                key: RowFrameKey.self,
-                                                value: [entry.id: geo.frame(in: .named("fileList"))]
-                                            )
-                                        }
-                                    }
+                                    .frame(minHeight: rowHeight)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                         .coordinateSpace(name: "fileList")
-                        .onPreferenceChange(RowFrameKey.self) { rowFrames = $0 }
                         .overlay(alignment: .topLeading) {
                             if let rect = marqueeRect {
                                 RoundedRectangle(cornerRadius: 3, style: .continuous)
@@ -524,16 +517,15 @@ struct FileBrowserPane: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(.white.opacity(0.06), lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(.white.opacity(0.06), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .onChange(of: browser.selectionCancelToken) { _, _ in
             resetMarquee()
         }
@@ -560,8 +552,7 @@ struct FileBrowserPane: View {
         DragGesture(minimumDistance: 4, coordinateSpace: .named("fileList"))
             .onChanged { value in
                 if marqueeStart == nil {
-                    // Si el drag nace en un ítem YA seleccionado → arrastre de archivos (Dropover), no marquee
-                    if let hit = hitRow(at: value.startLocation), browser.selectedIDs.contains(hit) {
+                    if let hit = hitID(atY: value.startLocation.y), browser.selectedIDs.contains(hit) {
                         suppressMarquee = true
                         return
                     }
@@ -588,27 +579,27 @@ struct FileBrowserPane: View {
     }
 
     private func applyMarquee() {
-        guard let rect = marqueeRect else { return }
-        var hits = Set<String>()
-        for (id, frame) in rowFrames where frame.intersects(rect) {
-            hits.insert(id)
-        }
-        // Si el rect es muy fino, usa también la fila bajo el cursor (más fácil)
-        if hits.isEmpty, let current = marqueeCurrent, let id = hitRow(at: current) {
-            hits.insert(id)
-        }
+        guard let start = marqueeStart, let current = marqueeCurrent else { return }
+        let entries = browser.visibleEntries
+        guard !entries.isEmpty else { return }
+        let a = rowIndex(atY: start.y, count: entries.count)
+        let b = rowIndex(atY: current.y, count: entries.count)
+        let lo = min(a, b)
+        let hi = max(a, b)
+        let hits = Set(entries[lo...hi].map(\.id))
         browser.applyMarqueeSelection(hitIDs: hits, base: marqueeBase, additive: marqueeAdditive)
     }
 
-    private func hitRow(at point: CGPoint) -> String? {
-        for (id, frame) in rowFrames where frame.contains(point) {
-            return id
-        }
-        // Por Y si el X queda fuera (margen)
-        return rowFrames
-            .filter { $0.value.minY <= point.y && point.y <= $0.value.maxY }
-            .min(by: { abs($0.value.midX - point.x) < abs($1.value.midX - point.x) })?
-            .key
+    private func rowIndex(atY y: CGFloat, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        let idx = Int(floor(max(0, y) / rowHeight))
+        return min(max(0, idx), count - 1)
+    }
+
+    private func hitID(atY y: CGFloat) -> String? {
+        let entries = browser.visibleEntries
+        guard !entries.isEmpty else { return nil }
+        return entries[rowIndex(atY: y, count: entries.count)].id
     }
 
     private var header: some View {
@@ -636,7 +627,7 @@ struct FileBrowserPane: View {
         .font(.caption.weight(.semibold))
         .foregroundStyle(.secondary)
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
     }
 }
 
