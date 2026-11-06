@@ -855,7 +855,8 @@ struct FileBrowserPane: View {
     @State private var marqueeCurrent: CGPoint?
     @State private var marqueeBase: Set<String> = []
     @State private var marqueeAdditive = false
-    @State private var pressDrag = PressDragSelectLogic()
+    @State private var folderDragPaths: [String] = []
+    @State private var folderDragStarted = false
 
     var body: some View {
         Group {
@@ -951,11 +952,12 @@ struct FileBrowserPane: View {
         marqueeStart = nil
         marqueeCurrent = nil
         marqueeBase = []
-        pressDrag.reset()
+        folderDragPaths = []
+        folderDragStarted = false
     }
 
     private var marqueeRect: CGRect? {
-        guard pressDrag.intent != .fileMove else { return nil }
+        guard folderDragPaths.isEmpty else { return nil }
         guard let start = marqueeStart, let current = marqueeCurrent else { return nil }
         return CGRect(
             x: min(start.x, current.x),
@@ -978,63 +980,47 @@ struct FileBrowserPane: View {
     }
 
     private var marqueeGesture: some Gesture {
-        // minimumDistance 0: permite detectar hold 1s sin mover
-        DragGesture(minimumDistance: 0, coordinateSpace: .named("fileList"))
+        // minimumDistance > 0: el clic rápido llega al botón (selecciona 1 archivo)
+        DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named("fileList"))
             .onChanged { value in
                 if marqueeStart == nil {
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
-                    let hit = entryAtY(value.startLocation.y)
+
+                    // Hold 1s previo → arrastre de archivos; si no → marquee
+                    if browser.hasArmedFileDrag {
+                        folderDragPaths = browser.consumeArmedFileDrag()
+                        folderDragStarted = false
+                        return
+                    }
+
+                    folderDragPaths = []
                     let flags = NSEvent.modifierFlags
-                    pressDrag.begin(
-                        hit: hit,
-                        selectedIDs: browser.selectedIDs,
-                        selectedPaths: browser.selectedEntries.map(\.path),
-                        forceMarquee: hit == nil
-                    ) { _ in
-                        if let hit, !browser.selectedIDs.contains(hit.id) {
-                            browser.selectOnly(hit.id)
-                        }
-                        browser.statusMessage = "Listo para mover — arrastra"
-                    }
-                    if pressDrag.intent == .marquee {
-                        beginMarqueeSelection(flags: flags)
+                    marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
+                    marqueeBase = marqueeAdditive ? browser.selectedIDs : []
+                    if !marqueeAdditive {
+                        browser.clearSelection()
                     }
                 }
 
-                let dist = hypot(value.translation.width, value.translation.height)
-                let previous = pressDrag.intent
-                let intent = pressDrag.moved(distance: dist)
-
-                if intent == .undecided { return }
-
-                if intent == .fileMove {
-                    _ = pressDrag.tryStartFileDrag()
+                if !folderDragPaths.isEmpty {
+                    let dist = hypot(value.translation.width, value.translation.height)
+                    if !folderDragStarted, dist >= PressDragSelectLogic.moveThreshold {
+                        folderDragStarted = true
+                        _ = FolderDragBridge.shared.startDrag(paths: folderDragPaths)
+                    }
                     return
-                }
-
-                // Pasó de undecided → marquee (jaló antes de 1s)
-                if previous == .undecided, intent == .marquee {
-                    beginMarqueeSelection(flags: NSEvent.modifierFlags)
                 }
 
                 marqueeCurrent = value.location
                 applyMarquee()
             }
             .onEnded { _ in
-                if pressDrag.intent == .marquee {
+                if folderDragPaths.isEmpty {
                     applyMarquee()
                 }
                 resetMarquee()
             }
-    }
-
-    private func beginMarqueeSelection(flags: NSEvent.ModifierFlags) {
-        marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
-        marqueeBase = marqueeAdditive ? browser.selectedIDs : []
-        if !marqueeAdditive {
-            browser.clearSelection()
-        }
     }
 
     private func applyMarquee() {
@@ -1166,6 +1152,12 @@ struct FileRowButton: View {
             .padding(.trailing, 10)
         }
         .background(rowBackground)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 1.0, maximumDistance: 6)
+                .onEnded { _ in
+                    browser.armFileDrag(for: entry)
+                }
+        )
         .contextMenu {
             Button("Abrir") {
                 browser.selectOnly(entry.id)

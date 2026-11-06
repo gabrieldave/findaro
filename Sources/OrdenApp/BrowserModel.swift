@@ -23,6 +23,9 @@ final class BrowserModel: ObservableObject {
     @Published private(set) var canGoForward = false
     private var backStack: [String] = []
     private var forwardStack: [String] = []
+    /// Hold 1s sobre un ítem: listo para arrastrar/mover (clic rápido solo selecciona).
+    @Published private(set) var fileDragArmedPaths: [String] = []
+    private var fileDragArmedUntil: Date?
     /// Bandeja tipo Dropover: aparcas archivos y luego los mueves/copias a otra carpeta.
     @Published var shelf: [FileOps.ShelfItem] = []
     @Published var shelfDropTargeted = false
@@ -696,6 +699,38 @@ final class BrowserModel: ObservableObject {
             selectOnly(lastPath)
         }
         statusMessage = count == 1 ? "Duplicado" : "\(count) duplicados"
+    }
+
+    /// Mantener 1s sobre un archivo: arma arrastre nativo (mover/copiar).
+    func armFileDrag(for entry: FileEntry) {
+        if selectedIDs.contains(entry.id), selectedIDs.count > 1 {
+            fileDragArmedPaths = selectedEntries.map(\.path)
+        } else {
+            selectOnly(entry.id)
+            fileDragArmedPaths = [entry.path]
+        }
+        fileDragArmedUntil = Date().addingTimeInterval(3)
+        statusMessage = fileDragArmedPaths.count == 1
+            ? "Listo para mover — arrastra"
+            : "\(fileDragArmedPaths.count) listos — arrastra"
+        objectWillChange.send()
+    }
+
+    var hasArmedFileDrag: Bool {
+        guard let until = fileDragArmedUntil, until > Date() else { return false }
+        return !fileDragArmedPaths.isEmpty
+    }
+
+    func consumeArmedFileDrag() -> [String] {
+        let paths = hasArmedFileDrag ? fileDragArmedPaths : []
+        fileDragArmedPaths = []
+        fileDragArmedUntil = nil
+        return paths
+    }
+
+    func clearArmedFileDrag() {
+        fileDragArmedPaths = []
+        fileDragArmedUntil = nil
     }
 
     /// ⌘C → a la bandeja como copia.
