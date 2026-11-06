@@ -36,7 +36,13 @@ struct ContentView: View {
                     Label("Abrir", systemImage: "arrow.up.forward.app")
                 }
                 .disabled(browser.selectedIDs.isEmpty)
-                .keyboardShortcut(.return, modifiers: [])
+
+                Button {
+                    browser.copySelectedPaths()
+                } label: {
+                    Label("Copiar ruta", systemImage: "doc.on.clipboard")
+                }
+                .help("Copia la ruta completa (selección o carpeta actual)")
 
                 Button {
                     browser.quickLookSelection()
@@ -71,7 +77,11 @@ struct ContentView: View {
             SortBar()
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
-                .padding(.bottom, 10)
+                .padding(.bottom, 8)
+
+            FolderStatsBar()
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
 
             FileBrowserPane()
                 .padding(.horizontal, 16)
@@ -120,6 +130,23 @@ struct SortBar: View {
             }
 
             Spacer(minLength: 8)
+
+            if browser.cleanupMode {
+                Button {
+                    browser.exitCleanupMode()
+                } label: {
+                    Label("Salir limpieza", systemImage: "xmark.circle")
+                }
+                .controlSize(.regular)
+            } else {
+                Button {
+                    browser.showHeaviestForCleanup()
+                } label: {
+                    Label("Pesados", systemImage: "gauge.with.dots.needle.67percent")
+                }
+                .help("Ordena por peso para ver qué limpia más espacio")
+                .controlSize(.regular)
+            }
 
             Button {
                 browser.useDownloadsStyleEverywhere()
@@ -180,6 +207,9 @@ struct SortBar: View {
         Button("Por tipo fijo") {
             browser.applyRule(.byType, scope: scope)
         }
+        Button("Más pesados primero (limpieza)") {
+            browser.applyRule(.heaviestFirst, scope: scope)
+        }
         Toggle(
             "Carpetas arriba",
             isOn: Binding(
@@ -191,6 +221,63 @@ struct SortBar: View {
                 }
             )
         )
+    }
+}
+
+// MARK: - Stats / cleanup
+
+struct FolderStatsBar: View {
+    @EnvironmentObject private var browser: BrowserModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                Label(browser.folderTotalLabel, systemImage: "externaldrive.fill")
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                if browser.isMeasuringSizes {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+                Text("· \(browser.entries.count) elementos")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    browser.copyCurrentFolderPath()
+                } label: {
+                    Label(browser.currentPath, systemImage: "doc.on.doc")
+                        .font(.system(.caption, design: .monospaced))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .buttonStyle(.plain)
+                .help("Clic para copiar la ruta de esta carpeta")
+            }
+
+            if browser.cleanupMode || !browser.heaviestPreview.isEmpty {
+                HStack(spacing: 8) {
+                    Text(browser.cleanupMode ? "Top peso ahora:" : "Más pesados:")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(browser.heaviestPreview.prefix(4)) { entry in
+                        Text("\(entry.name) (\(FolderSizer.format(entry.size)))")
+                            .font(.caption2)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(OrdenTheme.accent.opacity(0.15), in: Capsule())
+                            .lineLimit(1)
+                            .help(entry.path)
+                            .onTapGesture {
+                                browser.selectedIDs = [entry.id]
+                                browser.statusMessage = entry.path
+                            }
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .padding(12)
+        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -282,14 +369,14 @@ struct FileBrowserPane: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Text("Nombre")
+            Text("Nombre / ruta")
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text("Tipo")
-                .frame(width: 110, alignment: .leading)
+                .frame(width: 100, alignment: .leading)
             Text("Agregado")
-                .frame(width: 140, alignment: .trailing)
+                .frame(width: 130, alignment: .trailing)
             Text("Tamaño")
-                .frame(width: 72, alignment: .trailing)
+                .frame(width: 84, alignment: .trailing)
         }
         .font(.caption.weight(.semibold))
         .foregroundStyle(.secondary)
@@ -308,35 +395,58 @@ struct FileRowButton: View {
     }
 
     var body: some View {
-        Button {
-            selectRow()
-        } label: {
-            HStack(spacing: 12) {
-                FileTypeIcon(category: entry.category, size: 17)
-                Text(entry.name)
-                    .font(.body)
-                    .lineLimit(1)
+        HStack(alignment: .center, spacing: 10) {
+            Button(action: selectRow) {
+                HStack(alignment: .center, spacing: 12) {
+                    FileTypeIcon(category: entry.category, size: 17)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(entry.name)
+                            .font(.body)
+                            .lineLimit(1)
+                            .foregroundStyle(.primary)
+                        Text(entry.path)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .textSelection(.enabled)
+                    }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .foregroundStyle(.primary)
-                Text(entry.category.labelSpanish)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 110, alignment: .leading)
-                Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: 140, alignment: .trailing)
-                Text(sizeLabel)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.tertiary)
-                    .frame(width: 72, alignment: .trailing)
+
+                    Text(entry.category.labelSpanish)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 100, alignment: .leading)
+                    Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .frame(width: 130, alignment: .trailing)
+                    Text(sizeLabel)
+                        .font(.caption.monospacedDigit().weight(entry.size > 100_000_000 ? .semibold : .regular))
+                        .foregroundStyle(entry.size > 500_000_000 ? .orange : .secondary)
+                        .frame(width: 84, alignment: .trailing)
+                }
+                .padding(.leading, 14)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+
+            Button {
+                browser.copyPath(entry)
+            } label: {
+                Image(systemName: "doc.on.doc")
+                    .font(.body)
+                    .foregroundStyle(OrdenTheme.accent)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .help("Copiar ruta completa")
+            .padding(.trailing, 10)
         }
-        .buttonStyle(.plain)
         .background(rowBackground)
         .contextMenu {
             Button("Abrir") {
@@ -348,7 +458,7 @@ struct FileRowButton: View {
                 browser.quickLookSelection()
             }
             Button("Mostrar en Finder") { browser.revealInFinder(entry) }
-            Button("Copiar ruta") { browser.copyPath(entry) }
+            Button("Copiar ruta completa") { browser.copyPath(entry) }
             Divider()
             Button("Mover a la Papelera", role: .destructive) {
                 browser.selectedIDs = [entry.id]
@@ -365,9 +475,13 @@ struct FileRowButton: View {
     }
 
     private var sizeLabel: String {
-        entry.isDirectory
-            ? "—"
-            : ByteCountFormatter.string(fromByteCount: entry.size, countStyle: .file)
+        if entry.size <= 0 && entry.isDirectory && browser.isMeasuringSizes {
+            return "…"
+        }
+        if entry.size <= 0 && entry.isDirectory {
+            return "—"
+        }
+        return FolderSizer.format(entry.size)
     }
 
     private func selectRow() {

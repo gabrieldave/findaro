@@ -71,6 +71,15 @@ public struct SortRule: Codable, Equatable, Sendable, Hashable {
         foldersFirst: true
     )
 
+    /// Limpieza: lo más pesado arriba (carpetas y archivos).
+    public static let heaviestFirst = SortRule(
+        keys: [
+            .size(ascending: false),
+            .name(ascending: true)
+        ],
+        foldersFirst: false
+    )
+
     public var usesSplitKeys: Bool {
         folderKeys != nil || fileKeys != nil
     }

@@ -12,8 +12,12 @@ final class BrowserModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var searchText: String = ""
     @Published var statusMessage: String?
+    @Published var folderTotalBytes: Int64 = 0
+    @Published var isMeasuringSizes = false
+    @Published var cleanupMode = false
 
     let store: PreferencesStore
+    private var measureTask: Task<Void, Never>?
 
     init(store: PreferencesStore = PreferencesStore()) {
         self.store = store
@@ -29,7 +33,10 @@ final class BrowserModel: ObservableObject {
         let base = SortEngine.sort(entries, by: rule)
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return base }
-        return base.filter { $0.name.localizedCaseInsensitiveContains(q) }
+        return base.filter {
+            $0.name.localizedCaseInsensitiveContains(q)
+                || $0.path.localizedCaseInsensitiveContains(q)
+        }
     }
 
     var selectedEntries: [FileEntry] {
@@ -38,7 +45,6 @@ final class BrowserModel: ObservableObject {
 
     var ruleSummary: String { rule.summarySpanish }
 
-    /// true si esta carpeta tiene orden propio (no el global).
     var hasFolderOverride: Bool {
         store.preferences.hasOverride(for: currentPath)
     }
@@ -47,19 +53,40 @@ final class BrowserModel: ObservableObject {
         hasFolderOverride ? "Solo esta carpeta" : "Default global"
     }
 
+    var folderTotalLabel: String {
+        if isMeasuringSizes && folderTotalBytes == 0 {
+            return "Midiendo peso…"
+        }
+        return "Carpeta: \(FolderSizer.format(folderTotalBytes))"
+    }
+
+    var heaviestPreview: [FileEntry] {
+        entries
+            .filter { !$0.isDirectory || $0.size > 0 }
+            .sorted { $0.size > $1.size }
+            .prefix(8)
+            .map { $0 }
+    }
+
     func reload() {
+        measureTask?.cancel()
         do {
             entries = try DirectoryLoader.load(path: currentPath)
             errorMessage = nil
+            folderTotalBytes = FolderSizer.sum(entries.filter { !$0.isDirectory })
+            startMeasuringSizes()
         } catch {
             entries = []
+            folderTotalBytes = 0
             errorMessage = error.localizedDescription
         }
     }
 
     func navigate(to path: String) {
         currentPath = path
-        rule = store.preferences.rule(for: path)
+        if !cleanupMode {
+            rule = store.preferences.rule(for: path)
+        }
         selectedIDs = []
         searchText = ""
         statusMessage = nil
@@ -85,8 +112,8 @@ final class BrowserModel: ObservableObject {
         navigate(to: home("Documents"))
     }
 
-    /// Aplica un orden con alcance: solo carpeta o default en todas.
     func applyRule(_ newRule: SortRule, scope: SortSaveScope) {
+        cleanupMode = (newRule == .heaviestFirst)
         rule = newRule
         store.update { prefs in
             switch scope {
@@ -103,14 +130,14 @@ final class BrowserModel: ObservableObject {
         objectWillChange.send()
     }
 
-    /// El estilo Descargas queda como default global en todas partes.
     func useDownloadsStyleEverywhere() {
+        cleanupMode = false
         applyRule(.downloads, scope: .everywhere)
         rule = .downloads
     }
 
-    /// Quita el orden propio y vuelve al default global.
     func useGlobalDefaultHere() {
+        cleanupMode = false
         store.update { prefs in
             prefs.folderOverrides.removeValue(forKey: currentPath)
         }
@@ -119,9 +146,23 @@ final class BrowserModel: ObservableObject {
         objectWillChange.send()
     }
 
-    /// Guarda el orden actual como default global (todas las carpetas).
     func saveCurrentAsGlobalDefault() {
         applyRule(rule, scope: .everywhere)
+    }
+
+    /// Modo limpieza: lo más pesado arriba.
+    func showHeaviestForCleanup() {
+        cleanupMode = true
+        rule = .heaviestFirst
+        statusMessage = "Limpieza: archivos/carpetas más pesados arriba"
+        objectWillChange.send()
+    }
+
+    func exitCleanupMode() {
+        cleanupMode = false
+        rule = store.preferences.rule(for: currentPath)
+        statusMessage = "Volviste al orden normal"
+        objectWillChange.send()
     }
 
     func open(_ entry: FileEntry) {
@@ -144,15 +185,27 @@ final class BrowserModel: ObservableObject {
     func copyPath(_ entry: FileEntry) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(entry.path, forType: .string)
-        statusMessage = "Ruta copiada"
+        statusMessage = "Ruta copiada: \(entry.path)"
     }
 
     func copySelectedPaths() {
         let paths = selectedEntries.map(\.path)
-        guard !paths.isEmpty else { return }
+        guard !paths.isEmpty else {
+            // Si no hay selección, copia la carpeta actual.
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(currentPath, forType: .string)
+            statusMessage = "Ruta de carpeta copiada"
+            return
+        }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(paths.joined(separator: "\n"), forType: .string)
         statusMessage = paths.count == 1 ? "Ruta copiada" : "\(paths.count) rutas copiadas"
+    }
+
+    func copyCurrentFolderPath() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(currentPath, forType: .string)
+        statusMessage = "Ruta de carpeta copiada"
     }
 
     func quickLookSelection() {
@@ -178,6 +231,48 @@ final class BrowserModel: ObservableObject {
         reload()
         if moved > 0 {
             statusMessage = moved == 1 ? "1 elemento a la Papelera" : "\(moved) elementos a la Papelera"
+        }
+    }
+
+    private func startMeasuringSizes() {
+        let snapshot = entries
+        let path = currentPath
+        isMeasuringSizes = true
+
+        measureTask = Task.detached(priority: .utility) {
+            var updated = snapshot
+            var total: Int64 = 0
+
+            for index in updated.indices {
+                if Task.isCancelled { return }
+                let entry = updated[index]
+                let bytes = FolderSizer.measure(
+                    path: entry.path,
+                    isDirectory: entry.isDirectory
+                )
+                updated[index] = FileEntry(
+                    path: entry.path,
+                    name: entry.name,
+                    isDirectory: entry.isDirectory,
+                    size: bytes,
+                    dateModified: entry.dateModified,
+                    dateCreated: entry.dateCreated,
+                    dateAdded: entry.dateAdded,
+                    kind: entry.kind
+                )
+                total += bytes
+            }
+
+            if Task.isCancelled { return }
+            let folderTotal = FolderSizer.recursiveDirectorySize(at: path)
+
+            await MainActor.run {
+                guard self.currentPath == path else { return }
+                self.entries = updated
+                self.folderTotalBytes = max(folderTotal, total)
+                self.isMeasuringSizes = false
+                self.objectWillChange.send()
+            }
         }
     }
 
