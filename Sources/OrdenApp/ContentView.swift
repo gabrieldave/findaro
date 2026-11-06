@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import OrdenCore
 
 struct ContentView: View {
@@ -7,11 +8,12 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             SidebarView()
-                .navigationSplitViewColumnWidth(min: 200, ideal: 230, max: 300)
+                .navigationSplitViewColumnWidth(min: 200, ideal: 228, max: 280)
         } detail: {
             detailColumn
         }
         .navigationSplitViewStyle(.balanced)
+        .background(OrdenTheme.windowFill)
         .searchable(text: $browser.searchText, placement: .toolbar, prompt: "Filtrar en esta carpeta")
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
@@ -26,23 +28,27 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                    .help(browser.currentPath)
             }
             ToolbarItemGroup(placement: .primaryAction) {
-                Button(action: browser.reload) {
-                    Label("Actualizar", systemImage: "arrow.clockwise")
+                Button {
+                    browser.openSelection()
+                } label: {
+                    Label("Abrir", systemImage: "arrow.up.forward.app")
                 }
+                .disabled(browser.selectedIDs.isEmpty)
+                .keyboardShortcut(.return, modifiers: [])
+
                 Button {
                     browser.quickLookSelection()
                 } label: {
                     Label("Vista rápida", systemImage: "eye")
                 }
                 .disabled(browser.selectedIDs.isEmpty)
+
+                Button(action: browser.reload) {
+                    Label("Actualizar", systemImage: "arrow.clockwise")
+                }
             }
-        }
-        .onKeyPress(.return) {
-            browser.openSelection()
-            return .handled
         }
         .onKeyPress(.space) {
             browser.quickLookSelection()
@@ -65,11 +71,11 @@ struct ContentView: View {
             SortBar()
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
-                .padding(.bottom, 8)
+                .padding(.bottom, 10)
 
-            FileListView()
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
+            FileBrowserPane()
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
 
             if let status = browser.statusMessage {
                 Text(status)
@@ -78,10 +84,10 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 10)
-                    .transition(.opacity)
             }
         }
-        .background(Color(nsColor: .windowBackgroundColor).opacity(0.35))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(OrdenTheme.windowFill)
     }
 
     private func shortPath(_ path: String) -> String {
@@ -123,7 +129,6 @@ struct SortBar: View {
             .buttonStyle(.borderedProminent)
             .tint(OrdenTheme.accent)
             .controlSize(.regular)
-            .help("Estilo Descargas como default global")
 
             Menu {
                 Section("Cambiar orden (solo esta carpeta)") {
@@ -142,7 +147,6 @@ struct SortBar: View {
                 Label("Ordenar", systemImage: "line.3.horizontal.decrease")
             }
             .menuStyle(.borderedButton)
-            .controlSize(.regular)
 
             Menu {
                 Button("Solo esta carpeta") {
@@ -155,7 +159,6 @@ struct SortBar: View {
                 Label("Guardar", systemImage: "square.and.arrow.down")
             }
             .menuStyle(.borderedButton)
-            .controlSize(.regular)
         }
         .ordenGlassCard(cornerRadius: 16)
     }
@@ -176,12 +179,6 @@ struct SortBar: View {
         }
         Button("Por tipo fijo") {
             browser.applyRule(.byType, scope: scope)
-        }
-        Button("Modificado · reciente primero") {
-            browser.applyRule(
-                SortRule(keys: [.dateModified(ascending: false)], foldersFirst: true),
-                scope: scope
-            )
         }
         Toggle(
             "Carpetas arriba",
@@ -214,13 +211,15 @@ struct SidebarView: View {
                     .buttonStyle(.plain)
                     .listRowBackground(
                         browser.currentPath == path
-                            ? OrdenTheme.accent.opacity(0.18)
+                            ? OrdenTheme.accent.opacity(0.22)
                             : Color.clear
                     )
                 }
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(OrdenTheme.windowFill)
         .navigationTitle("Orden")
     }
 
@@ -239,9 +238,9 @@ struct SidebarView: View {
     }
 }
 
-// MARK: - File list (selección nativa; sin gestos que la rompan)
+// MARK: - File pane (selección manual = siempre funciona)
 
-struct FileListView: View {
+struct FileBrowserPane: View {
     @EnvironmentObject private var browser: BrowserModel
 
     var body: some View {
@@ -259,84 +258,149 @@ struct FileListView: View {
                     description: Text("No hay elementos con este filtro.")
                 )
             } else {
-                List(selection: $browser.selectedIDs) {
-                    ForEach(browser.visibleEntries) { entry in
-                        FileRowView(entry: entry)
-                            .tag(entry.id)
-                            .contextMenu { rowMenu(entry) }
+                VStack(spacing: 0) {
+                    header
+                    Divider().opacity(0.35)
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(browser.visibleEntries.enumerated()), id: \.element.id) { index, entry in
+                                FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
+                            }
+                        }
                     }
                 }
-                .listStyle(.inset(alternatesRowBackgrounds: true))
-                .scrollContentBackground(.hidden)
-                .background {
+                .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.background.opacity(0.55))
-                }
+                        .strokeBorder(.white.opacity(0.06), lineWidth: 1)
+                )
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    @ViewBuilder
-    private func rowMenu(_ entry: FileEntry) -> some View {
-        Button("Abrir") { browser.open(entry) }
-        Button("Vista rápida") {
-            browser.selectedIDs = [entry.id]
-            browser.quickLookSelection()
+    private var header: some View {
+        HStack(spacing: 12) {
+            Text("Nombre")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("Tipo")
+                .frame(width: 110, alignment: .leading)
+            Text("Agregado")
+                .frame(width: 140, alignment: .trailing)
+            Text("Tamaño")
+                .frame(width: 72, alignment: .trailing)
         }
-        Button("Mostrar en Finder") { browser.revealInFinder(entry) }
-        Button("Copiar ruta") { browser.copyPath(entry) }
-        Divider()
-        Button("Mover a la Papelera", role: .destructive) {
-            browser.selectedIDs = [entry.id]
-            browser.moveSelectionToTrash()
-        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 }
 
-struct FileRowView: View {
+struct FileRowButton: View {
     @EnvironmentObject private var browser: BrowserModel
     let entry: FileEntry
+    let zebra: Bool
+
+    private var isSelected: Bool {
+        browser.selectedIDs.contains(entry.id)
+    }
 
     var body: some View {
-        HStack(spacing: 12) {
-            FileTypeIcon(category: entry.category, size: 18)
-
-            Text(entry.name)
-                .font(.system(.body, design: .default))
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Text(entry.category.labelSpanish)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: 110, alignment: .leading)
-
-            Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .frame(width: 140, alignment: .trailing)
-
-            Text(sizeLabel)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.tertiary)
-                .frame(width: 72, alignment: .trailing)
+        Button {
+            selectRow()
+        } label: {
+            HStack(spacing: 12) {
+                FileTypeIcon(category: entry.category, size: 17)
+                Text(entry.name)
+                    .font(.body)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .foregroundStyle(.primary)
+                Text(entry.category.labelSpanish)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 110, alignment: .leading)
+                Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 140, alignment: .trailing)
+                Text(sizeLabel)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 72, alignment: .trailing)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
-        // simultaneousGesture no bloquea la selección del List
-        .simultaneousGesture(
-            TapGesture(count: 2).onEnded {
+        .buttonStyle(.plain)
+        .background(rowBackground)
+        .contextMenu {
+            Button("Abrir") {
+                browser.selectedIDs = [entry.id]
                 browser.open(entry)
             }
-        )
+            Button("Vista rápida") {
+                browser.selectedIDs = [entry.id]
+                browser.quickLookSelection()
+            }
+            Button("Mostrar en Finder") { browser.revealInFinder(entry) }
+            Button("Copiar ruta") { browser.copyPath(entry) }
+            Divider()
+            Button("Mover a la Papelera", role: .destructive) {
+                browser.selectedIDs = [entry.id]
+                browser.moveSelectionToTrash()
+            }
+        }
+    }
+
+    private var rowBackground: Color {
+        if isSelected {
+            return OrdenTheme.accent.opacity(0.28)
+        }
+        return zebra ? Color.primary.opacity(0.04) : Color.clear
     }
 
     private var sizeLabel: String {
         entry.isDirectory
             ? "—"
             : ByteCountFormatter.string(fromByteCount: entry.size, countStyle: .file)
+    }
+
+    private func selectRow() {
+        // Doble clic: abrir.
+        if (NSApp.currentEvent?.clickCount ?? 1) >= 2 {
+            browser.selectedIDs = [entry.id]
+            browser.open(entry)
+            return
+        }
+
+        let flags = NSEvent.modifierFlags
+        if flags.contains(.command) {
+            if browser.selectedIDs.contains(entry.id) {
+                browser.selectedIDs.remove(entry.id)
+            } else {
+                browser.selectedIDs.insert(entry.id)
+            }
+        } else if flags.contains(.shift), let anchor = browser.selectedIDs.first {
+            stretchSelection(from: anchor, to: entry.id)
+        } else {
+            browser.selectedIDs = [entry.id]
+        }
+        browser.statusMessage = "\(browser.selectedIDs.count) seleccionado(s) — \(entry.name)"
+    }
+
+    private func stretchSelection(from anchorID: String, to endID: String) {
+        let ids = browser.visibleEntries.map(\.id)
+        guard let a = ids.firstIndex(of: anchorID), let b = ids.firstIndex(of: endID) else {
+            browser.selectedIDs = [endID]
+            return
+        }
+        let range = a <= b ? a...b : b...a
+        browser.selectedIDs = Set(ids[range])
     }
 }
 
@@ -347,23 +411,15 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Dos modos de orden") {
-                Text("1. Default global — botón «En todas partes».")
-                Text("2. Orden propio — solo esta carpeta; el resto sigue el global.")
-                    .foregroundStyle(.secondary)
+            Section("Selección") {
+                Text("Clic = seleccionar · ⌘ clic = varios · Doble clic / Abrir = abrir")
             }
-            Section("Ahora") {
+            Section("Orden") {
                 LabeledContent("Ámbito", value: browser.scopeBadge)
                 Text(browser.rule.summarySpanish)
             }
-            Section("Atajos") {
-                LabeledContent("Abrir", value: "Return o doble clic")
-                LabeledContent("Vista rápida", value: "Space")
-                LabeledContent("Papelera", value: "⌘⌫")
-                LabeledContent("Multiselección", value: "⌘ clic / ⇧ clic")
-            }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 340)
+        .frame(width: 440, height: 260)
     }
 }
