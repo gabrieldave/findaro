@@ -33,7 +33,10 @@ struct OrdenApp: App {
         .windowResizability(.contentMinSize)
         .windowToolbarStyle(.unified)
         .commands {
-            CommandGroup(after: .appInfo) {
+            CommandGroup(replacing: .appInfo) {
+                Button("Acerca de Ordena") {
+                    AboutOrdena.show()
+                }
                 Button("Buscar actualizaciones…") {
                     Task { await AppUpdateChecker.shared.check(interactive: true) }
                 }
