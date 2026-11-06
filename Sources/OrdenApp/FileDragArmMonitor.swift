@@ -191,12 +191,6 @@ private final class FileDragArmFrameNSView: NSView {
             NotificationCenter.default.removeObserver(scrollObserver)
         }
         NotificationCenter.default.removeObserver(self)
-        let path = self.path
-        if !path.isEmpty {
-            Task { @MainActor in
-                FileDragArmMonitor.shared.removeRowFrame(path: path)
-            }
-        }
     }
 
     override func viewDidMoveToWindow() {
