@@ -427,6 +427,8 @@ private struct SidebarItem: Identifiable, Hashable {
 
 struct SidebarView: View {
     @EnvironmentObject private var browser: BrowserModel
+    /// Se incrementa al montar/desmontar discos para refrescar Ubicaciones.
+    @State private var volumesTick: Int = 0
 
     var body: some View {
         ScrollView {
@@ -443,9 +445,20 @@ struct SidebarView: View {
                 }
             }
             .padding(.bottom, 16)
+            // volumesTick fuerza recalcular locationItems al conectar USB/discos
+            .id(volumesTick)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(OrdenTheme.windowFill)
+        .onReceive(NotificationCenter.default.publisher(for: NSWorkspace.didMountNotification)) { _ in
+            volumesTick &+= 1
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWorkspace.didUnmountNotification)) { _ in
+            volumesTick &+= 1
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWorkspace.didRenameVolumeNotification)) { _ in
+            volumesTick &+= 1
+        }
     }
 
     private var favoriteItems: [SidebarItem] {
@@ -518,6 +531,25 @@ struct SidebarView: View {
             path: "/",
             systemImage: "internaldrive.fill"
         ))
+
+        // USB / discos externos / DMGs montados en /Volumes
+        _ = volumesTick
+        if let vols = try? fm.contentsOfDirectory(atPath: "/Volumes") {
+            for name in vols.sorted() {
+                let path = "/Volumes/\(name)"
+                var isDir: ObjCBool = false
+                guard fm.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else { continue }
+                // Evita duplicar el volumen del sistema si aparece como /Volumes/Macintosh HD
+                let standardized = (path as NSString).standardizingPath
+                if standardized == "/" { continue }
+                items.append(SidebarItem(
+                    id: "loc-vol-\(name)",
+                    title: name,
+                    path: path,
+                    systemImage: "externaldrive.fill"
+                ))
+            }
+        }
 
         let trash = (home as NSString).appendingPathComponent(".Trash")
         if fm.fileExists(atPath: trash) {
