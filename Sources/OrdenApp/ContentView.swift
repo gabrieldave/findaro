@@ -247,6 +247,19 @@ struct SortBar: View {
 
             Spacer(minLength: 8)
 
+            Button {
+                browser.toggleDownloadsTodayMode()
+            } label: {
+                Label(
+                    browser.downloadsTodayMode ? "Salir descargados" : "Descargados",
+                    systemImage: browser.downloadsTodayMode ? "xmark.circle" : "arrow.down.circle.fill"
+                )
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(browser.downloadsTodayMode ? .orange : OrdenTheme.accent)
+            .controlSize(.regular)
+            .help("Solo lo bajado o agregado hoy en esta carpeta (oculta el resto)")
+
             if browser.cleanupMode {
                 Button {
                     browser.exitCleanupMode()
@@ -254,7 +267,7 @@ struct SortBar: View {
                     Label("Salir limpieza", systemImage: "xmark.circle")
                 }
                 .controlSize(.regular)
-            } else {
+            } else if !browser.downloadsTodayMode {
                 Button {
                     browser.showHeaviestForCleanup()
                 } label: {
@@ -264,44 +277,48 @@ struct SortBar: View {
                 .controlSize(.regular)
             }
 
-            Button {
-                browser.useDownloadsStyleEverywhere()
-            } label: {
-                Label("En todas partes", systemImage: "globe")
+            if !browser.downloadsTodayMode {
+                Button {
+                    browser.useDownloadsStyleEverywhere()
+                } label: {
+                    Label("En todas partes", systemImage: "globe")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(OrdenTheme.accent)
+                .controlSize(.regular)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(OrdenTheme.accent)
-            .controlSize(.regular)
 
-            Menu {
-                Section("Cambiar orden (solo esta carpeta)") {
-                    sortButtons(scope: .thisFolder)
-                }
-                Divider()
-                Button("Usar este orden en todas partes") {
-                    browser.saveCurrentAsGlobalDefault()
-                }
-                if browser.hasFolderOverride {
-                    Button("Quitar orden propio (usar global)") {
-                        browser.useGlobalDefaultHere()
+            if !browser.downloadsTodayMode {
+                Menu {
+                    Section("Cambiar orden (solo esta carpeta)") {
+                        sortButtons(scope: .thisFolder)
                     }
+                    Divider()
+                    Button("Usar este orden en todas partes") {
+                        browser.saveCurrentAsGlobalDefault()
+                    }
+                    if browser.hasFolderOverride {
+                        Button("Quitar orden propio (usar global)") {
+                            browser.useGlobalDefaultHere()
+                        }
+                    }
+                } label: {
+                    Label("Ordenar", systemImage: "line.3.horizontal.decrease")
                 }
-            } label: {
-                Label("Ordenar", systemImage: "line.3.horizontal.decrease")
-            }
-            .menuStyle(.borderedButton)
+                .menuStyle(.borderedButton)
 
-            Menu {
-                Button("Solo esta carpeta") {
-                    browser.applyRule(browser.rule, scope: .thisFolder)
+                Menu {
+                    Button("Solo esta carpeta") {
+                        browser.applyRule(browser.rule, scope: .thisFolder)
+                    }
+                    Button("Default en todas") {
+                        browser.applyRule(browser.rule, scope: .everywhere)
+                    }
+                } label: {
+                    Label("Guardar", systemImage: "square.and.arrow.down")
                 }
-                Button("Default en todas") {
-                    browser.applyRule(browser.rule, scope: .everywhere)
-                }
-            } label: {
-                Label("Guardar", systemImage: "square.and.arrow.down")
+                .menuStyle(.borderedButton)
             }
-            .menuStyle(.borderedButton)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -356,7 +373,11 @@ struct FolderStatsBar: View {
                     ProgressView()
                         .controlSize(.small)
                 }
-                Text("· \(browser.entries.count) elementos")
+                Text(
+                    browser.downloadsTodayMode
+                        ? "· \(browser.visibleEntries.count) de hoy / \(browser.entries.count)"
+                        : "· \(browser.entries.count) elementos"
+                )
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -370,6 +391,21 @@ struct FolderStatsBar: View {
                 }
                 .buttonStyle(.plain)
                 .help("Clic para copiar la ruta de esta carpeta")
+            }
+
+            if browser.downloadsTodayMode {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .foregroundStyle(.orange)
+                    Text("Solo descargas / archivos de hoy en esta carpeta. El resto está oculto.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    Button("Mostrar todo") {
+                        browser.exitDownloadsTodayMode()
+                    }
+                    .controlSize(.small)
+                }
             }
 
             // Solo en modo limpieza — evita una segunda franja permanente

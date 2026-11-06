@@ -16,6 +16,8 @@ final class BrowserModel: ObservableObject {
     @Published var folderTotalBytes: Int64 = 0
     @Published var isMeasuringSizes = false
     @Published var cleanupMode = false
+    /// Modo exclusivo: solo ítems agregados/creados hoy en esta carpeta (descargas del día).
+    @Published var downloadsTodayMode = false
     /// Bandeja tipo Dropover: aparcas archivos y luego los mueves/copias a otra carpeta.
     @Published var shelf: [FileOps.ShelfItem] = []
     @Published var shelfDropTargeted = false
@@ -102,7 +104,14 @@ final class BrowserModel: ObservableObject {
     }
 
     var visibleEntries: [FileEntry] {
-        let base = SortEngine.sort(entries, by: rule)
+        let base: [FileEntry]
+        if downloadsTodayMode {
+            // Exclusivo: oculta todo lo que no sea actividad de hoy; orden fijo (más nuevo arriba)
+            let today = entries.filter { DownloadDayFilter.isActivityToday($0) }
+            base = DownloadDayFilter.sortNewestFirst(today)
+        } else {
+            base = SortEngine.sort(entries, by: rule)
+        }
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return base }
         return base.filter {
@@ -111,18 +120,30 @@ final class BrowserModel: ObservableObject {
         }
     }
 
+    var downloadsTodayCount: Int {
+        entries.filter { DownloadDayFilter.isActivityToday($0) }.count
+    }
+
     var selectedEntries: [FileEntry] {
         visibleEntries.filter { selectedIDs.contains($0.id) }
     }
 
-    var ruleSummary: String { rule.summarySpanish }
+    var ruleSummary: String {
+        if downloadsTodayMode {
+            return "Descargados hoy · \(downloadsTodayCount) en esta carpeta"
+        }
+        return rule.summarySpanish
+    }
 
     var hasFolderOverride: Bool {
         store.preferences.hasOverride(for: currentPath)
     }
 
     var scopeBadge: String {
-        hasFolderOverride ? "Solo esta carpeta" : "Default global"
+        if downloadsTodayMode {
+            return "Modo exclusivo · orden normal en pausa"
+        }
+        return hasFolderOverride ? "Solo esta carpeta" : "Default global"
     }
 
     var folderTotalLabel: String {
@@ -384,6 +405,7 @@ final class BrowserModel: ObservableObject {
     }
 
     func applyRule(_ newRule: SortRule, scope: SortSaveScope) {
+        downloadsTodayMode = false
         cleanupMode = (newRule == .heaviestFirst)
         rule = newRule
         store.update { prefs in
@@ -402,12 +424,14 @@ final class BrowserModel: ObservableObject {
     }
 
     func useDownloadsStyleEverywhere() {
+        downloadsTodayMode = false
         cleanupMode = false
         applyRule(.downloads, scope: .everywhere)
         rule = .downloads
     }
 
     func useGlobalDefaultHere() {
+        downloadsTodayMode = false
         cleanupMode = false
         store.update { prefs in
             prefs.folderOverrides.removeValue(forKey: currentPath)
@@ -423,6 +447,7 @@ final class BrowserModel: ObservableObject {
 
     /// Modo limpieza: lo más pesado arriba.
     func showHeaviestForCleanup() {
+        downloadsTodayMode = false
         cleanupMode = true
         rule = .heaviestFirst
         statusMessage = "Limpieza: archivos/carpetas más pesados arriba"
@@ -433,6 +458,28 @@ final class BrowserModel: ObservableObject {
         cleanupMode = false
         rule = store.preferences.rule(for: currentPath)
         statusMessage = "Volviste al orden normal"
+        objectWillChange.send()
+    }
+
+    /// Modo exclusivo: solo lo agregado/creado hoy en la carpeta actual.
+    func toggleDownloadsTodayMode() {
+        if downloadsTodayMode {
+            exitDownloadsTodayMode()
+            return
+        }
+        cleanupMode = false
+        downloadsTodayMode = true
+        clearSelection()
+        let n = downloadsTodayCount
+        statusMessage = n == 0
+            ? "Modo Descargados: no hay nada de hoy aquí"
+            : "Modo Descargados: \(n) de hoy (el resto oculto)"
+        objectWillChange.send()
+    }
+
+    func exitDownloadsTodayMode() {
+        downloadsTodayMode = false
+        statusMessage = "Saliste del modo Descargados"
         objectWillChange.send()
     }
 
