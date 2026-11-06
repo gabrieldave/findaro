@@ -34,6 +34,8 @@ final class BrowserModel: ObservableObject {
     /// Bandeja tipo Dropover: aparcas archivos y luego los mueves/copias a otra carpeta.
     @Published var shelf: [FileOps.ShelfItem] = []
     @Published var shelfDropTargeted = false
+    /// Carpeta bajo el cursor al arrastrar (drop para meter adentro).
+    @Published var folderDropTargetPath: String?
     /// Clic simple agrega/quita sin ⌘ (ideal para marcar muchos rápido).
     @Published var multiSelectMode = false
     /// Ancla para ⇧ clic (rango).
@@ -1028,6 +1030,65 @@ final class BrowserModel: ObservableObject {
     }
 
     func importDroppedFiles(providers: [NSItemProvider]) -> Bool {
+        collectDroppedPaths(providers) { paths in
+            self.addPathsToShelf(paths)
+        }
+        return true
+    }
+
+    /// Suelta archivos/carpetas DENTRO de una carpeta destino (no a la bandeja).
+    /// ⌥ = copiar; sin ⌥ = mover.
+    @discardableResult
+    func handleDropIntoFolder(providers: [NSItemProvider], folderPath: String) -> Bool {
+        collectDroppedPaths(providers) { paths in
+            self.dropPaths(paths, intoFolder: folderPath)
+        }
+        return true
+    }
+
+    func dropPaths(_ paths: [String], intoFolder folderPath: String) {
+        let dest = (folderPath as NSString).standardizingPath
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: dest, isDirectory: &isDir), isDir.boolValue else {
+            statusMessage = "Ese destino no es una carpeta"
+            return
+        }
+
+        let copy = NSEvent.modifierFlags.contains(.option)
+        let unique = Array(Set(paths.map { ($0 as NSString).standardizingPath }))
+            .filter { path in
+                if path == dest { return false }
+                // No meter una carpeta dentro de sí misma / descendiente
+                if dest.hasPrefix(path + "/") { return false }
+                return true
+            }
+        guard !unique.isEmpty else {
+            statusMessage = "No se puede soltar ahí"
+            return
+        }
+
+        do {
+            let n = try FileOps.transfer(paths: unique, toDirectory: dest, move: !copy)
+            if !copy {
+                shelf.removeAll { unique.contains(($0.path as NSString).standardizingPath) }
+                selectedIDs = []
+            }
+            folderDropTargetPath = nil
+            clearArmedFileDrag()
+            reload()
+            let name = URL(fileURLWithPath: dest).lastPathComponent
+            statusMessage = copy
+                ? "Copiados \(n) → \(name)"
+                : "Movidos \(n) → \(name)"
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func collectDroppedPaths(
+        _ providers: [NSItemProvider],
+        then: @escaping @MainActor ([String]) -> Void
+    ) {
         var collected: [String] = []
         let group = DispatchGroup()
         for provider in providers {
@@ -1044,9 +1105,8 @@ final class BrowserModel: ObservableObject {
         }
         group.notify(queue: .main) {
             guard !collected.isEmpty else { return }
-            self.addPathsToShelf(collected)
+            then(collected)
         }
-        return true
     }
 
     private func startMeasuringSizes() {

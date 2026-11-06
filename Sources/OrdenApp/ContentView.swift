@@ -1185,6 +1185,7 @@ struct FileRowButton: View {
         .background(rowBackground)
         .fileDragArmHighlight(path: entry.path)
         .reportFileDragArmFrame(path: entry.path)
+        .folderDropTarget(entry: entry, browser: browser)
         .fileOpenOnDoubleClick(entry: entry, browser: browser)
         .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu {

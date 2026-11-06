@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 import OrdenCore
 
 /// Monitor AppKit: hold 1s + doble clic sin pelear con el marquee de SwiftUI.
@@ -236,5 +237,34 @@ extension View {
                 browser.activateEntry(entry)
             }
         )
+    }
+
+    /// Si es carpeta: aceptar drop para meter archivos adentro (no a la bandeja).
+    @ViewBuilder
+    func folderDropTarget(entry: FileEntry, browser: BrowserModel) -> some View {
+        if entry.isDirectory {
+            self
+                .onDrop(of: [UTType.fileURL], isTargeted: Binding(
+                    get: { browser.folderDropTargetPath == entry.path },
+                    set: { hovering in
+                        browser.folderDropTargetPath = hovering ? entry.path : nil
+                    }
+                )) { providers in
+                    browser.handleDropIntoFolder(providers: providers, folderPath: entry.path)
+                }
+                .overlay {
+                    if browser.folderDropTargetPath == entry.path {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(Color.green, lineWidth: 2.5)
+                            .background(
+                                Color.green.opacity(0.12),
+                                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            )
+                            .allowsHitTesting(false)
+                    }
+                }
+        } else {
+            self
+        }
     }
 }
