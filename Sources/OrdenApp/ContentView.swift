@@ -88,7 +88,10 @@ struct SortBar: View {
                 .lineLimit(1)
             Spacer()
             Menu("Ordenar") {
-                Button("Descargas (carpetas A→Z · archivos por tipo)") {
+                Button("Agregado · lo más nuevo arriba") {
+                    browser.applyRule(.newestAddedFirst, saveAsFolderDefault: true)
+                }
+                Button("Descargas (Agregado ↓)") {
                     browser.applyRule(.downloads, saveAsFolderDefault: true)
                 }
                 Button("Proyectos (Nombre A→Z)") {
@@ -111,12 +114,6 @@ struct SortBar: View {
                     )
                 }
                 Divider()
-                Button("Agregado · reciente primero") {
-                    browser.applyRule(
-                        SortRule(keys: [.dateAdded(ascending: false)], foldersFirst: true),
-                        saveAsFolderDefault: true
-                    )
-                }
                 Button("Modificado · reciente primero") {
                     browser.applyRule(
                         SortRule(keys: [.dateModified(ascending: false)], foldersFirst: true),

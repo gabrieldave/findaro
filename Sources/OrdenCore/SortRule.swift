@@ -24,15 +24,32 @@ public struct SortRule: Codable, Equatable, Sendable, Hashable {
         self.groupBy = groupBy
     }
 
-    public static let `default` = SortRule()
-
-    /// Descargas: carpetas `01_…` por nombre; archivos por tipo juntos, y dentro lo reciente primero.
-    public static let downloads = SortRule(
-        keys: [.category(ascending: true), .dateAdded(ascending: false)],
-        folderKeys: [.name(ascending: true)],
-        fileKeys: [.category(ascending: true), .dateAdded(ascending: false)],
+    /// Prioridad: Agregado · lo más nuevo arriba.
+    public static let `default` = SortRule(
+        keys: [
+            .dateAdded(ascending: false),
+            .name(ascending: true)
+        ],
         foldersFirst: true
     )
+
+    /// Descargas: Agregado manda (carpetas y archivos). Lo más nuevo arriba.
+    public static let downloads = SortRule(
+        keys: [.dateAdded(ascending: false), .name(ascending: true)],
+        folderKeys: [
+            .dateAdded(ascending: false),
+            .name(ascending: true)
+        ],
+        fileKeys: [
+            .dateAdded(ascending: false),
+            .category(ascending: true),
+            .name(ascending: true)
+        ],
+        foldersFirst: true
+    )
+
+    /// Alias explícito del criterio que pide el usuario.
+    public static let newestAddedFirst = SortRule.default
 
     public static let projects = SortRule(
         keys: [.name(ascending: true)],
