@@ -11,10 +11,12 @@ struct OrdenApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(browser)
-                .frame(minWidth: 720, minHeight: 480)
+                // Sidebar fijo 212 + detalle mínimo — no permitir achicar hasta perder el menú
+                .frame(minWidth: 612, minHeight: 480)
                 .tint(OrdenTheme.accent)
         }
         .defaultSize(width: 1180, height: 740)
+        .windowResizability(.contentMinSize)
         .windowToolbarStyle(.unified)
         .commands {
             CommandGroup(replacing: .newItem) {

@@ -1,0 +1,13 @@
+---
+description: Sidebar izquierdo de Ordena nunca se colapsa
+alwaysApply: true
+---
+
+# Sidebar fijo (Ordena)
+
+El menú izquierdo (Favoritos / Ubicaciones) **NUNCA** debe desaparecer ni colapsar al achicar, minimizar o redimensionar la ventana.
+
+- Usar `HStack` + ancho fijo (`sidebarWidth ≈ 212`), NO `NavigationSplitView` colapsable.
+- Sidebar: `minWidth = maxWidth = idealWidth`, `fixedSize(horizontal: true)`, `layoutPriority(1)`.
+- Detalle: `minWidth: 0` + `layoutPriority(0)` para que comprima el contenido, no el menú.
+- Ventana: `minWidth >= sidebar + detalleMínimo` y `windowResizability(.contentMinSize)`.

@@ -6,24 +6,37 @@ import OrdenCore
 struct ContentView: View {
     @EnvironmentObject private var browser: BrowserModel
 
-    /// Ancho fijo: el sidebar nunca se colapsa al achicar la ventana.
+    /// REGLA: el menú izquierdo NUNCA se colapsa ni desaparece al achicar la ventana.
     private let sidebarWidth: CGFloat = 212
+    private let detailMinWidth: CGFloat = 400
 
     var body: some View {
         HStack(spacing: 0) {
             SidebarView()
                 .frame(width: sidebarWidth)
+                .frame(minWidth: sidebarWidth, idealWidth: sidebarWidth, maxWidth: sidebarWidth)
                 .frame(maxHeight: .infinity, alignment: .top)
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
+                .clipped()
                 .background(OrdenTheme.windowFill)
+                .accessibilityLabel("Menú lateral")
 
             Divider().opacity(0.35)
 
             detailColumn
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // minWidth 0: comprime el detalle, NUNCA el sidebar
+                .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
+                .layoutPriority(0)
         }
-        .frame(minWidth: 720, minHeight: 480)
+        .frame(
+            minWidth: sidebarWidth + detailMinWidth,
+            minHeight: 480
+        )
         .background(OrdenTheme.windowFill)
         .searchable(text: $browser.searchText, placement: .toolbar, prompt: "Filtrar en esta carpeta")
+        .onAppear { SelectionCancelMonitor.install(browser: browser) }
+        .onDisappear { SelectionCancelMonitor.remove() }
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
                 Button(action: browser.goUp) {
@@ -126,6 +139,7 @@ struct ContentView: View {
             browser.cancelSelection()
             return .handled
         }
+        // Esc también vía SelectionCancelMonitor (NSEvent) — más fiable con foco en búsqueda
     }
 
     private var detailColumn: some View {
