@@ -62,7 +62,7 @@ public final class PreferencesStore: @unchecked Sendable {
 
     public init(fileName: String = "preferences.json") {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = support.appendingPathComponent("Orden", isDirectory: true)
+        let dir = support.appendingPathComponent("Ordena", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         self.url = dir.appendingPathComponent(fileName)
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

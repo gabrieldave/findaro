@@ -1,34 +1,36 @@
-# Orden — un Finder mejor
+# Ordena — organiza tus carpetas mejor que el Finder
 
-App de macOS **aparte** del Finder de Apple. No parchea preferencias del sistema: es tu gestor de archivos con orden que sí se entiende.
+App nativa de macOS (SwiftUI) para ordenar Descargas y otras carpetas por tipo + fecha, con selección tipo Finder, bandeja y limpieza por peso.
 
-## Abrir (esto es lo que importa)
-
-Doble clic en:
-
-- **Escritorio → `Orden.app`**
-- o **`~/Applications/Orden.app`**
-
-Debe aparecer en el Dock como **Orden**.
-
-Para reconstruir:
+## Instalar (recomendado)
 
 ```bash
-cd ~/Projects/orden
-./scripts/package-app.sh
-open ~/Desktop/Orden.app
+./scripts/make-dmg.sh
 ```
 
-## Qué hace distinto al Finder
+Eso genera en el Escritorio:
 
-1. **Un solo modelo de orden** — sin pelear Arrange / Group / Sort.
-2. **Frase visible** arriba con la regla actual.
-3. **Descargas smart** — carpetas `01_…` por nombre; archivos por fecha.
-4. **Preferencias propias** (no `.DS_Store`).
-5. **Atajos** — Return/⌘↓ abrir · Space vista rápida · ⌘⌫ Papelera · ⌘↑ arriba.
+`Ordena-0.1.0-arm64.dmg`
 
-## Tests
+1. Doble clic al `.dmg` → monta el volumen **Ordena …** (aparece en Finder → Ubicaciones, como DICloak).
+2. Arrastra **Ordena.app** a **Aplicaciones**.
+3. Expulsa el disco e inicia Ordena desde Launchpad / Spotlight (`⌘Espacio`).
+
+Solo empaquetar e instalar local:
+
+```bash
+./scripts/package-app.sh
+open /Applications/Ordena.app
+```
+
+## Requisitos
+
+- macOS 15+
+- Apple Silicon (`arm64`)
+
+## Desarrollo
 
 ```bash
 swift test
+./scripts/package-app.sh
 ```

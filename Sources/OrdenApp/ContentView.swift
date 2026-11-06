@@ -434,8 +434,8 @@ struct SidebarView: View {
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
         .background(OrdenTheme.windowFill)
-        .navigationTitle("Orden")
-        .toolbar(removing: .title) // evita título grande que empuja el detalle
+        .navigationTitle("Ordena")
+        .toolbar(removing: .title)
     }
 
     private func shortName(_ path: String) -> String {
@@ -805,7 +805,7 @@ struct SettingsView: View {
             Section("Selección") {
                 Text("Clic = uno · Arrastrar (también desde vacío o desde ya seleccionado) = rectángulo · Casilla / Varios / ⌘ = varios · ⇧ = rango · Archivos a Dropover vía Bandeja")
             }
-            Section("Orden") {
+            Section("Ordena") {
                 LabeledContent("Ámbito", value: browser.scopeBadge)
                 Text(browser.rule.summarySpanish)
             }
