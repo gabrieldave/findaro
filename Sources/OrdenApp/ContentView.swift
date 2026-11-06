@@ -292,7 +292,7 @@ struct SortBar: View {
             .controlSize(.regular)
             .disabled(browser.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                       && !browser.deepSearchRunning)
-            .help("Busca el texto del filtro en esta carpeta y abajo (Return o ⌘⇧F)")
+            .help("Busca el texto del filtro en esta carpeta y abajo (Return o ⌘4)")
 
             if !browser.downloadsTodayMode {
                 Menu {

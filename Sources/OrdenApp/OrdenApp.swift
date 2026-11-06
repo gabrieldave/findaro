@@ -67,7 +67,7 @@ struct OrdenApp: App {
 
             CommandMenu("Buscar") {
                 Button("Buscar en subcarpetas") { browser.startDeepSearch() }
-                    .keyboardShortcut("f", modifiers: [.command, .shift])
+                    .keyboardShortcut("4", modifiers: .command)
                 Button("Cerrar panel de búsqueda") { browser.clearDeepSearch() }
                     .disabled(!browser.showDeepSearchPanel)
             }

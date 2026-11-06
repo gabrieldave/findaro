@@ -590,7 +590,7 @@ final class BrowserModel: ObservableObject {
     func startDeepSearch(query: String? = nil) {
         let q = (query ?? searchText).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else {
-            statusMessage = "Escribe algo en el filtro y pulsa Return o ⌘⇧F"
+            statusMessage = "Escribe algo en el filtro y pulsa Return o ⌘4"
             return
         }
         cancelDeepSearch()
