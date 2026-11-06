@@ -399,6 +399,14 @@ struct FileActionsBar: View {
             .controlSize(.regular)
             .help("Pega archivos aquí (⌘V)")
 
+            Button {
+                browser.addFoldersToFavoritesFromUI()
+            } label: {
+                Label("A Favoritos", systemImage: "star.fill")
+            }
+            .controlSize(.regular)
+            .help("Carpeta seleccionada, o la carpeta actual si no hay selección")
+
             Spacer(minLength: 8)
 
             Button(role: .destructive) {
@@ -605,7 +613,7 @@ struct SidebarView: View {
                 sidebarButton(item, isFavoriteSlot: true)
             }
 
-            Text(favoritesDropTargeted ? "Suelta para fijar" : "Arrastra carpetas aquí")
+            Text(favoritesDropTargeted ? "Suelta para fijar" : "Usa «A Favoritos» o suelta desde Finder")
                 .font(.caption2)
                 .foregroundStyle(favoritesDropTargeted ? OrdenTheme.accent : .secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -712,6 +720,9 @@ struct FileBrowserPane: View {
     @State private var marqueeCurrent: CGPoint?
     @State private var marqueeBase: Set<String> = []
     @State private var marqueeAdditive = false
+    /// Si el gesto nace en carpeta(s): arrastre AppKit a Favoritos, no marquee.
+    @State private var folderDragPaths: [String] = []
+    @State private var folderDragStarted = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -742,8 +753,7 @@ struct FileBrowserPane: View {
                                 FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
                                     .frame(minHeight: rowHeight)
                             }
-                            // Zona vacía: clic = deseleccionar; arrastre = marquee
-                            // (el marquee vive AQUÍ para no bloquear onDrag de las carpetas)
+                            // Zona vacía: clic cancela; arrastre inicia marquee hacia arriba
                             Color.clear
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 320)
@@ -751,7 +761,6 @@ struct FileBrowserPane: View {
                                 .onTapGesture {
                                     browser.cancelSelection()
                                 }
-                                .gesture(marqueeGesture)
                         }
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                         .coordinateSpace(name: "fileList")
@@ -768,6 +777,8 @@ struct FileBrowserPane: View {
                                     .allowsHitTesting(false)
                             }
                         }
+                        .contentShape(Rectangle())
+                        .highPriorityGesture(marqueeGesture)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .onTapGesture {
@@ -792,9 +803,12 @@ struct FileBrowserPane: View {
         marqueeStart = nil
         marqueeCurrent = nil
         marqueeBase = []
+        folderDragPaths = []
+        folderDragStarted = false
     }
 
     private var marqueeRect: CGRect? {
+        guard folderDragPaths.isEmpty else { return nil }
         guard let start = marqueeStart, let current = marqueeCurrent else { return nil }
         return CGRect(
             x: min(start.x, current.x),
@@ -808,24 +822,60 @@ struct FileBrowserPane: View {
         CGFloat(browser.visibleEntries.count) * rowHeight
     }
 
+    private func entryAtY(_ y: CGFloat) -> FileEntry? {
+        let entries = browser.visibleEntries
+        guard !entries.isEmpty else { return nil }
+        if y < 0 || y >= listContentHeight { return nil }
+        let idx = min(entries.count - 1, max(0, Int(floor(y / rowHeight))))
+        return entries[idx]
+    }
+
     private var marqueeGesture: some Gesture {
         DragGesture(minimumDistance: 3, coordinateSpace: .named("fileList"))
             .onChanged { value in
                 if marqueeStart == nil {
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
+
                     let flags = NSEvent.modifierFlags
+                    // ⇧/⌘ = marquee (rango/varios). Sin modificador sobre carpeta = arrastrar.
+                    if !flags.contains(.shift), !flags.contains(.command),
+                       let hit = entryAtY(value.startLocation.y), hit.isDirectory {
+                        let selectedDirs = browser.selectedEntries.filter(\.isDirectory).map(\.path)
+                        if browser.selectedIDs.contains(hit.id), !selectedDirs.isEmpty {
+                            folderDragPaths = selectedDirs
+                        } else {
+                            folderDragPaths = [hit.path]
+                            browser.selectOnly(hit.id)
+                        }
+                        folderDragStarted = false
+                        return
+                    }
+
+                    folderDragPaths = []
                     marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
                     marqueeBase = marqueeAdditive ? browser.selectedIDs : []
                     if !marqueeAdditive {
                         browser.clearSelection()
                     }
                 }
+
+                if !folderDragPaths.isEmpty {
+                    let dist = hypot(value.translation.width, value.translation.height)
+                    if !folderDragStarted, dist >= 6 {
+                        folderDragStarted = true
+                        _ = FolderDragBridge.shared.startDrag(paths: folderDragPaths)
+                    }
+                    return
+                }
+
                 marqueeCurrent = value.location
                 applyMarquee()
             }
             .onEnded { _ in
-                applyMarquee()
+                if folderDragPaths.isEmpty {
+                    applyMarquee()
+                }
                 resetMarquee()
             }
     }
@@ -959,8 +1009,6 @@ struct FileRowButton: View {
             .padding(.trailing, 10)
         }
         .background(rowBackground)
-        // Carpeta completa arrastrable a Favoritos (fila entera)
-        .modifier(FolderDragToFavorites(entry: entry, isSelected: isSelected))
         .contextMenu {
             Button("Abrir") {
                 browser.selectOnly(entry.id)
@@ -1050,33 +1098,6 @@ struct FileRowButton: View {
             browser.toggleSelection(entry.id)
         } else {
             browser.selectOnly(entry.id)
-        }
-    }
-}
-
-/// Arrastre de carpeta(s) a Favoritos — fila entera.
-private struct FolderDragToFavorites: ViewModifier {
-    @EnvironmentObject private var browser: BrowserModel
-    let entry: FileEntry
-    let isSelected: Bool
-
-    func body(content: Content) -> some View {
-        if entry.isDirectory {
-            content
-                .onDrag {
-                    let paths: [String]
-                    if isSelected {
-                        let selectedDirs = browser.selectedEntries.filter(\.isDirectory).map(\.path)
-                        paths = selectedDirs.isEmpty ? [entry.path] : selectedDirs
-                    } else {
-                        paths = [entry.path]
-                    }
-                    browser.beginFavoriteDrag(paths: paths)
-                    return NSItemProvider(contentsOf: URL(fileURLWithPath: paths[0]))
-                        ?? NSItemProvider()
-                }
-        } else {
-            content
         }
     }
 }

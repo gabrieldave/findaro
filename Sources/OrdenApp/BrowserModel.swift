@@ -277,18 +277,19 @@ final class BrowserModel: ObservableObject {
         }
     }
 
-    /// Rutas de carpetas en el arrastre actual (multi-selección → Favoritos).
-    private(set) var pendingFavoriteDragPaths: [String] = []
-
-    func beginFavoriteDrag(paths: [String]) {
-        pendingFavoriteDragPaths = paths
+    /// Botón «A Favoritos»: carpetas seleccionadas, o la carpeta actual.
+    func addFoldersToFavoritesFromUI() {
+        let folders = selectedEntries.filter(\.isDirectory)
+        if !folders.isEmpty {
+            addSelectionToFavorites()
+            return
+        }
+        addCurrentFolderToFavorites()
     }
 
-    /// Soltar carpetas (desde Ordena o Finder) sobre Favoritos.
+    /// Soltar carpetas desde Finder sobre Favoritos (opcional).
     @discardableResult
     func importFavoritesFromProviders(_ providers: [NSItemProvider]) -> Bool {
-        let pending = pendingFavoriteDragPaths
-        pendingFavoriteDragPaths = []
         var paths: [String] = []
         let group = DispatchGroup()
         for provider in providers {
@@ -305,15 +306,8 @@ final class BrowserModel: ObservableObject {
         }
         group.notify(queue: .main) { [weak self] in
             guard let self else { return }
-            var toAdd = paths
-            if toAdd.isEmpty {
-                toAdd = pending
-            } else if !pending.isEmpty {
-                // Une selección múltiple + lo que trajo el provider
-                toAdd = Array(Set(toAdd + pending))
-            }
             var added = 0
-            for path in toAdd {
+            for path in paths {
                 var isDir: ObjCBool = false
                 if FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue {
                     if !self.isFavorite(path) {
@@ -322,7 +316,7 @@ final class BrowserModel: ObservableObject {
                     }
                 }
             }
-            if added == 0 && !toAdd.isEmpty {
+            if added == 0 && !paths.isEmpty {
                 self.statusMessage = "Suelta carpetas (no archivos sueltos)"
             } else if added > 1 {
                 self.statusMessage = "\(added) carpetas en Favoritos"
