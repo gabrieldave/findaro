@@ -211,6 +211,71 @@ final class BrowserModel: ObservableObject {
         navigate(to: home("Documents"))
     }
 
+    // MARK: - Favoritos (accesos directos)
+
+    func isFavorite(_ path: String) -> Bool {
+        let target = (path as NSString).standardizingPath
+        return store.preferences.favorites.contains {
+            ($0 as NSString).standardizingPath == target
+        }
+    }
+
+    func addFavorite(_ path: String) {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
+            statusMessage = "Solo se pueden favoritar carpetas"
+            return
+        }
+        let standardized = (path as NSString).standardizingPath
+        if isFavorite(standardized) {
+            statusMessage = "Ya está en Favoritos"
+            return
+        }
+        store.update { $0.favorites.append(standardized) }
+        objectWillChange.send()
+        statusMessage = "Favorito: \(URL(fileURLWithPath: standardized).lastPathComponent)"
+    }
+
+    func removeFavorite(_ path: String) {
+        let target = (path as NSString).standardizingPath
+        store.update { prefs in
+            prefs.favorites.removeAll { ($0 as NSString).standardizingPath == target }
+        }
+        objectWillChange.send()
+        statusMessage = "Quitado de Favoritos"
+    }
+
+    func addCurrentFolderToFavorites() {
+        addFavorite(currentPath)
+    }
+
+    /// Diálogo para elegir cualquier carpeta y fijarla arriba.
+    func pickFolderAsFavorite() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.message = "Elige una carpeta para Favoritos"
+        panel.prompt = "Añadir"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        addFavorite(url.path)
+    }
+
+    func addSelectionToFavorites() {
+        let folders = selectedEntries.filter(\.isDirectory)
+        guard let first = folders.first else {
+            statusMessage = "Selecciona una carpeta (o usa la carpeta actual)"
+            return
+        }
+        for folder in folders {
+            addFavorite(folder.path)
+        }
+        if folders.count > 1 {
+            statusMessage = "\(folders.count) carpetas en Favoritos"
+        }
+    }
+
     func applyRule(_ newRule: SortRule, scope: SortSaveScope) {
         cleanupMode = (newRule == .heaviestFirst)
         rule = newRule

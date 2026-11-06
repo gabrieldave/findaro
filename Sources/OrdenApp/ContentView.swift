@@ -433,15 +433,15 @@ struct SidebarView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 2) {
-                sectionHeader("Favoritos")
+                favoritesHeader
                 ForEach(favoriteItems) { item in
-                    sidebarButton(item)
+                    sidebarButton(item, isFavoriteSlot: true)
                 }
 
                 sectionHeader("Ubicaciones")
                     .padding(.top, 12)
                 ForEach(locationItems) { item in
-                    sidebarButton(item)
+                    sidebarButton(item, isFavoriteSlot: false)
                 }
             }
             .padding(.bottom, 16)
@@ -573,6 +573,36 @@ struct SidebarView: View {
         return items
     }
 
+    private var favoritesHeader: some View {
+        HStack(spacing: 4) {
+            Text("Favoritos")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 4)
+            Button {
+                browser.addCurrentFolderToFavorites()
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .font(.body)
+                    .foregroundStyle(OrdenTheme.accent)
+            }
+            .buttonStyle(.plain)
+            .help("Añadir la carpeta actual a Favoritos")
+            Button {
+                browser.pickFolderAsFavorite()
+            } label: {
+                Image(systemName: "folder.badge.plus")
+                    .font(.body)
+                    .foregroundStyle(OrdenTheme.accent)
+            }
+            .buttonStyle(.plain)
+            .help("Elegir otra carpeta…")
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
+    }
+
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.caption.weight(.semibold))
@@ -582,7 +612,7 @@ struct SidebarView: View {
             .padding(.bottom, 6)
     }
 
-    private func sidebarButton(_ item: SidebarItem) -> some View {
+    private func sidebarButton(_ item: SidebarItem, isFavoriteSlot: Bool) -> some View {
         Button {
             browser.navigate(to: item.path)
         } label: {
@@ -611,6 +641,17 @@ struct SidebarView: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 8)
         .help(item.path)
+        .contextMenu {
+            if isFavoriteSlot {
+                Button("Quitar de Favoritos", role: .destructive) {
+                    browser.removeFavorite(item.path)
+                }
+            } else {
+                Button("Añadir a Favoritos") {
+                    browser.addFavorite(item.path)
+                }
+            }
+        }
     }
 
     private func isActive(_ path: String) -> Bool {
@@ -894,6 +935,17 @@ struct FileRowButton: View {
             Button("Abrir") {
                 browser.selectOnly(entry.id)
                 browser.open(entry)
+            }
+            if entry.isDirectory {
+                if browser.isFavorite(entry.path) {
+                    Button("Quitar de Favoritos") {
+                        browser.removeFavorite(entry.path)
+                    }
+                } else {
+                    Button("Añadir a Favoritos") {
+                        browser.addFavorite(entry.path)
+                    }
+                }
             }
             Button("Renombrar") {
                 browser.selectOnly(entry.id)

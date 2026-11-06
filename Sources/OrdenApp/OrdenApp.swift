@@ -40,6 +40,14 @@ struct OrdenApp: App {
                 Button("Documentos") { browser.navigateToDocuments() }
                 Button("Arriba") { browser.goUp() }
                     .keyboardShortcut(.upArrow, modifiers: .command)
+                Divider()
+                Button("Añadir carpeta actual a Favoritos") {
+                    browser.addCurrentFolderToFavorites()
+                }
+                .keyboardShortcut("t", modifiers: [.command, .shift])
+                Button("Elegir carpeta para Favoritos…") {
+                    browser.pickFolderAsFavorite()
+                }
             }
 
             CommandMenu("Archivo+") {
