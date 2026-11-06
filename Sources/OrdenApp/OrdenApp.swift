@@ -14,6 +14,20 @@ struct OrdenApp: App {
                 // Sidebar fijo 212 + detalle mínimo — no permitir achicar hasta perder el menú
                 .frame(minWidth: 612, minHeight: 480)
                 .tint(OrdenTheme.accent)
+                .onAppear {
+                    if let pending = OpenFolderBridge.pendingFolderPath {
+                        OpenFolderBridge.pendingFolderPath = nil
+                        browser.navigate(to: pending, recordHistory: false)
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .ordenaOpenFolder)) { note in
+                    if let path = note.object as? String {
+                        browser.navigate(to: path, recordHistory: true)
+                    }
+                }
+                .onOpenURL { url in
+                    OpenFolderBridge.ingest(urls: [url])
+                }
         }
         .defaultSize(width: 1180, height: 740)
         .windowResizability(.contentMinSize)
@@ -87,6 +101,13 @@ struct OrdenApp: App {
                 Button("Vista rápida") { browser.quickLookSelection() }
                 Button("Mover a la Papelera") { browser.moveSelectionToTrash() }
                     .keyboardShortcut(.delete, modifiers: .command)
+                Divider()
+                Button("Usar Ordena para abrir carpetas…") {
+                    let ok = OpenFolderBridge.setAsDefaultFolderHandler()
+                    browser.statusMessage = ok
+                        ? "Ordena abrirá carpetas cuando macOS lo permita (Dock/Stacks de Finder siguen con Finder)"
+                        : "No se pudo registrar como app de carpetas"
+                }
             }
         }
 

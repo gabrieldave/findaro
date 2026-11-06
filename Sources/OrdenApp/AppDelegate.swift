@@ -12,6 +12,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Dock / `open -a Ordena ~/Downloads` / doble clic en carpeta (si somos el handler).
+    func application(_ application: NSApplication, open urls: [URL]) {
+        OpenFolderBridge.ingest(urls: urls)
+    }
+
+    func application(_ sender: NSApplication, openFile filename: String) -> Bool {
+        OpenFolderBridge.ingest(urls: [URL(fileURLWithPath: filename)])
+        return true
+    }
+
+    func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        OpenFolderBridge.ingest(urls: filenames.map { URL(fileURLWithPath: $0) })
+        sender.reply(toOpenOrPrint: .success)
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }

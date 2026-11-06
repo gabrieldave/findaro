@@ -1306,7 +1306,22 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Selección y bandeja") {
-                Text("Clic = uno · Arrastrar = rectángulo · Hold 1s = arrastrar archivo · ⌘C → bandeja (copiar) · ⌘X → bandeja (mover) · ⌘V suelta la bandeja aquí")
+                Text("Clic = uno · Arrastrar = rectángulo · Hold 1s = arrastrar archivo · ⌘C → bandeja (copiar) · ⌘X → bandeja (mover) · ⌘V suelta la bandeja aquí · ⌘Z deshace")
+            }
+            Section("Abrir carpetas") {
+                Text("macOS no permite quitar Finder. Sí puedes hacer que muchas carpetas se abran en Ordena.")
+                Button("Usar Ordena para abrir carpetas") {
+                    let ok = OpenFolderBridge.setAsDefaultFolderHandler()
+                    browser.statusMessage = ok
+                        ? "Registrado. Prueba: clic derecho en una carpeta → Abrir con → Ordena (y «Siempre»)."
+                        : "No se pudo registrar"
+                }
+                LabeledContent("¿Handler actual?") {
+                    Text(OpenFolderBridge.isDefaultFolderHandler() ? "Ordena" : "Otra app / Finder")
+                }
+                Text("El stack del Dock (Descargas ▼) sigue siendo de Finder: arrastra carpetas al icono de Ordena en el Dock.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section("Ordena") {
                 LabeledContent("Ámbito", value: browser.scopeBadge)

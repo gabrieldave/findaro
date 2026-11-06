@@ -260,9 +260,11 @@ final class BrowserModel: ObservableObject {
         statusMessage = "Nada seleccionado"
     }
 
-    /// Esc: quita selección y cancela marquee / gestos a medias.
+    /// Esc / Cancelar: quita selección múltiple, hold-armar, marquee y drop target.
     func cancelSelection() {
         clearArmedFileDrag()
+        folderDropTargetPath = nil
+        multiSelectMode = false
         clearSelection()
         selectionCancelToken &+= 1
         statusMessage = "Selección cancelada"

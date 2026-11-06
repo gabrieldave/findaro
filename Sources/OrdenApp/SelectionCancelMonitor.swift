@@ -23,7 +23,8 @@ enum SelectionCancelMonitor {
             let ctrl = flags.contains(.control)
             // Las flechas suelen traer `.function` — no exigir igualdad exacta de flags.
 
-            // Esc → cancelar selección
+            // Esc → cancelar selección múltiple + modo «listo para mover»
+            // (ignoramos .function / capsLock que a veces vienen con teclas especiales)
             if key == 53, !opt, !cmd, !shift, !ctrl {
                 browser.cancelSelection()
                 return nil

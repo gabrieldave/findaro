@@ -122,7 +122,7 @@ enum FileDragArmChrome {
                     }
                     Spacer(minLength: 0)
                     Button("Cancelar") {
-                        browser.clearArmedFileDrag()
+                        browser.cancelSelection()
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
