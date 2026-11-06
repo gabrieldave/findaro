@@ -25,12 +25,22 @@ final class BrowserModel: ObservableObject {
     private var forwardStack: [String] = []
     /// Hold 1s sobre un ítem: listo para arrastrar/mover (clic rápido solo selecciona).
     @Published private(set) var fileDragArmedPaths: [String] = []
-    /// Path que se está cargando (anillo 0→1 mientras mantienes pulsado).
-    @Published private(set) var fileDragArmingPath: String?
+    /// Paths en progreso de armado (toda la selección si hay varias).
+    @Published private(set) var fileDragArmingPaths: Set<String> = []
     @Published private(set) var fileDragArmProgress: Double = 0
     private var fileDragArmedUntil: Date?
     private var armingProgressTask: Task<Void, Never>?
     private var armedExpiryTask: Task<Void, Never>?
+    /// Path donde empezó el hold (para cancelar solo ese gesto).
+    private var fileDragArmingPrimaryPath: String?
+
+    /// ¿Este path está en el hold actual?
+    func isFileDragArming(path: String) -> Bool {
+        fileDragArmingPaths.contains(path)
+    }
+
+    /// Compat: algún path armándose.
+    var fileDragArmingPath: String? { fileDragArmingPrimaryPath }
     /// Bandeja tipo Dropover: aparcas archivos y luego los mueves/copias a otra carpeta.
     @Published var shelf: [FileOps.ShelfItem] = []
     @Published var shelfDropTargeted = false
@@ -723,14 +733,24 @@ final class BrowserModel: ObservableObject {
         statusMessage = count == 1 ? "Duplicado" : "\(count) duplicados"
     }
 
+    /// Paths que se armarían si haces hold sobre `entry` (selección múltiple incluida).
+    func dragArmGroup(for entry: FileEntry) -> [String] {
+        if selectedIDs.contains(entry.id), selectedIDs.count > 1 {
+            return selectedEntries.map(\.path)
+        }
+        return [entry.path]
+    }
+
     /// Empieza el anillo de progreso al pulsar (antes de los 1s).
     func beginArmingFileDrag(for entry: FileEntry) {
-        // Si ya estamos armando este path, no reinicies el anillo.
-        if fileDragArmingPath == entry.path, armingProgressTask != nil { return }
+        // Si ya estamos armando este gesto, no reinicies el anillo.
+        if fileDragArmingPrimaryPath == entry.path, armingProgressTask != nil { return }
         if isFileDragArmed(path: entry.path) { return }
 
         armingProgressTask?.cancel()
-        fileDragArmingPath = entry.path
+        let group = dragArmGroup(for: entry)
+        fileDragArmingPaths = Set(group)
+        fileDragArmingPrimaryPath = entry.path
         fileDragArmProgress = 0
         let path = entry.path
         let entryCopy = entry
@@ -739,10 +759,10 @@ final class BrowserModel: ObservableObject {
         armingProgressTask = Task { @MainActor in
             for i in 1...steps {
                 try? await Task.sleep(nanoseconds: stepNanos)
-                guard !Task.isCancelled, self.fileDragArmingPath == path else { return }
+                guard !Task.isCancelled, self.fileDragArmingPrimaryPath == path else { return }
                 self.fileDragArmProgress = Double(i) / Double(steps)
             }
-            guard !Task.isCancelled, self.fileDragArmingPath == path else { return }
+            guard !Task.isCancelled, self.fileDragArmingPrimaryPath == path else { return }
             // Hold completo sin soltar → arma aunque el mouse no se haya movido.
             self.armFileDrag(for: entryCopy)
         }
@@ -752,23 +772,30 @@ final class BrowserModel: ObservableObject {
     func endArmingPress(for entry: FileEntry) {
         armingProgressTask?.cancel()
         armingProgressTask = nil
-        if fileDragArmingPath == entry.path {
-            fileDragArmingPath = nil
+        if fileDragArmingPrimaryPath == entry.path {
+            fileDragArmingPaths = []
+            fileDragArmingPrimaryPath = nil
             fileDragArmProgress = 0
         }
     }
 
     /// Mantener 1s sobre un archivo: arma arrastre nativo (mover/copiar).
+    /// Si había varios seleccionados (y este está en la selección), arma todos.
     func armFileDrag(for entry: FileEntry) {
         armingProgressTask?.cancel()
         armingProgressTask = nil
-        fileDragArmingPath = nil
+        fileDragArmingPaths = []
+        fileDragArmingPrimaryPath = nil
         fileDragArmProgress = 1
 
         let alreadyArmed = hasArmedFileDrag && fileDragArmedPaths.contains(entry.path)
+        let group = dragArmGroup(for: entry)
 
-        if selectedIDs.contains(entry.id), selectedIDs.count > 1 {
-            fileDragArmedPaths = selectedEntries.map(\.path)
+        if group.count > 1 {
+            // Mantén la selección múltiple; no hagas selectOnly.
+            fileDragArmedPaths = group
+            selectedIDs = Set(group) // ids == paths
+            selectionAnchorID = entry.id
         } else {
             selectOnly(entry.id)
             fileDragArmedPaths = [entry.path]
@@ -816,7 +843,8 @@ final class BrowserModel: ObservableObject {
         armingProgressTask = nil
         fileDragArmedPaths = []
         fileDragArmedUntil = nil
-        fileDragArmingPath = nil
+        fileDragArmingPaths = []
+        fileDragArmingPrimaryPath = nil
         fileDragArmProgress = 0
     }
 

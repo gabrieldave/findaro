@@ -15,7 +15,7 @@ enum FileDragArmChrome {
         var size: CGFloat = 28
 
         private var isArming: Bool {
-            browser.fileDragArmingPath == path
+            browser.isFileDragArming(path: path)
         }
 
         private var isArmed: Bool {
@@ -54,8 +54,10 @@ enum FileDragArmChrome {
         @EnvironmentObject private var browser: BrowserModel
         let path: String
 
-        private var isArming: Bool { browser.fileDragArmingPath == path }
+        private var isArming: Bool { browser.isFileDragArming(path: path) }
         private var isArmed: Bool { browser.isFileDragArmed(path: path) }
+        private var armedCount: Int { browser.fileDragArmedPaths.count }
+        private var armingCount: Int { browser.fileDragArmingPaths.count }
 
         func body(content: Content) -> some View {
             content
@@ -68,7 +70,10 @@ enum FileDragArmChrome {
                 }
                 .overlay(alignment: .trailing) {
                     if isArmed {
-                        Label("Listo · arrastra", systemImage: "hand.draw.fill")
+                        Label(
+                            armedCount > 1 ? "Listo · \(armedCount)" : "Listo · arrastra",
+                            systemImage: "hand.draw.fill"
+                        )
                             .font(.caption.weight(.bold))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -77,7 +82,7 @@ enum FileDragArmChrome {
                             .padding(.trailing, 40)
                             .transition(.move(edge: .trailing).combined(with: .opacity))
                     } else if isArming {
-                        Text("Mantén…")
+                        Text(armingCount > 1 ? "Mantén… (\(armingCount))" : "Mantén…")
                             .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -107,7 +112,11 @@ enum FileDragArmChrome {
                                 : "\(browser.fileDragArmedPaths.count) listos para mover"
                         )
                         .font(.subheadline.weight(.bold))
-                        Text("Sin soltar, arrastra a otra carpeta o app")
+                        Text(
+                            browser.fileDragArmedPaths.count == 1
+                                ? "Sin soltar, arrastra a otra carpeta"
+                                : "Sin soltar, arrástralos juntos a una carpeta"
+                        )
                             .font(.caption)
                             .opacity(0.9)
                     }

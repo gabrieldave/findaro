@@ -1,7 +1,7 @@
 import AppKit
 
 /// Arrastre nativo de archivos/carpetas (AppKit) — convive con el marquee de SwiftUI.
-/// Tras mantener ~1s sobre un ítem, se arma el arrastre para mover/copiar.
+/// Tras mantener ~1s sobre un ítem, se arma el arrastre para mover/copiar (1 o muchos).
 @MainActor
 final class FolderDragBridge: NSObject, NSDraggingSource {
     static let shared = FolderDragBridge()
@@ -12,7 +12,6 @@ final class FolderDragBridge: NSObject, NSDraggingSource {
         _ session: NSDraggingSession,
         sourceOperationMaskFor context: NSDraggingContext
     ) -> NSDragOperation {
-        // Destino elige: en Finder suele ser mover (mismo volumen) o copiar.
         [.move, .copy]
     }
 
@@ -24,7 +23,7 @@ final class FolderDragBridge: NSObject, NSDraggingSource {
         isDragging = false
     }
 
-    /// Inicia arrastre de rutas (archivos o carpetas) desde el evento de mouse actual.
+    /// Inicia arrastre de una o varias rutas desde el evento de mouse actual.
     @discardableResult
     func startDrag(paths: [String]) -> Bool {
         guard !isDragging else { return false }
@@ -36,26 +35,65 @@ final class FolderDragBridge: NSObject, NSDraggingSource {
             .filter { FileManager.default.fileExists(atPath: $0.path) }
         guard !urls.isEmpty else { return false }
 
-        let items: [NSDraggingItem] = urls.map { url in
+        let origin = event.locationInWindow
+        let items: [NSDraggingItem] = urls.enumerated().map { index, url in
             let item = NSDraggingItem(pasteboardWriter: url as NSURL)
             var isDir: ObjCBool = false
             _ = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
-            let symbol = isDir.boolValue ? "folder.fill" : "doc.fill"
+            let offset = CGFloat(min(index, 6)) * 5
             let rect = NSRect(
-                x: event.locationInWindow.x - 16,
-                y: event.locationInWindow.y - 16,
-                width: 32,
-                height: 32
+                x: origin.x - 18 + offset,
+                y: origin.y - 18 - offset,
+                width: 36,
+                height: 36
             )
-            item.setDraggingFrame(
-                rect,
-                contents: NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-            )
+            let image: NSImage
+            if index == 0, urls.count > 1 {
+                image = Self.stackedBadgeImage(count: urls.count, isDirectory: isDir.boolValue)
+            } else {
+                let symbol = isDir.boolValue ? "folder.fill" : "doc.fill"
+                image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+                    ?? NSImage(size: NSSize(width: 32, height: 32))
+            }
+            item.setDraggingFrame(rect, contents: image)
             return item
         }
 
         isDragging = true
         view.beginDraggingSession(with: items, event: event, source: self)
         return true
+    }
+
+    private static func stackedBadgeImage(count: Int, isDirectory: Bool) -> NSImage {
+        let size = NSSize(width: 44, height: 44)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        defer { image.unlockFocus() }
+
+        let symbol = isDirectory ? "folder.fill" : "doc.fill"
+        if let base = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
+            let conf = NSImage.SymbolConfiguration(pointSize: 26, weight: .semibold)
+            let configured = base.withSymbolConfiguration(conf) ?? base
+            let rect = NSRect(x: 4, y: 10, width: 28, height: 28)
+            configured.draw(in: rect)
+        }
+
+        let badge = NSRect(x: 22, y: 2, width: 20, height: 20)
+        NSColor.systemOrange.setFill()
+        NSBezierPath(ovalIn: badge).fill()
+        let text = "\(min(count, 99))" as NSString
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.boldSystemFont(ofSize: 10),
+            .foregroundColor: NSColor.white
+        ]
+        let textSize = text.size(withAttributes: attrs)
+        text.draw(
+            at: NSPoint(
+                x: badge.midX - textSize.width / 2,
+                y: badge.midY - textSize.height / 2
+            ),
+            withAttributes: attrs
+        )
+        return image
     }
 }
