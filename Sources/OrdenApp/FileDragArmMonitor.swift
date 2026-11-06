@@ -90,19 +90,14 @@ final class FileDragArmMonitor {
             guard monitorOwnedPress, let origin = downPoint else { return }
             let p = event.locationInWindow
             let dist = hypot(p.x - origin.x, p.y - origin.y)
-            if dist > FileDragArmChrome.maxWiggle, !(browser.hasArmedFileDrag) {
+            if dist > FileDragArmChrome.maxWiggle, !browser.hasArmedFileDrag {
                 cancelMonitorPress(clearArming: true)
             }
 
         case .leftMouseUp:
             if monitorOwnedPress {
-                if !browser.hasArmedFileDrag {
-                    if let path = browser.fileDragArmingPath,
-                       let entry = browser.visibleEntries.first(where: { $0.path == path }) {
-                        browser.endArmingPress(for: entry)
-                    }
-                } else if let path = browser.fileDragArmingPath,
-                          let entry = browser.visibleEntries.first(where: { $0.path == path }) {
+                if let path = browser.fileDragArmingPath,
+                   let entry = browser.visibleEntries.first(where: { $0.path == path }) {
                     browser.endArmingPress(for: entry)
                 }
             }
@@ -144,7 +139,6 @@ final class FileDragArmMonitor {
     }
 
     private func pathAt(_ pointInWindow: CGPoint) -> String? {
-        // Preferir el frame más pequeño que contenga el punto.
         var best: (String, CGFloat)?
         for (path, frame) in rowFrames where frame.contains(pointInWindow) {
             let area = frame.width * frame.height
@@ -154,7 +148,6 @@ final class FileDragArmMonitor {
         }
         if let best { return best.0 }
 
-        // Fallback: fila cuya banda vertical contiene el Y (útil con scroll / frames viejos).
         var bandHit: (String, CGFloat)?
         for (path, frame) in rowFrames where pointInWindow.y >= frame.minY && pointInWindow.y <= frame.maxY {
             let dx = abs(frame.midX - pointInWindow.x)
@@ -169,39 +162,23 @@ final class FileDragArmMonitor {
 /// NSView que reporta su frame en coordenadas de ventana al monitor.
 private final class FileDragArmFrameNSView: NSView {
     var path: String = ""
-    private var scrollObserver: NSObjectProtocol?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         postsFrameChangedNotifications = true
         postsBoundsChangedNotifications = true
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(frameChanged),
-            name: NSView.frameDidChangeNotification,
-            object: self
-        )
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    deinit {
-        if let scrollObserver {
-            NotificationCenter.default.removeObserver(scrollObserver)
-        }
-        NotificationCenter.default.removeObserver(self)
-    }
-
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        hookScrollView()
         report()
     }
 
     override func viewDidMoveToSuperview() {
         super.viewDidMoveToSuperview()
-        hookScrollView()
         report()
     }
 
@@ -210,30 +187,17 @@ private final class FileDragArmFrameNSView: NSView {
         report()
     }
 
-    @objc private func frameChanged() {
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
         report()
-    }
-
-    private func hookScrollView() {
-        if let scrollObserver {
-            NotificationCenter.default.removeObserver(scrollObserver)
-            self.scrollObserver = nil
-        }
-        guard let scroll = enclosingScrollView?.contentView else { return }
-        scroll.postsBoundsChangedNotifications = true
-        scrollObserver = NotificationCenter.default.addObserver(
-            forName: NSView.boundsDidChangeNotification,
-            object: scroll,
-            queue: .main
-        ) { [weak self] _ in
-            self?.report()
-        }
     }
 
     private func report() {
         guard !path.isEmpty, window != nil, !bounds.isEmpty else { return }
         let rect = convert(bounds, to: nil)
-        FileDragArmMonitor.shared.updateRowFrame(path: path, frameInWindow: rect)
+        Task { @MainActor in
+            FileDragArmMonitor.shared.updateRowFrame(path: path, frameInWindow: rect)
+        }
     }
 }
 
@@ -247,11 +211,11 @@ private struct FileDragArmFrameReader: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: FileDragArmFrameNSView, context: Context) {
-        if nsView.path != path {
-            FileDragArmMonitor.shared.removeRowFrame(path: nsView.path)
-            nsView.path = path
+        nsView.path = path
+        DispatchQueue.main.async {
+            nsView.needsLayout = true
+            nsView.layoutSubtreeIfNeeded()
         }
-        DispatchQueue.main.async { nsView.layout() }
     }
 }
 
