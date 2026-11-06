@@ -49,6 +49,25 @@ enum SelectionCancelMonitor {
                 }
             }
 
+            // ↑↓ / ←→ → mover selección · ⇧+flechas → extender rango (como Windows).
+            // Solo selección; no mueve archivos. Ignora .function de las flechas.
+            if !opt, !cmd, !ctrl, (key == 125 || key == 126 || key == 123 || key == 124) {
+                if QuickLookController.shared.isVisible, !shift {
+                    // ↑↓ con QL abierto: no navegamos la lista (QL usa ←→).
+                    if key == 125 || key == 126 {
+                        return event
+                    }
+                } else {
+                    let delta: Int
+                    switch key {
+                    case 126, 123: delta = -1 // ↑ / ←
+                    default: delta = 1        // ↓ / →
+                    }
+                    browser.moveSelectionByKeyboard(delta: delta, extending: shift)
+                    return nil
+                }
+            }
+
             // ⌥← / ⌥→ → atrás / adelante (como Alt+flechas en Windows)
             // Ignoramos `.function` que AppKit pone en las flechas.
             if opt, !cmd, !shift, !ctrl {

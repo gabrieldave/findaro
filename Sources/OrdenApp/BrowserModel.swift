@@ -67,8 +67,10 @@ final class BrowserModel: ObservableObject {
     }
     /// Clic simple agrega/quita sin ⌘ (ideal para marcar muchos rápido).
     @Published var multiSelectMode = false
-    /// Ancla para ⇧ clic (rango).
+    /// Ancla para ⇧ clic / ⇧ flechas (rango). No se mueve al extender.
     @Published var selectionAnchorID: String?
+    /// Cursor de teclado: fila activa al navegar con flechas (con o sin ⇧).
+    @Published var selectionFocusID: String?
     @Published var showNewFolderDialog = false
     @Published var showRenameDialog = false
     @Published var nameDraft = ""
@@ -145,6 +147,7 @@ final class BrowserModel: ObservableObject {
             selectedIDs = [entry.id]
         }
         selectionAnchorID = entry.id
+        selectionFocusID = entry.id
         if !cleanupMode {
             rule = store.preferences.rule(for: entry.path)
         }
@@ -247,6 +250,7 @@ final class BrowserModel: ObservableObject {
     func selectOnly(_ id: String) {
         selectedIDs = [id]
         selectionAnchorID = id
+        selectionFocusID = id
         refreshSelectionStatus()
     }
 
@@ -257,6 +261,7 @@ final class BrowserModel: ObservableObject {
             selectedIDs.insert(id)
         }
         selectionAnchorID = id
+        selectionFocusID = id
         refreshSelectionStatus()
     }
 
@@ -269,7 +274,38 @@ final class BrowserModel: ObservableObject {
         }
         let range = a <= b ? a...b : b...a
         selectedIDs = Set(ids[range])
+        selectionFocusID = id
         refreshSelectionStatus()
+    }
+
+    /// Flechas ↑↓ (y ←→ en lista): mueve el cursor. Con ⇧ extiende el rango
+    /// desde el ancla, como en el Explorador de Windows (solo selección).
+    func moveSelectionByKeyboard(delta: Int, extending: Bool) {
+        let ids = visibleEntries.map(\.id)
+        guard !ids.isEmpty else { return }
+
+        // Sin selección: flecha baja → primero; flecha alta → último.
+        if selectedIDs.isEmpty, selectionFocusID == nil {
+            selectOnly(delta >= 0 ? ids[0] : ids[ids.count - 1])
+            return
+        }
+
+        let cursor = selectionFocusID
+            ?? selectionAnchorID
+            ?? selectedIDs.first
+            ?? ids[0]
+        let idx = ids.firstIndex(of: cursor) ?? 0
+        let next = min(max(0, idx + delta), ids.count - 1)
+        let nextID = ids[next]
+
+        if extending {
+            if selectionAnchorID == nil {
+                selectionAnchorID = cursor
+            }
+            selectRange(to: nextID)
+        } else {
+            selectOnly(nextID)
+        }
     }
 
     /// Selección tipo Finder (rectángulo / marquee).
@@ -281,6 +317,7 @@ final class BrowserModel: ObservableObject {
         }
         if let last = hitIDs.first {
             selectionAnchorID = last
+            selectionFocusID = last
         }
         refreshSelectionStatus()
     }
@@ -288,12 +325,14 @@ final class BrowserModel: ObservableObject {
     func selectAllVisible() {
         selectedIDs = Set(visibleEntries.map(\.id))
         selectionAnchorID = visibleEntries.first?.id
+        selectionFocusID = visibleEntries.last?.id ?? visibleEntries.first?.id
         refreshSelectionStatus()
     }
 
     func clearSelection() {
         selectedIDs = []
         selectionAnchorID = nil
+        selectionFocusID = nil
         statusMessage = "Nada seleccionado"
     }
 
@@ -355,6 +394,7 @@ final class BrowserModel: ObservableObject {
         }
         selectedIDs = []
         selectionAnchorID = nil
+        selectionFocusID = nil
         searchText = ""
         statusMessage = nil
         columnPaths = [target]
@@ -800,6 +840,7 @@ final class BrowserModel: ObservableObject {
         }
         selectedIDs = []
         selectionAnchorID = nil
+        selectionFocusID = nil
         reload()
         if moved > 0 {
             statusMessage = moved == 1 ? "1 elemento a la Papelera" : "\(moved) elementos a la Papelera"
@@ -939,6 +980,7 @@ final class BrowserModel: ObservableObject {
             fileDragArmedPaths = group
             selectedIDs = Set(group) // ids == paths
             selectionAnchorID = entry.id
+            selectionFocusID = entry.id
         } else {
             selectOnly(entry.id)
             fileDragArmedPaths = [entry.path]
