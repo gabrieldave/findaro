@@ -12,6 +12,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         CloseToHide.install()
         GlobalHotKey.install()
         _ = OpenFolderBridge.setAsDefaultFolderHandler()
+        // Buscar updates en GitHub tras un momento (no bloquea el arranque).
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+            AppUpdateChecker.shared.checkOnLaunchIfNeeded()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

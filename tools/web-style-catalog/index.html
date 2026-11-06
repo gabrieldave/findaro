@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Web Style Catalog — VibeSystems</title>
+  <style>
+    :root {
+      --bg: #0f0d12;
+      --card: #18151c;
+      --ink: #f2ece0;
+      --muted: #9a9185;
+      --accent: #ff6a3d;
+      --violet: #7b61ff;
+      --line: rgba(242,236,224,.1);
+      font-family: system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    body { background: var(--bg); color: var(--ink); padding: 24px; max-width: 1200px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; margin-bottom: 6px; }
+    .sub { color: var(--muted); margin-bottom: 20px; font-size: 14px; line-height: 1.5; }
+    .toolbar { display: grid; grid-template-columns: 1fr 180px 180px 140px; gap: 10px; margin-bottom: 16px; }
+    @media (max-width: 800px) { .toolbar { grid-template-columns: 1fr 1fr; } }
+    input, select { background: var(--card); border: 1px solid var(--line); color: var(--ink); padding: 10px 12px; border-radius: 8px; font-size: 14px; width: 100%; }
+    .stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .pill { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+    .pill.active { background: var(--accent); color: #14100c; border-color: var(--accent); }
+    .grid { display: grid; gap: 10px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; }
+    .card.top { border-color: rgba(255,106,61,.45); box-shadow: 0 0 0 1px rgba(255,106,61,.15) inset; }
+    .card h3 { font-size: 15px; margin-bottom: 6px; }
+    .meta { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+    .tag { font-size: 10px; padding: 2px 7px; border-radius: 6px; background: rgba(123,97,255,.15); color: #c4b8ff; }
+    .score { font-size: 12px; font-weight: 700; color: var(--accent); }
+    .badge { font-size: 10px; background: rgba(255,106,61,.15); color: var(--accent); padding: 3px 8px; border-radius: 6px; }
+    .actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+    a.btn { text-decoration: none; background: var(--accent); color: #14100c; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+    button.copy { background: transparent; border: 1px solid var(--line); color: var(--ink); padding: 8px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+    .empty { color: var(--muted); text-align: center; padding: 40px; }
+    .workflow { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 20px; font-size: 13px; color: var(--muted); }
+    .workflow ol { margin: 8px 0 0 18px; }
+    .workflow li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+  <h1>Web Style Catalog</h1>
+  <p class="sub">Prompts gratis de MotionSites · filtrados por app y bloque de landing · para estandarizar todas tus páginas VibeSystems</p>
+
+  <div class="workflow">
+    <strong>Flujo estándar</strong>
+    <ol>
+      <li>Elige <em>App</em> (ej. Cursia) y <em>Bloque</em> (hero, pricing…)</li>
+      <li>Ordena por score — los marcados <span class="badge">TOP</span> son curados</li>
+      <li>Abre MotionSites → busca el nombre → Copy</li>
+      <li>Pega en Cursor Agent adaptando textos y colores de la app</li>
+    </ol>
+  </div>
+
+  <div class="toolbar">
+    <input id="q" type="search" placeholder="Buscar nombre, tag, categoría…" />
+    <select id="app"></select>
+    <select id="block"></select>
+    <select id="sort">
+      <option value="score">Orden: mejor fit</option>
+      <option value="name">Orden: A–Z</option>
+    </select>
+  </div>
+  <div class="stats" id="blocks"></div>
+  <div class="grid" id="list"></div>
+
+  <script>
+    let DATA = null;
+
+    async function load() {
+      const res = await fetch('catalog.json');
+      DATA = await res.json();
+      init();
+    }
+
+    function init() {
+      const app = document.getElementById('app');
+      Object.entries(DATA.apps).forEach(([k, v]) => {
+        const o = document.createElement('option');
+        o.value = k; o.textContent = v.label;
+        app.appendChild(o);
+      });
+
+      const block = document.getElementById('block');
+      block.innerHTML = '<option value="">Todos los bloques</option>';
+      DATA.blocks.forEach(b => {
+        const o = document.createElement('option');
+        o.value = b; o.textContent = b;
+        block.appendChild(o);
+      });
+
+      document.getElementById('q').oninput = render;
+      app.onchange = render;
+      block.onchange = render;
+      document.getElementById('sort').onchange = render;
+
+      const stats = document.getElementById('blocks');
+      stats.innerHTML = '';
+      DATA.blocks.forEach(b => {
+        const btn = document.createElement('button');
+        btn.className = 'pill';
+        btn.textContent = b;
+        btn.onclick = () => {
+          block.value = block.value === b ? '' : b;
+          [...stats.children].forEach(p => p.classList.toggle('active', p.textContent === b && block.value === b));
+          render();
+        };
+        stats.appendChild(btn);
+      });
+
+      render();
+    }
+
+    function isTopPick(item, appId) {
+      const picks = DATA.apps[appId]?.curated_picks?.[item.block] || [];
+      return picks.includes(item.name);
+    }
+
+    function render() {
+      const q = document.getElementById('q').value.trim().toLowerCase();
+      const appId = document.getElementById('app').value;
+      const block = document.getElementById('block').value;
+      const sort = document.getElementById('sort').value;
+
+      let items = DATA.items.filter(it => {
+        if (block && it.block !== block) return false;
+        if (q && !(it.name + ' ' + it.category + ' ' + it.block + ' ' + (it.tags||[]).join(' ')).toLowerCase().includes(q)) return false;
+        return true;
+      });
+
+      items = items.map(it => ({ ...it, score: it.app_scores?.[appId] ?? 0, top: isTopPick(it, appId) }));
+
+      if (sort === 'score') items.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+      else items.sort((a, b) => a.name.localeCompare(b.name));
+
+      const list = document.getElementById('list');
+      if (!items.length) {
+        list.innerHTML = '<div class="empty">Sin resultados</div>';
+        return;
+      }
+
+      list.innerHTML = items.map(it => `
+        <article class="card ${it.top || it.score >= 60 ? 'top' : ''}">
+          <div>
+            <h3>${it.name} ${it.top ? '<span class="badge">TOP</span>' : ''}</h3>
+            <div class="meta">${it.block} · ${it.section} · ${it.category || '—'} · ${it.access}</div>
+            <div class="tags">${(it.tags||[]).slice(0,6).map(t => `<span class="tag">${t}</span>`).join('')}</div>
+          </div>
+          <div class="actions">
+            <span class="score">fit ${it.score}%</span>
+            <a class="btn" href="${it.page_url}" target="_blank" rel="noopener">MotionSites</a>
+            <button class="copy" data-name="${it.name.replace(/"/g,'&quot;')}" data-block="${it.block}">Copiar ref.</button>
+          </div>
+        </article>`).join('');
+
+      list.querySelectorAll('.copy').forEach(btn => {
+        btn.onclick = () => {
+          const ref = `[WebStyle] ${btn.dataset.block}: ${btn.dataset.name} (MotionSites gratis)`;
+          navigator.clipboard.writeText(ref);
+          btn.textContent = 'Copiado ✓';
+          setTimeout(() => btn.textContent = 'Copiar ref.', 1200);
+        };
+      });
+    }
+
+    load();
+  </script>
+</body>
+</html>

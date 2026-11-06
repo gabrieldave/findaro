@@ -1,0 +1,21 @@
+---
+description: >-
+  App ordena — antes de landing o UI marketing, recomienda prompts MotionSites gratis
+  del catálogo (web-style-catalog). alwaysApply.
+alwaysApply: true
+---
+
+# Ordena — recomendador de estilos
+
+- **app_id:** `ordena` (ver `.cursor/app.json`)
+- Perfil: `tools/web-style-catalog/apps.registry.json` → `apps.ordena`
+
+## Antes de diseñar landing / hero / pricing / FAQ
+
+1. Lee `apps.ordena.app_profile` y `curated_picks`
+2. Ejecuta: `python3 tools/web-style-catalog/recommend.py ordena`
+3. Presenta recomendaciones **por bloque** con rationale
+4. Indica qué copiar en [MotionSites](https://motionsites.ai) (botón Copy)
+5. Implementa solo tras confirmación del usuario
+
+Skill: `.cursor/skills/web-style-catalog/SKILL.md` o global `~/.cursor/skills/web-style-catalog/SKILL.md`

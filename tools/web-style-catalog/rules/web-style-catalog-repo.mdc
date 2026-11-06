@@ -1,0 +1,20 @@
+---
+description: >-
+  Landing __APP_ID__ — usar web-style-catalog antes de diseñar UI marketing.
+globs:
+  - "**/landing.css"
+  - "**/page.tsx"
+  - "**/Landing*.tsx"
+alwaysApply: false
+---
+
+# Web Style Catalog — __APP_ID__
+
+**App ID:** `__APP_ID__` · Perfil: `tools/web-style-catalog/apps.registry.json`
+
+Al abrir archivos de landing:
+
+1. Ejecuta `python3 tools/web-style-catalog/recommend.py __APP_ID__`
+2. Recomienda estilos MotionSites **gratis** por bloque antes de editar CSS
+3. Prioriza `curated_picks` y `app_profile.style_rationale`
+4. Implementa respetando `theme` del registry

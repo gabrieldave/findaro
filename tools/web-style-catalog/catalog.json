@@ -1,0 +1,5155 @@
+{
+  "version": 2,
+  "source": "https://motionsites.ai",
+  "registry": "/Users/daveax/Projects/orden/tools/web-style-catalog/apps.registry.json",
+  "workflow": {
+    "step1": "Identificar app_id en apps.registry.json",
+    "step2": "Filtrar catalog.json por block y app_scores[app_id] >= 50",
+    "step3": "Priorizar curated_picks del app_id",
+    "step4": "Usuario copia prompt en MotionSites (botón Copy)",
+    "step5": "Cursor adapta al theme y copy del producto"
+  },
+  "apps": {
+    "cursia": {
+      "label": "Cursia — cursos visuales con IA",
+      "theme": {
+        "bg": "#100d12",
+        "accent": "#ff6a3d",
+        "violet": "#7b61ff",
+        "ink": "#f2ece0"
+      },
+      "repo_hint": "presentaciones/cursos-visuales",
+      "landing_css": "src/app/landing.css",
+      "app_profile": {
+        "product": "SaaS que convierte cualquier tema en un curso visual premium: mapa educativo, muestra 16:9, generación batch, export PDF/PPTX/PNG.",
+        "audience": "Alumnos, profesores, infoproductores, RH/capitalización, agencias, coaches.",
+        "tone": "Editorial premium oscuro, serif en titulares, confiable pero creativo — no crypto, no luxury jets, no wellness spa.",
+        "differentiator": "Cada slide es una infografía 16:9 independiente; hero muestra cards 3D con slides reales del producto.",
+        "landing_blocks": [
+          "hero",
+          "features",
+          "process",
+          "gallery",
+          "testimonials",
+          "pricing",
+          "faq",
+          "cta",
+          "footer",
+          "background"
+        ],
+        "style_rationale": {
+          "hero": "3D Portfolio — cards apiladas mostrando el producto (slides), igual que el stage actual.",
+          "features": "Glow Features — grid de beneficios con glow naranja/violeta del theme.",
+          "pricing": "Rocket Pricing — 3 tiers, plan central destacado (Validar).",
+          "testimonials": "Radial Diagram — stats + testimonios sociales.",
+          "faq": "FAQ CTA — accordion con cierre suave.",
+          "cta": "Liquid Glass CTA — glassmorphism coherente con dark editorial.",
+          "background": "Blue Purple Glow + Ember Glow — refuerzan #7b61ff y #ff6a3d."
+        }
+      },
+      "curated_picks": {
+        "hero": [
+          "3D Portfolio",
+          "DesignPro Academy",
+          "Digitwist AI Builder",
+          "Bloom AI",
+          "Power AI",
+          "Mindloop Landing",
+          "Prisma Creative Studio"
+        ],
+        "features": [
+          "Glow Features",
+          "Guardnet Benefits",
+          "Animated Cards"
+        ],
+        "pricing": [
+          "Rocket Pricing"
+        ],
+        "testimonials": [
+          "Radial Diagram"
+        ],
+        "faq": [
+          "FAQ CTA"
+        ],
+        "cta": [
+          "Liquid Glass CTA"
+        ],
+        "footer": [
+          "Stark Minimal Footer",
+          "Lumina"
+        ],
+        "background": [
+          "Blue Purple Glow",
+          "Ember Glow",
+          "Cosmic Drift",
+          "Abstract Flow"
+        ],
+        "template-full": [
+          "Design Rocket",
+          "AI Automation",
+          "Simple Start"
+        ]
+      },
+      "applied_styles": {
+        "date": "2026-06-30",
+        "blocks": {
+          "hero": "3D Portfolio",
+          "features": "Glow Features",
+          "pricing": "Rocket Pricing",
+          "faq": "FAQ CTA",
+          "cta": "Liquid Glass CTA",
+          "background": "Blue Purple Glow + Ember Glow"
+        }
+      }
+    },
+    "saas-ai": {
+      "label": "SaaS con IA (genérico VibeSystems)",
+      "theme": {},
+      "repo_hint": "",
+      "landing_css": "",
+      "app_profile": {},
+      "curated_picks": {
+        "hero": [
+          "Power AI",
+          "Stellar AI",
+          "Sentinel AI",
+          "Nexora Automation"
+        ],
+        "features": [
+          "Glow Features",
+          "NexaCore Control"
+        ],
+        "pricing": [
+          "Rocket Pricing",
+          "SaaS Pricing Flow"
+        ],
+        "template-full": [
+          "AI Automation",
+          "Analytics Platform",
+          "Simple Start"
+        ]
+      },
+      "applied_styles": {}
+    },
+    "agency": {
+      "label": "Agencia / portfolio creativo",
+      "theme": {},
+      "repo_hint": "",
+      "landing_css": "",
+      "app_profile": {},
+      "curated_picks": {
+        "hero": [
+          "Velorah",
+          "Creative Studio",
+          "Modern Agency",
+          "Bold Studio"
+        ],
+        "template-full": [
+          "Full Agency Template",
+          "Agency Template",
+          "Maestro Vision"
+        ]
+      },
+      "applied_styles": {}
+    },
+    "edtech": {
+      "label": "Educación / academia online",
+      "theme": {},
+      "repo_hint": "",
+      "landing_css": "",
+      "app_profile": {},
+      "curated_picks": {
+        "hero": [
+          "DesignPro Academy",
+          "CodeNest Coding Platform",
+          "Mindloop Landing"
+        ],
+        "template-full": [
+          "Design Rocket",
+          "Documentation",
+          "Simple Start"
+        ]
+      },
+      "applied_styles": {}
+    },
+    "generic": {
+      "label": "Landing genérica (sin perfil aún)",
+      "theme": {},
+      "repo_hint": "",
+      "landing_css": "",
+      "app_profile": {},
+      "curated_picks": {},
+      "applied_styles": {}
+    },
+    "atlas-estilos": {
+      "label": "Atlas Estilos Premium — catálogo 88 estilos",
+      "theme": {
+        "bg": "#05070d",
+        "accent": "#5eead4",
+        "violet": "#7dd3fc",
+        "ink": "#e8eef7",
+        "gold": "#c4a574"
+      },
+      "repo_hint": "atlas-estilos",
+      "landing_css": "app/globals.css",
+      "app_profile": {
+        "product": "Catálogo visual de 88 estilos premium: explorar, personalizar sujeto y copiar prompts listos para generadores de imagen.",
+        "audience": "Diseñadores, creadores, marketers y makers que necesitan dirección visual rápida y prompts profesionales.",
+        "tone": "Premium cinematográfico 3D, oscuro con acentos teal/cian, profundidad espacial — no crypto, no cream-serif terracotta.",
+        "differentiator": "Galería interactiva de 88 estilos reales con preview full-bleed y prompt editable por sujeto.",
+        "landing_blocks": [
+          "hero",
+          "features",
+          "gallery",
+          "cta",
+          "footer",
+          "background"
+        ],
+        "style_rationale": {
+          "hero": "3D Portfolio — stage con cards/paneles 3D mostrando estilos reales del catálogo.",
+          "features": "Animated Cards / Glow Features — pasos Explora → Personaliza → Crea con profundidad.",
+          "gallery": "Digitwist / Prisma — grid de estilos con tilt y presencia premium.",
+          "cta": "Liquid Glass CTA — cierre glassmorphism coherente con el modal de prompts.",
+          "background": "Cosmic Drift / Abstract Flow — atmósfera espacial sin purple-on-white."
+        }
+      },
+      "curated_picks": {
+        "hero": [
+          "3D Portfolio",
+          "Prisma Creative Studio",
+          "Digitwist AI Builder",
+          "Bloom AI",
+          "Power AI",
+          "Mindloop Landing"
+        ],
+        "features": [
+          "Animated Cards",
+          "Glow Features",
+          "Guardnet Benefits"
+        ],
+        "gallery": [
+          "Prisma Creative Studio",
+          "3D Portfolio"
+        ],
+        "cta": [
+          "Liquid Glass CTA"
+        ],
+        "footer": [
+          "Stark Minimal Footer",
+          "Lumina"
+        ],
+        "background": [
+          "Cosmic Drift",
+          "Abstract Flow",
+          "Ember Glow"
+        ]
+      },
+      "applied_styles": {
+        "date": "2026-07-22",
+        "blocks": {
+          "hero": "3D Portfolio",
+          "features": "Animated Cards",
+          "cta": "Liquid Glass CTA",
+          "footer": "Stark Minimal Footer",
+          "background": "Cosmic Drift"
+        },
+        "notes": "Premium 3D cinematográfico; theme teal/cian sobre Cosmic Drift. Copiar en MotionSites: 3D Portfolio, Animated Cards, Liquid Glass CTA, Cosmic Drift, Stark Minimal Footer."
+      }
+    },
+    "grok-image-2": {
+      "label": "Grok Image 2.0",
+      "theme": {
+        "bg": "#f3f1e9",
+        "accent": "#c9ff35",
+        "violet": "#10100e",
+        "ink": "#10100e"
+      },
+      "repo_hint": "grok-image-2",
+      "landing_css": "src/app/landing.css",
+      "app_profile": {
+        "product": "Manual interactivo, constructor y biblioteca de 96 prompts para Grok Image 2.0.",
+        "audience": "Creativos, freelancers y equipos que entregan imágenes a clientes con Grok/xAI.",
+        "tone": "Editorial didáctico, lima ácida sobre papel, hero oscuro cinematográfico.",
+        "differentiator": "96 recetas filtrables + constructor de brief + laboratorios prácticos.",
+        "landing_blocks": [
+          "hero",
+          "features",
+          "cta"
+        ],
+        "style_rationale": {
+          "hero": "Atlas #163 Diccionario visual: familias ordenadas y fichas didácticas para la biblioteca de estilos."
+        },
+        "atlas": {
+          "id": 163,
+          "name": "Diccionario visual"
+        }
+      },
+      "curated_picks": {
+        "hero": [
+          "Atlas Diccionario visual #163"
+        ],
+        "features": [
+          "Atlas Diccionario visual #163"
+        ],
+        "pricing": [],
+        "footer": []
+      },
+      "applied_styles": {}
+    },
+    "crashatlas": {
+      "label": "CrashAtlas — caídas históricas de los mercados",
+      "theme": {
+        "bg": "#07080b",
+        "accent": "#ff3b30",
+        "violet": "#f5b942",
+        "ink": "#f4f1ea"
+      },
+      "repo_hint": "/Users/daveax/Projects/crashatlas",
+      "landing_css": "src/app/landing.css",
+      "app_profile": {
+        "product": "Atlas interactivo de las mayores caídas (drawdowns) del Oro, Nasdaq, US30, S&P 500 y Bitcoin con fechas exactas de pico, mínimo y recuperación para ubicarlas en el gráfico.",
+        "audience": "Traders e inversores hispanohablantes (MT4/TradingView) que estudian ciclos de mercado y gestión de riesgo.",
+        "tone": "Dark editorial financiero, terminal de datos premium, rojo crash + oro, tipografía tabular.",
+        "differentiator": "Hero 3D con las cinco peores caídas como columnas que se hunden bajo el plano del precio; datos verificables y tablas por activo.",
+        "landing_blocks": [
+          "hero",
+          "background",
+          "social-proof",
+          "features",
+          "section",
+          "cta",
+          "footer"
+        ],
+        "style_rationale": {
+          "hero": "3D Story — narrativa 3D por capas que encaja con un recorrido histórico 1929→2026",
+          "background": "Dark Vertical Blinds — franjas verticales evocan velas/barras de precio",
+          "social-proof": "Arceage Stats — KPIs grandes para las peores caídas por activo",
+          "features": "Animated Cards — tarjetas de notas para analizar en el gráfico",
+          "section": "Pixel Grid Hover — línea de tiempo/grid de eventos con hover",
+          "cta": "FAQ CTA — cierre con dudas frecuentes y CTA de instalación/login",
+          "footer": "Stark Minimal Footer — disclaimer legal sobrio"
+        }
+      },
+      "curated_picks": {
+        "hero": [
+          "3D Story",
+          "3D Collectible Hero"
+        ],
+        "background": [
+          "Dark Vertical Blinds",
+          "Dark Blue Waves"
+        ],
+        "social-proof": [
+          "Arceage Stats"
+        ],
+        "features": [
+          "Animated Cards",
+          "Glow Features"
+        ],
+        "section": [
+          "Pixel Grid Hover"
+        ],
+        "cta": [
+          "FAQ CTA"
+        ],
+        "footer": [
+          "Stark Minimal Footer"
+        ],
+        "template-full": [
+          "Wealth Builder"
+        ]
+      },
+      "applied_styles": {
+        "hero": "3D Story (adaptado: escena three.js de columnas de drawdown)",
+        "background": "Dark Vertical Blinds (CSS, franjas tipo velas)",
+        "social-proof": "Arceage Stats (KPIs por activo)",
+        "features": "Animated Cards (notas de análisis)",
+        "section": "Pixel Grid Hover (timeline de crisis)",
+        "cta": "FAQ CTA",
+        "footer": "Stark Minimal Footer"
+      }
+    },
+    "legion-ai": {
+      "label": "Legion AI — panel inteligente de mercados para MT4",
+      "theme": {
+        "bg": "#04070F",
+        "accent": "#45E2A3",
+        "violet": "#E6B65A",
+        "ink": "#EEF3FA"
+      },
+      "repo_hint": "/Users/daveax/.cursor/mt4",
+      "landing_css": "public/index.html (style embebido)",
+      "app_profile": {
+        "product": "Panel de análisis multi-temporal para MetaTrader 4 (Oro, Bitcoin, índices y forex) que resume en una lectura clara si esperar, buscar compras o buscar ventas, con medidor de liquidación y caídas históricas.",
+        "audience": "Traders retail de MT4, angloparlantes por defecto y LATAM; venta por WhatsApp.",
+        "tone": "Terminal de datos premium, dark navy + mint + oro, tipografía Archivo/Geist, honesto con riesgos.",
+        "differentiator": "Hero 3D con el panel real sobre un gráfico XAUUSD inclinado, paisaje isométrico del RSI y resultados verificables de cuenta real.",
+        "landing_blocks": [
+          "hero",
+          "features",
+          "section",
+          "social-proof",
+          "faq",
+          "cta",
+          "footer"
+        ],
+        "style_rationale": {
+          "hero": "Diseño propio del autor (Legion_AI_Premium_Page.html); no se sustituyó por prompts del catálogo"
+        }
+      },
+      "curated_picks": {},
+      "applied_styles": {
+        "hero": "Propio — panel 3D en perspectiva sobre gráfico MT4 + terreno canvas",
+        "features": "Propio — catálogo de 14 herramientas en 4 grupos",
+        "section": "Propio — paisaje isométrico RSI (canvas) y simulador Wipeout",
+        "social-proof": "Propio — curva de equity + capturas de reporte real",
+        "faq": "Propio — acordeón details/summary",
+        "cta": "Propio — CTA WhatsApp con terreno canvas",
+        "footer": "Propio — divulgación de riesgo"
+      }
+    },
+    "ordena": {
+      "label": "Ordena",
+      "theme": {
+        "bg": "#0B1220",
+        "fg": "#E8EEF7",
+        "accent": "#3DDC97",
+        "muted": "#8B9BB4",
+        "font_display": "Syne",
+        "font_body": "IBM Plex Sans"
+      },
+      "repo_hint": "orden",
+      "landing_css": "web/src/app/landing.css",
+      "app_profile": {
+        "product": "Ordena — explorador de carpetas para macOS, mejor que Finder para Descargas",
+        "audience": "usuarios Mac que organizan archivos a diario",
+        "tone": "claro, útil, sin hype",
+        "differentiator": "hold-to-drag, bandeja, atajo global, sin reemplazar Finder a la fuerza",
+        "style_rationale": {
+          "hero": "Producto Mac en primer plano, marca Ordena dominante",
+          "pricing": "Un solo plan $9 cuando abra al público; ahora acceso por código"
+        }
+      },
+      "curated_picks": {
+        "hero": "Soft Gradient Hero",
+        "features": "Icon Feature Grid",
+        "pricing": "Simple One Price",
+        "cta": "Clean Download CTA"
+      },
+      "applied_styles": {}
+    }
+  },
+  "blocks": [
+    "about",
+    "background",
+    "cta",
+    "features",
+    "footer",
+    "gallery",
+    "hero",
+    "pricing",
+    "section",
+    "social-proof",
+    "template-full",
+    "testimonials",
+    "utility"
+  ],
+  "total": 200,
+  "items": [
+    {
+      "name": "79",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "79",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "80",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "80",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "82",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "82",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "95",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "95",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "97",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "97",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Abstract Flow",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "abstract-flow",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 60,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Animated Background 104800",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "animated-background-104800",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Animated Background 134830",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "animated-background-134830",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Animated Background 144509",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "animated-background-144509",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Background 03",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "background-03",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Background 04",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "background-04",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Background 06",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "background-06",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Background 064122",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "background-064122",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Background 081",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "background-081",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Background 082",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "background-082",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Background 084",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "background-084",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Background 086",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "background-086",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Background 087",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "background-087",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Background 1",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "background-1",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Background 4",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "background-4",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Background 6",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "background-6",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Blue Gradient Orb",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "blue-gradient-orb",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Blue Light Streaks",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "blue-light-streaks",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Blue Purple Glow",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "blue-purple-glow",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Blue Vertical Blinds",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "blue-vertical-blinds",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Cosmic Drift",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "cosmic-drift",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 60,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Cosmic Ribbon",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "cosmic-ribbon",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Cosmic Ripple",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "cosmic-ripple",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Crystal Bloom",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "crystal-bloom",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Dark Blue Waves",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "dark-blue-waves",
+      "block": "background",
+      "tags": [
+        "background",
+        "dark"
+      ],
+      "app_scores": {
+        "cursia": 25,
+        "saas-ai": 25,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 25,
+        "grok-image-2": 10,
+        "crashatlas": 75,
+        "legion-ai": 25,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Dark flowers",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "dark-flowers",
+      "block": "background",
+      "tags": [
+        "background",
+        "dark"
+      ],
+      "app_scores": {
+        "cursia": 25,
+        "saas-ai": 25,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 25,
+        "grok-image-2": 10,
+        "crashatlas": 25,
+        "legion-ai": 25,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Dark Vertical Blinds",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "dark-vertical-blinds",
+      "block": "background",
+      "tags": [
+        "background",
+        "dark"
+      ],
+      "app_scores": {
+        "cursia": 25,
+        "saas-ai": 25,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 25,
+        "grok-image-2": 10,
+        "crashatlas": 75,
+        "legion-ai": 25,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Digital Pulse",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "digital-pulse",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Electric Surge",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "electric-surge",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Ember Glow",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "ember-glow",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 60,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Ember Trail",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "ember-trail",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Glass Stream",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "glass-stream",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Green Planet Glow",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "green-planet-glow",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Iridescent Ribbon",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "iridescent-ribbon",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Liquid Chrome",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "liquid-chrome",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Liquid Motion",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "liquid-motion",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion Background 031045",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "motion-background-031045",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion Background 10",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "motion-background-10",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion Background 105838",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "motion-background-105838",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion Background 11",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "motion-background-11",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion Background 12",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "motion-background-12",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion Background 14",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "motion-background-14",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion Background 18",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "motion-background-18",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion Background 19",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "motion-background-19",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion Background 4",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "motion-background-4",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion Background 6",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "motion-background-6",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion BG 52",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "motion-bg-52",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion BG 56",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "motion-bg-56",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion BG 57",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "motion-bg-57",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion BG 59",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "motion-bg-59",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Music",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "music",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Nature nice",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "nature-nice",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Neon Flux",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "neon-flux",
+      "block": "background",
+      "tags": [
+        "background",
+        "dark"
+      ],
+      "app_scores": {
+        "cursia": 25,
+        "saas-ai": 25,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 25,
+        "grok-image-2": 10,
+        "crashatlas": 25,
+        "legion-ai": 25,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Neon Pulse",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "neon-pulse",
+      "block": "background",
+      "tags": [
+        "background",
+        "dark"
+      ],
+      "app_scores": {
+        "cursia": 25,
+        "saas-ai": 25,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 25,
+        "grok-image-2": 10,
+        "crashatlas": 25,
+        "legion-ai": 25,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Purple Silk Waves",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "purple-silk-waves",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Sage Green Abstract",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "sage-green-abstract",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Solar Drift",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "solar-drift",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Velvet Storm",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "velvet-storm",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "White Wave Motion",
+      "category": "Background",
+      "section": "backgrounds",
+      "page_url": "https://motionsites.ai/backgrounds",
+      "access": "Copy URL",
+      "id": "white-wave-motion",
+      "block": "background",
+      "tags": [
+        "background"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "3D Collectible Hero",
+      "category": "3D Website",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "3d-collectible-hero",
+      "block": "hero",
+      "tags": [
+        "portfolio-3d"
+      ],
+      "app_scores": {
+        "cursia": 25,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 25,
+        "grok-image-2": 10,
+        "crashatlas": 75,
+        "legion-ai": 25,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Nexto 404",
+      "category": "404",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "nexto-404",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "AI Image Generator UI",
+      "category": "AI",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "ai-image-generator-ui",
+      "block": "hero",
+      "tags": [
+        "saas-ai"
+      ],
+      "app_scores": {
+        "cursia": 30,
+        "saas-ai": 30,
+        "agency": 15,
+        "edtech": 15,
+        "generic": 15,
+        "atlas-estilos": 30,
+        "grok-image-2": 30,
+        "crashatlas": 15,
+        "legion-ai": 15,
+        "ordena": 15
+      }
+    },
+    {
+      "name": "Creative Studio",
+      "category": "Agency",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "creative-studio",
+      "block": "hero",
+      "tags": [
+        "agency"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 75,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Modern Agency",
+      "category": "Agency",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "modern-agency",
+      "block": "hero",
+      "tags": [
+        "agency"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 75,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Velorah",
+      "category": "Agency",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "velorah",
+      "block": "hero",
+      "tags": [
+        "agency"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 75,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Build With Us",
+      "category": "Contact us",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "build-with-us",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Email Marketing",
+      "category": "Email Marketing",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "email-marketing",
+      "block": "hero",
+      "tags": [
+        "marketing"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "AI Workflow Hero",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "ai-workflow-hero",
+      "block": "hero",
+      "tags": [
+        "saas-ai"
+      ],
+      "app_scores": {
+        "cursia": 30,
+        "saas-ai": 30,
+        "agency": 15,
+        "edtech": 15,
+        "generic": 15,
+        "atlas-estilos": 30,
+        "grok-image-2": 30,
+        "crashatlas": 15,
+        "legion-ai": 15,
+        "ordena": 15
+      }
+    },
+    {
+      "name": "Audio Showcase",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "audio-showcase",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Bold Studio",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "bold-studio",
+      "block": "hero",
+      "tags": [
+        "agency"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 75,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Contact Cybernetic",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "contact-cybernetic",
+      "block": "hero",
+      "tags": [
+        "dark",
+        "security"
+      ],
+      "app_scores": {
+        "cursia": 25,
+        "saas-ai": 25,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 25,
+        "grok-image-2": 10,
+        "crashatlas": 25,
+        "legion-ai": 25,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Creative Portfolio",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "creative-portfolio",
+      "block": "hero",
+      "tags": [
+        "agency"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 25,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Cybersecurity Hero",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "cybersecurity-hero",
+      "block": "hero",
+      "tags": [
+        "dark",
+        "security"
+      ],
+      "app_scores": {
+        "cursia": 25,
+        "saas-ai": 25,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 25,
+        "grok-image-2": 10,
+        "crashatlas": 25,
+        "legion-ai": 25,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Equilibrium",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "equilibrium",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Immersive Ocean",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "immersive-ocean",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Impact Ventures",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "impact-ventures",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "IntelligentX",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "intelligentx",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Interactive Discovery",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "interactive-discovery",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Network Hero",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "network-hero",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Organic Odyssey",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "organic-odyssey",
+      "block": "hero",
+      "tags": [
+        "wellness-only"
+      ],
+      "app_scores": {
+        "cursia": 0,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 0,
+        "grok-image-2": 10,
+        "crashatlas": 0,
+        "legion-ai": 0,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Prosthetics Hero",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "prosthetics-hero",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Retro-Futurist",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "retro-futurist",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Tech-Forward",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "tech-forward",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "VaultShield",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "vaultshield",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Wellness Balance",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "wellness-balance",
+      "block": "hero",
+      "tags": [
+        "wellness-only"
+      ],
+      "app_scores": {
+        "cursia": 0,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 0,
+        "grok-image-2": 10,
+        "crashatlas": 0,
+        "legion-ai": 0,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Wellness Hero",
+      "category": "Hero",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "wellness-hero",
+      "block": "hero",
+      "tags": [
+        "wellness-only"
+      ],
+      "app_scores": {
+        "cursia": 0,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 0,
+        "grok-image-2": 10,
+        "crashatlas": 0,
+        "legion-ai": 0,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Aethera Studio",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "aethera-studio",
+      "block": "hero",
+      "tags": [
+        "agency"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 25,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Aetheris Voyage",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "aetheris-voyage",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Asme",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "asme",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Bloom AI",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "bloom-ai",
+      "block": "hero",
+      "tags": [
+        "saas-ai"
+      ],
+      "app_scores": {
+        "cursia": 80,
+        "saas-ai": 30,
+        "agency": 15,
+        "edtech": 15,
+        "generic": 15,
+        "atlas-estilos": 80,
+        "grok-image-2": 30,
+        "crashatlas": 15,
+        "legion-ai": 15,
+        "ordena": 15
+      }
+    },
+    {
+      "name": "DesignPro Academy",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "designpro-academy",
+      "block": "hero",
+      "tags": [
+        "edtech"
+      ],
+      "app_scores": {
+        "cursia": 80,
+        "saas-ai": 15,
+        "agency": 15,
+        "edtech": 80,
+        "generic": 15,
+        "atlas-estilos": 15,
+        "grok-image-2": 15,
+        "crashatlas": 15,
+        "legion-ai": 15,
+        "ordena": 15
+      }
+    },
+    {
+      "name": "Digital Epoch",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "digital-epoch",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Dot",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "dot",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Duolingo Styleguide",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "duolingo-styleguide",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Luminex",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "luminex",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Portal",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "portal",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Power AI",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "power-ai",
+      "block": "hero",
+      "tags": [
+        "saas-ai"
+      ],
+      "app_scores": {
+        "cursia": 80,
+        "saas-ai": 80,
+        "agency": 15,
+        "edtech": 15,
+        "generic": 15,
+        "atlas-estilos": 80,
+        "grok-image-2": 30,
+        "crashatlas": 15,
+        "legion-ai": 15,
+        "ordena": 15
+      }
+    },
+    {
+      "name": "RIVR",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "rivr",
+      "block": "hero",
+      "tags": [
+        "crypto"
+      ],
+      "app_scores": {
+        "cursia": 0,
+        "saas-ai": 0,
+        "agency": 0,
+        "edtech": 0,
+        "generic": 0,
+        "atlas-estilos": 0,
+        "grok-image-2": 0,
+        "crashatlas": 0,
+        "legion-ai": 0,
+        "ordena": 0
+      }
+    },
+    {
+      "name": "Sentinel AI",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "sentinel-ai",
+      "block": "hero",
+      "tags": [
+        "saas-ai"
+      ],
+      "app_scores": {
+        "cursia": 30,
+        "saas-ai": 80,
+        "agency": 15,
+        "edtech": 15,
+        "generic": 15,
+        "atlas-estilos": 30,
+        "grok-image-2": 30,
+        "crashatlas": 15,
+        "legion-ai": 15,
+        "ordena": 15
+      }
+    },
+    {
+      "name": "Stellar AI",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "stellar-ai",
+      "block": "hero",
+      "tags": [
+        "saas-ai"
+      ],
+      "app_scores": {
+        "cursia": 30,
+        "saas-ai": 80,
+        "agency": 15,
+        "edtech": 15,
+        "generic": 15,
+        "atlas-estilos": 30,
+        "grok-image-2": 30,
+        "crashatlas": 15,
+        "legion-ai": 15,
+        "ordena": 15
+      }
+    },
+    {
+      "name": "Taskly",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "taskly",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Transform Data",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "transform-data",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "VEX Ventures",
+      "category": "Hero Section",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "vex-ventures",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "3D Story",
+      "category": "Landing Page",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "3d-story",
+      "block": "hero",
+      "tags": [
+        "portfolio-3d"
+      ],
+      "app_scores": {
+        "cursia": 25,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 25,
+        "grok-image-2": 10,
+        "crashatlas": 75,
+        "legion-ai": 25,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "CodeNest Coding Platform",
+      "category": "Landing Page",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "codenest-coding-platform",
+      "block": "hero",
+      "tags": [
+        "edtech"
+      ],
+      "app_scores": {
+        "cursia": 30,
+        "saas-ai": 15,
+        "agency": 15,
+        "edtech": 80,
+        "generic": 15,
+        "atlas-estilos": 15,
+        "grok-image-2": 15,
+        "crashatlas": 15,
+        "legion-ai": 15,
+        "ordena": 15
+      }
+    },
+    {
+      "name": "Digital Experiences",
+      "category": "Landing Page",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "digital-experiences",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Health Portal",
+      "category": "Landing Page",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "health-portal",
+      "block": "hero",
+      "tags": [
+        "wellness-only"
+      ],
+      "app_scores": {
+        "cursia": 0,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 0,
+        "grok-image-2": 10,
+        "crashatlas": 0,
+        "legion-ai": 0,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Innovation",
+      "category": "Landing Page",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "innovation",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Mindloop Landing",
+      "category": "Landing Page",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "mindloop-landing",
+      "block": "hero",
+      "tags": [
+        "edtech"
+      ],
+      "app_scores": {
+        "cursia": 80,
+        "saas-ai": 15,
+        "agency": 15,
+        "edtech": 80,
+        "generic": 15,
+        "atlas-estilos": 65,
+        "grok-image-2": 15,
+        "crashatlas": 15,
+        "legion-ai": 15,
+        "ordena": 15
+      }
+    },
+    {
+      "name": "Neon Logic",
+      "category": "Landing Page",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "neon-logic",
+      "block": "hero",
+      "tags": [
+        "dark"
+      ],
+      "app_scores": {
+        "cursia": 25,
+        "saas-ai": 25,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 25,
+        "grok-image-2": 10,
+        "crashatlas": 25,
+        "legion-ai": 25,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Orbis NFT",
+      "category": "Landing Page",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "orbis-nft",
+      "block": "hero",
+      "tags": [
+        "crypto"
+      ],
+      "app_scores": {
+        "cursia": 0,
+        "saas-ai": 0,
+        "agency": 0,
+        "edtech": 0,
+        "generic": 0,
+        "atlas-estilos": 0,
+        "grok-image-2": 0,
+        "crashatlas": 0,
+        "legion-ai": 0,
+        "ordena": 0
+      }
+    },
+    {
+      "name": "Prisma Creative Studio",
+      "category": "Landing Page",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "prisma-creative-studio",
+      "block": "hero",
+      "tags": [
+        "agency"
+      ],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 10,
+        "agency": 25,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 60,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "SkyElite Private Jets",
+      "category": "Landing Page",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "skyelite-private-jets",
+      "block": "hero",
+      "tags": [
+        "luxury"
+      ],
+      "app_scores": {
+        "cursia": 0,
+        "saas-ai": 0,
+        "agency": 0,
+        "edtech": 0,
+        "generic": 0,
+        "atlas-estilos": 0,
+        "grok-image-2": 0,
+        "crashatlas": 0,
+        "legion-ai": 0,
+        "ordena": 0
+      }
+    },
+    {
+      "name": "USD Halo",
+      "category": "Landing Page",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "usd-halo",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Email Landing Page",
+      "category": "Landing page",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "email-landing-page",
+      "block": "hero",
+      "tags": [
+        "marketing"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "3D Portfolio",
+      "category": "Portfolio",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "3d-portfolio",
+      "block": "hero",
+      "tags": [
+        "agency",
+        "portfolio-3d"
+      ],
+      "app_scores": {
+        "cursia": 75,
+        "saas-ai": 10,
+        "agency": 25,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 75,
+        "grok-image-2": 10,
+        "crashatlas": 25,
+        "legion-ai": 25,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Portfolio Cosmic",
+      "category": "Portfolio",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "portfolio-cosmic",
+      "block": "hero",
+      "tags": [
+        "agency"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 25,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Convix Software",
+      "category": "SaaS",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "convix-software",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Datacore Booking",
+      "category": "SaaS",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "datacore-booking",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Digitwist AI Builder",
+      "category": "SaaS",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "digitwist-ai-builder",
+      "block": "hero",
+      "tags": [
+        "saas-ai"
+      ],
+      "app_scores": {
+        "cursia": 80,
+        "saas-ai": 30,
+        "agency": 15,
+        "edtech": 15,
+        "generic": 15,
+        "atlas-estilos": 80,
+        "grok-image-2": 30,
+        "crashatlas": 15,
+        "legion-ai": 15,
+        "ordena": 15
+      }
+    },
+    {
+      "name": "Neuralyn",
+      "category": "SaaS",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "neuralyn",
+      "block": "hero",
+      "tags": [
+        "saas-ai"
+      ],
+      "app_scores": {
+        "cursia": 30,
+        "saas-ai": 30,
+        "agency": 15,
+        "edtech": 15,
+        "generic": 15,
+        "atlas-estilos": 30,
+        "grok-image-2": 30,
+        "crashatlas": 15,
+        "legion-ai": 15,
+        "ordena": 15
+      }
+    },
+    {
+      "name": "Nexora Automation",
+      "category": "SaaS",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "nexora-automation",
+      "block": "hero",
+      "tags": [
+        "saas-ai"
+      ],
+      "app_scores": {
+        "cursia": 30,
+        "saas-ai": 80,
+        "agency": 15,
+        "edtech": 15,
+        "generic": 15,
+        "atlas-estilos": 30,
+        "grok-image-2": 30,
+        "crashatlas": 15,
+        "legion-ai": 15,
+        "ordena": 15
+      }
+    },
+    {
+      "name": "SaaS Value",
+      "category": "SaaS",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "saas-value",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Securify Data Security",
+      "category": "SaaS",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "securify-data-security",
+      "block": "hero",
+      "tags": [
+        "security"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Aurora Onboard",
+      "category": "Signup",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "aurora-onboard",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Wanderful Hero",
+      "category": "Travel",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "wanderful-hero",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "No-Code Waitlist",
+      "category": "Waitlist",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "no-code-waitlist",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Neo Museum",
+      "category": "Website",
+      "section": "heroes",
+      "page_url": "https://motionsites.ai",
+      "access": "Copy",
+      "id": "neo-museum",
+      "block": "hero",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "404 Planet",
+      "category": "404",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "404-planet",
+      "block": "utility",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Axion About",
+      "category": "About",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "axion-about",
+      "block": "about",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "LaunchEx About",
+      "category": "About",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "launchex-about",
+      "block": "about",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Orbis Hello",
+      "category": "About",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "orbis-hello",
+      "block": "about",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Portfolio About",
+      "category": "About",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "portfolio-about",
+      "block": "about",
+      "tags": [
+        "agency"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 25,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Tech-Noir About",
+      "category": "About",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "tech-noir-about",
+      "block": "about",
+      "tags": [
+        "dark"
+      ],
+      "app_scores": {
+        "cursia": 25,
+        "saas-ai": 25,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 25,
+        "grok-image-2": 10,
+        "crashatlas": 25,
+        "legion-ai": 25,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Guardnet Benefits",
+      "category": "Benefits",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "guardnet-benefits",
+      "block": "features",
+      "tags": [
+        "security"
+      ],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 60,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Blog Showcase",
+      "category": "Blog",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "blog-showcase",
+      "block": "gallery",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "FAQ CTA",
+      "category": "CTA",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "faq-cta",
+      "block": "cta",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 60,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Liquid Glass CTA",
+      "category": "CTA",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "liquid-glass-cta",
+      "block": "cta",
+      "tags": [],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 60,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Rocket CTA",
+      "category": "CTA",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "rocket-cta",
+      "block": "cta",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Pixel Grid Hover",
+      "category": "Case Studies",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "pixel-grid-hover",
+      "block": "section",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 60,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Beauty Categories",
+      "category": "Categories",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "beauty-categories",
+      "block": "section",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Animated Cards",
+      "category": "Component",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "animated-cards",
+      "block": "features",
+      "tags": [],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 60,
+        "grok-image-2": 10,
+        "crashatlas": 60,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Cognitra Feature",
+      "category": "Feature",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "cognitra-feature",
+      "block": "section",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Max Reed Portfolio",
+      "category": "Features",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "max-reed-portfolio",
+      "block": "features",
+      "tags": [
+        "agency"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 25,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "NexaCore Control",
+      "category": "Features",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "nexacore-control",
+      "block": "features",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 60,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "NexaCore Results",
+      "category": "Features",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "nexacore-results",
+      "block": "features",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Nike Hover",
+      "category": "Features",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "nike-hover",
+      "block": "features",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Glow Features",
+      "category": "Features Section",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "glow-features",
+      "block": "features",
+      "tags": [],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 60,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 60,
+        "grok-image-2": 10,
+        "crashatlas": 60,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Stark Minimal Footer",
+      "category": "Footer",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "stark-minimal-footer",
+      "block": "footer",
+      "tags": [],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 60,
+        "grok-image-2": 10,
+        "crashatlas": 60,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "HAUL!",
+      "category": "Footer Section",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "haul",
+      "block": "footer",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Kresna Footer",
+      "category": "Footer Section",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "kresna-footer",
+      "block": "footer",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Lumina",
+      "category": "Footer Section",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "lumina",
+      "block": "footer",
+      "tags": [],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 60,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Vize Footer",
+      "category": "Footer Section",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "vize-footer",
+      "block": "footer",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Rocket Pricing",
+      "category": "Pricing",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "rocket-pricing",
+      "block": "pricing",
+      "tags": [],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 60,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Daisy Wild",
+      "category": "Product",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "daisy-wild",
+      "block": "section",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Price Calculator",
+      "category": "SaaS",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "price-calculator",
+      "block": "section",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Arceage Stats",
+      "category": "Stats",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "arceage-stats",
+      "block": "social-proof",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 60,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Radial Diagram",
+      "category": "Testimonials",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "radial-diagram",
+      "block": "testimonials",
+      "tags": [],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Halo Use Case",
+      "category": "Use Case",
+      "section": "sections",
+      "page_url": "https://motionsites.ai/sections",
+      "access": "Copy",
+      "id": "halo-use-case",
+      "block": "section",
+      "tags": [],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Nimbus Grid",
+      "category": "Grid",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "nimbus-grid",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Serein - Minimal Hero",
+      "category": "Hero",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "serein-minimal-hero",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Design Rocket Motion",
+      "category": "Motion",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "design-rocket-motion",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Motion Portfolio",
+      "category": "Portfolio",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "motion-portfolio",
+      "block": "template-full",
+      "tags": [
+        "agency",
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 25,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Agency Template",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "agency-template",
+      "block": "template-full",
+      "tags": [
+        "agency",
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 75,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "AI Automation",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "ai-automation",
+      "block": "template-full",
+      "tags": [
+        "saas-ai",
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 80,
+        "saas-ai": 80,
+        "agency": 15,
+        "edtech": 15,
+        "generic": 15,
+        "atlas-estilos": 30,
+        "grok-image-2": 30,
+        "crashatlas": 15,
+        "legion-ai": 15,
+        "ordena": 15
+      }
+    },
+    {
+      "name": "Analytics Platform",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "analytics-platform",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 60,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "BuildAI",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "buildai",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Codezilla",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "codezilla",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Converse",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "converse",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Datacore",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "datacore",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Design Rocket",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "design-rocket",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 60,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Documentation",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "documentation",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 60,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "E-commerce System",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "e-commerce-system",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Electric",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "electric",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Forge",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "forge",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Full Agency Template",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "full-agency-template",
+      "block": "template-full",
+      "tags": [
+        "agency",
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 75,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Glow",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "glow",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Insight",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "insight",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Lumen",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "lumen",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Maestro Vision",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "maestro-vision",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 60,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "MotionAI",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "motionai",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Nebula Glow",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "nebula-glow",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Neon",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "neon",
+      "block": "template-full",
+      "tags": [
+        "dark",
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 25,
+        "saas-ai": 25,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 25,
+        "grok-image-2": 10,
+        "crashatlas": 25,
+        "legion-ai": 25,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Nexora",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "nexora",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Next Level Innovation",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "next-level-innovation",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Nova Template",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "nova-template",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Platform Rocket",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "platform-rocket",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Prism",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "prism",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Radiant",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "radiant",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Shift",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "shift",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Ship Products",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "ship-products",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Simple Start",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "simple-start",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 60,
+        "saas-ai": 60,
+        "agency": 10,
+        "edtech": 60,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Strat",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "strat",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Vertex Template",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "vertex-template",
+      "block": "template-full",
+      "tags": [
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 10,
+        "saas-ai": 10,
+        "agency": 10,
+        "edtech": 10,
+        "generic": 10,
+        "atlas-estilos": 10,
+        "grok-image-2": 10,
+        "crashatlas": 10,
+        "legion-ai": 10,
+        "ordena": 10
+      }
+    },
+    {
+      "name": "Wealth Builder",
+      "category": "Template",
+      "section": "templates",
+      "page_url": "https://motionsites.ai/templates",
+      "access": "Copy",
+      "id": "wealth-builder",
+      "block": "template-full",
+      "tags": [
+        "fintech",
+        "saas-ai",
+        "template-full"
+      ],
+      "app_scores": {
+        "cursia": 30,
+        "saas-ai": 30,
+        "agency": 15,
+        "edtech": 15,
+        "generic": 15,
+        "atlas-estilos": 30,
+        "grok-image-2": 30,
+        "crashatlas": 80,
+        "legion-ai": 30,
+        "ordena": 15
+      }
+    }
+  ]
+}

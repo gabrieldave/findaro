@@ -10,3 +10,6 @@ DerivedData/
 *.app
 /dist
 /Resources/AppIcon.iconset
+
+web/node_modules/
+web/.next/

@@ -1,0 +1,20 @@
+---
+description: >-
+  Landing ordena — usar web-style-catalog antes de diseñar UI marketing.
+globs:
+  - "**/landing.css"
+  - "**/page.tsx"
+  - "**/Landing*.tsx"
+alwaysApply: false
+---
+
+# Web Style Catalog — ordena
+
+**App ID:** `ordena` · Perfil: `tools/web-style-catalog/apps.registry.json`
+
+Al abrir archivos de landing:
+
+1. Ejecuta `python3 tools/web-style-catalog/recommend.py ordena`
+2. Recomienda estilos MotionSites **gratis** por bloque antes de editar CSS
+3. Prioriza `curated_picks` y `app_profile.style_rationale`
+4. Implementa respetando `theme` del registry

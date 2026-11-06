@@ -1,0 +1,565 @@
+{
+  "$schema": "Registro de apps VibeSystems para Web Style Catalog. Copia _template, renombra y regenera catalog.json.",
+  "apps": {
+    "cursia": {
+      "label": "Cursia — cursos visuales con IA",
+      "tags": [
+        "edtech",
+        "saas-ai",
+        "dark",
+        "editorial",
+        "creative",
+        "portfolio-3d"
+      ],
+      "avoid": [
+        "crypto",
+        "web3",
+        "luxury",
+        "yacht",
+        "jet",
+        "nft",
+        "defi",
+        "wellness-only"
+      ],
+      "theme": {
+        "bg": "#100d12",
+        "accent": "#ff6a3d",
+        "violet": "#7b61ff",
+        "ink": "#f2ece0"
+      },
+      "repo_hint": "presentaciones/cursos-visuales",
+      "landing_css": "src/app/landing.css",
+      "app_profile": {
+        "product": "SaaS que convierte cualquier tema en un curso visual premium: mapa educativo, muestra 16:9, generación batch, export PDF/PPTX/PNG.",
+        "audience": "Alumnos, profesores, infoproductores, RH/capitalización, agencias, coaches.",
+        "tone": "Editorial premium oscuro, serif en titulares, confiable pero creativo — no crypto, no luxury jets, no wellness spa.",
+        "differentiator": "Cada slide es una infografía 16:9 independiente; hero muestra cards 3D con slides reales del producto.",
+        "landing_blocks": [
+          "hero",
+          "features",
+          "process",
+          "gallery",
+          "testimonials",
+          "pricing",
+          "faq",
+          "cta",
+          "footer",
+          "background"
+        ],
+        "style_rationale": {
+          "hero": "3D Portfolio — cards apiladas mostrando el producto (slides), igual que el stage actual.",
+          "features": "Glow Features — grid de beneficios con glow naranja/violeta del theme.",
+          "pricing": "Rocket Pricing — 3 tiers, plan central destacado (Validar).",
+          "testimonials": "Radial Diagram — stats + testimonios sociales.",
+          "faq": "FAQ CTA — accordion con cierre suave.",
+          "cta": "Liquid Glass CTA — glassmorphism coherente con dark editorial.",
+          "background": "Blue Purple Glow + Ember Glow — refuerzan #7b61ff y #ff6a3d."
+        }
+      },
+      "applied_styles": {
+        "date": "2026-06-30",
+        "blocks": {
+          "hero": "3D Portfolio",
+          "features": "Glow Features",
+          "pricing": "Rocket Pricing",
+          "faq": "FAQ CTA",
+          "cta": "Liquid Glass CTA",
+          "background": "Blue Purple Glow + Ember Glow"
+        }
+      },
+      "curated_picks": {
+        "hero": [
+          "3D Portfolio",
+          "DesignPro Academy",
+          "Digitwist AI Builder",
+          "Bloom AI",
+          "Power AI",
+          "Mindloop Landing",
+          "Prisma Creative Studio"
+        ],
+        "features": [
+          "Glow Features",
+          "Guardnet Benefits",
+          "Animated Cards"
+        ],
+        "pricing": [
+          "Rocket Pricing"
+        ],
+        "testimonials": [
+          "Radial Diagram"
+        ],
+        "faq": [
+          "FAQ CTA"
+        ],
+        "cta": [
+          "Liquid Glass CTA"
+        ],
+        "footer": [
+          "Stark Minimal Footer",
+          "Lumina"
+        ],
+        "background": [
+          "Blue Purple Glow",
+          "Ember Glow",
+          "Cosmic Drift",
+          "Abstract Flow"
+        ],
+        "template-full": [
+          "Design Rocket",
+          "AI Automation",
+          "Simple Start"
+        ]
+      }
+    },
+    "saas-ai": {
+      "label": "SaaS con IA (genérico VibeSystems)",
+      "tags": [
+        "saas-ai",
+        "automation",
+        "dark",
+        "b2b"
+      ],
+      "avoid": [
+        "luxury",
+        "yacht",
+        "nft"
+      ],
+      "theme": {},
+      "curated_picks": {
+        "hero": [
+          "Power AI",
+          "Stellar AI",
+          "Sentinel AI",
+          "Nexora Automation"
+        ],
+        "features": [
+          "Glow Features",
+          "NexaCore Control"
+        ],
+        "pricing": [
+          "Rocket Pricing",
+          "SaaS Pricing Flow"
+        ],
+        "template-full": [
+          "AI Automation",
+          "Analytics Platform",
+          "Simple Start"
+        ]
+      }
+    },
+    "agency": {
+      "label": "Agencia / portfolio creativo",
+      "tags": [
+        "agency",
+        "creative",
+        "portfolio",
+        "studio"
+      ],
+      "avoid": [],
+      "theme": {},
+      "curated_picks": {
+        "hero": [
+          "Velorah",
+          "Creative Studio",
+          "Modern Agency",
+          "Bold Studio"
+        ],
+        "template-full": [
+          "Full Agency Template",
+          "Agency Template",
+          "Maestro Vision"
+        ]
+      }
+    },
+    "edtech": {
+      "label": "Educación / academia online",
+      "tags": [
+        "edtech",
+        "academy",
+        "learning",
+        "course"
+      ],
+      "avoid": [
+        "crypto",
+        "nft"
+      ],
+      "theme": {},
+      "curated_picks": {
+        "hero": [
+          "DesignPro Academy",
+          "CodeNest Coding Platform",
+          "Mindloop Landing"
+        ],
+        "template-full": [
+          "Design Rocket",
+          "Documentation",
+          "Simple Start"
+        ]
+      }
+    },
+    "generic": {
+      "label": "Landing genérica (sin perfil aún)",
+      "tags": [],
+      "avoid": [
+        "crypto",
+        "nft"
+      ],
+      "theme": {},
+      "curated_picks": {}
+    },
+    "_template": {
+      "label": "NOMBRE APP — descripción corta",
+      "tags": [
+        "saas-ai",
+        "dark"
+      ],
+      "avoid": [
+        "crypto",
+        "luxury"
+      ],
+      "theme": {
+        "bg": "#000000",
+        "accent": "#ff6a3d",
+        "violet": "#7b61ff",
+        "ink": "#ffffff"
+      },
+      "repo_hint": "ruta/al/repo",
+      "landing_css": "src/app/landing.css",
+      "app_profile": {
+        "product": "Qué hace la app en 1-2 frases",
+        "audience": "Quién la usa",
+        "tone": "Estética deseada (dark/light, vertical)",
+        "differentiator": "Qué mostrar en el hero",
+        "landing_blocks": [
+          "hero",
+          "features",
+          "pricing",
+          "faq",
+          "cta"
+        ],
+        "style_rationale": {
+          "hero": "Por qué un prompt concreto encaja"
+        }
+      },
+      "curated_picks": {
+        "hero": [
+          "Nombre prompt MotionSites"
+        ],
+        "features": [],
+        "pricing": [],
+        "footer": []
+      }
+    },
+    "atlas-estilos": {
+      "label": "Atlas Estilos Premium — catálogo 88 estilos",
+      "tags": [
+        "creative",
+        "portfolio-3d",
+        "editorial",
+        "saas-ai",
+        "dark"
+      ],
+      "avoid": [
+        "crypto",
+        "web3",
+        "nft",
+        "defi",
+        "wellness-only",
+        "yacht",
+        "jet"
+      ],
+      "theme": {
+        "bg": "#05070d",
+        "accent": "#5eead4",
+        "violet": "#7dd3fc",
+        "ink": "#e8eef7",
+        "gold": "#c4a574"
+      },
+      "repo_hint": "atlas-estilos",
+      "landing_css": "app/globals.css",
+      "app_profile": {
+        "product": "Catálogo visual de 88 estilos premium: explorar, personalizar sujeto y copiar prompts listos para generadores de imagen.",
+        "audience": "Diseñadores, creadores, marketers y makers que necesitan dirección visual rápida y prompts profesionales.",
+        "tone": "Premium cinematográfico 3D, oscuro con acentos teal/cian, profundidad espacial — no crypto, no cream-serif terracotta.",
+        "differentiator": "Galería interactiva de 88 estilos reales con preview full-bleed y prompt editable por sujeto.",
+        "landing_blocks": [
+          "hero",
+          "features",
+          "gallery",
+          "cta",
+          "footer",
+          "background"
+        ],
+        "style_rationale": {
+          "hero": "3D Portfolio — stage con cards/paneles 3D mostrando estilos reales del catálogo.",
+          "features": "Animated Cards / Glow Features — pasos Explora → Personaliza → Crea con profundidad.",
+          "gallery": "Digitwist / Prisma — grid de estilos con tilt y presencia premium.",
+          "cta": "Liquid Glass CTA — cierre glassmorphism coherente con el modal de prompts.",
+          "background": "Cosmic Drift / Abstract Flow — atmósfera espacial sin purple-on-white."
+        }
+      },
+      "curated_picks": {
+        "hero": [
+          "3D Portfolio",
+          "Prisma Creative Studio",
+          "Digitwist AI Builder",
+          "Bloom AI",
+          "Power AI",
+          "Mindloop Landing"
+        ],
+        "features": [
+          "Animated Cards",
+          "Glow Features",
+          "Guardnet Benefits"
+        ],
+        "gallery": [
+          "Prisma Creative Studio",
+          "3D Portfolio"
+        ],
+        "cta": [
+          "Liquid Glass CTA"
+        ],
+        "footer": [
+          "Stark Minimal Footer",
+          "Lumina"
+        ],
+        "background": [
+          "Cosmic Drift",
+          "Abstract Flow",
+          "Ember Glow"
+        ]
+      },
+      "applied_styles": {
+        "date": "2026-07-22",
+        "blocks": {
+          "hero": "3D Portfolio",
+          "features": "Animated Cards",
+          "cta": "Liquid Glass CTA",
+          "footer": "Stark Minimal Footer",
+          "background": "Cosmic Drift"
+        },
+        "notes": "Premium 3D cinematográfico; theme teal/cian sobre Cosmic Drift. Copiar en MotionSites: 3D Portfolio, Animated Cards, Liquid Glass CTA, Cosmic Drift, Stark Minimal Footer."
+      }
+    },
+    "grok-image-2": {
+      "label": "Grok Image 2.0",
+      "tags": [
+        "saas-ai",
+        "education",
+        "editorial"
+      ],
+      "avoid": [
+        "crypto",
+        "kawaii"
+      ],
+      "theme": {
+        "bg": "#f3f1e9",
+        "accent": "#c9ff35",
+        "violet": "#10100e",
+        "ink": "#10100e"
+      },
+      "repo_hint": "grok-image-2",
+      "landing_css": "src/app/landing.css",
+      "app_profile": {
+        "product": "Manual interactivo, constructor y biblioteca de 96 prompts para Grok Image 2.0.",
+        "audience": "Creativos, freelancers y equipos que entregan imágenes a clientes con Grok/xAI.",
+        "tone": "Editorial didáctico, lima ácida sobre papel, hero oscuro cinematográfico.",
+        "differentiator": "96 recetas filtrables + constructor de brief + laboratorios prácticos.",
+        "landing_blocks": [
+          "hero",
+          "features",
+          "cta"
+        ],
+        "style_rationale": {
+          "hero": "Atlas #163 Diccionario visual: familias ordenadas y fichas didácticas para la biblioteca de estilos."
+        },
+        "atlas": {
+          "id": 163,
+          "name": "Diccionario visual"
+        }
+      },
+      "curated_picks": {
+        "hero": [
+          "Atlas Diccionario visual #163"
+        ],
+        "features": [
+          "Atlas Diccionario visual #163"
+        ],
+        "pricing": [],
+        "footer": []
+      }
+    },
+    "crashatlas": {
+      "label": "CrashAtlas — caídas históricas de los mercados",
+      "tags": [
+        "fintech",
+        "dark",
+        "portfolio-3d"
+      ],
+      "avoid": [
+        "luxury",
+        "wellness-only"
+      ],
+      "theme": {
+        "bg": "#07080b",
+        "accent": "#ff3b30",
+        "violet": "#f5b942",
+        "ink": "#f4f1ea"
+      },
+      "repo_hint": "/Users/daveax/Projects/crashatlas",
+      "landing_css": "src/app/landing.css",
+      "app_profile": {
+        "product": "Atlas interactivo de las mayores caídas (drawdowns) del Oro, Nasdaq, US30, S&P 500 y Bitcoin con fechas exactas de pico, mínimo y recuperación para ubicarlas en el gráfico.",
+        "audience": "Traders e inversores hispanohablantes (MT4/TradingView) que estudian ciclos de mercado y gestión de riesgo.",
+        "tone": "Dark editorial financiero, terminal de datos premium, rojo crash + oro, tipografía tabular.",
+        "differentiator": "Hero 3D con las cinco peores caídas como columnas que se hunden bajo el plano del precio; datos verificables y tablas por activo.",
+        "landing_blocks": [
+          "hero",
+          "background",
+          "social-proof",
+          "features",
+          "section",
+          "cta",
+          "footer"
+        ],
+        "style_rationale": {
+          "hero": "3D Story — narrativa 3D por capas que encaja con un recorrido histórico 1929→2026",
+          "background": "Dark Vertical Blinds — franjas verticales evocan velas/barras de precio",
+          "social-proof": "Arceage Stats — KPIs grandes para las peores caídas por activo",
+          "features": "Animated Cards — tarjetas de notas para analizar en el gráfico",
+          "section": "Pixel Grid Hover — línea de tiempo/grid de eventos con hover",
+          "cta": "FAQ CTA — cierre con dudas frecuentes y CTA de instalación/login",
+          "footer": "Stark Minimal Footer — disclaimer legal sobrio"
+        }
+      },
+      "curated_picks": {
+        "hero": [
+          "3D Story",
+          "3D Collectible Hero"
+        ],
+        "background": [
+          "Dark Vertical Blinds",
+          "Dark Blue Waves"
+        ],
+        "social-proof": [
+          "Arceage Stats"
+        ],
+        "features": [
+          "Animated Cards",
+          "Glow Features"
+        ],
+        "section": [
+          "Pixel Grid Hover"
+        ],
+        "cta": [
+          "FAQ CTA"
+        ],
+        "footer": [
+          "Stark Minimal Footer"
+        ],
+        "template-full": [
+          "Wealth Builder"
+        ]
+      },
+      "applied_styles": {
+        "hero": "3D Story (adaptado: escena three.js de columnas de drawdown)",
+        "background": "Dark Vertical Blinds (CSS, franjas tipo velas)",
+        "social-proof": "Arceage Stats (KPIs por activo)",
+        "features": "Animated Cards (notas de análisis)",
+        "section": "Pixel Grid Hover (timeline de crisis)",
+        "cta": "FAQ CTA",
+        "footer": "Stark Minimal Footer"
+      }
+    },
+    "legion-ai": {
+      "label": "Legion AI — panel inteligente de mercados para MT4",
+      "tags": [
+        "fintech",
+        "dark",
+        "portfolio-3d"
+      ],
+      "avoid": [
+        "luxury",
+        "wellness-only"
+      ],
+      "theme": {
+        "bg": "#04070F",
+        "accent": "#45E2A3",
+        "violet": "#E6B65A",
+        "ink": "#EEF3FA"
+      },
+      "repo_hint": "/Users/daveax/.cursor/mt4",
+      "landing_css": "public/index.html (style embebido)",
+      "app_profile": {
+        "product": "Panel de análisis multi-temporal para MetaTrader 4 (Oro, Bitcoin, índices y forex) que resume en una lectura clara si esperar, buscar compras o buscar ventas, con medidor de liquidación y caídas históricas.",
+        "audience": "Traders retail de MT4, angloparlantes por defecto y LATAM; venta por WhatsApp.",
+        "tone": "Terminal de datos premium, dark navy + mint + oro, tipografía Archivo/Geist, honesto con riesgos.",
+        "differentiator": "Hero 3D con el panel real sobre un gráfico XAUUSD inclinado, paisaje isométrico del RSI y resultados verificables de cuenta real.",
+        "landing_blocks": [
+          "hero",
+          "features",
+          "section",
+          "social-proof",
+          "faq",
+          "cta",
+          "footer"
+        ],
+        "style_rationale": {
+          "hero": "Diseño propio del autor (Legion_AI_Premium_Page.html); no se sustituyó por prompts del catálogo"
+        }
+      },
+      "curated_picks": {},
+      "applied_styles": {
+        "hero": "Propio — panel 3D en perspectiva sobre gráfico MT4 + terreno canvas",
+        "features": "Propio — catálogo de 14 herramientas en 4 grupos",
+        "section": "Propio — paisaje isométrico RSI (canvas) y simulador Wipeout",
+        "social-proof": "Propio — curva de equity + capturas de reporte real",
+        "faq": "Propio — acordeón details/summary",
+        "cta": "Propio — CTA WhatsApp con terreno canvas",
+        "footer": "Propio — divulgación de riesgo"
+      }
+    },
+    "ordena": {
+      "label": "Ordena",
+      "tags": [
+        "utility",
+        "macos",
+        "files",
+        "downloads",
+        "productivity"
+      ],
+      "avoid": [
+        "purple-on-white",
+        "newspaper",
+        "cream-serif-terracotta"
+      ],
+      "theme": {
+        "bg": "#0B1220",
+        "fg": "#E8EEF7",
+        "accent": "#3DDC97",
+        "muted": "#8B9BB4",
+        "font_display": "Syne",
+        "font_body": "IBM Plex Sans"
+      },
+      "repo_hint": "orden",
+      "landing_css": "web/src/app/landing.css",
+      "app_profile": {
+        "product": "Ordena — explorador de carpetas para macOS, mejor que Finder para Descargas",
+        "audience": "usuarios Mac que organizan archivos a diario",
+        "tone": "claro, útil, sin hype",
+        "differentiator": "hold-to-drag, bandeja, atajo global, sin reemplazar Finder a la fuerza",
+        "style_rationale": {
+          "hero": "Producto Mac en primer plano, marca Ordena dominante",
+          "pricing": "Un solo plan $9 cuando abra al público; ahora acceso por código"
+        }
+      },
+      "curated_picks": {
+        "hero": "Soft Gradient Hero",
+        "features": "Icon Feature Grid",
+        "pricing": "Simple One Price",
+        "cta": "Clean Download CTA"
+      },
+      "applied_styles": {}
+    }
+  }
+}

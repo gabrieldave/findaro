@@ -1,0 +1,9 @@
+{
+  "app_id": "ordena",
+  "name": "Ordena",
+  "description": "App VibeSystems — completar descripción del producto.",
+  "web_style_catalog": "tools/web-style-catalog",
+  "registry": "tools/web-style-catalog/apps.registry.json",
+  "catalog": "tools/web-style-catalog/catalog.json",
+  "recommend_script": "python3 tools/web-style-catalog/recommend.py ordena"
+}

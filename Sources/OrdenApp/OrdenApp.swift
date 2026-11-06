@@ -111,6 +111,10 @@ struct OrdenApp: App {
                 Button("Abrir Descargas (⌃⌥O)") {
                     GlobalHotKey.activateOrdena()
                 }
+                Divider()
+                Button("Buscar actualizaciones…") {
+                    Task { await AppUpdateChecker.shared.check(interactive: true) }
+                }
             }
         }
 

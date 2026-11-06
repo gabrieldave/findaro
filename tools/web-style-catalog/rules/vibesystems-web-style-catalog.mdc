@@ -1,0 +1,53 @@
+---
+description: >-
+  Landings VibeSystems: antes de diseñar UI marketing, consultar Web Style Catalog
+  (MotionSites gratis). Leer skill web-style-catalog y apps.registry.json.
+alwaysApply: true
+---
+
+# Web Style Catalog — regla ecosistema
+
+Al crear o rediseñar **landings**, **páginas marketing**, **heroes**, **pricing**, **FAQ** o **estilos visuales** en cualquier app VibeSystems:
+
+## Cursor AI debe
+
+1. **Leer** skill `web-style-catalog`:
+   - Repo app: `.cursor/skills/web-style-catalog/SKILL.md` o `tools/web-style-catalog/`
+   - Global: `~/.cursor/skills/web-style-catalog/SKILL.md`
+   - Fuente ecosistema: `~/Projects/vibesystems-ecosistema/tooling/web-style-catalog/SKILL.md`
+2. **Identificar** `app_id` en `.cursor/app.json` del repo (o en `apps.registry.json`)
+   - Si no existe → ejecutar `bootstrap-app.sh APP_ID` o crear entrada desde `_template`
+3. **Ejecutar** recomendador antes de proponer diseño:
+   ```bash
+   python3 tools/web-style-catalog/recommend.py APP_ID
+   ```
+4. **Consultar** `catalog.json` — filtrar por `block` y `app_scores[app_id] >= 50`; priorizar `curated_picks`
+5. **Indicar** qué prompt copiar en [MotionSites](https://motionsites.ai) (botón Copy)
+6. **Implementar** adaptando al `theme` del registry — no improvisar layout desde cero
+7. **Documentar** qué prompts se usaron por bloque en `applied_styles`
+
+## Instalación / actualización global
+
+```bash
+~/Projects/vibesystems-ecosistema/tooling/web-style-catalog/install.sh
+```
+
+## Usuario — prompt rápido
+
+```
+App: [app_id]
+web-style-catalog: elige TOP por bloque, dime qué copiar en MotionSites, implementa landing.
+```
+
+## UI buscador
+
+`open ~/.cursor/skills/web-style-catalog/index.html`
+
+## No hacer
+
+- Diseñar hero/pricing/footer sin consultar catálogo
+- Scrape masivo de prompts MotionSites
+- Ignorar `theme` y `avoid` del app_id
+- Mezclar estilos incompatibles entre bloques
+
+Guía: `~/Projects/vibesystems-ecosistema/tooling/web-style-catalog/reference.md`

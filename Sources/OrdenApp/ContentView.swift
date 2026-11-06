@@ -1330,12 +1330,21 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section("Actualizaciones") {
+                LabeledContent("Versión", value: AppUpdateChecker.currentVersion())
+                Button("Buscar actualizaciones…") {
+                    Task { await AppUpdateChecker.shared.check(interactive: true) }
+                }
+                Text("Cada 6 h revisa GitHub Releases. Si hay una nueva, pregunta y se instala sola.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Section("Ordena") {
                 LabeledContent("Ámbito", value: browser.scopeBadge)
                 Text(browser.rule.summarySpanish)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 260)
+        .frame(width: 440, height: 360)
     }
 }
