@@ -495,11 +495,14 @@ struct FileBrowserPane: View {
                                 FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
                                     .frame(minHeight: rowHeight)
                             }
-                            // Zona vacía debajo: desde aquí también se puede empezar el marquee hacia arriba
+                            // Zona vacía: clic = deseleccionar; arrastre = marquee hacia arriba
                             Color.clear
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 320)
                                 .contentShape(Rectangle())
+                                .onTapGesture {
+                                    browser.cancelSelection()
+                                }
                         }
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                         .coordinateSpace(name: "fileList")
@@ -520,6 +523,10 @@ struct FileBrowserPane: View {
                         .highPriorityGesture(marqueeGesture)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    // Clic en el fondo del scroll (márgenes / vacío visible) también cancela
+                    .onTapGesture {
+                        browser.cancelSelection()
+                    }
                 }
             }
         }
