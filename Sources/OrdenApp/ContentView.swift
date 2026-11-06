@@ -1103,7 +1103,7 @@ struct FileRowButton: View {
             Button(action: selectRow) {
                 HStack(alignment: .center, spacing: 12) {
                     ZStack {
-                        FileTypeIcon(category: entry.category, size: 17)
+                        FileTypeIcon(category: entry.category, path: entry.path, size: 17)
                         FileDragArmChrome.Overlay(path: entry.path, size: 26)
                     }
                     .frame(width: 28, height: 28)

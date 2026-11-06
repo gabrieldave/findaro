@@ -323,7 +323,7 @@ private struct IconsItemCell: View {
             } label: {
                 VStack(spacing: 6) {
                     ZStack {
-                        FileTypeIcon(category: entry.category, size: 36)
+                        FileTypeIcon(category: entry.category, path: entry.path, size: 36)
                         FileDragArmChrome.Overlay(path: entry.path, size: 44)
                     }
                     .frame(width: 48, height: 48)
@@ -594,7 +594,7 @@ private struct ColumnRow: View {
             } label: {
                 HStack(spacing: 8) {
                     ZStack {
-                        FileTypeIcon(category: entry.category, size: 14)
+                        FileTypeIcon(category: entry.category, path: entry.path, size: 14)
                         FileDragArmChrome.Overlay(path: entry.path, size: 22)
                     }
                     .frame(width: 22, height: 22)
@@ -725,7 +725,7 @@ private struct GalleryPreview: View {
                     .scaledToFit()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                FileTypeIcon(category: entry.category, size: 72)
+                FileTypeIcon(category: entry.category, path: entry.path, size: 72)
             }
             Text(entry.name)
                 .font(.headline)
@@ -766,7 +766,7 @@ private struct GalleryThumb: View {
                                 .frame(width: 64, height: 52)
                                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         } else {
-                            FileTypeIcon(category: entry.category, size: 22)
+                            FileTypeIcon(category: entry.category, path: entry.path, size: 22)
                         }
                     }
                     .overlay(
