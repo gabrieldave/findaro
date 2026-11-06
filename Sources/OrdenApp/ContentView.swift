@@ -294,6 +294,25 @@ struct SortBar: View {
 
             Spacer(minLength: 8)
 
+            Menu {
+                Button("Todos · \(browser.entries.count)") {
+                    browser.clearCategoryFilter()
+                }
+                if !browser.categoryCounts.isEmpty {
+                    Divider()
+                    ForEach(browser.categoryCounts, id: \.category) { row in
+                        Button("\(row.category.labelSpanish) · \(row.count)") {
+                            browser.categoryFilter = row.category
+                        }
+                    }
+                }
+            } label: {
+                Label(browser.categoryFilterLabel, systemImage: "line.3.horizontal.decrease.circle")
+            }
+            .menuStyle(.borderedButton)
+            .tint(browser.categoryFilter == nil ? nil : OrdenTheme.accent)
+            .help("Filtra por tipo: imágenes, vídeos, zips…")
+
             Button {
                 browser.toggleDownloadsTodayMode()
             } label: {
@@ -1301,12 +1320,22 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section("Caché e iconos") {
+                Button("Limpiar caché de miniaturas") {
+                    ThumbnailStore.shared.clearAll()
+                    browser.reload()
+                    browser.statusMessage = "Caché de miniaturas limpia"
+                }
+                Text("Ordena genera sus propias previas de vídeo/imagen. Si un icono se queda raro, limpia aquí; al actualizar la app se limpia sola.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Section("Ordena") {
                 LabeledContent("Ámbito", value: browser.scopeBadge)
                 Text(browser.rule.summarySpanish)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 360)
+        .frame(width: 460, height: 420)
     }
 }

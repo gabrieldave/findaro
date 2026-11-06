@@ -18,6 +18,8 @@ final class BrowserModel: ObservableObject {
     @Published var rule: SortRule
     @Published var errorMessage: String?
     @Published var searchText: String = ""
+    /// `nil` = todos los tipos. Filtra la lista visible por categoría.
+    @Published var categoryFilter: FileCategory? = nil
     @Published var statusMessage: String?
     @Published var folderTotalBytes: Int64 = 0
     @Published var isMeasuringSizes = false
@@ -159,12 +161,41 @@ final class BrowserModel: ObservableObject {
         } else {
             base = SortEngine.sort(entries, by: rule)
         }
+        let typed: [FileEntry]
+        if let categoryFilter {
+            typed = base.filter { $0.category == categoryFilter }
+        } else {
+            typed = base
+        }
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return base }
-        return base.filter {
+        guard !q.isEmpty else { return typed }
+        return typed.filter {
             $0.name.localizedCaseInsensitiveContains(q)
                 || $0.path.localizedCaseInsensitiveContains(q)
         }
+    }
+
+    /// Conteos por categoría en la carpeta actual (antes del filtro Tipo).
+    var categoryCounts: [(category: FileCategory, count: Int)] {
+        var bag: [FileCategory: Int] = [:]
+        for entry in entries {
+            bag[entry.category, default: 0] += 1
+        }
+        return bag
+            .map { (category: $0.key, count: $0.value) }
+            .sorted { $0.category.sortIndex < $1.category.sortIndex }
+    }
+
+    var categoryFilterLabel: String {
+        if let categoryFilter {
+            let n = entries.filter { $0.category == categoryFilter }.count
+            return "\(categoryFilter.labelSpanish) · \(n)"
+        }
+        return "Todos · \(entries.count)"
+    }
+
+    func clearCategoryFilter() {
+        categoryFilter = nil
     }
 
     var downloadsTodayCount: Int {
@@ -313,6 +344,8 @@ final class BrowserModel: ObservableObject {
         let target = (path as NSString).standardizingPath
         let current = (currentPath as NSString).standardizingPath
         guard target != current else { return }
+        // Al cambiar de carpeta, quita el filtro Tipo para no “perder” archivos.
+        categoryFilter = nil
         if recordHistory {
             pushHistoryBeforeLeavingCurrent()
         }

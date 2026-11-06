@@ -2,30 +2,25 @@ import AppKit
 @preconcurrency import QuickLookUI
 import OrdenCore
 
-/// Panel de Quick Look estilo Finder (Space).
-/// ← = más nuevo · → = más viejo · al final vuelve a empezar (circular).
+/// Vista previa (Space): vídeo/imagen con motor propio; el resto con Quick Look.
+/// ← = más nuevo · → = más viejo · circular.
 @MainActor
 final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
     static let shared = QuickLookController()
 
     private weak var browser: BrowserModel?
-    /// Archivos navegables ordenados: más nuevo → más viejo.
     private var entries: [FileEntry] = []
     private var currentIndex: Int = 0
 
-    private var urls: [URL] {
-        entries.map { URL(fileURLWithPath: $0.path) }
-    }
-
     var isVisible: Bool {
-        QLPreviewPanel.shared()?.isVisible == true
+        MediaPreviewController.shared.isVisible
+            || QLPreviewPanel.shared()?.isVisible == true
     }
 
     func toggle(browser: BrowserModel, focusing paths: [String]) {
         self.browser = browser
-        guard let panel = QLPreviewPanel.shared() else { return }
-        if panel.isVisible {
-            panel.orderOut(nil)
+        if isVisible {
+            hideAll()
             return
         }
         show(browser: browser, focusing: paths)
@@ -34,12 +29,8 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
     func show(browser: BrowserModel, focusing paths: [String]) {
         self.browser = browser
         rebuildEntries(focusing: paths)
-        guard !entries.isEmpty, let panel = QLPreviewPanel.shared() else { return }
-        panel.dataSource = self
-        panel.delegate = self
-        panel.currentPreviewItemIndex = currentIndex
-        panel.reloadData()
-        panel.makeKeyAndOrderFront(nil)
+        guard !entries.isEmpty else { return }
+        presentCurrent()
         syncBrowserSelection()
     }
 
@@ -48,10 +39,31 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
         guard !entries.isEmpty else { return }
         let n = entries.count
         currentIndex = (currentIndex + delta % n + n) % n
-        guard let panel = QLPreviewPanel.shared() else { return }
-        panel.currentPreviewItemIndex = currentIndex
-        panel.reloadData()
+        presentCurrent()
         syncBrowserSelection()
+    }
+
+    private func hideAll() {
+        MediaPreviewController.shared.hide()
+        QLPreviewPanel.shared()?.orderOut(nil)
+    }
+
+    private func presentCurrent() {
+        guard entries.indices.contains(currentIndex) else { return }
+        let entry = entries[currentIndex]
+        switch entry.category {
+        case .video, .image:
+            QLPreviewPanel.shared()?.orderOut(nil)
+            MediaPreviewController.shared.show(entry: entry)
+        default:
+            MediaPreviewController.shared.hide()
+            guard let panel = QLPreviewPanel.shared() else { return }
+            panel.dataSource = self
+            panel.delegate = self
+            panel.currentPreviewItemIndex = currentIndex
+            panel.reloadData()
+            panel.makeKeyAndOrderFront(nil)
+        }
     }
 
     private func rebuildEntries(focusing paths: [String]) {
@@ -60,7 +72,6 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
             currentIndex = 0
             return
         }
-        // Mismo conjunto que la carpeta visible; orden por Agregado (nuevo → viejo).
         let files = browser.visibleEntries.filter { !$0.isDirectory }
         entries = files.sorted { lhs, rhs in
             if lhs.dateAdded != rhs.dateAdded {
@@ -78,8 +89,7 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
 
     private func syncBrowserSelection() {
         guard let browser, entries.indices.contains(currentIndex) else { return }
-        let entry = entries[currentIndex]
-        browser.selectOnly(entry.id)
+        browser.selectOnly(entries[currentIndex].id)
     }
 
     // MARK: - QLPreviewPanelDataSource
@@ -109,11 +119,17 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
 
         return MainActor.assumeIsolated {
             switch keyCode {
-            case 123: // ← más nuevo
+            case 123:
                 navigate(delta: -1)
                 return true
-            case 124: // → más viejo
+            case 124:
                 navigate(delta: 1)
+                return true
+            case 49: // space cierra
+                hideAll()
+                return true
+            case 53: // esc
+                hideAll()
                 return true
             default:
                 return false

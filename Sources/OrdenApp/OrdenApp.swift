@@ -121,6 +121,11 @@ struct OrdenApp: App {
                     GlobalHotKey.activateOrdena()
                 }
                 Divider()
+                Button("Limpiar caché de miniaturas") {
+                    ThumbnailStore.shared.clearAll()
+                    browser.reload()
+                    browser.statusMessage = "Caché de miniaturas limpia"
+                }
                 Button("Buscar actualizaciones…") {
                     Task { await AppUpdateChecker.shared.check(interactive: true) }
                 }
