@@ -15,6 +15,9 @@ final class BrowserModel: ObservableObject {
     @Published var folderTotalBytes: Int64 = 0
     @Published var isMeasuringSizes = false
     @Published var cleanupMode = false
+    /// Bandeja tipo Dropover: aparcas archivos y luego los mueves/copias a otra carpeta.
+    @Published var shelf: [FileOps.ShelfItem] = []
+    @Published var shelfDropTargeted = false
 
     let store: PreferencesStore
     private var measureTask: Task<Void, Never>?
@@ -232,6 +235,98 @@ final class BrowserModel: ObservableObject {
         if moved > 0 {
             statusMessage = moved == 1 ? "1 elemento a la Papelera" : "\(moved) elementos a la Papelera"
         }
+    }
+
+    // MARK: - Bandeja (Dropover casero)
+
+    func addSelectionToShelf() {
+        let items = selectedEntries.map(FileOps.ShelfItem.init(entry:))
+        guard !items.isEmpty else {
+            statusMessage = "Selecciona algo para la bandeja"
+            return
+        }
+        for item in items where !shelf.contains(where: { $0.path == item.path }) {
+            shelf.append(item)
+        }
+        statusMessage = "Bandeja: \(shelf.count) ítem(s)"
+    }
+
+    func addPathsToShelf(_ paths: [String]) {
+        for path in paths {
+            let name = URL(fileURLWithPath: path).lastPathComponent
+            let item = FileOps.ShelfItem(path: path, name: name)
+            if !shelf.contains(where: { $0.path == path }) {
+                shelf.append(item)
+            }
+        }
+        statusMessage = "Bandeja: \(shelf.count) ítem(s)"
+    }
+
+    func removeFromShelf(_ item: FileOps.ShelfItem) {
+        shelf.removeAll { $0.path == item.path }
+    }
+
+    func clearShelf() {
+        shelf.removeAll()
+        statusMessage = "Bandeja vacía"
+    }
+
+    func moveShelfHere() {
+        transferShelf(move: true)
+    }
+
+    func copyShelfHere() {
+        transferShelf(move: false)
+    }
+
+    private func transferShelf(move: Bool) {
+        let paths = shelf.map(\.path)
+        guard !paths.isEmpty else {
+            statusMessage = "La bandeja está vacía"
+            return
+        }
+        do {
+            let n = try FileOps.transfer(paths: paths, toDirectory: currentPath, move: move)
+            if move {
+                shelf.removeAll { paths.contains($0.path) }
+            }
+            reload()
+            statusMessage = move
+                ? "Movidos \(n) a esta carpeta"
+                : "Copiados \(n) a esta carpeta"
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    /// Paths para arrastrar a Dropover / Finder / otras apps.
+    func dragPaths(for entry: FileEntry) -> [String] {
+        if selectedIDs.contains(entry.id), selectedIDs.count > 1 {
+            return selectedEntries.map(\.path)
+        }
+        return [entry.path]
+    }
+
+    func importDroppedFiles(providers: [NSItemProvider]) -> Bool {
+        var collected: [String] = []
+        let group = DispatchGroup()
+        for provider in providers {
+            group.enter()
+            provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
+                defer { group.leave() }
+                if let data = item as? Data,
+                   let url = URL(dataRepresentation: data, relativeTo: nil) {
+                    collected.append(url.path)
+                } else if let url = item as? URL {
+                    collected.append(url.path)
+                }
+            }
+        }
+        group.notify(queue: .main) {
+            guard !collected.isEmpty else { return }
+            self.addPathsToShelf(collected)
+        }
+        return true
     }
 
     private func startMeasuringSizes() {

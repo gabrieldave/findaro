@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 import OrdenCore
 
 struct ContentView: View {
@@ -85,7 +86,11 @@ struct ContentView: View {
 
             FileBrowserPane()
                 .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+                .padding(.bottom, 8)
+
+            DropShelfView()
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
 
             if let status = browser.statusMessage {
                 Text(status)
@@ -98,6 +103,10 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(OrdenTheme.windowFill)
+        .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
+            // Soltar en el panel = a la bandeja (y desde ahí a Dropover / otra carpeta)
+            browser.importDroppedFiles(providers: providers)
+        }
     }
 
     private func shortPath(_ path: String) -> String {
@@ -448,10 +457,27 @@ struct FileRowButton: View {
             .padding(.trailing, 10)
         }
         .background(rowBackground)
+        .onDrag {
+            // Arrastre nativo → Dropover, Finder, otras apps
+            let paths = browser.dragPaths(for: entry)
+            if !browser.selectedIDs.contains(entry.id) {
+                browser.selectedIDs = [entry.id]
+            }
+            if let first = paths.first {
+                return NSItemProvider(contentsOf: URL(fileURLWithPath: first)) ?? NSItemProvider()
+            }
+            return NSItemProvider()
+        }
         .contextMenu {
             Button("Abrir") {
                 browser.selectedIDs = [entry.id]
                 browser.open(entry)
+            }
+            Button("A bandeja") {
+                if !browser.selectedIDs.contains(entry.id) {
+                    browser.selectedIDs = [entry.id]
+                }
+                browser.addSelectionToShelf()
             }
             Button("Vista rápida") {
                 browser.selectedIDs = [entry.id]
