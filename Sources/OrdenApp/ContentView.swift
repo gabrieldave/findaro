@@ -217,6 +217,25 @@ struct ContentView: View {
             FileDragArmChrome.ReadyBanner()
                 .fixedSize(horizontal: false, vertical: true)
 
+            if let dest = browser.folderDropTargetPath {
+                HStack(spacing: 8) {
+                    Image(systemName: "folder.badge.plus")
+                        .font(.body.weight(.bold))
+                    Text("Suelta para meter en «\(URL(fileURLWithPath: dest).lastPathComponent)»")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer(minLength: 0)
+                    Text("⌥ = copiar")
+                        .font(.caption)
+                        .opacity(0.85)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Color.green.gradient, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(.horizontal, 16)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             FileBrowserPane()
                 .padding(.horizontal, 16)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
