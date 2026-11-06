@@ -4,6 +4,12 @@ import OrdenCore
 import AppKit
 import UniformTypeIdentifiers
 
+struct OpenWithApp: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let url: URL
+}
+
 @MainActor
 final class BrowserModel: ObservableObject {
     @Published var currentPath: String
@@ -600,6 +606,108 @@ final class BrowserModel: ObservableObject {
             navigate(to: entry.path)
         } else {
             NSWorkspace.shared.open(URL(fileURLWithPath: entry.path))
+        }
+    }
+
+    /// Apps que macOS asocia a este archivo (como Finder → Abrir con).
+    func appsForOpening(_ entry: FileEntry) -> [OpenWithApp] {
+        guard !entry.isDirectory else { return [] }
+        let fileURL = URL(fileURLWithPath: entry.path)
+        let apps = NSWorkspace.shared.urlsForApplications(toOpen: fileURL)
+        var seen = Set<String>()
+        var result: [OpenWithApp] = []
+        for appURL in apps {
+            let path = appURL.path
+            guard seen.insert(path).inserted else { continue }
+            let name = FileManager.default.displayName(atPath: path)
+            result.append(OpenWithApp(id: path, name: name, url: appURL))
+            if result.count >= 15 { break }
+        }
+        return result
+    }
+
+    func open(_ entry: FileEntry, withApplicationAt appURL: URL) {
+        guard !entry.isDirectory else {
+            navigate(to: entry.path)
+            return
+        }
+        let fileURL = URL(fileURLWithPath: entry.path)
+        let config = NSWorkspace.OpenConfiguration()
+        NSWorkspace.shared.open([fileURL], withApplicationAt: appURL, configuration: config) { _, error in
+            if let error {
+                Task { @MainActor in
+                    self.statusMessage = "No se pudo abrir: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    /// Cambia la app por defecto para este tipo (como «Cambiar todo…» del Finder).
+    func setDefaultApplication(_ appURL: URL, for entry: FileEntry) {
+        guard !entry.isDirectory else { return }
+        let fileURL = URL(fileURLWithPath: entry.path)
+        NSWorkspace.shared.setDefaultApplication(at: appURL, toOpenContentTypeOfFileAt: fileURL) { error in
+            Task { @MainActor in
+                if let error {
+                    self.statusMessage = "No se pudo cambiar la app: \(error.localizedDescription)"
+                } else {
+                    let name = FileManager.default.displayName(atPath: appURL.path)
+                    self.statusMessage = "Ahora \(entry.name) y similares se abren con \(name)"
+                }
+            }
+        }
+    }
+
+    func showInfo(_ entry: FileEntry) {
+        FileInfoPanel.show(entry)
+    }
+
+    func compressSelection() {
+        let targets = selectedEntries.isEmpty ? [] : selectedEntries
+        let paths = targets.map(\.path)
+        guard !paths.isEmpty else {
+            statusMessage = "Selecciona algo para comprimir"
+            return
+        }
+        let destName: String = {
+            if paths.count == 1 {
+                let base = URL(fileURLWithPath: paths[0]).deletingPathExtension().lastPathComponent
+                return "\(base).zip"
+            }
+            return "Archivo.zip"
+        }()
+        var dest = (currentPath as NSString).appendingPathComponent(destName)
+        var n = 2
+        while FileManager.default.fileExists(atPath: dest) {
+            let stem = URL(fileURLWithPath: destName).deletingPathExtension().lastPathComponent
+            dest = (currentPath as NSString).appendingPathComponent("\(stem) \(n).zip")
+            n += 1
+        }
+        statusMessage = "Comprimiendo…"
+        let folder = currentPath
+        let names = paths.map { URL(fileURLWithPath: $0).lastPathComponent }
+        Task.detached {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+            process.currentDirectoryURL = URL(fileURLWithPath: folder)
+            process.arguments = ["-r", dest] + names
+            do {
+                try process.run()
+                process.waitUntilExit()
+                let ok = process.terminationStatus == 0
+                await MainActor.run {
+                    if ok {
+                        self.statusMessage = "Comprimido: \(URL(fileURLWithPath: dest).lastPathComponent)"
+                        self.reload()
+                    } else {
+                        self.statusMessage = "No se pudo comprimir"
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.statusMessage = "No se pudo comprimir: \(error.localizedDescription)"
+                }
+            }
         }
     }
 

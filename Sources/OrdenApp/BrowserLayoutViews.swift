@@ -812,6 +812,11 @@ private struct EntryContextMenuButtons: View {
             browser.selectOnly(entry.id)
             browser.activateEntry(entry)
         }
+        OpenWithMenu(entry: entry)
+        Button("Obtener información") {
+            browser.selectOnly(entry.id)
+            browser.showInfo(entry)
+        }
         if entry.isDirectory {
             if browser.isFavorite(entry.path) {
                 Button("Quitar de Favoritos") { browser.removeFavorite(entry.path) }
@@ -822,6 +827,12 @@ private struct EntryContextMenuButtons: View {
         Button("Renombrar") {
             browser.selectOnly(entry.id)
             browser.promptRename()
+        }
+        Button("Comprimir") {
+            if !browser.selectedIDs.contains(entry.id) {
+                browser.selectOnly(entry.id)
+            }
+            browser.compressSelection()
         }
         Button("A bandeja") {
             if !browser.selectedIDs.contains(entry.id) {

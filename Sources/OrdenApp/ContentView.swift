@@ -1165,6 +1165,11 @@ struct FileRowButton: View {
                 browser.selectOnly(entry.id)
                 browser.open(entry)
             }
+            OpenWithMenu(entry: entry)
+            Button("Obtener información") {
+                browser.selectOnly(entry.id)
+                browser.showInfo(entry)
+            }
             if entry.isDirectory {
                 if browser.isFavorite(entry.path) {
                     Button("Quitar de Favoritos") {
@@ -1185,6 +1190,12 @@ struct FileRowButton: View {
                     browser.selectOnly(entry.id)
                 }
                 browser.duplicateSelection()
+            }
+            Button("Comprimir") {
+                if !browser.selectedIDs.contains(entry.id) {
+                    browser.selectOnly(entry.id)
+                }
+                browser.compressSelection()
             }
             Button("A bandeja") {
                 if !browser.selectedIDs.contains(entry.id) {
