@@ -79,70 +79,113 @@ struct SortBar: View {
     @EnvironmentObject private var browser: BrowserModel
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "arrow.up.arrow.down.circle.fill")
-                .foregroundStyle(.tint)
-            Text(browser.ruleSummary)
-                .font(.system(.subheadline, design: .rounded))
-                .fontWeight(.medium)
-                .lineLimit(1)
-            Spacer()
-            Menu("Ordenar") {
-                Button("Descargas (tipos por recencia · Agregado ↓)") {
-                    browser.applyRule(.downloads, saveAsFolderDefault: true)
-                }
-                Button("Solo Agregado · lo más nuevo arriba") {
-                    browser.applyRule(.newestAddedFirst, saveAsFolderDefault: true)
-                }
-                Button("Proyectos (Nombre A→Z)") {
-                    browser.applyRule(.projects, saveAsFolderDefault: true)
-                }
-                Button("Por tipo (vídeo, Excel, PDF…)") {
-                    browser.applyRule(.byType, saveAsFolderDefault: true)
-                }
-                Divider()
-                Button("Nombre A→Z") {
-                    browser.applyRule(
-                        SortRule(keys: [.name(ascending: true)], foldersFirst: true),
-                        saveAsFolderDefault: true
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.up.arrow.down.circle.fill")
+                    .foregroundStyle(.tint)
+                Text(browser.ruleSummary)
+                    .font(.system(.subheadline, design: .rounded))
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Text(browser.scopeBadge)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(
+                        browser.hasFolderOverride
+                            ? Color.orange.opacity(0.2)
+                            : Color.accentColor.opacity(0.15),
+                        in: Capsule()
                     )
-                }
-                Button("Nombre Z→A") {
-                    browser.applyRule(
-                        SortRule(keys: [.name(ascending: false)], foldersFirst: true),
-                        saveAsFolderDefault: true
-                    )
-                }
-                Divider()
-                Button("Modificado · reciente primero") {
-                    browser.applyRule(
-                        SortRule(keys: [.dateModified(ascending: false)], foldersFirst: true),
-                        saveAsFolderDefault: true
-                    )
-                }
-                Button("Tamaño · grandes primero") {
-                    browser.applyRule(
-                        SortRule(keys: [.size(ascending: false)], foldersFirst: true),
-                        saveAsFolderDefault: true
-                    )
-                }
-                Toggle(
-                    "Carpetas arriba",
-                    isOn: Binding(
-                        get: { browser.rule.foldersFirst },
-                        set: { on in
-                            var r = browser.rule
-                            r.foldersFirst = on
-                            browser.applyRule(r, saveAsFolderDefault: true)
-                        }
-                    )
-                )
+                    .foregroundStyle(browser.hasFolderOverride ? Color.orange : Color.accentColor)
             }
-            .menuStyle(.borderlessButton)
+
+            HStack(spacing: 8) {
+                Button {
+                    browser.useDownloadsStyleEverywhere()
+                } label: {
+                    Label("En todas partes", systemImage: "globe")
+                }
+                .buttonStyle(.borderedProminent)
+                .help("Aplica el estilo Descargas (tipos por recencia) como default en todas las carpetas")
+                .controlSize(.small)
+
+                Menu("Ordenar") {
+                    Section("Estilos") {
+                        sortButtons(scope: .thisFolder)
+                    }
+                    Divider()
+                    Button("Usar este orden en todas partes") {
+                        browser.saveCurrentAsGlobalDefault()
+                    }
+                    if browser.hasFolderOverride {
+                        Button("Quitar orden propio (usar global)") {
+                            browser.useGlobalDefaultHere()
+                        }
+                    }
+                }
+                .menuStyle(.borderlessButton)
+                .controlSize(.small)
+
+                Menu("Guardar como…") {
+                    Button("Solo esta carpeta") {
+                        browser.applyRule(browser.rule, scope: .thisFolder)
+                    }
+                    Button("Default en todas las carpetas") {
+                        browser.applyRule(browser.rule, scope: .everywhere)
+                    }
+                }
+                .controlSize(.small)
+
+                Spacer()
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(.bar)
+    }
+
+    @ViewBuilder
+    private func sortButtons(scope: SortSaveScope) -> some View {
+        Button("Estilo Descargas (tipos · Agregado ↓)") {
+            browser.applyRule(.downloads, scope: scope)
+        }
+        Button("Solo Agregado · lo más nuevo arriba") {
+            browser.applyRule(.newestAddedFirst, scope: scope)
+        }
+        Button("Nombre A→Z") {
+            browser.applyRule(
+                SortRule(keys: [.name(ascending: true)], foldersFirst: true),
+                scope: scope
+            )
+        }
+        Button("Por tipo fijo (vídeo, Excel…)") {
+            browser.applyRule(.byType, scope: scope)
+        }
+        Button("Modificado · reciente primero") {
+            browser.applyRule(
+                SortRule(keys: [.dateModified(ascending: false)], foldersFirst: true),
+                scope: scope
+            )
+        }
+        Button("Tamaño · grandes primero") {
+            browser.applyRule(
+                SortRule(keys: [.size(ascending: false)], foldersFirst: true),
+                scope: scope
+            )
+        }
+        Toggle(
+            "Carpetas arriba",
+            isOn: Binding(
+                get: { browser.rule.foldersFirst },
+                set: { on in
+                    var r = browser.rule
+                    r.foldersFirst = on
+                    browser.applyRule(r, scope: scope)
+                }
+            )
+        )
     }
 }
 
@@ -260,9 +303,16 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Orden en esta sesión") {
+            Section("Dos modos de orden") {
+                Text("1. Default global — el mismo en todas las carpetas (botón «En todas partes»).")
+                Text("2. Orden propio — una carpeta guarda su regla; el resto sigue el global.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Ahora") {
+                LabeledContent("Ámbito", value: browser.scopeBadge)
                 Text(browser.rule.summarySpanish)
-                Text("Descargas usa carpetas por nombre (01_, 02_…) y archivos por fecha. Proyectos usa Nombre A→Z.")
+                Text("Global: \(browser.store.preferences.globalRule.summarySpanish)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -275,6 +325,6 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 320)
+        .frame(width: 460, height: 360)
     }
 }

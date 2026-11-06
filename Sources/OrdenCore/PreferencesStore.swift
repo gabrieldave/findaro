@@ -2,16 +2,17 @@ import Foundation
 
 /// Preferencias propias — no dependemos del amnésico .DS_Store del Finder.
 public struct OrdenPreferences: Codable, Equatable, Sendable {
-    /// 7 = bloques de tipo ordenados por recencia (vídeos viejos abajo)
+    /// 8 = estilo Descargas es el global; overrides solo si la carpeta pide orden propio
     public var schemaVersion: Int
     public var globalRule: SortRule
+    /// Solo carpetas con orden distinto al global.
     public var folderOverrides: [String: SortRule]
     public var favorites: [String]
     public var lastPath: String?
 
     public init(
-        schemaVersion: Int = 2,
-        globalRule: SortRule = .default,
+        schemaVersion: Int = 8,
+        globalRule: SortRule = .downloads,
         folderOverrides: [String: SortRule] = [:],
         favorites: [String] = [],
         lastPath: String? = nil
@@ -23,19 +24,13 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         self.lastPath = lastPath
     }
 
+    /// Override de carpeta si existe; si no, el global (estilo Descargas por defecto).
     public func rule(for path: String) -> SortRule {
-        if let override = folderOverrides[path] {
-            return override
-        }
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        if path == (home as NSString).appendingPathComponent("Downloads") {
-            return .downloads
-        }
-        if path == (home as NSString).appendingPathComponent("Documents")
-            || path == (home as NSString).appendingPathComponent("Projects") {
-            return .projects
-        }
-        return globalRule
+        folderOverrides[path] ?? globalRule
+    }
+
+    public func hasOverride(for path: String) -> Bool {
+        folderOverrides[path] != nil
     }
 
     enum CodingKeys: String, CodingKey {
@@ -45,11 +40,18 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
-        globalRule = try c.decodeIfPresent(SortRule.self, forKey: .globalRule) ?? .default
+        globalRule = try c.decodeIfPresent(SortRule.self, forKey: .globalRule) ?? .downloads
         folderOverrides = try c.decodeIfPresent([String: SortRule].self, forKey: .folderOverrides) ?? [:]
         favorites = try c.decodeIfPresent([String].self, forKey: .favorites) ?? []
         lastPath = try c.decodeIfPresent(String.self, forKey: .lastPath)
     }
+}
+
+public enum SortSaveScope: String, Sendable {
+    /// Solo esta carpeta guarda su propio orden.
+    case thisFolder
+    /// Queda como default en todas (borra overrides).
+    case everywhere
 }
 
 public final class PreferencesStore: @unchecked Sendable {
@@ -89,13 +91,9 @@ public final class PreferencesStore: @unchecked Sendable {
     private static func freshDefaults() -> OrdenPreferences {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return OrdenPreferences(
-            schemaVersion: 7,
-            globalRule: .default,
-            folderOverrides: [
-                (home as NSString).appendingPathComponent("Downloads"): .downloads,
-                (home as NSString).appendingPathComponent("Documents"): .projects,
-                (home as NSString).appendingPathComponent("Projects"): .projects
-            ],
+            schemaVersion: 8,
+            globalRule: .downloads,
+            folderOverrides: [:],
             favorites: [
                 (home as NSString).appendingPathComponent("Downloads"),
                 (home as NSString).appendingPathComponent("Desktop"),
@@ -106,43 +104,22 @@ public final class PreferencesStore: @unchecked Sendable {
         )
     }
 
-    /// Actualiza el override de Descargas al perfil smart si venía del MVP v1.
     private static func migrate(_ prefs: OrdenPreferences) -> OrdenPreferences {
         var next = prefs
-        let downloads = (FileManager.default.homeDirectoryForCurrentUser.path as NSString)
-            .appendingPathComponent("Downloads")
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let downloads = (home as NSString).appendingPathComponent("Downloads")
 
-        if next.schemaVersion < 2 {
-            next.folderOverrides[downloads] = .downloads
-            if next.folderOverrides[(FileManager.default.homeDirectoryForCurrentUser.path as NSString)
-                .appendingPathComponent("Projects")] == nil {
-                next.folderOverrides[(FileManager.default.homeDirectoryForCurrentUser.path as NSString)
-                    .appendingPathComponent("Projects")] = .projects
-            }
-            next.schemaVersion = 2
-        }
-        if next.schemaVersion < 3 {
-            next.folderOverrides[downloads] = .downloads
-            next.schemaVersion = 3
-        }
-        if next.schemaVersion < 4 {
-            next.folderOverrides[downloads] = .downloads
-            next.schemaVersion = 4
-        }
-        if next.schemaVersion < 5 {
-            next.globalRule = .newestAddedFirst
-            next.folderOverrides[downloads] = .downloads
-            next.schemaVersion = 5
-        }
-        if next.schemaVersion < 6 {
-            next.globalRule = .downloads
-            next.folderOverrides[downloads] = .downloads
-            next.schemaVersion = 6
-        }
+        // Migraciones previas (idempotentes en espíritu).
         if next.schemaVersion < 7 {
             next.globalRule = .downloads
             next.folderOverrides[downloads] = .downloads
             next.schemaVersion = 7
+        }
+        if next.schemaVersion < 8 {
+            // Estilo Descargas = default global. Sin overrides especiales de Documents/Projects.
+            next.globalRule = .downloads
+            next.folderOverrides = [:]
+            next.schemaVersion = 8
         }
         return next
     }

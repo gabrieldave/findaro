@@ -38,6 +38,15 @@ final class BrowserModel: ObservableObject {
 
     var ruleSummary: String { rule.summarySpanish }
 
+    /// true si esta carpeta tiene orden propio (no el global).
+    var hasFolderOverride: Bool {
+        store.preferences.hasOverride(for: currentPath)
+    }
+
+    var scopeBadge: String {
+        hasFolderOverride ? "Solo esta carpeta" : "Default global"
+    }
+
     func reload() {
         do {
             entries = try DirectoryLoader.load(path: currentPath)
@@ -76,16 +85,43 @@ final class BrowserModel: ObservableObject {
         navigate(to: home("Documents"))
     }
 
-    func applyRule(_ newRule: SortRule, saveAsFolderDefault: Bool) {
+    /// Aplica un orden con alcance: solo carpeta o default en todas.
+    func applyRule(_ newRule: SortRule, scope: SortSaveScope) {
         rule = newRule
         store.update { prefs in
-            if saveAsFolderDefault {
+            switch scope {
+            case .thisFolder:
                 prefs.folderOverrides[currentPath] = newRule
-            } else {
+            case .everywhere:
                 prefs.globalRule = newRule
+                prefs.folderOverrides = [:]
             }
         }
+        statusMessage = scope == .everywhere
+            ? "Orden aplicado en todas las carpetas"
+            : "Orden guardado solo en esta carpeta"
         objectWillChange.send()
+    }
+
+    /// El estilo Descargas queda como default global en todas partes.
+    func useDownloadsStyleEverywhere() {
+        applyRule(.downloads, scope: .everywhere)
+        rule = .downloads
+    }
+
+    /// Quita el orden propio y vuelve al default global.
+    func useGlobalDefaultHere() {
+        store.update { prefs in
+            prefs.folderOverrides.removeValue(forKey: currentPath)
+        }
+        rule = store.preferences.globalRule
+        statusMessage = "Esta carpeta usa el default global"
+        objectWillChange.send()
+    }
+
+    /// Guarda el orden actual como default global (todas las carpetas).
+    func saveCurrentAsGlobalDefault() {
+        applyRule(rule, scope: .everywhere)
     }
 
     func open(_ entry: FileEntry) {
