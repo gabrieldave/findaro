@@ -88,11 +88,11 @@ struct SortBar: View {
                 .lineLimit(1)
             Spacer()
             Menu("Ordenar") {
-                Button("Agregado · lo más nuevo arriba") {
-                    browser.applyRule(.newestAddedFirst, saveAsFolderDefault: true)
-                }
-                Button("Descargas (Agregado ↓)") {
+                Button("Descargas (tipo juntos · Agregado ↓)") {
                     browser.applyRule(.downloads, saveAsFolderDefault: true)
+                }
+                Button("Solo Agregado · lo más nuevo arriba") {
+                    browser.applyRule(.newestAddedFirst, saveAsFolderDefault: true)
                 }
                 Button("Proyectos (Nombre A→Z)") {
                     browser.applyRule(.projects, saveAsFolderDefault: true)

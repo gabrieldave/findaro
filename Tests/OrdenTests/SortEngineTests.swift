@@ -64,7 +64,7 @@ final class SortEngineTests: XCTestCase {
         XCTAssertEqual(sorted.map(\.name), ["new.zip", "old.zip"])
     }
 
-    func testDownloadsAgregadoNewestFirstEverywhere() {
+    func testDownloadsTypesTogetherThenAgregado() {
         let older = Date().addingTimeInterval(-day * 3)
         let mid = Date().addingTimeInterval(-day)
         let newer = Date()
@@ -78,10 +78,10 @@ final class SortEngineTests: XCTestCase {
             entry("davitor", isDir: true, added: newer)
         ]
         let sorted = SortEngine.sort(files, by: .downloads)
-        // Carpetas primero, Agregado ↓; luego archivos Agregado ↓.
+        // Carpetas Agregado ↓; archivos: todos .md juntos (reciente arriba), luego zips.
         XCTAssertEqual(
             sorted.map(\.name),
-            ["davitor", "01_Trading", "05_Multimedia", "new.zip", "DISENO.md", "AGENTS.md", "old.zip"]
+            ["davitor", "01_Trading", "05_Multimedia", "DISENO.md", "AGENTS.md", "new.zip", "old.zip"]
         )
     }
 

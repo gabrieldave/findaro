@@ -24,8 +24,8 @@ public struct SortRule: Codable, Equatable, Sendable, Hashable {
         self.groupBy = groupBy
     }
 
-    /// Prioridad: Agregado · lo más nuevo arriba.
-    public static let `default` = SortRule(
+    /// Agregado · lo más nuevo arriba (puede mezclar tipos si las fechas se cruzan).
+    public static let newestAddedFirst = SortRule(
         keys: [
             .dateAdded(ascending: false),
             .name(ascending: true)
@@ -33,23 +33,28 @@ public struct SortRule: Codable, Equatable, Sendable, Hashable {
         foldersFirst: true
     )
 
-    /// Descargas: Agregado manda (carpetas y archivos). Lo más nuevo arriba.
+    /// Por defecto = Descargas: tipos juntos + dentro lo más nuevo arriba.
+    public static let `default` = SortRule.downloads
+
+    /// Descargas: carpetas por Agregado ↓; archivos por TIPO juntos y dentro Agregado ↓.
+    /// Así el zip nunca se mete entre los .md.
     public static let downloads = SortRule(
-        keys: [.dateAdded(ascending: false), .name(ascending: true)],
+        keys: [
+            .category(ascending: true),
+            .dateAdded(ascending: false),
+            .name(ascending: true)
+        ],
         folderKeys: [
             .dateAdded(ascending: false),
             .name(ascending: true)
         ],
         fileKeys: [
-            .dateAdded(ascending: false),
             .category(ascending: true),
+            .dateAdded(ascending: false),
             .name(ascending: true)
         ],
         foldersFirst: true
     )
-
-    /// Alias explícito del criterio que pide el usuario.
-    public static let newestAddedFirst = SortRule.default
 
     public static let projects = SortRule(
         keys: [.name(ascending: true)],
