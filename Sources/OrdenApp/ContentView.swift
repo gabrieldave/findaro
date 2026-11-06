@@ -465,7 +465,6 @@ struct FileBrowserPane: View {
     @State private var marqueeCurrent: CGPoint?
     @State private var marqueeBase: Set<String> = []
     @State private var marqueeAdditive = false
-    @State private var suppressMarquee = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -496,6 +495,11 @@ struct FileBrowserPane: View {
                                 FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
                                     .frame(minHeight: rowHeight)
                             }
+                            // Zona vacía debajo: desde aquí también se puede empezar el marquee hacia arriba
+                            Color.clear
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 320)
+                                .contentShape(Rectangle())
                         }
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                         .coordinateSpace(name: "fileList")
@@ -534,7 +538,6 @@ struct FileBrowserPane: View {
     private func resetMarquee() {
         marqueeStart = nil
         marqueeCurrent = nil
-        suppressMarquee = false
         marqueeBase = []
     }
 
@@ -548,15 +551,14 @@ struct FileBrowserPane: View {
         )
     }
 
+    private var listContentHeight: CGFloat {
+        CGFloat(browser.visibleEntries.count) * rowHeight
+    }
+
     private var marqueeGesture: some Gesture {
-        DragGesture(minimumDistance: 4, coordinateSpace: .named("fileList"))
+        DragGesture(minimumDistance: 3, coordinateSpace: .named("fileList"))
             .onChanged { value in
                 if marqueeStart == nil {
-                    if let hit = hitID(atY: value.startLocation.y), browser.selectedIDs.contains(hit) {
-                        suppressMarquee = true
-                        return
-                    }
-                    suppressMarquee = false
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
                     let flags = NSEvent.modifierFlags
@@ -566,14 +568,11 @@ struct FileBrowserPane: View {
                         browser.clearSelection()
                     }
                 }
-                guard !suppressMarquee else { return }
                 marqueeCurrent = value.location
                 applyMarquee()
             }
             .onEnded { _ in
-                if !suppressMarquee {
-                    applyMarquee()
-                }
+                applyMarquee()
                 resetMarquee()
             }
     }
@@ -582,24 +581,25 @@ struct FileBrowserPane: View {
         guard let start = marqueeStart, let current = marqueeCurrent else { return }
         let entries = browser.visibleEntries
         guard !entries.isEmpty else { return }
-        let a = rowIndex(atY: start.y, count: entries.count)
-        let b = rowIndex(atY: current.y, count: entries.count)
-        let lo = min(a, b)
-        let hi = max(a, b)
-        let hits = Set(entries[lo...hi].map(\.id))
+
+        let y0 = min(start.y, current.y)
+        let y1 = max(start.y, current.y)
+        let contentH = listContentHeight
+
+        // Rectángulo solo en el vacío debajo de los archivos → nada
+        if y0 >= contentH {
+            browser.applyMarqueeSelection(hitIDs: [], base: marqueeBase, additive: marqueeAdditive)
+            return
+        }
+
+        let first = max(0, Int(floor(y0 / rowHeight)))
+        let last = min(entries.count - 1, Int(floor((min(y1, contentH) - 0.001) / rowHeight)))
+        guard first <= last else {
+            browser.applyMarqueeSelection(hitIDs: [], base: marqueeBase, additive: marqueeAdditive)
+            return
+        }
+        let hits = Set(entries[first...last].map(\.id))
         browser.applyMarqueeSelection(hitIDs: hits, base: marqueeBase, additive: marqueeAdditive)
-    }
-
-    private func rowIndex(atY y: CGFloat, count: Int) -> Int {
-        guard count > 0 else { return 0 }
-        let idx = Int(floor(max(0, y) / rowHeight))
-        return min(max(0, idx), count - 1)
-    }
-
-    private func hitID(atY y: CGFloat) -> String? {
-        let entries = browser.visibleEntries
-        guard !entries.isEmpty else { return nil }
-        return entries[rowIndex(atY: y, count: entries.count)].id
     }
 
     private var header: some View {
@@ -706,8 +706,6 @@ struct FileRowButton: View {
             .padding(.trailing, 10)
         }
         .background(rowBackground)
-        // Arrastre de archivos solo si YA está seleccionado (si no, el gesto es marquee)
-        .modifier(FileDragIfSelected(isSelected: isSelected, entry: entry))
         .contextMenu {
             Button("Abrir") {
                 browser.selectOnly(entry.id)
@@ -790,27 +788,6 @@ struct FileRowButton: View {
     }
 }
 
-/// `.onDrag` solo en filas seleccionadas → el drag en vacío/no-seleccionado hace marquee.
-private struct FileDragIfSelected: ViewModifier {
-    @EnvironmentObject private var browser: BrowserModel
-    let isSelected: Bool
-    let entry: FileEntry
-
-    func body(content: Content) -> some View {
-        if isSelected {
-            content.onDrag {
-                let paths = browser.dragPaths(for: entry)
-                if let first = paths.first {
-                    return NSItemProvider(contentsOf: URL(fileURLWithPath: first)) ?? NSItemProvider()
-                }
-                return NSItemProvider()
-            }
-        } else {
-            content
-        }
-    }
-}
-
 // MARK: - Settings
 
 struct SettingsView: View {
@@ -819,7 +796,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Selección") {
-                Text("Clic = uno · Arrastrar = rectángulo (como Finder) · Casilla / Varios / ⌘ = varios · ⇧ = rango · Sobre seleccionado = arrastrar archivos")
+                Text("Clic = uno · Arrastrar (también desde vacío o desde ya seleccionado) = rectángulo · Casilla / Varios / ⌘ = varios · ⇧ = rango · Archivos a Dropover vía Bandeja")
             }
             Section("Orden") {
                 LabeledContent("Ámbito", value: browser.scopeBadge)
