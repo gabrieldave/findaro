@@ -1141,12 +1141,12 @@ struct FileRowButton: View {
                             .font(.body)
                             .lineLimit(1)
                             .foregroundStyle(.primary)
+                        // Sin textSelection aquí: se come el doble clic para abrir.
                         Text(entry.path)
                             .font(.system(.caption2, design: .monospaced))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
-                            .textSelection(.enabled)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -1262,12 +1262,8 @@ struct FileRowButton: View {
     }
 
     private func selectRow() {
-        if (NSApp.currentEvent?.clickCount ?? 1) >= 2 {
-            browser.selectOnly(entry.id)
-            browser.open(entry)
-            return
-        }
-
+        // El doble clic lo resuelve FileDragArmMonitor (NSEvent.clickCount real).
+        // Aquí solo selección; open() en Button suele ver siempre clickCount == 1.
         let flags = NSEvent.modifierFlags
         if flags.contains(.shift) {
             browser.selectRange(to: entry.id)

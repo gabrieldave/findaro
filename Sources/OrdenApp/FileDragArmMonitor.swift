@@ -16,6 +16,10 @@ final class FileDragArmMonitor {
     /// Frames de filas en coordenadas de la key window.
     private var rowFrames: [String: CGRect] = [:]
 
+    /// Fallback si `clickCount` no llega bien (SwiftUI / eventos sintéticos).
+    private var lastClickPath: String?
+    private var lastClickAt: Date?
+
     func attach(browser: BrowserModel) {
         self.browser = browser
         guard monitor == nil else { return }
@@ -36,11 +40,36 @@ final class FileDragArmMonitor {
         guard let browser else { return }
         switch event.type {
         case .leftMouseDown:
+            let path = pathAt(event.locationInWindow)
+            let isDouble: Bool = {
+                if event.clickCount >= 2 { return true }
+                guard let path,
+                      lastClickPath == path,
+                      let last = lastClickAt,
+                      Date().timeIntervalSince(last) < 0.45 else { return false }
+                return true
+            }()
+
+            if isDouble, let path,
+               let entry = browser.visibleEntries.first(where: { $0.path == path }) {
+                cancelArming()
+                lastClickPath = nil
+                lastClickAt = nil
+                browser.selectOnly(entry.id)
+                browser.activateEntry(entry)
+                downPoint = nil
+                downTime = nil
+                return
+            }
+
+            lastClickPath = path
+            lastClickAt = Date()
+
             downPoint = event.locationInWindow
             downTime = Date()
             tickTimer?.invalidate()
             tickTimer = nil
-            if let path = pathAt(event.locationInWindow),
+            if let path,
                let entry = browser.visibleEntries.first(where: { $0.path == path }) {
                 browser.beginArmingFileDrag(for: entry)
                 tickTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in

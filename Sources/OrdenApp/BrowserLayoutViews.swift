@@ -58,13 +58,10 @@ struct SelectionCheckButton: View {
 }
 
 /// Misma lógica que `FileRowButton.selectRow`.
+/// El doble clic para abrir lo maneja `FileDragArmMonitor` (clickCount real de AppKit).
 @MainActor
 func browserSelectEntry(_ browser: BrowserModel, entry: FileEntry, openOnDoubleClick: Bool = true) {
-    if openOnDoubleClick, (NSApp.currentEvent?.clickCount ?? 1) >= 2 {
-        browser.selectOnly(entry.id)
-        browser.activateEntry(entry)
-        return
-    }
+    _ = openOnDoubleClick
     browser.clickSelect(entry.id)
 }
 
@@ -629,11 +626,7 @@ private struct ColumnRow: View {
     }
 
     private func handleClick() {
-        if (NSApp.currentEvent?.clickCount ?? 1) >= 2 {
-            browser.selectOnly(entry.id)
-            browser.activateEntry(entry)
-            return
-        }
+        // Doble clic → FileDragArmMonitor. Un clic en carpeta abre la columna siguiente.
         let flags = NSEvent.modifierFlags
         if flags.contains(.shift) || flags.contains(.command) || browser.multiSelectMode {
             browser.clickSelect(entry.id)
