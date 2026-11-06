@@ -89,8 +89,11 @@ final class BrowserModel: ObservableObject {
         next.append(entry.path)
         columnPaths = next
         currentPath = entry.path
-        selectedIDs = []
-        selectionAnchorID = nil
+        // Mantener selección del ítem (antes se borraba y “no funcionaba” en columnas)
+        if !selectedIDs.contains(entry.id) {
+            selectedIDs = [entry.id]
+        }
+        selectionAnchorID = entry.id
         if !cleanupMode {
             rule = store.preferences.rule(for: entry.path)
         }
