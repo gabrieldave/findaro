@@ -535,6 +535,24 @@ struct FileActionsBar: View {
             .help("Mete la selección en la bandeja (abajo)")
 
             Button {
+                browser.sendOutboundToDropover()
+            } label: {
+                Label("Dropover", systemImage: "circle.dashed")
+            }
+            .controlSize(.regular)
+            .disabled(browser.outboundPaths.isEmpty)
+            .help("Abre una burbuja de Dropover con la selección (o bandeja) para arrastrar a Terminal, Cursor…")
+
+            Button {
+                browser.copyOutboundPaths()
+            } label: {
+                Label("Rutas", systemImage: "terminal")
+            }
+            .controlSize(.regular)
+            .disabled(browser.outboundPaths.isEmpty)
+            .help("Copia las rutas al portapapeles — ⌘V en Terminal o Cursor")
+
+            Button {
                 browser.addFoldersToFavoritesFromUI()
             } label: {
                 Label("A Favoritos", systemImage: "star.fill")

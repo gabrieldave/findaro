@@ -53,6 +53,15 @@ struct DropShelfView: View {
                 .disabled(browser.shelf.isEmpty)
                 .help("⌘V — copia o mueve según cada ítem")
 
+                Button {
+                    browser.sendOutboundToDropover()
+                } label: {
+                    Label("Dropover", systemImage: "circle.dashed")
+                }
+                .controlSize(.small)
+                .disabled(browser.outboundPaths.isEmpty)
+                .help("Manda selección/bandeja a una burbuja de Dropover")
+
                 Button(role: .destructive) {
                     browser.clearShelf()
                 } label: {

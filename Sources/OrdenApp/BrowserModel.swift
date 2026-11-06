@@ -889,6 +889,70 @@ final class BrowserModel: ObservableObject {
         return [entry.path]
     }
 
+    /// Rutas a sacar fuera de Ordena (selección, o bandeja si no hay selección).
+    var outboundPaths: [String] {
+        let selected = selectedEntries.map(\.path).filter {
+            FileManager.default.fileExists(atPath: $0)
+        }
+        if !selected.isEmpty { return selected }
+        return shelf.map(\.path).filter { FileManager.default.fileExists(atPath: $0) }
+    }
+
+    /// Mete la selección (o bandeja) en una burbuja de Dropover para arrastrar a Terminal, Cursor, etc.
+    func sendOutboundToDropover() {
+        let paths = outboundPaths
+        guard !paths.isEmpty else {
+            statusMessage = "Selecciona archivos o lléná la bandeja"
+            return
+        }
+        let dropoverURL: URL? =
+            NSWorkspace.shared.urlForApplication(withBundleIdentifier: "me.damir.dropover-mac")
+            ?? {
+                let fallback = URL(fileURLWithPath: "/Applications/Dropover.app", isDirectory: true)
+                return FileManager.default.fileExists(atPath: fallback.path) ? fallback : nil
+            }()
+        guard let dropoverURL else {
+            statusMessage = "No encontré Dropover.app en /Applications"
+            return
+        }
+
+        let urls = paths.map { URL(fileURLWithPath: $0) }
+        let config = NSWorkspace.OpenConfiguration()
+        config.activates = true
+        NSWorkspace.shared.open(urls, withApplicationAt: dropoverURL, configuration: config) { _, error in
+            Task { @MainActor in
+                if let error {
+                    self.statusMessage = "Dropover: \(error.localizedDescription)"
+                } else {
+                    self.statusMessage = paths.count == 1
+                        ? "En Dropover — arrástralo a Terminal o Cursor"
+                        : "\(paths.count) en Dropover — arrástralos a otra app"
+                }
+            }
+        }
+    }
+
+    /// Copia rutas POSIX entrecomilladas (útil en Terminal / pegar en Cursor).
+    func copyOutboundPaths() {
+        let paths = outboundPaths
+        guard !paths.isEmpty else {
+            statusMessage = "Nada seleccionado para copiar rutas"
+            return
+        }
+        let quoted = paths.map { path -> String in
+            if path.contains(" ") || path.contains("'") {
+                let escaped = path.replacingOccurrences(of: "'", with: "'\\''")
+                return "'\(escaped)'"
+            }
+            return path
+        }.joined(separator: " ")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(quoted, forType: .string)
+        statusMessage = paths.count == 1
+            ? "Ruta copiada — ⌘V en Terminal o Cursor"
+            : "\(paths.count) rutas copiadas"
+    }
+
     func importDroppedFiles(providers: [NSItemProvider]) -> Bool {
         var collected: [String] = []
         let group = DispatchGroup()
