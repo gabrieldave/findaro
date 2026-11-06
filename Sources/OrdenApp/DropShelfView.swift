@@ -68,9 +68,9 @@ struct DropShelfView: View {
                         (browser.shelfDropTargeted ? OrdenTheme.accent.opacity(0.12) : Color.clear),
                         in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                     )
-                    .frame(height: 52)
+                    .frame(height: 36)
                     .overlay {
-                        Text("Suelta archivos · también puedes arrastrarlos a Dropover")
+                        Text("Suelta archivos · también a Dropover")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -84,7 +84,8 @@ struct DropShelfView: View {
                 }
             }
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)

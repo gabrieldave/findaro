@@ -17,13 +17,20 @@ struct OrdenApp: App {
         .defaultSize(width: 1180, height: 740)
         .windowToolbarStyle(.unified)
         .commands {
-            CommandGroup(replacing: .newItem) {}
+            CommandGroup(replacing: .newItem) {
+                Button("Nueva carpeta") { browser.promptNewFolder() }
+                    .keyboardShortcut("n", modifiers: [.command, .shift])
+            }
 
             CommandGroup(after: .pasteboard) {
-                Button("Copiar ruta") {
-                    browser.copySelectedPaths()
-                }
-                .keyboardShortcut("c", modifiers: [.command, .option])
+                Button("Copiar archivos") { browser.copySelectionToPasteboard() }
+                    .keyboardShortcut("c", modifiers: .command)
+                Button("Pegar archivos") { browser.pasteFromPasteboard() }
+                    .keyboardShortcut("v", modifiers: .command)
+                Button("Duplicar") { browser.duplicateSelection() }
+                    .keyboardShortcut("d", modifiers: .command)
+                Button("Copiar ruta") { browser.copySelectedPaths() }
+                    .keyboardShortcut("c", modifiers: [.command, .option])
             }
 
             CommandMenu("Ir") {
@@ -36,6 +43,13 @@ struct OrdenApp: App {
             }
 
             CommandMenu("Archivo+") {
+                Button("Nueva carpeta") { browser.promptNewFolder() }
+                    .keyboardShortcut("n", modifiers: [.command, .shift])
+                Button("Renombrar") { browser.promptRename() }
+                    .keyboardShortcut(.return, modifiers: [])
+                Button("Duplicar") { browser.duplicateSelection() }
+                    .keyboardShortcut("d", modifiers: .command)
+                Divider()
                 Button("Seleccionar todos") { browser.selectAllVisible() }
                     .keyboardShortcut("a", modifiers: .command)
                 Button("Quitar selección") { browser.clearSelection() }

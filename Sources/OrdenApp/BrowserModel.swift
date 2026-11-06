@@ -22,6 +22,11 @@ final class BrowserModel: ObservableObject {
     @Published var multiSelectMode = false
     /// Ancla para ⇧ clic (rango).
     @Published var selectionAnchorID: String?
+    @Published var showNewFolderDialog = false
+    @Published var showRenameDialog = false
+    @Published var nameDraft = ""
+    /// Ruta pendiente de renombrar (si el diálogo está abierto).
+    @Published var renameTargetPath: String?
 
     let store: PreferencesStore
     private var measureTask: Task<Void, Never>?
@@ -105,6 +110,19 @@ final class BrowserModel: ObservableObject {
         }
         let range = a <= b ? a...b : b...a
         selectedIDs = Set(ids[range])
+        refreshSelectionStatus()
+    }
+
+    /// Selección tipo Finder (rectángulo / marquee).
+    func applyMarqueeSelection(hitIDs: Set<String>, base: Set<String>, additive: Bool) {
+        if additive {
+            selectedIDs = base.union(hitIDs)
+        } else {
+            selectedIDs = hitIDs
+        }
+        if let last = hitIDs.first {
+            selectionAnchorID = last
+        }
         refreshSelectionStatus()
     }
 
@@ -300,10 +318,120 @@ final class BrowserModel: ObservableObject {
             }
         }
         selectedIDs = []
+        selectionAnchorID = nil
         reload()
         if moved > 0 {
             statusMessage = moved == 1 ? "1 elemento a la Papelera" : "\(moved) elementos a la Papelera"
         }
+    }
+
+    // MARK: - Crear / renombrar / duplicar / portapapeles
+
+    func promptNewFolder() {
+        nameDraft = "Carpeta sin título"
+        showNewFolderDialog = true
+    }
+
+    func createFolderFromDraft() {
+        let name = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        do {
+            let path = try FileOps.createFolder(named: name, in: currentPath)
+            reload()
+            selectOnly(path)
+            statusMessage = "Carpeta creada: \(URL(fileURLWithPath: path).lastPathComponent)"
+        } catch {
+            statusMessage = "No se pudo crear: \(error.localizedDescription)"
+        }
+    }
+
+    func promptRename() {
+        guard let entry = selectedEntries.first else {
+            statusMessage = "Selecciona un ítem para renombrar"
+            return
+        }
+        renameTargetPath = entry.path
+        nameDraft = entry.name
+        showRenameDialog = true
+    }
+
+    func commitRenameFromDraft() {
+        guard let path = renameTargetPath else { return }
+        let newName = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !newName.isEmpty else { return }
+        do {
+            let newPath = try FileOps.rename(path: path, to: newName)
+            reload()
+            selectOnly(newPath)
+            statusMessage = "Renombrado a \(newName)"
+        } catch {
+            statusMessage = "No se pudo renombrar: \(error.localizedDescription)"
+        }
+        renameTargetPath = nil
+    }
+
+    func duplicateSelection() {
+        let targets = selectedEntries
+        guard !targets.isEmpty else {
+            statusMessage = "Selecciona algo para duplicar"
+            return
+        }
+        var lastPath: String?
+        var count = 0
+        for entry in targets {
+            do {
+                lastPath = try FileOps.duplicate(path: entry.path)
+                count += 1
+            } catch {
+                statusMessage = "No se pudo duplicar \(entry.name): \(error.localizedDescription)"
+                reload()
+                return
+            }
+        }
+        reload()
+        if let lastPath {
+            selectOnly(lastPath)
+        }
+        statusMessage = count == 1 ? "Duplicado" : "\(count) duplicados"
+    }
+
+    /// Copia archivos (URLs) al portapapeles — pegable en Finder/Orden.
+    func copySelectionToPasteboard() {
+        let urls = selectedEntries.map { URL(fileURLWithPath: $0.path) as NSURL }
+        guard !urls.isEmpty else {
+            statusMessage = "Nada seleccionado"
+            return
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects(urls)
+        statusMessage = urls.count == 1 ? "Copiado (archivo)" : "\(urls.count) archivos copiados"
+    }
+
+    func pasteFromPasteboard() {
+        let pb = NSPasteboard.general
+        guard let urls = pb.readObjects(forClasses: [NSURL.self], options: [
+            .urlReadingFileURLsOnly: true
+        ]) as? [URL], !urls.isEmpty else {
+            statusMessage = "El portapapeles no tiene archivos"
+            return
+        }
+        do {
+            let n = try FileOps.transfer(
+                paths: urls.map(\.path),
+                toDirectory: currentPath,
+                move: false
+            )
+            reload()
+            statusMessage = n == 1 ? "1 archivo pegado" : "\(n) archivos pegados"
+        } catch {
+            statusMessage = "No se pudo pegar: \(error.localizedDescription)"
+        }
+    }
+
+    var canPasteFiles: Bool {
+        NSPasteboard.general.canReadObject(forClasses: [NSURL.self], options: [
+            .urlReadingFileURLsOnly: true
+        ])
     }
 
     // MARK: - Bandeja (Dropover casero)

@@ -31,18 +31,24 @@ struct ContentView: View {
                     .truncationMode(.middle)
             }
             ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    browser.promptNewFolder()
+                } label: {
+                    Label("Nueva carpeta", systemImage: "folder.badge.plus")
+                }
+                .help("Crear carpeta aquí (⇧⌘N)")
+
                 Toggle(isOn: $browser.multiSelectMode) {
                     Label("Varios", systemImage: "checkmark.circle")
                 }
                 .toggleStyle(.button)
-                .help("Clic = agregar/quitar sin ⌘. Ideal para marcar muchos.")
+                .help("Clic = agregar/quitar sin ⌘")
 
                 Button {
                     browser.selectAllVisible()
                 } label: {
                     Label("Todos", systemImage: "checklist")
                 }
-                .help("Seleccionar todos los visibles")
 
                 Button {
                     browser.clearSelection()
@@ -59,12 +65,6 @@ struct ContentView: View {
                 .disabled(browser.selectedIDs.isEmpty)
 
                 Button {
-                    browser.copySelectedPaths()
-                } label: {
-                    Label("Copiar ruta", systemImage: "doc.on.clipboard")
-                }
-
-                Button {
                     browser.quickLookSelection()
                 } label: {
                     Label("Vista rápida", systemImage: "eye")
@@ -75,6 +75,18 @@ struct ContentView: View {
                     Label("Actualizar", systemImage: "arrow.clockwise")
                 }
             }
+        }
+        .alert("Nueva carpeta", isPresented: $browser.showNewFolderDialog) {
+            TextField("Nombre", text: $browser.nameDraft)
+            Button("Crear") { browser.createFolderFromDraft() }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Se crea dentro de \(shortPath(browser.currentPath))")
+        }
+        .alert("Renombrar", isPresented: $browser.showRenameDialog) {
+            TextField("Nombre", text: $browser.nameDraft)
+            Button("Guardar") { browser.commitRenameFromDraft() }
+            Button("Cancelar", role: .cancel) { browser.renameTargetPath = nil }
         }
         .onKeyPress(.space) {
             browser.quickLookSelection()
@@ -90,26 +102,38 @@ struct ContentView: View {
             browser.moveSelectionToTrash()
             return .handled
         }
+        .onKeyPress(keys: [.return], phases: .down) { press in
+            // Return = renombrar (Finder); ⌘↓ ya abre
+            guard !press.modifiers.contains(.command) else { return .ignored }
+            guard browser.selectedIDs.count == 1 else { return .ignored }
+            browser.promptRename()
+            return .handled
+        }
     }
 
     private var detailColumn: some View {
         VStack(spacing: 0) {
             SortBar()
                 .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+                .padding(.top, 10)
+                .padding(.bottom, 6)
 
             FolderStatsBar()
                 .padding(.horizontal, 16)
-                .padding(.bottom, 8)
+                .padding(.bottom, 6)
+
+            FileActionsBar()
+                .padding(.horizontal, 16)
+                .padding(.bottom, 6)
 
             FileBrowserPane()
                 .padding(.horizontal, 16)
-                .padding(.bottom, 8)
+                .padding(.bottom, 6)
+                .layoutPriority(1)
 
             DropShelfView()
                 .padding(.horizontal, 16)
-                .padding(.bottom, 8)
+                .padding(.bottom, 6)
 
             if let status = browser.statusMessage {
                 Text(status)
@@ -117,13 +141,12 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, 8)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(OrdenTheme.windowFill)
         .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
-            // Soltar en el panel = a la bandeja (y desde ahí a Dropover / otra carpeta)
             browser.importDroppedFiles(providers: providers)
         }
     }
@@ -296,7 +319,7 @@ struct FolderStatsBar: View {
                             .lineLimit(1)
                             .help(entry.path)
                             .onTapGesture {
-                                browser.selectedIDs = [entry.id]
+                                browser.selectOnly(entry.id)
                                 browser.statusMessage = entry.path
                             }
                     }
@@ -304,7 +327,76 @@ struct FolderStatsBar: View {
                 }
             }
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+// MARK: - Acciones tipo Finder
+
+struct FileActionsBar: View {
+    @EnvironmentObject private var browser: BrowserModel
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button {
+                browser.promptNewFolder()
+            } label: {
+                Label("Nueva carpeta", systemImage: "folder.badge.plus")
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(OrdenTheme.accent)
+            .controlSize(.regular)
+            .help("⇧⌘N")
+
+            Button {
+                browser.promptRename()
+            } label: {
+                Label("Renombrar", systemImage: "pencil")
+            }
+            .controlSize(.regular)
+            .disabled(browser.selectedIDs.count != 1)
+
+            Button {
+                browser.duplicateSelection()
+            } label: {
+                Label("Duplicar", systemImage: "plus.square.on.square")
+            }
+            .controlSize(.regular)
+            .disabled(browser.selectedIDs.isEmpty)
+
+            Button {
+                browser.copySelectionToPasteboard()
+            } label: {
+                Label("Copiar", systemImage: "doc.on.doc")
+            }
+            .controlSize(.regular)
+            .disabled(browser.selectedIDs.isEmpty)
+            .help("Copia archivos al portapapeles (⌘C)")
+
+            Button {
+                browser.pasteFromPasteboard()
+            } label: {
+                Label("Pegar", systemImage: "doc.on.clipboard")
+            }
+            .controlSize(.regular)
+            .help("Pega archivos aquí (⌘V)")
+
+            Spacer(minLength: 8)
+
+            Button(role: .destructive) {
+                browser.moveSelectionToTrash()
+            } label: {
+                Label("Papelera", systemImage: "trash")
+            }
+            .controlSize(.regular)
+            .disabled(browser.selectedIDs.isEmpty)
+            .help("⌘⌫")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
@@ -353,10 +445,26 @@ struct SidebarView: View {
     }
 }
 
-// MARK: - File pane (selección manual = siempre funciona)
+// MARK: - Preferencias de frames (marquee)
+
+private struct RowFrameKey: PreferenceKey {
+    static let defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
+}
+
+// MARK: - File pane (clic + marquee como Finder)
 
 struct FileBrowserPane: View {
     @EnvironmentObject private var browser: BrowserModel
+
+    @State private var rowFrames: [String: CGRect] = [:]
+    @State private var marqueeStart: CGPoint?
+    @State private var marqueeCurrent: CGPoint?
+    @State private var marqueeBase: Set<String> = []
+    @State private var marqueeAdditive = false
+    @State private var suppressMarquee = false
 
     var body: some View {
         Group {
@@ -377,13 +485,48 @@ struct FileBrowserPane: View {
                     header
                     Divider().opacity(0.35)
                     ScrollView {
-                        LazyVStack(spacing: 0) {
-                            ForEach(Array(browser.visibleEntries.enumerated()), id: \.element.id) { index, entry in
-                                FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
+                        ZStack(alignment: .topLeading) {
+                            LazyVStack(spacing: 0) {
+                                ForEach(Array(browser.visibleEntries.enumerated()), id: \.element.id) { index, entry in
+                                    FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
+                                        .background(
+                                            GeometryReader { geo in
+                                                Color.clear.preference(
+                                                    key: RowFrameKey.self,
+                                                    value: [entry.id: geo.frame(in: .named("fileList"))]
+                                                )
+                                            }
+                                        )
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .top)
+
+                            // Zona vacía debajo de las filas: también inicia marquee
+                            Color.clear
+                                .frame(minHeight: 120)
+                                .frame(maxWidth: .infinity)
+
+                            if let rect = marqueeRect {
+                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                    .fill(OrdenTheme.accent.opacity(0.18))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                            .strokeBorder(OrdenTheme.accent.opacity(0.85), lineWidth: 1)
+                                    )
+                                    .frame(width: rect.width, height: rect.height)
+                                    .offset(x: rect.minX, y: rect.minY)
+                                    .allowsHitTesting(false)
                             }
                         }
+                        .coordinateSpace(name: "fileList")
+                        .onPreferenceChange(RowFrameKey.self) { rowFrames = $0 }
+                        .contentShape(Rectangle())
+                        // highPriority: el arrastre gana al Button; el clic corto sigue seleccionando
+                        .highPriorityGesture(marqueeGesture)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -392,7 +535,75 @@ struct FileBrowserPane: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private var marqueeRect: CGRect? {
+        guard let start = marqueeStart, let current = marqueeCurrent else { return nil }
+        return CGRect(
+            x: min(start.x, current.x),
+            y: min(start.y, current.y),
+            width: max(abs(current.x - start.x), 1),
+            height: max(abs(current.y - start.y), 1)
+        )
+    }
+
+    private var marqueeGesture: some Gesture {
+        DragGesture(minimumDistance: 4, coordinateSpace: .named("fileList"))
+            .onChanged { value in
+                if marqueeStart == nil {
+                    // Si el drag nace en un ítem YA seleccionado → arrastre de archivos (Dropover), no marquee
+                    if let hit = hitRow(at: value.startLocation), browser.selectedIDs.contains(hit) {
+                        suppressMarquee = true
+                        return
+                    }
+                    suppressMarquee = false
+                    marqueeStart = value.startLocation
+                    marqueeCurrent = value.location
+                    let flags = NSEvent.modifierFlags
+                    marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
+                    marqueeBase = marqueeAdditive ? browser.selectedIDs : []
+                    if !marqueeAdditive {
+                        browser.clearSelection()
+                    }
+                }
+                guard !suppressMarquee else { return }
+                marqueeCurrent = value.location
+                applyMarquee()
+            }
+            .onEnded { _ in
+                if !suppressMarquee {
+                    applyMarquee()
+                }
+                marqueeStart = nil
+                marqueeCurrent = nil
+                suppressMarquee = false
+                marqueeBase = []
+            }
+    }
+
+    private func applyMarquee() {
+        guard let rect = marqueeRect else { return }
+        var hits = Set<String>()
+        for (id, frame) in rowFrames where frame.intersects(rect) {
+            hits.insert(id)
+        }
+        // Si el rect es muy fino, usa también la fila bajo el cursor (más fácil)
+        if hits.isEmpty, let current = marqueeCurrent, let id = hitRow(at: current) {
+            hits.insert(id)
+        }
+        browser.applyMarqueeSelection(hitIDs: hits, base: marqueeBase, additive: marqueeAdditive)
+    }
+
+    private func hitRow(at point: CGPoint) -> String? {
+        for (id, frame) in rowFrames where frame.contains(point) {
+            return id
+        }
+        // Por Y si el X queda fuera (margen)
+        return rowFrames
+            .filter { $0.value.minY <= point.y && point.y <= $0.value.maxY }
+            .min(by: { abs($0.value.midX - point.x) < abs($1.value.midX - point.x) })?
+            .key
     }
 
     private var header: some View {
@@ -435,7 +646,6 @@ struct FileRowButton: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
-            // Checkbox: siempre agrega/quita con un clic (sin ⌘)
             Button {
                 browser.toggleSelection(entry.id)
             } label: {
@@ -500,20 +710,22 @@ struct FileRowButton: View {
             .padding(.trailing, 10)
         }
         .background(rowBackground)
-        .onDrag {
-            let paths = browser.dragPaths(for: entry)
-            if !browser.selectedIDs.contains(entry.id) {
-                browser.selectOnly(entry.id)
-            }
-            if let first = paths.first {
-                return NSItemProvider(contentsOf: URL(fileURLWithPath: first)) ?? NSItemProvider()
-            }
-            return NSItemProvider()
-        }
+        // Arrastre de archivos solo si YA está seleccionado (si no, el gesto es marquee)
+        .modifier(FileDragIfSelected(isSelected: isSelected, entry: entry))
         .contextMenu {
             Button("Abrir") {
                 browser.selectOnly(entry.id)
                 browser.open(entry)
+            }
+            Button("Renombrar") {
+                browser.selectOnly(entry.id)
+                browser.promptRename()
+            }
+            Button("Duplicar") {
+                if !browser.selectedIDs.contains(entry.id) {
+                    browser.selectOnly(entry.id)
+                }
+                browser.duplicateSelection()
             }
             Button("A bandeja") {
                 if !browser.selectedIDs.contains(entry.id) {
@@ -526,8 +738,15 @@ struct FileRowButton: View {
                 browser.quickLookSelection()
             }
             Button("Mostrar en Finder") { browser.revealInFinder(entry) }
+            Button("Copiar") {
+                if !browser.selectedIDs.contains(entry.id) {
+                    browser.selectOnly(entry.id)
+                }
+                browser.copySelectionToPasteboard()
+            }
             Button("Copiar ruta completa") { browser.copyPath(entry) }
             Divider()
+            Button("Nueva carpeta aquí") { browser.promptNewFolder() }
             Button("Seleccionar todos") { browser.selectAllVisible() }
             Button("Quitar selección") { browser.clearSelection() }
             Divider()
@@ -575,6 +794,27 @@ struct FileRowButton: View {
     }
 }
 
+/// `.onDrag` solo en filas seleccionadas → el drag en vacío/no-seleccionado hace marquee.
+private struct FileDragIfSelected: ViewModifier {
+    @EnvironmentObject private var browser: BrowserModel
+    let isSelected: Bool
+    let entry: FileEntry
+
+    func body(content: Content) -> some View {
+        if isSelected {
+            content.onDrag {
+                let paths = browser.dragPaths(for: entry)
+                if let first = paths.first {
+                    return NSItemProvider(contentsOf: URL(fileURLWithPath: first)) ?? NSItemProvider()
+                }
+                return NSItemProvider()
+            }
+        } else {
+            content
+        }
+    }
+}
+
 // MARK: - Settings
 
 struct SettingsView: View {
@@ -583,7 +823,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Selección") {
-                Text("Clic = seleccionar · ⌘ clic = varios · Doble clic / Abrir = abrir")
+                Text("Clic = uno · Arrastrar = rectángulo (como Finder) · Casilla / Varios / ⌘ = varios · ⇧ = rango · Sobre seleccionado = arrastrar archivos")
             }
             Section("Orden") {
                 LabeledContent("Ámbito", value: browser.scopeBadge)

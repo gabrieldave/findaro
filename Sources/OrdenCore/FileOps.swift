@@ -68,7 +68,53 @@ public enum FileOps {
         return count
     }
 
-    private static func uniqueURL(_ url: URL) -> URL {
+    /// Crea una carpeta dentro de `parent`. Si el nombre existe, añade " 2", " 3"…
+    @discardableResult
+    public static func createFolder(named name: String, in parent: String) throws -> String {
+        let cleaned = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { throw FileOpsError.failed("Nombre vacío") }
+        let fm = FileManager.default
+        var dest = URL(fileURLWithPath: parent).appendingPathComponent(cleaned)
+        dest = uniqueURL(dest)
+        try fm.createDirectory(at: dest, withIntermediateDirectories: false)
+        return dest.path
+    }
+
+    /// Renombra un archivo/carpeta (mismo directorio padre).
+    @discardableResult
+    public static func rename(path: String, to newName: String) throws -> String {
+        let cleaned = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { throw FileOpsError.failed("Nombre vacío") }
+        if cleaned.contains("/") || cleaned == ".." || cleaned == "." {
+            throw FileOpsError.failed("Nombre inválido")
+        }
+        let fm = FileManager.default
+        let src = URL(fileURLWithPath: path)
+        let dest = src.deletingLastPathComponent().appendingPathComponent(cleaned)
+        if src.path == dest.path { return path }
+        if fm.fileExists(atPath: dest.path) {
+            throw FileOpsError.destinationExists(cleaned)
+        }
+        try fm.moveItem(at: src, to: dest)
+        return dest.path
+    }
+
+    /// Duplica un ítem en el mismo directorio (`archivo copia.ext` / `carpeta copia`).
+    @discardableResult
+    public static func duplicate(path: String) throws -> String {
+        let fm = FileManager.default
+        let src = URL(fileURLWithPath: path)
+        let parent = src.deletingLastPathComponent()
+        let base = src.deletingPathExtension().lastPathComponent
+        let ext = src.pathExtension
+        let copyName = ext.isEmpty ? "\(base) copia" : "\(base) copia.\(ext)"
+        var dest = parent.appendingPathComponent(copyName)
+        dest = uniqueURL(dest)
+        try fm.copyItem(at: src, to: dest)
+        return dest.path
+    }
+
+    public static func uniqueURL(_ url: URL) -> URL {
         let fm = FileManager.default
         guard fm.fileExists(atPath: url.path) else { return url }
         let base = url.deletingPathExtension().lastPathComponent
