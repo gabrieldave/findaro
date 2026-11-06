@@ -73,13 +73,13 @@ func browserSelectEntry(_ browser: BrowserModel, entry: FileEntry, openOnDoubleC
 struct IconsBrowserView: View {
     @EnvironmentObject private var browser: BrowserModel
 
-    /// Celda fija — hit-test por índice como `rowHeight` en lista.
+    /// Celda fija — layout y hit-test DEBEN usar el mismo `colCount`.
     private let cellW: CGFloat = 118
     private let cellH: CGFloat = 118
     private let spacing: CGFloat = 14
     private let gridPadding: CGFloat = 16
 
-    @State private var containerWidth: CGFloat = 640
+    @State private var containerWidth: CGFloat = 0
     @State private var marqueeStart: CGPoint?
     @State private var marqueeCurrent: CGPoint?
     @State private var marqueeBase: Set<String> = []
@@ -87,9 +87,15 @@ struct IconsBrowserView: View {
     @State private var folderDragPaths: [String] = []
     @State private var folderDragStarted = false
 
+    /// Columnas reales: mismo número para LazyVGrid y para el marquee.
     private var colCount: Int {
-        let inner = max(cellW, containerWidth - gridPadding * 2)
+        let width = containerWidth > 0 ? containerWidth : 900
+        let inner = max(cellW, width - gridPadding * 2)
         return max(1, Int(floor((inner + spacing) / (cellW + spacing))))
+    }
+
+    private var gridColumns: [GridItem] {
+        Array(repeating: GridItem(.fixed(cellW), spacing: spacing), count: colCount)
     }
 
     private var rowCount: Int {
@@ -112,10 +118,7 @@ struct IconsBrowserView: View {
 
             ScrollView {
                 VStack(spacing: 0) {
-                    LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: cellW, maximum: cellW), spacing: spacing)],
-                        spacing: spacing
-                    ) {
+                    LazyVGrid(columns: gridColumns, alignment: .leading, spacing: spacing) {
                         ForEach(browser.visibleEntries) { entry in
                             IconsItemCell(entry: entry)
                                 .frame(width: cellW, height: cellH)
@@ -133,12 +136,6 @@ struct IconsBrowserView: View {
                         }
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
-                .background(
-                    GeometryReader { geo in
-                        Color.clear
-                            .preference(key: IconsWidthKey.self, value: geo.size.width)
-                    }
-                )
                 .coordinateSpace(name: "iconsGrid")
                 .overlay(alignment: .topLeading) {
                     if let rect = marqueeRect {
@@ -157,10 +154,18 @@ struct IconsBrowserView: View {
                 .highPriorityGesture(iconsMarqueeGesture)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear { containerWidth = geo.size.width }
+                        .onChange(of: geo.size.width) { _, w in
+                            containerWidth = w
+                        }
+                }
+            )
             .onTapGesture {
                 browser.cancelSelection()
             }
-            .onPreferenceChange(IconsWidthKey.self) { containerWidth = $0 }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -317,13 +322,6 @@ struct IconsBrowserView: View {
             }
         }
         browser.applyMarqueeSelection(hitIDs: hits, base: marqueeBase, additive: marqueeAdditive)
-    }
-}
-
-private struct IconsWidthKey: PreferenceKey {
-    static let defaultValue: CGFloat = 640
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
 
