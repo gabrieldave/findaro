@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.makeKeyAndOrderFront(nil)
             window.collectionBehavior.insert(.moveToActiveSpace)
         }
+        CloseToHide.install()
         GlobalHotKey.install()
         // Paso «usar Ordena para carpetas»: se registra solo, sin buscar menús.
         _ = OpenFolderBridge.setAsDefaultFolderHandler()
@@ -17,6 +18,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         GlobalHotKey.uninstall()
+    }
+
+    /// Clic en el icono del Dock con la ventana oculta → la vuelve a mostrar.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            showMainWindows()
+        }
+        return true
     }
 
     /// Dock / `open -a Ordena ~/Downloads` / doble clic en carpeta (si somos el handler).
@@ -34,7 +43,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sender.reply(toOpenOrPrint: .success)
     }
 
+    /// ✕ solo oculta; la app sigue en segundo plano (⌘Q para salir de verdad).
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        false
+    }
+
+    static func showMainWindows() {
+        NSApp.activate(ignoringOtherApps: true)
+        let titled = NSApp.windows.filter { $0.styleMask.contains(.titled) }
+        if titled.isEmpty {
+            // Último recurso: reabrir el bundle (crea ventana si SwiftUI la destruyó).
+            NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/Ordena.app"))
+            return
+        }
+        for window in titled {
+            window.makeKeyAndOrderFront(nil)
+            window.collectionBehavior.insert(.moveToActiveSpace)
+        }
     }
 }

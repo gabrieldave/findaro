@@ -70,11 +70,7 @@ enum GlobalHotKey {
     }
 
     static func activateOrdena() {
-        NSApp.activate(ignoringOtherApps: true)
-        for window in NSApp.windows {
-            window.makeKeyAndOrderFront(nil)
-            window.collectionBehavior.insert(.moveToActiveSpace)
-        }
+        AppDelegate.showMainWindows()
         let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path
             ?? NSString(string: "~/Downloads").expandingTildeInPath
         NotificationCenter.default.post(name: .ordenaOpenFolder, object: downloads)

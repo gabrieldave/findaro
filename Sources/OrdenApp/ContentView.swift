@@ -1311,7 +1311,7 @@ struct SettingsView: View {
             Section("Usar Ordena siempre (rápido)") {
                 Text("macOS no deja borrar Finder. Ordena se usa como tu explorador con estos trucos:")
                 LabeledContent("Atajo global", value: "⌃⌥O")
-                Text("Control+Option+O abre Ordena en Descargas (deja la app abierta o en «Abrir al iniciar sesión»).")
+                Text("Control+Option+O abre Ordena en Descargas. El ✕ rojo solo oculta la ventana (sigue en segundo plano); ⌘Q sale de verdad.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Button("Usar Ordena para abrir carpetas") {
