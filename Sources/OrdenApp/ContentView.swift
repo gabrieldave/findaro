@@ -1308,18 +1308,25 @@ struct SettingsView: View {
             Section("Selección y bandeja") {
                 Text("Clic = uno · Arrastrar = rectángulo · Hold 1s = arrastrar archivo · ⌘C → bandeja (copiar) · ⌘X → bandeja (mover) · ⌘V suelta la bandeja aquí · ⌘Z deshace")
             }
-            Section("Abrir carpetas") {
-                Text("macOS no permite quitar Finder. Sí puedes hacer que muchas carpetas se abran en Ordena.")
+            Section("Usar Ordena siempre (rápido)") {
+                Text("macOS no deja borrar Finder. Ordena se usa como tu explorador con estos trucos:")
+                LabeledContent("Atajo global", value: "⌃⌥O")
+                Text("Control+Option+O abre Ordena en Descargas (deja la app abierta o en «Abrir al iniciar sesión»).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Button("Usar Ordena para abrir carpetas") {
                     let ok = OpenFolderBridge.setAsDefaultFolderHandler()
                     browser.statusMessage = ok
-                        ? "Registrado. Prueba: clic derecho en una carpeta → Abrir con → Ordena (y «Siempre»)."
+                        ? "Listo. Clic derecho en carpeta → Abrir con → Ordena → Siempre"
                         : "No se pudo registrar"
                 }
-                LabeledContent("¿Handler actual?") {
-                    Text(OpenFolderBridge.isDefaultFolderHandler() ? "Ordena" : "Otra app / Finder")
+                LabeledContent("¿Handler carpetas?") {
+                    Text(OpenFolderBridge.isDefaultFolderHandler() ? "Ordena" : "Finder / otra")
                 }
-                Text("El stack del Dock (Descargas ▼) sigue siendo de Finder: arrastra carpetas al icono de Ordena en el Dock.")
+                Text("Dock: fija Ordena a la izquierda. Arrastra cualquier carpeta encima del icono. El ▼ de Descargas del Dock sigue siendo Finder (límite de Apple).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Spotlight: ⌘Espacio → escribe Ordena → Intro.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

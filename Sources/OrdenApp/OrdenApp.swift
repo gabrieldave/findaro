@@ -105,8 +105,11 @@ struct OrdenApp: App {
                 Button("Usar Ordena para abrir carpetas…") {
                     let ok = OpenFolderBridge.setAsDefaultFolderHandler()
                     browser.statusMessage = ok
-                        ? "Ordena abrirá carpetas cuando macOS lo permita (Dock/Stacks de Finder siguen con Finder)"
+                        ? "Listo. Clic derecho → Abrir con → Ordena → Siempre. Atajo rápido: ⌃⌥O"
                         : "No se pudo registrar como app de carpetas"
+                }
+                Button("Abrir Descargas (⌃⌥O)") {
+                    GlobalHotKey.activateOrdena()
                 }
             }
         }

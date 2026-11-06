@@ -10,6 +10,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.makeKeyAndOrderFront(nil)
             window.collectionBehavior.insert(.moveToActiveSpace)
         }
+        GlobalHotKey.install()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        GlobalHotKey.uninstall()
     }
 
     /// Dock / `open -a Ordena ~/Downloads` / doble clic en carpeta (si somos el handler).
