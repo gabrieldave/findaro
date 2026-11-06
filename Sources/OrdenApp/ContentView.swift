@@ -65,13 +65,13 @@ struct ContentView: View {
                     Label("Atrás", systemImage: "chevron.backward")
                 }
                 .disabled(!browser.canGoBack)
-                .help("Carpeta anterior (⌥← o ⌘[)")
+                .help("Carpeta anterior (⌘1 o ⌥←)")
 
                 Button(action: browser.goForward) {
                     Label("Adelante", systemImage: "chevron.forward")
                 }
                 .disabled(!browser.canGoForward)
-                .help("Carpeta siguiente (⌥→ o ⌘])")
+                .help("Carpeta siguiente (⌘2 o ⌥→)")
 
                 Button(action: browser.goUp) {
                     Label("Arriba", systemImage: "chevron.up")

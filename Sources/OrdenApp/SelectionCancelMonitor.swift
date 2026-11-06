@@ -42,13 +42,14 @@ enum SelectionCancelMonitor {
                 }
             }
 
-            // ⌘[ / ⌘] → atrás / adelante (Finder); keyCodes 33/30 = [ ] en ANSI
-            if cmd, !opt, !ctrl {
-                if chars == "[" || chars == "{" || (!shift && key == 33) {
+            // ⌘1 / ⌘2 → atrás / adelante (cómodo con una mano)
+            // keyCodes: 18 = 1, 19 = 2
+            if cmd, !opt, !ctrl, !shift {
+                if chars == "1" || key == 18 {
                     browser.goBack()
                     return nil
                 }
-                if chars == "]" || chars == "}" || (!shift && key == 30) {
+                if chars == "2" || key == 19 {
                     browser.goForward()
                     return nil
                 }
