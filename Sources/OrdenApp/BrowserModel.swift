@@ -277,9 +277,18 @@ final class BrowserModel: ObservableObject {
         }
     }
 
+    /// Rutas de carpetas en el arrastre actual (multi-selección → Favoritos).
+    private(set) var pendingFavoriteDragPaths: [String] = []
+
+    func beginFavoriteDrag(paths: [String]) {
+        pendingFavoriteDragPaths = paths
+    }
+
     /// Soltar carpetas (desde Ordena o Finder) sobre Favoritos.
     @discardableResult
     func importFavoritesFromProviders(_ providers: [NSItemProvider]) -> Bool {
+        let pending = pendingFavoriteDragPaths
+        pendingFavoriteDragPaths = []
         var paths: [String] = []
         let group = DispatchGroup()
         for provider in providers {
@@ -296,8 +305,15 @@ final class BrowserModel: ObservableObject {
         }
         group.notify(queue: .main) { [weak self] in
             guard let self else { return }
+            var toAdd = paths
+            if toAdd.isEmpty {
+                toAdd = pending
+            } else if !pending.isEmpty {
+                // Une selección múltiple + lo que trajo el provider
+                toAdd = Array(Set(toAdd + pending))
+            }
             var added = 0
-            for path in paths {
+            for path in toAdd {
                 var isDir: ObjCBool = false
                 if FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue {
                     if !self.isFavorite(path) {
@@ -306,7 +322,7 @@ final class BrowserModel: ObservableObject {
                     }
                 }
             }
-            if added == 0 && !paths.isEmpty {
+            if added == 0 && !toAdd.isEmpty {
                 self.statusMessage = "Suelta carpetas (no archivos sueltos)"
             } else if added > 1 {
                 self.statusMessage = "\(added) carpetas en Favoritos"

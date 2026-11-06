@@ -742,7 +742,8 @@ struct FileBrowserPane: View {
                                 FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
                                     .frame(minHeight: rowHeight)
                             }
-                            // Zona vacía: clic = deseleccionar; arrastre = marquee hacia arriba
+                            // Zona vacía: clic = deseleccionar; arrastre = marquee
+                            // (el marquee vive AQUÍ para no bloquear onDrag de las carpetas)
                             Color.clear
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 320)
@@ -750,6 +751,7 @@ struct FileBrowserPane: View {
                                 .onTapGesture {
                                     browser.cancelSelection()
                                 }
+                                .gesture(marqueeGesture)
                         }
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                         .coordinateSpace(name: "fileList")
@@ -766,11 +768,8 @@ struct FileBrowserPane: View {
                                     .allowsHitTesting(false)
                             }
                         }
-                        .contentShape(Rectangle())
-                        .highPriorityGesture(marqueeGesture)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    // Clic en el fondo del scroll (márgenes / vacío visible) también cancela
                     .onTapGesture {
                         browser.cancelSelection()
                     }
@@ -909,25 +908,10 @@ struct FileRowButton: View {
             .help("Marcar / desmarcar")
             .padding(.leading, 10)
 
-            // Icono aparte: arrastrar carpeta → Favoritos (sin pelear con el marquee de la fila)
-            Group {
-                if entry.isDirectory {
-                    FileTypeIcon(category: entry.category, size: 17)
-                        .frame(width: 22, height: 28)
-                        .contentShape(Rectangle())
-                        .help("Arrastra a Favoritos")
-                        .onDrag {
-                            NSItemProvider(contentsOf: URL(fileURLWithPath: entry.path))
-                                ?? NSItemProvider()
-                        }
-                } else {
-                    FileTypeIcon(category: entry.category, size: 17)
-                        .frame(width: 22, height: 28)
-                }
-            }
-
             Button(action: selectRow) {
                 HStack(alignment: .center, spacing: 12) {
+                    FileTypeIcon(category: entry.category, size: 17)
+
                     VStack(alignment: .leading, spacing: 3) {
                         Text(entry.name)
                             .font(.body)
@@ -975,6 +959,8 @@ struct FileRowButton: View {
             .padding(.trailing, 10)
         }
         .background(rowBackground)
+        // Carpeta completa arrastrable a Favoritos (fila entera)
+        .modifier(FolderDragToFavorites(entry: entry, isSelected: isSelected))
         .contextMenu {
             Button("Abrir") {
                 browser.selectOnly(entry.id)
@@ -1064,6 +1050,33 @@ struct FileRowButton: View {
             browser.toggleSelection(entry.id)
         } else {
             browser.selectOnly(entry.id)
+        }
+    }
+}
+
+/// Arrastre de carpeta(s) a Favoritos — fila entera.
+private struct FolderDragToFavorites: ViewModifier {
+    @EnvironmentObject private var browser: BrowserModel
+    let entry: FileEntry
+    let isSelected: Bool
+
+    func body(content: Content) -> some View {
+        if entry.isDirectory {
+            content
+                .onDrag {
+                    let paths: [String]
+                    if isSelected {
+                        let selectedDirs = browser.selectedEntries.filter(\.isDirectory).map(\.path)
+                        paths = selectedDirs.isEmpty ? [entry.path] : selectedDirs
+                    } else {
+                        paths = [entry.path]
+                    }
+                    browser.beginFavoriteDrag(paths: paths)
+                    return NSItemProvider(contentsOf: URL(fileURLWithPath: paths[0]))
+                        ?? NSItemProvider()
+                }
+        } else {
+            content
         }
     }
 }
