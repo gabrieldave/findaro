@@ -11,7 +11,7 @@ struct OrdenApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(browser)
-                .frame(minWidth: 1000, minHeight: 640)
+                .frame(minWidth: 720, minHeight: 480)
                 .tint(OrdenTheme.accent)
         }
         .defaultSize(width: 1180, height: 740)

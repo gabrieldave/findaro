@@ -6,14 +6,22 @@ import OrdenCore
 struct ContentView: View {
     @EnvironmentObject private var browser: BrowserModel
 
+    /// Ancho fijo: el sidebar nunca se colapsa al achicar la ventana.
+    private let sidebarWidth: CGFloat = 200
+
     var body: some View {
-        NavigationSplitView {
+        HStack(spacing: 0) {
             SidebarView()
-                .navigationSplitViewColumnWidth(min: 200, ideal: 228, max: 280)
-        } detail: {
+                .frame(width: sidebarWidth)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .background(OrdenTheme.windowFill)
+
+            Divider().opacity(0.35)
+
             detailColumn
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationSplitViewStyle(.balanced)
+        .frame(minWidth: 720, minHeight: 480)
         .background(OrdenTheme.windowFill)
         .searchable(text: $browser.searchText, placement: .toolbar, prompt: "Filtrar en esta carpeta")
         .toolbar {
@@ -408,34 +416,54 @@ struct FileActionsBar: View {
     }
 }
 
-// MARK: - Sidebar
+// MARK: - Sidebar (fijo; no depende de NavigationSplitView)
 
 struct SidebarView: View {
     @EnvironmentObject private var browser: BrowserModel
 
     var body: some View {
-        List {
-            Section("Favoritos") {
-                ForEach(browser.store.preferences.favorites, id: \.self) { path in
-                    Button {
-                        browser.navigate(to: path)
-                    } label: {
-                        Label(shortName(path), systemImage: icon(for: path))
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Favoritos")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 14)
+                .padding(.top, 14)
+                .padding(.bottom, 8)
+
+            ForEach(browser.store.preferences.favorites, id: \.self) { path in
+                Button {
+                    browser.navigate(to: path)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: icon(for: path))
+                            .font(.body)
+                            .foregroundStyle(OrdenTheme.accent)
+                            .frame(width: 22, alignment: .center)
+                        Text(shortName(path))
+                            .font(.system(.body, design: .rounded))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
                     }
-                    .buttonStyle(.plain)
-                    .listRowBackground(
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
                         browser.currentPath == path
                             ? OrdenTheme.accent.opacity(0.22)
-                            : Color.clear
+                            : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
                     )
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 8)
             }
+
+            Spacer(minLength: 0)
         }
-        .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(OrdenTheme.windowFill)
-        .navigationTitle("Ordena")
-        .toolbar(removing: .title)
     }
 
     private func shortName(_ path: String) -> String {
