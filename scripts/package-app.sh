@@ -57,14 +57,23 @@ cat > "$APP_DIR/Contents/Info.plist" <<'PLIST'
 PLIST
 
 # Icono simple (SF Symbol → icns vía iconutil si hay sips; si no, sin icono)
-# Firma ad-hoc
+# Firma ad-hoc (para vender/notarizar hace falta Developer ID + notarization)
 codesign --force --deep --sign - "$APP_DIR" >/dev/null 2>&1 || true
 
-mkdir -p "$HOME/Applications"
-rm -rf "$HOME/Desktop/Orden" "$HOME/Desktop/Orden.app" "$HOME/Applications/Orden.app"
-cp -R "$APP_DIR" "$HOME/Desktop/Orden.app"
-cp -R "$APP_DIR" "$HOME/Applications/Orden.app"
+# Instalar en Aplicaciones del sistema; si no hay permiso, en ~/Applications.
+# No dejamos copia en el Escritorio (no ensucia).
+rm -rf "$HOME/Desktop/Orden" "$HOME/Desktop/Orden.app"
+
+INSTALLED=""
+if rm -rf /Applications/Orden.app 2>/dev/null && cp -R "$APP_DIR" /Applications/Orden.app 2>/dev/null; then
+  INSTALLED="/Applications/Orden.app"
+else
+  mkdir -p "$HOME/Applications"
+  rm -rf "$HOME/Applications/Orden.app"
+  cp -R "$APP_DIR" "$HOME/Applications/Orden.app"
+  INSTALLED="$HOME/Applications/Orden.app"
+fi
 
 echo "APP=$APP_DIR"
-echo "DESKTOP=$HOME/Desktop/Orden.app"
-echo "APPS=$HOME/Applications/Orden.app"
+echo "INSTALLED=$INSTALLED"
+echo "TIP=Launchpad / Spotlight (⌘Space → Orden) / arrastra a Dock para acceso fijo"
