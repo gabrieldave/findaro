@@ -7,7 +7,7 @@ struct ContentView: View {
     @EnvironmentObject private var browser: BrowserModel
 
     /// Ancho fijo: el sidebar nunca se colapsa al achicar la ventana.
-    private let sidebarWidth: CGFloat = 200
+    private let sidebarWidth: CGFloat = 212
 
     var body: some View {
         HStack(spacing: 0) {
@@ -416,62 +416,170 @@ struct FileActionsBar: View {
     }
 }
 
-// MARK: - Sidebar (fijo; no depende de NavigationSplitView)
+// MARK: - Sidebar (fijo: Favoritos + Ubicaciones siempre visibles)
+
+private struct SidebarItem: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let path: String
+    let systemImage: String
+}
 
 struct SidebarView: View {
     @EnvironmentObject private var browser: BrowserModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Favoritos")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 14)
-                .padding(.top, 14)
-                .padding(.bottom, 8)
-
-            ForEach(browser.store.preferences.favorites, id: \.self) { path in
-                Button {
-                    browser.navigate(to: path)
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: icon(for: path))
-                            .font(.body)
-                            .foregroundStyle(OrdenTheme.accent)
-                            .frame(width: 22, alignment: .center)
-                        Text(shortName(path))
-                            .font(.system(.body, design: .rounded))
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        browser.currentPath == path
-                            ? OrdenTheme.accent.opacity(0.22)
-                            : Color.clear,
-                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    )
-                    .contentShape(Rectangle())
+        ScrollView {
+            VStack(alignment: .leading, spacing: 2) {
+                sectionHeader("Favoritos")
+                ForEach(favoriteItems) { item in
+                    sidebarButton(item)
                 }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 8)
-            }
 
-            Spacer(minLength: 0)
+                sectionHeader("Ubicaciones")
+                    .padding(.top, 12)
+                ForEach(locationItems) { item in
+                    sidebarButton(item)
+                }
+            }
+            .padding(.bottom, 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(OrdenTheme.windowFill)
     }
 
-    private func shortName(_ path: String) -> String {
-        URL(fileURLWithPath: path).lastPathComponent
+    private var favoriteItems: [SidebarItem] {
+        browser.store.preferences.favorites.map { path in
+            SidebarItem(
+                id: "fav-\(path)",
+                title: URL(fileURLWithPath: path).lastPathComponent,
+                path: path,
+                systemImage: favoriteIcon(for: path)
+            )
+        }
     }
 
-    private func icon(for path: String) -> String {
-        switch shortName(path).lowercased() {
+    /// Igual que Finder → Ubicaciones (las que existan en este Mac).
+    private var locationItems: [SidebarItem] {
+        var items: [SidebarItem] = []
+        let fm = FileManager.default
+        let home = fm.homeDirectoryForCurrentUser.path
+
+        let iCloud = (home as NSString).appendingPathComponent(
+            "Library/Mobile Documents/com~apple~CloudDocs"
+        )
+        if fm.fileExists(atPath: iCloud) {
+            items.append(SidebarItem(
+                id: "loc-icloud",
+                title: "iCloud Drive",
+                path: iCloud,
+                systemImage: "icloud.fill"
+            ))
+        }
+
+        // Google Drive / Dropbox / OneDrive en CloudStorage
+        let cloudRoot = (home as NSString).appendingPathComponent("Library/CloudStorage")
+        if let clouds = try? fm.contentsOfDirectory(atPath: cloudRoot) {
+            for name in clouds.sorted() {
+                let path = (cloudRoot as NSString).appendingPathComponent(name)
+                var isDir: ObjCBool = false
+                guard fm.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else { continue }
+                let title: String
+                let icon: String
+                let lower = name.lowercased()
+                if lower.contains("google") {
+                    title = "Google Drive"
+                    icon = "externaldrive.fill.badge.icloud"
+                } else if lower.contains("dropbox") {
+                    title = "Dropbox"
+                    icon = "externaldrive.fill.badge.icloud"
+                } else if lower.contains("onedrive") || lower.contains("one drive") {
+                    title = "OneDrive"
+                    icon = "externaldrive.fill.badge.icloud"
+                } else {
+                    title = name
+                    icon = "externaldrive.fill"
+                }
+                items.append(SidebarItem(id: "loc-cloud-\(name)", title: title, path: path, systemImage: icon))
+            }
+        }
+
+        let homeName = URL(fileURLWithPath: home).lastPathComponent
+        items.append(SidebarItem(
+            id: "loc-home",
+            title: homeName,
+            path: home,
+            systemImage: "house.fill"
+        ))
+
+        items.append(SidebarItem(
+            id: "loc-root",
+            title: "Macintosh HD",
+            path: "/",
+            systemImage: "internaldrive.fill"
+        ))
+
+        let trash = (home as NSString).appendingPathComponent(".Trash")
+        if fm.fileExists(atPath: trash) {
+            items.append(SidebarItem(
+                id: "loc-trash",
+                title: "Basurero",
+                path: trash,
+                systemImage: "trash.fill"
+            ))
+        }
+
+        return items
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 6)
+    }
+
+    private func sidebarButton(_ item: SidebarItem) -> some View {
+        Button {
+            browser.navigate(to: item.path)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: item.systemImage)
+                    .font(.body)
+                    .foregroundStyle(OrdenTheme.accent)
+                    .frame(width: 22, alignment: .center)
+                Text(item.title)
+                    .font(.system(.body, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                isActive(item.path)
+                    ? OrdenTheme.accent.opacity(0.22)
+                    : Color.clear,
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 8)
+        .help(item.path)
+    }
+
+    private func isActive(_ path: String) -> Bool {
+        let a = (path as NSString).standardizingPath
+        let b = (browser.currentPath as NSString).standardizingPath
+        return a == b
+    }
+
+    private func favoriteIcon(for path: String) -> String {
+        switch URL(fileURLWithPath: path).lastPathComponent.lowercased() {
         case "downloads": return "arrow.down.circle.fill"
         case "desktop": return "menubar.dock.rectangle"
         case "documents": return "doc.fill"
