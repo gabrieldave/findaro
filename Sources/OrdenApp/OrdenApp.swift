@@ -11,9 +11,11 @@ struct OrdenApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(browser)
-                .frame(minWidth: 960, minHeight: 600)
+                .frame(minWidth: 1000, minHeight: 640)
+                .tint(OrdenTheme.accent)
         }
-        .defaultSize(width: 1100, height: 700)
+        .defaultSize(width: 1180, height: 740)
+        .windowToolbarStyle(.unified)
         .commands {
             CommandGroup(replacing: .newItem) {}
 

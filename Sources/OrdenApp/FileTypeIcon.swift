@@ -1,21 +1,25 @@
 import SwiftUI
 import OrdenCore
 
-/// Icono fijo por categoría: todos los vídeos se ven igual, todos los Excel igual, etc.
+/// Icono fijo por categoría: mismo tipo → mismo símbolo y color.
 struct FileTypeIcon: View {
     let category: FileCategory
     var size: CGFloat = 16
 
     var body: some View {
-        Image(systemName: category.symbolName)
-            .font(.system(size: size, weight: .semibold))
-            .foregroundStyle(Color(hex: category.tintHex))
-            .frame(width: size + 4, height: size + 4, alignment: .center)
-            .accessibilityLabel(category.labelSpanish)
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.35, style: .continuous)
+                .fill(Color(hex: category.tintHex).opacity(0.18))
+                .frame(width: size + 10, height: size + 10)
+            Image(systemName: category.symbolName)
+                .font(.system(size: size, weight: .semibold))
+                .foregroundStyle(Color(hex: category.tintHex))
+        }
+        .accessibilityLabel(category.labelSpanish)
     }
 }
 
-private extension Color {
+extension Color {
     init(hex: String) {
         let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var value: UInt64 = 0

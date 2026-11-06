@@ -3,53 +3,43 @@ import OrdenCore
 
 struct ContentView: View {
     @EnvironmentObject private var browser: BrowserModel
-    @FocusState private var tableFocused: Bool
 
     var body: some View {
         NavigationSplitView {
             SidebarView()
-                .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 280)
+                .navigationSplitViewColumnWidth(min: 200, ideal: 230, max: 300)
         } detail: {
-            VStack(spacing: 0) {
-                SortBar()
-                Divider()
-                FileTableView()
-                    .focused($tableFocused)
-                if let status = browser.statusMessage {
-                    Divider()
-                    Text(status)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                }
-            }
+            detailColumn
         }
-        .searchable(text: $browser.searchText, prompt: "Filtrar en esta carpeta")
+        .navigationSplitViewStyle(.balanced)
+        .searchable(text: $browser.searchText, placement: .toolbar, prompt: "Filtrar en esta carpeta")
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
                 Button(action: browser.goUp) {
-                    Label("Arriba", systemImage: "chevron.up")
+                    Label("Arriba", systemImage: "chevron.backward")
                 }
                 .help("Carpeta superior (⌘↑)")
             }
             ToolbarItem(placement: .principal) {
-                Text(browser.currentPath.replacingOccurrences(
-                    of: FileManager.default.homeDirectoryForCurrentUser.path,
-                    with: "~"
-                ))
-                .font(.system(.callout, design: .monospaced))
-                .lineLimit(1)
-                .truncationMode(.middle)
+                Text(shortPath(browser.currentPath))
+                    .font(.system(.callout, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(browser.currentPath)
             }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
                 Button(action: browser.reload) {
                     Label("Actualizar", systemImage: "arrow.clockwise")
                 }
+                Button {
+                    browser.quickLookSelection()
+                } label: {
+                    Label("Vista rápida", systemImage: "eye")
+                }
+                .disabled(browser.selectedIDs.isEmpty)
             }
         }
-        .onAppear { tableFocused = true }
         .onKeyPress(.return) {
             browser.openSelection()
             return .handled
@@ -59,91 +49,115 @@ struct ContentView: View {
             return .handled
         }
         .onKeyPress(keys: [.downArrow], phases: .down) { press in
-            if press.modifiers.contains(.command) {
-                browser.openSelection()
-                return .handled
-            }
-            return .ignored
+            guard press.modifiers.contains(.command) else { return .ignored }
+            browser.openSelection()
+            return .handled
         }
         .onKeyPress(keys: [.delete], phases: .down) { press in
-            if press.modifiers.contains(.command) {
-                browser.moveSelectionToTrash()
-                return .handled
-            }
-            return .ignored
+            guard press.modifiers.contains(.command) else { return .ignored }
+            browser.moveSelectionToTrash()
+            return .handled
         }
     }
+
+    private var detailColumn: some View {
+        VStack(spacing: 0) {
+            SortBar()
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+
+            FileListView()
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
+
+            if let status = browser.statusMessage {
+                Text(status)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 10)
+                    .transition(.opacity)
+            }
+        }
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.35))
+    }
+
+    private func shortPath(_ path: String) -> String {
+        path.replacingOccurrences(
+            of: FileManager.default.homeDirectoryForCurrentUser.path,
+            with: "~"
+        )
+    }
 }
+
+// MARK: - Sort bar
 
 struct SortBar: View {
     @EnvironmentObject private var browser: BrowserModel
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                Image(systemName: "arrow.up.arrow.down.circle.fill")
-                    .foregroundStyle(.tint)
+        HStack(spacing: 12) {
+            Image(systemName: "arrow.up.arrow.down.circle.fill")
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(OrdenTheme.accent)
+                .font(.title3)
+
+            VStack(alignment: .leading, spacing: 2) {
                 Text(browser.ruleSummary)
-                    .font(.system(.subheadline, design: .rounded))
-                    .fontWeight(.medium)
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
                     .lineLimit(1)
-                Spacer(minLength: 8)
                 Text(browser.scopeBadge)
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(
-                        browser.hasFolderOverride
-                            ? Color.orange.opacity(0.2)
-                            : Color.accentColor.opacity(0.15),
-                        in: Capsule()
-                    )
-                    .foregroundStyle(browser.hasFolderOverride ? Color.orange : Color.accentColor)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(browser.hasFolderOverride ? .orange : .secondary)
             }
 
-            HStack(spacing: 8) {
-                Button {
-                    browser.useDownloadsStyleEverywhere()
-                } label: {
-                    Label("En todas partes", systemImage: "globe")
-                }
-                .buttonStyle(.borderedProminent)
-                .help("Aplica el estilo Descargas (tipos por recencia) como default en todas las carpetas")
-                .controlSize(.small)
+            Spacer(minLength: 8)
 
-                Menu("Ordenar") {
-                    Section("Estilos") {
-                        sortButtons(scope: .thisFolder)
-                    }
-                    Divider()
-                    Button("Usar este orden en todas partes") {
-                        browser.saveCurrentAsGlobalDefault()
-                    }
-                    if browser.hasFolderOverride {
-                        Button("Quitar orden propio (usar global)") {
-                            browser.useGlobalDefaultHere()
-                        }
-                    }
-                }
-                .menuStyle(.borderlessButton)
-                .controlSize(.small)
-
-                Menu("Guardar como…") {
-                    Button("Solo esta carpeta") {
-                        browser.applyRule(browser.rule, scope: .thisFolder)
-                    }
-                    Button("Default en todas las carpetas") {
-                        browser.applyRule(browser.rule, scope: .everywhere)
-                    }
-                }
-                .controlSize(.small)
-
-                Spacer()
+            Button {
+                browser.useDownloadsStyleEverywhere()
+            } label: {
+                Label("En todas partes", systemImage: "globe")
             }
+            .buttonStyle(.borderedProminent)
+            .tint(OrdenTheme.accent)
+            .controlSize(.regular)
+            .help("Estilo Descargas como default global")
+
+            Menu {
+                Section("Cambiar orden (solo esta carpeta)") {
+                    sortButtons(scope: .thisFolder)
+                }
+                Divider()
+                Button("Usar este orden en todas partes") {
+                    browser.saveCurrentAsGlobalDefault()
+                }
+                if browser.hasFolderOverride {
+                    Button("Quitar orden propio (usar global)") {
+                        browser.useGlobalDefaultHere()
+                    }
+                }
+            } label: {
+                Label("Ordenar", systemImage: "line.3.horizontal.decrease")
+            }
+            .menuStyle(.borderedButton)
+            .controlSize(.regular)
+
+            Menu {
+                Button("Solo esta carpeta") {
+                    browser.applyRule(browser.rule, scope: .thisFolder)
+                }
+                Button("Default en todas") {
+                    browser.applyRule(browser.rule, scope: .everywhere)
+                }
+            } label: {
+                Label("Guardar", systemImage: "square.and.arrow.down")
+            }
+            .menuStyle(.borderedButton)
+            .controlSize(.regular)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(.bar)
+        .ordenGlassCard(cornerRadius: 16)
     }
 
     @ViewBuilder
@@ -160,18 +174,12 @@ struct SortBar: View {
                 scope: scope
             )
         }
-        Button("Por tipo fijo (vídeo, Excel…)") {
+        Button("Por tipo fijo") {
             browser.applyRule(.byType, scope: scope)
         }
         Button("Modificado · reciente primero") {
             browser.applyRule(
                 SortRule(keys: [.dateModified(ascending: false)], foldersFirst: true),
-                scope: scope
-            )
-        }
-        Button("Tamaño · grandes primero") {
-            browser.applyRule(
-                SortRule(keys: [.size(ascending: false)], foldersFirst: true),
                 scope: scope
             )
         }
@@ -189,6 +197,8 @@ struct SortBar: View {
     }
 }
 
+// MARK: - Sidebar
+
 struct SidebarView: View {
     @EnvironmentObject private var browser: BrowserModel
 
@@ -202,10 +212,16 @@ struct SidebarView: View {
                         Label(shortName(path), systemImage: icon(for: path))
                     }
                     .buttonStyle(.plain)
+                    .listRowBackground(
+                        browser.currentPath == path
+                            ? OrdenTheme.accent.opacity(0.18)
+                            : Color.clear
+                    )
                 }
             }
         }
         .listStyle(.sidebar)
+        .navigationTitle("Orden")
     }
 
     private func shortName(_ path: String) -> String {
@@ -213,90 +229,118 @@ struct SidebarView: View {
     }
 
     private func icon(for path: String) -> String {
-        let name = shortName(path).lowercased()
-        switch name {
-        case "downloads": return "arrow.down.circle"
+        switch shortName(path).lowercased() {
+        case "downloads": return "arrow.down.circle.fill"
         case "desktop": return "menubar.dock.rectangle"
-        case "documents": return "doc"
-        case "projects": return "hammer"
-        default: return "folder"
+        case "documents": return "doc.fill"
+        case "projects": return "hammer.fill"
+        default: return "folder.fill"
         }
     }
 }
 
-struct FileTableView: View {
+// MARK: - File list (selección nativa; sin gestos que la rompan)
+
+struct FileListView: View {
     @EnvironmentObject private var browser: BrowserModel
 
     var body: some View {
-        if let error = browser.errorMessage {
-            ContentUnavailableView(
-                "No se pudo abrir",
-                systemImage: "exclamationmark.folder",
-                description: Text(error)
-            )
-        } else if browser.visibleEntries.isEmpty {
-            ContentUnavailableView(
-                "Vacío",
-                systemImage: "folder",
-                description: Text("No hay elementos con este filtro.")
-            )
-        } else {
-            Table(browser.visibleEntries, selection: $browser.selectedIDs) {
-                TableColumn("Nombre") { entry in
-                    HStack(spacing: 8) {
-                        FileTypeIcon(category: entry.category)
-                        Text(entry.name)
-                            .lineLimit(1)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture(count: 2) {
-                        browser.open(entry)
-                    }
-                    .contextMenu {
-                        Button("Abrir") { browser.open(entry) }
-                        Button("Vista rápida") {
-                            browser.selectedIDs = [entry.id]
-                            browser.quickLookSelection()
-                        }
-                        Button("Mostrar en Finder") { browser.revealInFinder(entry) }
-                        Button("Copiar ruta") { browser.copyPath(entry) }
-                        Divider()
-                        Button("Mover a la Papelera", role: .destructive) {
-                            browser.selectedIDs = [entry.id]
-                            browser.moveSelectionToTrash()
-                        }
+        Group {
+            if let error = browser.errorMessage {
+                ContentUnavailableView(
+                    "No se pudo abrir",
+                    systemImage: "exclamationmark.folder",
+                    description: Text(error)
+                )
+            } else if browser.visibleEntries.isEmpty {
+                ContentUnavailableView(
+                    "Vacío",
+                    systemImage: "folder",
+                    description: Text("No hay elementos con este filtro.")
+                )
+            } else {
+                List(selection: $browser.selectedIDs) {
+                    ForEach(browser.visibleEntries) { entry in
+                        FileRowView(entry: entry)
+                            .tag(entry.id)
+                            .contextMenu { rowMenu(entry) }
                     }
                 }
-                .width(min: 220, ideal: 320)
-
-                TableColumn("Tipo") { entry in
-                    Text(entry.category.labelSpanish)
-                        .foregroundStyle(.secondary)
+                .listStyle(.inset(alternatesRowBackgrounds: true))
+                .scrollContentBackground(.hidden)
+                .background {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.background.opacity(0.55))
                 }
-                .width(min: 90, ideal: 120)
-
-                TableColumn("Agregado") { entry in
-                    Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
-                        .foregroundStyle(.secondary)
-                }
-                .width(min: 120, ideal: 150)
-
-                TableColumn("Modificado") { entry in
-                    Text(entry.dateModified, format: .dateTime.day().month().year().hour().minute())
-                        .foregroundStyle(.secondary)
-                }
-                .width(min: 120, ideal: 150)
-
-                TableColumn("Tamaño") { entry in
-                    Text(entry.isDirectory ? "—" : ByteCountFormatter.string(fromByteCount: entry.size, countStyle: .file))
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-                .width(min: 70, ideal: 90)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private func rowMenu(_ entry: FileEntry) -> some View {
+        Button("Abrir") { browser.open(entry) }
+        Button("Vista rápida") {
+            browser.selectedIDs = [entry.id]
+            browser.quickLookSelection()
+        }
+        Button("Mostrar en Finder") { browser.revealInFinder(entry) }
+        Button("Copiar ruta") { browser.copyPath(entry) }
+        Divider()
+        Button("Mover a la Papelera", role: .destructive) {
+            browser.selectedIDs = [entry.id]
+            browser.moveSelectionToTrash()
         }
     }
 }
+
+struct FileRowView: View {
+    @EnvironmentObject private var browser: BrowserModel
+    let entry: FileEntry
+
+    var body: some View {
+        HStack(spacing: 12) {
+            FileTypeIcon(category: entry.category, size: 18)
+
+            Text(entry.name)
+                .font(.system(.body, design: .default))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(entry.category.labelSpanish)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 110, alignment: .leading)
+
+            Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 140, alignment: .trailing)
+
+            Text(sizeLabel)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.tertiary)
+                .frame(width: 72, alignment: .trailing)
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        // simultaneousGesture no bloquea la selección del List
+        .simultaneousGesture(
+            TapGesture(count: 2).onEnded {
+                browser.open(entry)
+            }
+        )
+    }
+
+    private var sizeLabel: String {
+        entry.isDirectory
+            ? "—"
+            : ByteCountFormatter.string(fromByteCount: entry.size, countStyle: .file)
+    }
+}
+
+// MARK: - Settings
 
 struct SettingsView: View {
     @EnvironmentObject private var browser: BrowserModel
@@ -304,27 +348,22 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Dos modos de orden") {
-                Text("1. Default global — el mismo en todas las carpetas (botón «En todas partes»).")
-                Text("2. Orden propio — una carpeta guarda su regla; el resto sigue el global.")
-                    .font(.caption)
+                Text("1. Default global — botón «En todas partes».")
+                Text("2. Orden propio — solo esta carpeta; el resto sigue el global.")
                     .foregroundStyle(.secondary)
             }
             Section("Ahora") {
                 LabeledContent("Ámbito", value: browser.scopeBadge)
                 Text(browser.rule.summarySpanish)
-                Text("Global: \(browser.store.preferences.globalRule.summarySpanish)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             Section("Atajos") {
-                LabeledContent("Abrir", value: "Return o ⌘↓")
+                LabeledContent("Abrir", value: "Return o doble clic")
                 LabeledContent("Vista rápida", value: "Space")
                 LabeledContent("Papelera", value: "⌘⌫")
-                LabeledContent("Arriba", value: "⌘↑")
-                LabeledContent("Descargas", value: "⇧⌘L")
+                LabeledContent("Multiselección", value: "⌘ clic / ⇧ clic")
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 360)
+        .frame(width: 460, height: 340)
     }
 }
