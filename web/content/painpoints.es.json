@@ -1,0 +1,74 @@
+{
+  "title": "Quejas reales que Ordena ataca",
+  "source": "Reseñas Finder + competencia (QSpace, Bloom, ForkLift, Path Finder…)",
+  "hero": {
+    "es": "El Finder que te hubiera gustado tener.",
+    "subtitle_es": "Corta con ⌘X. Pega la ruta. Mueve con bandeja. Sin pelearte con Spotlight."
+  },
+  "finder_complaints": [
+    {
+      "id": "no-address-bar",
+      "complaint_es": "No hay barra de direcciones editable; obliga a ⌘⇧G",
+      "promise_es": "Pega la ruta e Ir a carpeta",
+      "status": "shipping_or_next"
+    },
+    {
+      "id": "no-cut",
+      "complaint_es": "No se puede cortar archivos con ⌘X",
+      "promise_es": "⌘X a la bandeja, ⌘V suelta",
+      "status": "done"
+    },
+    {
+      "id": "enter-renames",
+      "complaint_es": "Enter renombra en vez de abrir",
+      "promise_es": "Perfil teclado tipo Explorer",
+      "status": "planned"
+    },
+    {
+      "id": "spotlight-fails",
+      "complaint_es": "Spotlight falla con partes de palabra e iCloud",
+      "promise_es": "Búsqueda propia en disco",
+      "status": "partial"
+    },
+    {
+      "id": "replace-destroys-folder",
+      "complaint_es": "Reemplazar carpeta borra todo el destino",
+      "promise_es": "Smart Merge con vista previa",
+      "status": "planned"
+    },
+    {
+      "id": "smb-dsstore",
+      "complaint_es": "SMB lento, archivos grises, .DS_Store por todos lados",
+      "promise_es": "Prefs en la app; sin vivir del .DS_Store",
+      "status": "partial"
+    }
+  ],
+  "competitor_notes": [
+    {
+      "name": "QSpace / Bloom",
+      "note_es": "Completos pero quejas de mucha RAM/CPU y licencias; Bloom acumula reportes de pérdidas al mover"
+    },
+    {
+      "name": "ForkLift",
+      "note_es": "Excelente remoto; se siente más FTP que Finder; merge flojo"
+    },
+    {
+      "name": "Path Finder",
+      "note_es": "Rápido en red; rechazo a la suscripción anual"
+    }
+  ],
+  "done_bullets_es": [
+    "Cortar / copiar / pegar con bandeja (⌘X · ⌘C · ⌘V)",
+    "⌘+clic modo naranja listo para mover",
+    "Selección ⇧+clic y ⇧+flechas",
+    "Favoritos, historial, 4 vistas",
+    "Quick Look, Abrir con…, zip, ⌘Z",
+    "Orden propio sin depender del .DS_Store",
+    "Updates en ordena.iareal.net"
+  ],
+  "do_not_claim": [
+    "Primer explorador con IA",
+    "Más rápido que Finder sin benchmark",
+    "Reemplazo total del Dock / Finder del sistema"
+  ]
+}

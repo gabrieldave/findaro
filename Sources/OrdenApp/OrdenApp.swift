@@ -75,6 +75,8 @@ struct OrdenApp: App {
                     .keyboardShortcut(.rightArrow, modifiers: .option)
                 Button("Arriba") { browser.goUp() }
                     .keyboardShortcut(.upArrow, modifiers: .command)
+                Button("Ir a carpeta…") { browser.promptGoToFolder() }
+                    .keyboardShortcut("g", modifiers: [.command, .shift])
                 Divider()
                 Button("Descargas") { browser.navigateToDownloads() }
                     .keyboardShortcut("l", modifiers: [.command, .shift])

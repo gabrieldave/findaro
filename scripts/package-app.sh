@@ -6,8 +6,8 @@ cd "$ROOT"
 
 PRODUCT_NAME="Ordena"
 BUNDLE_ID="app.ordena.files"
-VERSION="0.1.20"
-BUILD="23"
+VERSION="0.1.21"
+BUILD="24"
 
 swift build -c release --product Orden
 BIN="$(swift build -c release --show-bin-path)/Orden"
@@ -53,6 +53,10 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <string>public.app-category.utilities</string>
   <key>NSHighResolutionCapable</key>
   <true/>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Ordena usa reconocimiento de voz local para el asistente push-to-talk.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Ordena usa el micrófono solo mientras mantienes el botón de dictado.</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
   <key>CFBundleIconFile</key>

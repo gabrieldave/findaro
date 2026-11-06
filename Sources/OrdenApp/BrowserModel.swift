@@ -79,11 +79,62 @@ final class BrowserModel: ObservableObject {
     @Published var viewMode: BrowserViewMode
     /// Mostrar `/ruta/completa` bajo el nombre en cada fila.
     @Published var showRowPaths: Bool
+    /// Perfil Explorer: Enter abre, F2 renombra.
+    @Published var explorerKeyboardProfile: Bool
     /// Pilas de rutas para vista Columnas (Miller).
     @Published var columnPaths: [String] = []
 
+    // MARK: Ir a carpeta / path bar
+    @Published var showGoToFolderDialog = false
+    @Published var goToFolderDraft = ""
+
+    // MARK: Búsqueda profunda
+    @Published var deepSearchHits: [SearchHit] = []
+    @Published var deepSearchProgress: SearchProgress?
+    @Published var deepSearchRunning = false
+    @Published var showDeepSearchPanel = false
+    private var deepSearchTask: Task<Void, Never>?
+
+    // MARK: Smart merge
+    @Published var pendingMergePreview: FolderMerge.Preview?
+    @Published var pendingMergeMove = false
+
+    // MARK: Asistente
+    @Published var showAssistantPanel = false
+    @Published var agentPlan: AgentPlan?
+    @Published var agentLog: [String] = []
+    @Published var pendingAgentApproval: AgentPlan?
+
     let store: PreferencesStore
     private var measureTask: Task<Void, Never>?
+    private let folderWatcher = FolderWatcher()
+    private var ignoreWatcherUntil: Date?
+
+    struct PathSegment: Equatable, Identifiable {
+        var id: String { path }
+        let title: String
+        let path: String
+    }
+
+    var pathSegments: [PathSegment] {
+        let standardized = (currentPath as NSString).standardizingPath
+        if standardized == "/" {
+            return [PathSegment(title: "/", path: "/")]
+        }
+        var parts: [PathSegment] = []
+        var built = ""
+        for component in standardized.split(separator: "/") {
+            built += "/" + component
+            let title: String
+            if built == FileManager.default.homeDirectoryForCurrentUser.path {
+                title = "~"
+            } else {
+                title = String(component)
+            }
+            parts.append(PathSegment(title: title, path: built))
+        }
+        return parts
+    }
 
     init(store: PreferencesStore = PreferencesStore()) {
         self.store = store
@@ -94,9 +145,45 @@ final class BrowserModel: ObservableObject {
         self.rule = store.preferences.rule(for: start)
         self.viewMode = store.preferences.viewMode
         self.showRowPaths = store.preferences.showRowPaths
+        self.explorerKeyboardProfile = store.preferences.explorerKeyboardProfile
         self.columnPaths = [start]
+        folderWatcher.onChange = { [weak self] in
+            Task { @MainActor in
+                self?.handleFolderWatcherEvent()
+            }
+        }
         reload()
         refreshHistoryFlags()
+        startWatchingCurrentFolder()
+    }
+
+    private func handleFolderWatcherEvent() {
+        if let until = ignoreWatcherUntil, until > Date() { return }
+        reload(preserveSelection: true)
+    }
+
+    private func startWatchingCurrentFolder() {
+        folderWatcher.watch(path: currentPath)
+    }
+
+    func reload(preserveSelection: Bool = false) {
+        let previous = preserveSelection ? selectedIDs : []
+        measureTask?.cancel()
+        do {
+            let loaded = try DirectoryLoader.load(path: currentPath)
+            entries = SortEngine.sort(loaded, by: rule)
+            errorMessage = nil
+            if preserveSelection {
+                selectedIDs = previous.intersection(Set(entries.map(\.id)))
+            }
+            folderTotalBytes = FolderSizer.sum(entries.filter { !$0.isDirectory })
+            startMeasuringSizes()
+        } catch {
+            entries = []
+            folderTotalBytes = 0
+            errorMessage = error.localizedDescription
+        }
+        startWatchingCurrentFolder()
     }
 
     func setViewMode(_ mode: BrowserViewMode) {
@@ -416,20 +503,6 @@ final class BrowserModel: ObservableObject {
         }
     }
 
-    func reload() {
-        measureTask?.cancel()
-        do {
-            entries = try DirectoryLoader.load(path: currentPath)
-            errorMessage = nil
-            folderTotalBytes = FolderSizer.sum(entries.filter { !$0.isDirectory })
-            startMeasuringSizes()
-        } catch {
-            entries = []
-            folderTotalBytes = 0
-            errorMessage = error.localizedDescription
-        }
-    }
-
     func navigate(to path: String, recordHistory: Bool = true) {
         let target = (path as NSString).standardizingPath
         let current = (currentPath as NSString).standardizingPath
@@ -450,8 +523,180 @@ final class BrowserModel: ObservableObject {
         statusMessage = nil
         columnPaths = [target]
         store.update { $0.lastPath = target }
+        ignoreWatcherUntil = Date().addingTimeInterval(0.6)
         reload()
         refreshHistoryFlags()
+    }
+
+    // MARK: - Ir a carpeta (⇧⌘G)
+
+    func promptGoToFolder() {
+        goToFolderDraft = currentPath
+        showGoToFolderDialog = true
+    }
+
+    func submitGoToFolder() {
+        let raw = goToFolderDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else { return }
+        let expanded: String
+        if raw == "~" {
+            expanded = FileManager.default.homeDirectoryForCurrentUser.path
+        } else if raw.hasPrefix("~/") {
+            let home = FileManager.default.homeDirectoryForCurrentUser.path
+            expanded = (home as NSString).appendingPathComponent(String(raw.dropFirst(2)))
+        } else {
+            expanded = raw
+        }
+        let path = (expanded as NSString).standardizingPath
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
+            statusMessage = "No existe esa carpeta"
+            return
+        }
+        showGoToFolderDialog = false
+        navigate(to: path)
+        statusMessage = "Fui a \(path)"
+    }
+
+    // MARK: - Stubs Fase 1c–5 (compilan; UI se activa fase a fase)
+
+    func startDeepSearch(query: String) {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return }
+        cancelDeepSearch()
+        deepSearchHits = []
+        deepSearchProgress = SearchProgress(currentFolder: currentPath)
+        deepSearchRunning = true
+        showDeepSearchPanel = true
+        let root = currentPath
+        deepSearchTask = Task.detached(priority: .userInitiated) {
+            RecursiveSearch.run(
+                query: .init(text: q, root: root),
+                isCancelled: { Task.isCancelled },
+                onProgress: { progress in
+                    Task { @MainActor in
+                        self.deepSearchProgress = progress
+                        self.deepSearchRunning = !progress.done
+                    }
+                },
+                onHit: { hit in
+                    Task { @MainActor in
+                        self.deepSearchHits.append(hit)
+                    }
+                }
+            )
+            await MainActor.run {
+                self.deepSearchRunning = false
+            }
+        }
+    }
+
+    func cancelDeepSearch() {
+        deepSearchTask?.cancel()
+        deepSearchTask = nil
+        deepSearchRunning = false
+    }
+
+    func clearDeepSearch() {
+        cancelDeepSearch()
+        deepSearchHits = []
+        deepSearchProgress = nil
+        showDeepSearchPanel = false
+    }
+
+    func confirmPendingMerge() {
+        guard let preview = pendingMergePreview else { return }
+        do {
+            let pairs = try FolderMerge.mergeCopy(source: preview.sourcePath, dest: preview.destPath)
+            pushUndo(.copied(created: pairs.map(\.to)))
+            pendingMergePreview = nil
+            ignoreWatcherUntil = Date().addingTimeInterval(0.8)
+            reload()
+            statusMessage = "Fusión: \(pairs.count) ítems · ⌘Z deshace"
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    func runAssistant(prompt: String) async {
+        agentLog.append("> \(prompt)")
+        if let llm = await OllamaClient.shared.proposePlan(prompt: prompt, currentPath: currentPath) {
+            agentPlan = llm
+            agentLog.append("Plan (Ollama): \(llm.summary)")
+        } else {
+            let plan = AgentIntentParser.plan(from: prompt, currentPath: currentPath)
+            agentPlan = plan
+            agentLog.append("Plan (reglas): \(plan.summary)")
+        }
+    }
+
+    func executeAgentPlan(approved: Bool) {
+        guard let plan = agentPlan else { return }
+        if plan.needsApproval, !approved {
+            pendingAgentApproval = plan
+            agentLog.append("Esperando aprobación")
+            return
+        }
+        for step in plan.steps {
+            switch step.name {
+            case .searchFiles:
+                let q = step.arguments["query"] ?? plan.prompt
+                startDeepSearch(query: q)
+                agentLog.append("searchFiles «\(q)»")
+            case .listDirectory:
+                reload()
+                agentLog.append("listDirectory")
+            case .getStorageUsage:
+                showHeaviestForCleanup()
+                agentLog.append("getStorageUsage")
+            case .findDuplicates:
+                let dups = findDuplicateCandidates()
+                agentLog.append("findDuplicates: \(dups) grupos")
+            case .organizeFiles:
+                agentLog.append("organizeFiles: propone carpetas por tipo (manual por ahora)")
+                statusMessage = "Organizar: usa filtro Tipo / orden por categoría"
+            case .openFile:
+                if let p = step.arguments["path"], let entry = entries.first(where: { $0.path == p }) {
+                    open(entry)
+                }
+            case .previewFile:
+                quickLookSelection()
+            case .getFileMetadata:
+                if let p = step.arguments["path"], let entry = entries.first(where: { $0.path == p }) {
+                    showInfo(entry)
+                }
+            case .createDirectory, .copyFiles, .moveFiles, .renameFiles:
+                agentLog.append("\(step.name.rawValue): requiere destinos concretos — usa bandeja / drag")
+                statusMessage = "Acción de escritura: usa bandeja o arrastre (aprobada en plan)"
+            }
+        }
+        agentPlan = nil
+        pendingAgentApproval = nil
+    }
+
+    /// Duplicados simples por nombre+tamaño en la carpeta actual (no recursivo aún).
+    @discardableResult
+    func findDuplicateCandidates() -> Int {
+        var buckets: [String: [FileEntry]] = [:]
+        for e in entries where !e.isDirectory {
+            let key = "\(e.name.lowercased())|\(e.size)"
+            buckets[key, default: []].append(e)
+        }
+        let groups = buckets.values.filter { $0.count > 1 }
+        if let first = groups.first {
+            selectedIDs = Set(first.map(\.id))
+            selectionAnchorID = first.first?.id
+            refreshSelectionStatus()
+        }
+        statusMessage = groups.isEmpty
+            ? "Sin duplicados obvios aquí"
+            : "\(groups.count) grupos posibles (nombre+tamaño)"
+        return groups.count
+    }
+
+    func setExplorerKeyboardProfile(_ on: Bool) {
+        explorerKeyboardProfile = on
+        store.update { $0.explorerKeyboardProfile = on }
     }
 
     /// Como Alt+← en Windows / ⌘[ en Finder.

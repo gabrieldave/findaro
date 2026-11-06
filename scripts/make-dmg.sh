@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 PRODUCT_NAME="Ordena"
-VERSION="0.1.20"
+VERSION="0.1.21"
 ARCH="$(uname -m)"
 # Nombre del volumen al montar (aparece en Finder → Ubicaciones)
 VOL_NAME="${PRODUCT_NAME} ${VERSION}-${ARCH}"

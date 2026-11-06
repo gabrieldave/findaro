@@ -59,111 +59,8 @@ struct ContentView: View {
         .searchable(text: $browser.searchText, placement: .toolbar, prompt: "Filtrar en esta carpeta")
         .onAppear { SelectionCancelMonitor.install(browser: browser) }
         .onDisappear { SelectionCancelMonitor.remove() }
-        .toolbar {
-            ToolbarItemGroup(placement: .navigation) {
-                Button(action: browser.goBack) {
-                    Label("Atrás", systemImage: "chevron.backward")
-                }
-                .disabled(!browser.canGoBack)
-                .help("Carpeta anterior (⌘1 o ⌥←)")
-
-                Button(action: browser.goForward) {
-                    Label("Adelante", systemImage: "chevron.forward")
-                }
-                .disabled(!browser.canGoForward)
-                .help("Carpeta siguiente (⌘2 o ⌥→)")
-
-                Button(action: browser.goUp) {
-                    Label("Arriba", systemImage: "chevron.up")
-                }
-                .help("Carpeta superior (⌘↑)")
-            }
-            ToolbarItem(placement: .principal) {
-                HStack(spacing: 12) {
-                    ViewModePicker()
-                    Text(shortPath(browser.currentPath))
-                        .font(.system(.callout, design: .rounded))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .frame(maxWidth: 280)
-                }
-            }
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    browser.promptNewFolder()
-                } label: {
-                    Label("Nueva carpeta", systemImage: "folder.badge.plus")
-                }
-                .help("Crear carpeta aquí (⇧⌘N)")
-
-                Toggle(isOn: $browser.multiSelectMode) {
-                    Label("Varios", systemImage: "checkmark.circle")
-                }
-                .toggleStyle(.button)
-                .help("Clic = agregar/quitar sin ⌘")
-
-                Button {
-                    browser.selectAllVisible()
-                } label: {
-                    Label("Todos", systemImage: "checklist")
-                }
-
-                Button {
-                    browser.cancelSelection()
-                } label: {
-                    Label("Ninguno", systemImage: "xmark.circle")
-                }
-                .help("Esc — cancelar selección")
-                .disabled(browser.selectedIDs.isEmpty)
-
-                Button {
-                    browser.openSelection()
-                } label: {
-                    Label("Abrir", systemImage: "arrow.up.forward.app")
-                }
-                .disabled(browser.selectedIDs.isEmpty)
-
-                Button {
-                    browser.quickLookSelection()
-                } label: {
-                    Label("Vista rápida", systemImage: "eye")
-                }
-                .disabled(browser.selectedIDs.isEmpty)
-
-                Toggle(isOn: Binding(
-                    get: { browser.showRowPaths },
-                    set: { browser.setShowRowPaths($0) }
-                )) {
-                    Label(
-                        browser.showRowPaths ? "Ocultar rutas" : "Mostrar rutas",
-                        systemImage: browser.showRowPaths
-                            ? "list.bullet.rectangle"
-                            : "list.bullet"
-                    )
-                }
-                .toggleStyle(.button)
-                .help(browser.showRowPaths
-                    ? "Ocultar la ruta bajo el nombre"
-                    : "Mostrar la ruta bajo el nombre")
-
-                Button(action: browser.reload) {
-                    Label("Actualizar", systemImage: "arrow.clockwise")
-                }
-            }
-        }
-        .alert("Nueva carpeta", isPresented: $browser.showNewFolderDialog) {
-            TextField("Nombre", text: $browser.nameDraft)
-            Button("Crear") { browser.createFolderFromDraft() }
-            Button("Cancelar", role: .cancel) {}
-        } message: {
-            Text("Se crea dentro de \(shortPath(browser.currentPath))")
-        }
-        .alert("Renombrar", isPresented: $browser.showRenameDialog) {
-            TextField("Nombre", text: $browser.nameDraft)
-            Button("Guardar") { browser.commitRenameFromDraft() }
-            Button("Cancelar", role: .cancel) { browser.renameTargetPath = nil }
-        }
+        .modifier(BrowserToolbarModifier())
+        .modifier(BrowserDialogsModifier(shortPath: shortPath))
         .onKeyPress(.space) {
             browser.quickLookSelection()
             return .handled
@@ -232,6 +129,11 @@ struct ContentView: View {
 
             FileDragArmChrome.ReadyBanner()
                 .fixedSize(horizontal: false, vertical: true)
+
+            if browser.showDeepSearchPanel {
+                RecursiveSearchPanel()
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             if let dest = browser.folderDropTargetPath {
                 HStack(spacing: 8) {
@@ -1298,6 +1200,135 @@ struct FileRowButton: View {
         } else {
             browser.selectOnly(entry.id)
         }
+    }
+}
+
+// MARK: - Toolbar / diálogos (extraídos para el type-checker)
+
+private struct BrowserToolbarModifier: ViewModifier {
+    @EnvironmentObject private var browser: BrowserModel
+
+    func body(content: Content) -> some View {
+        content.toolbar {
+            ToolbarItemGroup(placement: .navigation) {
+                Button(action: browser.goBack) {
+                    Label("Atrás", systemImage: "chevron.backward")
+                }
+                .disabled(!browser.canGoBack)
+                .help("Carpeta anterior (⌘1 o ⌥←)")
+
+                Button(action: browser.goForward) {
+                    Label("Adelante", systemImage: "chevron.forward")
+                }
+                .disabled(!browser.canGoForward)
+                .help("Carpeta siguiente (⌘2 o ⌥→)")
+
+                Button(action: browser.goUp) {
+                    Label("Arriba", systemImage: "chevron.up")
+                }
+                .help("Carpeta superior (⌘↑)")
+            }
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 12) {
+                    ViewModePicker()
+                    PathBreadcrumbBar()
+                }
+            }
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    browser.promptNewFolder()
+                } label: {
+                    Label("Nueva carpeta", systemImage: "folder.badge.plus")
+                }
+                .help("Crear carpeta aquí (⇧⌘N)")
+
+                Toggle(isOn: $browser.multiSelectMode) {
+                    Label("Varios", systemImage: "checkmark.circle")
+                }
+                .toggleStyle(.button)
+                .help("Clic = agregar/quitar sin ⌘")
+
+                Button {
+                    browser.selectAllVisible()
+                } label: {
+                    Label("Todos", systemImage: "checklist")
+                }
+
+                Button {
+                    browser.cancelSelection()
+                } label: {
+                    Label("Ninguno", systemImage: "xmark.circle")
+                }
+                .help("Esc — cancelar selección")
+                .disabled(browser.selectedIDs.isEmpty)
+
+                Button {
+                    browser.openSelection()
+                } label: {
+                    Label("Abrir", systemImage: "arrow.up.forward.app")
+                }
+                .disabled(browser.selectedIDs.isEmpty)
+
+                Button {
+                    browser.quickLookSelection()
+                } label: {
+                    Label("Vista rápida", systemImage: "eye")
+                }
+                .disabled(browser.selectedIDs.isEmpty)
+
+                Toggle(isOn: Binding(
+                    get: { browser.showRowPaths },
+                    set: { browser.setShowRowPaths($0) }
+                )) {
+                    Label(
+                        browser.showRowPaths ? "Ocultar rutas" : "Mostrar rutas",
+                        systemImage: browser.showRowPaths ? "list.bullet.rectangle" : "list.bullet"
+                    )
+                }
+                .toggleStyle(.button)
+                .help(browser.showRowPaths
+                    ? "Ocultar la ruta bajo el nombre"
+                    : "Mostrar la ruta bajo el nombre")
+
+                Button {
+                    browser.reload()
+                } label: {
+                    Label("Actualizar", systemImage: "arrow.clockwise")
+                }
+            }
+        }
+    }
+}
+
+private struct BrowserDialogsModifier: ViewModifier {
+    @EnvironmentObject private var browser: BrowserModel
+    let shortPath: (String) -> String
+
+    func body(content: Content) -> some View {
+        content
+            .alert("Nueva carpeta", isPresented: $browser.showNewFolderDialog) {
+                TextField("Nombre", text: $browser.nameDraft)
+                Button("Crear") { browser.createFolderFromDraft() }
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text("Se crea dentro de \(shortPath(browser.currentPath))")
+            }
+            .alert("Renombrar", isPresented: $browser.showRenameDialog) {
+                TextField("Nombre", text: $browser.nameDraft)
+                Button("Guardar") { browser.commitRenameFromDraft() }
+                Button("Cancelar", role: .cancel) { browser.renameTargetPath = nil }
+            }
+            .alert("Ir a carpeta", isPresented: $browser.showGoToFolderDialog) {
+                TextField("Ruta", text: $browser.goToFolderDraft)
+                Button("Ir") { browser.submitGoToFolder() }
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text("Pega una ruta absoluta o empieza con ~/ … Atajo ⇧⌘G")
+            }
+            .sheet(item: $browser.pendingMergePreview) { preview in
+                MergePreviewSheet(preview: preview)
+                    .environmentObject(browser)
+            }
     }
 }
 

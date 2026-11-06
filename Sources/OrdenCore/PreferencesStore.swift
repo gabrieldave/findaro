@@ -12,15 +12,18 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public var viewMode: BrowserViewMode
     /// Mostrar la ruta completa bajo el nombre en la lista.
     public var showRowPaths: Bool
+    /// Enter abre / F2 renombra (perfil tipo Explorer).
+    public var explorerKeyboardProfile: Bool
 
     public init(
-        schemaVersion: Int = 10,
+        schemaVersion: Int = 11,
         globalRule: SortRule = .downloads,
         folderOverrides: [String: SortRule] = [:],
         favorites: [String] = [],
         lastPath: String? = nil,
         viewMode: BrowserViewMode = .list,
-        showRowPaths: Bool = true
+        showRowPaths: Bool = true,
+        explorerKeyboardProfile: Bool = false
     ) {
         self.schemaVersion = schemaVersion
         self.globalRule = globalRule
@@ -29,6 +32,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         self.lastPath = lastPath
         self.viewMode = viewMode
         self.showRowPaths = showRowPaths
+        self.explorerKeyboardProfile = explorerKeyboardProfile
     }
 
     /// Override de carpeta si existe; si no, el global (estilo Descargas por defecto).
@@ -41,7 +45,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode, showRowPaths
+        case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode, showRowPaths, explorerKeyboardProfile
     }
 
     public init(from decoder: Decoder) throws {
@@ -53,6 +57,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         lastPath = try c.decodeIfPresent(String.self, forKey: .lastPath)
         viewMode = try c.decodeIfPresent(BrowserViewMode.self, forKey: .viewMode) ?? .list
         showRowPaths = try c.decodeIfPresent(Bool.self, forKey: .showRowPaths) ?? true
+        explorerKeyboardProfile = try c.decodeIfPresent(Bool.self, forKey: .explorerKeyboardProfile) ?? false
     }
 }
 
@@ -110,7 +115,8 @@ public final class PreferencesStore: @unchecked Sendable {
                 (home as NSString).appendingPathComponent("Projects")
             ],
             lastPath: (home as NSString).appendingPathComponent("Downloads"),
-            showRowPaths: true
+            showRowPaths: true,
+            explorerKeyboardProfile: false
         )
     }
 
@@ -138,6 +144,10 @@ public final class PreferencesStore: @unchecked Sendable {
         if next.schemaVersion < 10 {
             next.showRowPaths = true
             next.schemaVersion = 10
+        }
+        if next.schemaVersion < 11 {
+            next.explorerKeyboardProfile = false
+            next.schemaVersion = 11
         }
         return next
     }
