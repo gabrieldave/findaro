@@ -1323,7 +1323,7 @@ private struct BrowserDialogsModifier: ViewModifier {
                 Button("Ir") { browser.submitGoToFolder() }
                 Button("Cancelar", role: .cancel) {}
             } message: {
-                Text("Pega una ruta absoluta o empieza con ~/ … Atajo ⇧⌘G")
+                Text("Pega una ruta absoluta o empieza con ~/ … Atajo ⌘3")
             }
             .sheet(item: $browser.pendingMergePreview) { preview in
                 MergePreviewSheet(preview: preview)

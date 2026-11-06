@@ -13,7 +13,7 @@ Actualizado con el estado del producto Ordena (explorador nativo Swift).
 
 | Queja real | Ángulo de marketing | Estado en Ordena |
 |---|---|---|
-| No hay barra de direcciones editable; hay que usar ⌘⇧G | “Pega la ruta y ve. Sin rituales.” | Path bar / breadcrumbs + Ir a carpeta (⇧⌘G) |
+| No hay barra de direcciones editable; hay que usar ⌘⇧G | “Pega la ruta y ve. Sin rituales.” | Path bar / breadcrumbs + Ir a carpeta (⌘3) |
 | No se puede cortar con ⌘X | “Cortar y pegar archivos como en Windows.” | ⌘X → bandeja (mover) · ⌘V suelta |
 | Enter renombra en vez de abrir | “Elige perfil Explorer: Enter abre.” | Perfil teclado (roadmap / Settings) |
 | No crear archivo nuevo desde clic derecho con facilidad | “Nueva carpeta a un clic / ⇧⌘N.” | Nueva carpeta en toolbar y menú |

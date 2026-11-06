@@ -81,8 +81,8 @@ enum SelectionCancelMonitor {
                 }
             }
 
-            // ⌘1 / ⌘2 → atrás / adelante (cómodo con una mano)
-            // keyCodes: 18 = 1, 19 = 2
+            // ⌘1 / ⌘2 / ⌘3 → atrás / adelante / Ir a carpeta (mano izquierda)
+            // keyCodes: 18 = 1, 19 = 2, 20 = 3
             // ⌘Z → deshacer movimiento/copia
             // ⌘C / ⌘X / ⌘V → copiar / cortar / pegar archivos
             if cmd, !opt, !ctrl, !shift {
@@ -92,6 +92,10 @@ enum SelectionCancelMonitor {
                 }
                 if chars == "2" || key == 19 {
                     browser.goForward()
+                    return nil
+                }
+                if chars == "3" || key == 20 {
+                    browser.promptGoToFolder()
                     return nil
                 }
                 if chars.lowercased() == "z" || key == 6 {

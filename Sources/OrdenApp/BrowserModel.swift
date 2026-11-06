@@ -528,7 +528,7 @@ final class BrowserModel: ObservableObject {
         refreshHistoryFlags()
     }
 
-    // MARK: - Ir a carpeta (⇧⌘G)
+    // MARK: - Ir a carpeta (⌘3)
 
     func promptGoToFolder() {
         goToFolderDraft = currentPath

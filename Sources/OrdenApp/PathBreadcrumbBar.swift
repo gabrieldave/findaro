@@ -37,7 +37,7 @@ struct PathBreadcrumbBar: View {
                     .font(.caption.weight(.semibold))
             }
             .buttonStyle(.borderless)
-            .help("Ir a carpeta… (⇧⌘G)")
+            .help("Ir a carpeta… (⌘3)")
         }
     }
 }
