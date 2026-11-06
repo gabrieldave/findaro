@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import OrdenCore
 
-/// Monitor AppKit: hold 1s sin pelear con el marquee de SwiftUI.
+/// Monitor AppKit: hold 1s + doble clic sin pelear con el marquee de SwiftUI.
 @MainActor
 final class FileDragArmMonitor {
     static let shared = FileDragArmMonitor()
@@ -12,6 +12,9 @@ final class FileDragArmMonitor {
     private var downTime: Date?
     private var tickTimer: Timer?
     private weak var browser: BrowserModel?
+
+    /// Solo cancelamos/armamos desde el monitor si el mouseDown cayó en una fila conocida.
+    private var monitorOwnedPress = false
 
     /// Frames de filas en coordenadas de la key window.
     private var rowFrames: [String: CGRect] = [:]
@@ -32,8 +35,12 @@ final class FileDragArmMonitor {
     }
 
     func updateRowFrame(path: String, frameInWindow: CGRect) {
-        guard !path.isEmpty else { return }
+        guard !path.isEmpty, frameInWindow.width > 2, frameInWindow.height > 2 else { return }
         rowFrames[path] = frameInWindow
+    }
+
+    func removeRowFrame(path: String) {
+        rowFrames.removeValue(forKey: path)
     }
 
     private func handle(_ event: NSEvent) {
@@ -46,19 +53,17 @@ final class FileDragArmMonitor {
                 guard let path,
                       lastClickPath == path,
                       let last = lastClickAt,
-                      Date().timeIntervalSince(last) < 0.45 else { return false }
+                      Date().timeIntervalSince(last) < 0.5 else { return false }
                 return true
             }()
 
             if isDouble, let path,
                let entry = browser.visibleEntries.first(where: { $0.path == path }) {
-                cancelArming()
+                cancelMonitorPress(clearArming: true)
                 lastClickPath = nil
                 lastClickAt = nil
                 browser.selectOnly(entry.id)
                 browser.activateEntry(entry)
-                downPoint = nil
-                downTime = nil
                 return
             }
 
@@ -69,8 +74,11 @@ final class FileDragArmMonitor {
             downTime = Date()
             tickTimer?.invalidate()
             tickTimer = nil
+            monitorOwnedPress = false
+
             if let path,
                let entry = browser.visibleEntries.first(where: { $0.path == path }) {
+                monitorOwnedPress = true
                 browser.beginArmingFileDrag(for: entry)
                 tickTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
                     Task { @MainActor in self?.tick() }
@@ -78,30 +86,27 @@ final class FileDragArmMonitor {
             }
 
         case .leftMouseDragged:
-            guard let origin = downPoint else { return }
+            // No tocar el armado que inició el gesto SwiftUI de la fila.
+            guard monitorOwnedPress, let origin = downPoint else { return }
             let p = event.locationInWindow
             let dist = hypot(p.x - origin.x, p.y - origin.y)
-            if dist > FileDragArmChrome.maxWiggle, !browser.hasArmedFileDrag {
-                cancelArming()
+            if dist > FileDragArmChrome.maxWiggle, !(browser.hasArmedFileDrag) {
+                cancelMonitorPress(clearArming: true)
             }
 
         case .leftMouseUp:
-            if !browser.hasArmedFileDrag {
-                if let path = browser.fileDragArmingPath,
-                   let entry = browser.visibleEntries.first(where: { $0.path == path }) {
-                    browser.endArmingPress(for: entry)
-                }
-            } else {
-                // Deja el banner "Listo" unos segundos; solo quita el anillo.
-                if let path = browser.fileDragArmingPath,
-                   let entry = browser.visibleEntries.first(where: { $0.path == path }) {
+            if monitorOwnedPress {
+                if !browser.hasArmedFileDrag {
+                    if let path = browser.fileDragArmingPath,
+                       let entry = browser.visibleEntries.first(where: { $0.path == path }) {
+                        browser.endArmingPress(for: entry)
+                    }
+                } else if let path = browser.fileDragArmingPath,
+                          let entry = browser.visibleEntries.first(where: { $0.path == path }) {
                     browser.endArmingPress(for: entry)
                 }
             }
-            downPoint = nil
-            downTime = nil
-            tickTimer?.invalidate()
-            tickTimer = nil
+            cancelMonitorPress(clearArming: false)
 
         default:
             break
@@ -109,9 +114,11 @@ final class FileDragArmMonitor {
     }
 
     private func tick() {
-        guard let browser, let start = downTime, browser.fileDragArmingPath != nil else { return }
+        guard monitorOwnedPress,
+              let browser,
+              let start = downTime,
+              browser.fileDragArmingPath != nil else { return }
         let elapsed = Date().timeIntervalSince(start)
-        // El anillo ya lo anima beginArming; aquí forzamos el armado al cumplir 1s.
         if elapsed >= FileDragArmChrome.holdDuration {
             if let path = browser.fileDragArmingPath,
                let entry = browser.visibleEntries.first(where: { $0.path == path }) {
@@ -122,20 +129,22 @@ final class FileDragArmMonitor {
         }
     }
 
-    private func cancelArming() {
+    private func cancelMonitorPress(clearArming: Bool) {
         tickTimer?.invalidate()
         tickTimer = nil
-        guard let browser else { return }
-        if let path = browser.fileDragArmingPath,
-           let entry = browser.visibleEntries.first(where: { $0.path == path }) {
-            browser.endArmingPress(for: entry)
+        if clearArming, monitorOwnedPress, let browser {
+            if let path = browser.fileDragArmingPath,
+               let entry = browser.visibleEntries.first(where: { $0.path == path }) {
+                browser.endArmingPress(for: entry)
+            }
         }
+        monitorOwnedPress = false
         downPoint = nil
         downTime = nil
     }
 
     private func pathAt(_ pointInWindow: CGPoint) -> String? {
-        // Preferir el frame más pequeño que contenga el punto (celdas anidadas).
+        // Preferir el frame más pequeño que contenga el punto.
         var best: (String, CGFloat)?
         for (path, frame) in rowFrames where frame.contains(pointInWindow) {
             let area = frame.width * frame.height
@@ -143,22 +152,88 @@ final class FileDragArmMonitor {
                 best = (path, area)
             }
         }
-        return best?.0
+        if let best { return best.0 }
+
+        // Fallback: fila cuya banda vertical contiene el Y (útil con scroll / frames viejos).
+        var bandHit: (String, CGFloat)?
+        for (path, frame) in rowFrames where pointInWindow.y >= frame.minY && pointInWindow.y <= frame.maxY {
+            let dx = abs(frame.midX - pointInWindow.x)
+            if bandHit == nil || dx < bandHit!.1 {
+                bandHit = (path, dx)
+            }
+        }
+        return bandHit?.0
     }
 }
 
 /// NSView que reporta su frame en coordenadas de ventana al monitor.
 private final class FileDragArmFrameNSView: NSView {
     var path: String = ""
+    private var scrollObserver: NSObjectProtocol?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        postsFrameChangedNotifications = true
+        postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(frameChanged),
+            name: NSView.frameDidChangeNotification,
+            object: self
+        )
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError() }
+
+    deinit {
+        if let scrollObserver {
+            NotificationCenter.default.removeObserver(scrollObserver)
+        }
+        NotificationCenter.default.removeObserver(self)
+        let path = self.path
+        if !path.isEmpty {
+            Task { @MainActor in
+                FileDragArmMonitor.shared.removeRowFrame(path: path)
+            }
+        }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        hookScrollView()
+        report()
+    }
+
+    override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        hookScrollView()
+        report()
+    }
 
     override func layout() {
         super.layout()
         report()
     }
 
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
+    @objc private func frameChanged() {
         report()
+    }
+
+    private func hookScrollView() {
+        if let scrollObserver {
+            NotificationCenter.default.removeObserver(scrollObserver)
+            self.scrollObserver = nil
+        }
+        guard let scroll = enclosingScrollView?.contentView else { return }
+        scroll.postsBoundsChangedNotifications = true
+        scrollObserver = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification,
+            object: scroll,
+            queue: .main
+        ) { [weak self] _ in
+            self?.report()
+        }
     }
 
     private func report() {
@@ -178,7 +253,10 @@ private struct FileDragArmFrameReader: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: FileDragArmFrameNSView, context: Context) {
-        nsView.path = path
+        if nsView.path != path {
+            FileDragArmMonitor.shared.removeRowFrame(path: nsView.path)
+            nsView.path = path
+        }
         DispatchQueue.main.async { nsView.layout() }
     }
 }
@@ -190,5 +268,15 @@ extension View {
 
     func enableFileDragArmMonitor(browser: BrowserModel) -> some View {
         onAppear { FileDragArmMonitor.shared.attach(browser: browser) }
+    }
+
+    /// Doble clic por fila (carpetas y archivos) — no depende de frames AppKit.
+    func fileOpenOnDoubleClick(entry: FileEntry, browser: BrowserModel) -> some View {
+        simultaneousGesture(
+            TapGesture(count: 2).onEnded {
+                browser.selectOnly(entry.id)
+                browser.activateEntry(entry)
+            }
+        )
     }
 }

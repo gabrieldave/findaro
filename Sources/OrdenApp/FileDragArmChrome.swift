@@ -146,11 +146,16 @@ private struct FileDragArmPressModifier: ViewModifier {
                     if pressOrigin == nil {
                         pressOrigin = value.startLocation
                         armedThisPress = false
+                        // Gesto de la fila: dueño del armado (carpetas y archivos).
                         browser.beginArmingFileDrag(for: entry)
                     }
 
                     let dist = hypot(value.translation.width, value.translation.height)
-                    if dist > FileDragArmChrome.maxWiggle, !browser.hasArmedFileDrag {
+                    // Más tolerancia en carpetas: el icono/nombre tiembla más al hacer hold.
+                    let limit = entry.isDirectory
+                        ? FileDragArmChrome.maxWiggle * 1.6
+                        : FileDragArmChrome.maxWiggle
+                    if dist > limit, !browser.hasArmedFileDrag {
                         // Temblor grande antes de armar → cancela hold (el padre hará marquee).
                         browser.endArmingPress(for: entry)
                         pressOrigin = nil

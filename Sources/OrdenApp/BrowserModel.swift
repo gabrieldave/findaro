@@ -87,10 +87,13 @@ final class BrowserModel: ObservableObject {
     }
 
     func activateEntry(_ entry: FileEntry) {
+        clearArmedFileDrag()
         if entry.isDirectory {
             navigate(to: entry.path)
+            statusMessage = "Abrí carpeta: \(entry.name)"
         } else {
             open(entry)
+            statusMessage = "Abrí: \(entry.name)"
         }
     }
 

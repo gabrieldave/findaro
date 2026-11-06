@@ -347,6 +347,7 @@ private struct IconsItemCell: View {
         )
         .fileDragArmHighlight(path: entry.path)
         .reportFileDragArmFrame(path: entry.path)
+        .fileOpenOnDoubleClick(entry: entry, browser: browser)
         .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu { entryContextMenu(entry) }
     }
@@ -621,12 +622,13 @@ private struct ColumnRow: View {
         )
         .fileDragArmHighlight(path: entry.path)
         .reportFileDragArmFrame(path: entry.path)
+        .fileOpenOnDoubleClick(entry: entry, browser: browser)
         .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu { entryContextMenu(entry) }
     }
 
     private func handleClick() {
-        // Doble clic → FileDragArmMonitor. Un clic en carpeta abre la columna siguiente.
+        // Doble clic → TapGesture/monitor. Un clic en carpeta abre la columna siguiente.
         let flags = NSEvent.modifierFlags
         if flags.contains(.shift) || flags.contains(.command) || browser.multiSelectMode {
             browser.clickSelect(entry.id)
