@@ -30,6 +30,9 @@ final class BrowserModel: ObservableObject {
     @Published var renameTargetPath: String?
     /// Se incrementa con Esc / cancelar para resetear gestos (marquee).
     @Published var selectionCancelToken: Int = 0
+    @Published var viewMode: BrowserViewMode
+    /// Pilas de rutas para vista Columnas (Miller).
+    @Published var columnPaths: [String] = []
 
     let store: PreferencesStore
     private var measureTask: Task<Void, Never>?
@@ -41,6 +44,57 @@ final class BrowserModel: ObservableObject {
                 .appendingPathComponent("Downloads")
         self.currentPath = start
         self.rule = store.preferences.rule(for: start)
+        self.viewMode = store.preferences.viewMode
+        self.columnPaths = [start]
+        reload()
+    }
+
+    func setViewMode(_ mode: BrowserViewMode) {
+        viewMode = mode
+        store.update { $0.viewMode = mode }
+        if mode == .columns {
+            columnPaths = [currentPath]
+        }
+        objectWillChange.send()
+    }
+
+    /// Clic con ⇧ rango · ⌘ / modo Varios toggle · normal = solo ese.
+    func clickSelect(_ id: String) {
+        let flags = NSEvent.modifierFlags
+        if flags.contains(.shift) {
+            selectRange(to: id)
+        } else if multiSelectMode || flags.contains(.command) {
+            toggleSelection(id)
+        } else {
+            selectOnly(id)
+        }
+    }
+
+    func activateEntry(_ entry: FileEntry) {
+        if entry.isDirectory {
+            navigate(to: entry.path)
+        } else {
+            open(entry)
+        }
+    }
+
+    /// En columnas: abre carpeta en la columna siguiente.
+    func openInColumns(_ entry: FileEntry, columnIndex: Int) {
+        guard entry.isDirectory else {
+            selectOnly(entry.id)
+            open(entry)
+            return
+        }
+        var next = Array(columnPaths.prefix(columnIndex + 1))
+        next.append(entry.path)
+        columnPaths = next
+        currentPath = entry.path
+        selectedIDs = []
+        selectionAnchorID = nil
+        if !cleanupMode {
+            rule = store.preferences.rule(for: entry.path)
+        }
+        store.update { $0.lastPath = entry.path }
         reload()
     }
 
@@ -190,6 +244,7 @@ final class BrowserModel: ObservableObject {
         selectionAnchorID = nil
         searchText = ""
         statusMessage = nil
+        columnPaths = [path]
         store.update { $0.lastPath = path }
         reload()
     }

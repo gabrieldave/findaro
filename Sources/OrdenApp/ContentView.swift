@@ -32,11 +32,15 @@ struct ContentView: View {
                 .help("Carpeta superior (⌘↑)")
             }
             ToolbarItem(placement: .principal) {
-                Text(shortPath(browser.currentPath))
-                    .font(.system(.callout, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                HStack(spacing: 12) {
+                    ViewModePicker()
+                    Text(shortPath(browser.currentPath))
+                        .font(.system(.callout, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: 280)
+                }
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
@@ -725,7 +729,7 @@ struct FileBrowserPane: View {
     @State private var folderDragStarted = false
 
     var body: some View {
-        VStack(spacing: 0) {
+        Group {
             if let error = browser.errorMessage {
                 ContentUnavailableView(
                     "No se pudo abrir",
@@ -733,58 +737,76 @@ struct FileBrowserPane: View {
                     description: Text(error)
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            } else if browser.visibleEntries.isEmpty && browser.viewMode != .columns {
+                ContentUnavailableView(
+                    "Vacío",
+                    systemImage: "folder",
+                    description: Text("No hay elementos con este filtro.")
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             } else {
-                header
-                    .fixedSize(horizontal: false, vertical: true)
+                switch browser.viewMode {
+                case .list:
+                    listBrowser
+                case .icons:
+                    IconsBrowserView()
+                case .columns:
+                    ColumnsBrowserView()
+                case .gallery:
+                    GalleryBrowserView()
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onChange(of: browser.selectionCancelToken) { _, _ in
+            resetMarquee()
+        }
+    }
 
-                Divider().opacity(0.35)
+    private var listBrowser: some View {
+        VStack(spacing: 0) {
+            header
+                .fixedSize(horizontal: false, vertical: true)
 
-                if browser.visibleEntries.isEmpty {
-                    ContentUnavailableView(
-                        "Vacío",
-                        systemImage: "folder",
-                        description: Text("No hay elementos con este filtro.")
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            ForEach(Array(browser.visibleEntries.enumerated()), id: \.element.id) { index, entry in
-                                FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
-                                    .frame(minHeight: rowHeight)
-                            }
-                            // Zona vacía: clic cancela; arrastre inicia marquee hacia arriba
-                            Color.clear
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 320)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    browser.cancelSelection()
-                                }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                        .coordinateSpace(name: "fileList")
-                        .overlay(alignment: .topLeading) {
-                            if let rect = marqueeRect {
-                                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                    .fill(OrdenTheme.accent.opacity(0.18))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                            .strokeBorder(OrdenTheme.accent.opacity(0.85), lineWidth: 1)
-                                    )
-                                    .frame(width: rect.width, height: rect.height)
-                                    .offset(x: rect.minX, y: rect.minY)
-                                    .allowsHitTesting(false)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .highPriorityGesture(marqueeGesture)
+            Divider().opacity(0.35)
+
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(browser.visibleEntries.enumerated()), id: \.element.id) { index, entry in
+                        FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
+                            .frame(minHeight: rowHeight)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .onTapGesture {
-                        browser.cancelSelection()
+                    Color.clear
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 320)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            browser.cancelSelection()
+                        }
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .coordinateSpace(name: "fileList")
+                .overlay(alignment: .topLeading) {
+                    if let rect = marqueeRect {
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(OrdenTheme.accent.opacity(0.18))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                    .strokeBorder(OrdenTheme.accent.opacity(0.85), lineWidth: 1)
+                            )
+                            .frame(width: rect.width, height: rect.height)
+                            .offset(x: rect.minX, y: rect.minY)
+                            .allowsHitTesting(false)
                     }
                 }
+                .contentShape(Rectangle())
+                .highPriorityGesture(marqueeGesture)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .onTapGesture {
+                browser.cancelSelection()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -794,9 +816,6 @@ struct FileBrowserPane: View {
                 .strokeBorder(.white.opacity(0.06), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .onChange(of: browser.selectionCancelToken) { _, _ in
-            resetMarquee()
-        }
     }
 
     private func resetMarquee() {

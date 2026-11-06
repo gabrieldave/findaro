@@ -9,19 +9,22 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public var folderOverrides: [String: SortRule]
     public var favorites: [String]
     public var lastPath: String?
+    public var viewMode: BrowserViewMode
 
     public init(
-        schemaVersion: Int = 8,
+        schemaVersion: Int = 9,
         globalRule: SortRule = .downloads,
         folderOverrides: [String: SortRule] = [:],
         favorites: [String] = [],
-        lastPath: String? = nil
+        lastPath: String? = nil,
+        viewMode: BrowserViewMode = .list
     ) {
         self.schemaVersion = schemaVersion
         self.globalRule = globalRule
         self.folderOverrides = folderOverrides
         self.favorites = favorites
         self.lastPath = lastPath
+        self.viewMode = viewMode
     }
 
     /// Override de carpeta si existe; si no, el global (estilo Descargas por defecto).
@@ -34,7 +37,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case schemaVersion, globalRule, folderOverrides, favorites, lastPath
+        case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode
     }
 
     public init(from decoder: Decoder) throws {
@@ -44,6 +47,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         folderOverrides = try c.decodeIfPresent([String: SortRule].self, forKey: .folderOverrides) ?? [:]
         favorites = try c.decodeIfPresent([String].self, forKey: .favorites) ?? []
         lastPath = try c.decodeIfPresent(String.self, forKey: .lastPath)
+        viewMode = try c.decodeIfPresent(BrowserViewMode.self, forKey: .viewMode) ?? .list
     }
 }
 
@@ -91,7 +95,7 @@ public final class PreferencesStore: @unchecked Sendable {
     private static func freshDefaults() -> OrdenPreferences {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return OrdenPreferences(
-            schemaVersion: 8,
+            schemaVersion: 9,
             globalRule: .downloads,
             folderOverrides: [:],
             favorites: [
@@ -120,6 +124,10 @@ public final class PreferencesStore: @unchecked Sendable {
             next.globalRule = .downloads
             next.folderOverrides = [:]
             next.schemaVersion = 8
+        }
+        if next.schemaVersion < 9 {
+            next.viewMode = .list
+            next.schemaVersion = 9
         }
         return next
     }
