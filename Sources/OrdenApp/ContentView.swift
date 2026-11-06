@@ -1286,7 +1286,7 @@ struct SettingsView: View {
                 Button("Buscar actualizaciones…") {
                     Task { await AppUpdateChecker.shared.check(interactive: true) }
                 }
-                Text("Cada 6 h revisa ordena.iareal.net. Si hay una nueva, pregunta y se instala sola.")
+                Text("Al abrir (y desde Ordena → Buscar actualizaciones…) revisa ordena.iareal.net. Si hay una nueva, pregunta si la instalas.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

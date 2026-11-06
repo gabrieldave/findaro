@@ -9,7 +9,8 @@ final class AppUpdateChecker: ObservableObject {
 
     static let feedURL = URL(string: "https://ordena.iareal.net/downloads/latest.json")!
     private static let lastCheckKey = "ordena.lastUpdateCheck"
-    private static let checkInterval: TimeInterval = 60 * 60 * 6 // 6 h
+    /// Mientras iteramos builds: cada arranque. Luego volver a 6 h.
+    private static let checkInterval: TimeInterval = 0
 
     @Published var statusMessage: String?
     @Published var isChecking = false
@@ -25,7 +26,7 @@ final class AppUpdateChecker: ObservableObject {
     func checkOnLaunchIfNeeded() {
         let last = UserDefaults.standard.double(forKey: Self.lastCheckKey)
         let now = Date().timeIntervalSince1970
-        if last > 0, now - last < Self.checkInterval { return }
+        if Self.checkInterval > 0, last > 0, now - last < Self.checkInterval { return }
         Task { await check(interactive: false) }
     }
 
@@ -34,9 +35,18 @@ final class AppUpdateChecker: ObservableObject {
         isChecking = true
         defer { isChecking = false }
 
+        if interactive {
+            statusMessage = "Buscando actualizaciones…"
+        }
+
         do {
             guard let release = try await fetchLatestRelease() else {
-                if interactive { statusMessage = "No hay actualización publicada" }
+                if interactive {
+                    await showInfo(
+                        title: "No encontré actualización",
+                        message: "El servidor no publicó ninguna versión todavía."
+                    )
+                }
                 return
             }
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastCheckKey)
@@ -44,19 +54,29 @@ final class AppUpdateChecker: ObservableObject {
             let current = Self.currentVersion()
             guard Self.isVersion(release.version, newerThan: current) else {
                 if interactive {
-                    statusMessage = "Ya tienes la última versión (\(current))"
+                    await showInfo(
+                        title: "Ya estás al día",
+                        message: "Tienes la \(current). No hay nada más nuevo en ordena.iareal.net."
+                    )
                 }
+                statusMessage = "Ya tienes la última versión (\(current))"
                 return
             }
 
             let shouldInstall = await confirmUpdate(from: current, to: release.version)
             if shouldInstall {
                 await downloadAndInstall(release: release)
+            } else if interactive {
+                statusMessage = "Actualización \(release.version) pospuesta"
             }
         } catch {
             if interactive {
-                statusMessage = "No se pudo buscar actualización"
+                await showInfo(
+                    title: "No pude buscar",
+                    message: "Revisa la red e inténtalo otra vez.\n\(error.localizedDescription)"
+                )
             }
+            statusMessage = "No se pudo buscar actualización"
         }
     }
 
@@ -80,13 +100,26 @@ final class AppUpdateChecker: ObservableObject {
     private func confirmUpdate(from current: String, to latest: String) async -> Bool {
         await withCheckedContinuation { cont in
             let alert = NSAlert()
-            alert.messageText = "Hay una versión nueva de Ordena"
-            alert.informativeText = "Tienes \(current). Disponible: \(latest).\n¿Descargar e instalar ahora?"
+            alert.messageText = "Encontré la versión \(latest)"
+            alert.informativeText = "Tienes la \(current).\n¿La descargo e instalo ahora?"
             alert.alertStyle = .informational
-            alert.addButton(withTitle: "Actualizar")
+            alert.addButton(withTitle: "Instalar")
             alert.addButton(withTitle: "Después")
             let result = alert.runModal()
             cont.resume(returning: result == .alertFirstButtonReturn)
+        }
+    }
+
+    private func showInfo(title: String, message: String) async {
+        statusMessage = title
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            let alert = NSAlert()
+            alert.messageText = title
+            alert.informativeText = message
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "Listo")
+            alert.runModal()
+            cont.resume()
         }
     }
 
@@ -110,7 +143,7 @@ final class AppUpdateChecker: ObservableObject {
             statusMessage = "Falló la instalación automática"
             let alert = NSAlert()
             alert.messageText = "No se pudo instalar sola"
-            alert.informativeText = "Abre el release y arrastra el .dmg a Aplicaciones:\n\(release.notesURL.absoluteString)"
+            alert.informativeText = "Abre el sitio y arrastra el .dmg a Aplicaciones:\n\(release.notesURL.absoluteString)"
             alert.addButton(withTitle: "Abrir en el navegador")
             alert.addButton(withTitle: "Cerrar")
             if alert.runModal() == .alertFirstButtonReturn {

@@ -33,6 +33,12 @@ struct OrdenApp: App {
         .windowResizability(.contentMinSize)
         .windowToolbarStyle(.unified)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Buscar actualizaciones…") {
+                    Task { await AppUpdateChecker.shared.check(interactive: true) }
+                }
+            }
+
             CommandGroup(replacing: .newItem) {
                 Button("Nueva carpeta") { browser.promptNewFolder() }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
