@@ -61,8 +61,20 @@ struct ContentView: View {
         .onDisappear { SelectionCancelMonitor.remove() }
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
+                Button(action: browser.goBack) {
+                    Label("Atrás", systemImage: "chevron.backward")
+                }
+                .disabled(!browser.canGoBack)
+                .help("Carpeta anterior (⌥← o ⌘[)")
+
+                Button(action: browser.goForward) {
+                    Label("Adelante", systemImage: "chevron.forward")
+                }
+                .disabled(!browser.canGoForward)
+                .help("Carpeta siguiente (⌥→ o ⌘])")
+
                 Button(action: browser.goUp) {
-                    Label("Arriba", systemImage: "chevron.backward")
+                    Label("Arriba", systemImage: "chevron.up")
                 }
                 .help("Carpeta superior (⌘↑)")
             }

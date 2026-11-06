@@ -36,12 +36,23 @@ struct OrdenApp: App {
             }
 
             CommandMenu("Ir") {
+                Button("Atrás") { browser.goBack() }
+                    .keyboardShortcut("[", modifiers: .command)
+                    .disabled(!browser.canGoBack)
+                Button("Adelante") { browser.goForward() }
+                    .keyboardShortcut("]", modifiers: .command)
+                    .disabled(!browser.canGoForward)
+                Button("Atrás (como Windows)") { browser.goBack() }
+                    .keyboardShortcut(.leftArrow, modifiers: .option)
+                Button("Adelante (como Windows)") { browser.goForward() }
+                    .keyboardShortcut(.rightArrow, modifiers: .option)
+                Button("Arriba") { browser.goUp() }
+                    .keyboardShortcut(.upArrow, modifiers: .command)
+                Divider()
                 Button("Descargas") { browser.navigateToDownloads() }
                     .keyboardShortcut("l", modifiers: [.command, .shift])
                 Button("Escritorio") { browser.navigateToDesktop() }
                 Button("Documentos") { browser.navigateToDocuments() }
-                Button("Arriba") { browser.goUp() }
-                    .keyboardShortcut(.upArrow, modifiers: .command)
                 Divider()
                 Button("Añadir carpeta actual a Favoritos") {
                     browser.addCurrentFolderToFavorites()

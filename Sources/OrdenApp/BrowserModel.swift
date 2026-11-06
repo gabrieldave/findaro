@@ -18,6 +18,11 @@ final class BrowserModel: ObservableObject {
     @Published var cleanupMode = false
     /// Modo exclusivo: solo ítems agregados/creados hoy en esta carpeta (descargas del día).
     @Published var downloadsTodayMode = false
+    /// Historial tipo Explorer/Finder: atrás / adelante.
+    @Published private(set) var canGoBack = false
+    @Published private(set) var canGoForward = false
+    private var backStack: [String] = []
+    private var forwardStack: [String] = []
     /// Bandeja tipo Dropover: aparcas archivos y luego los mueves/copias a otra carpeta.
     @Published var shelf: [FileOps.ShelfItem] = []
     @Published var shelfDropTargeted = false
@@ -90,6 +95,7 @@ final class BrowserModel: ObservableObject {
         var next = Array(columnPaths.prefix(columnIndex + 1))
         next.append(entry.path)
         columnPaths = next
+        pushHistoryBeforeLeavingCurrent()
         currentPath = entry.path
         // Mantener selección del ítem (antes se borraba y “no funcionaba” en columnas)
         if !selectedIDs.contains(entry.id) {
@@ -259,24 +265,65 @@ final class BrowserModel: ObservableObject {
         }
     }
 
-    func navigate(to path: String) {
-        currentPath = path
+    func navigate(to path: String, recordHistory: Bool = true) {
+        let target = (path as NSString).standardizingPath
+        let current = (currentPath as NSString).standardizingPath
+        guard target != current else { return }
+        if recordHistory {
+            pushHistoryBeforeLeavingCurrent()
+        }
+        currentPath = target
         if !cleanupMode {
-            rule = store.preferences.rule(for: path)
+            rule = store.preferences.rule(for: target)
         }
         selectedIDs = []
         selectionAnchorID = nil
         searchText = ""
         statusMessage = nil
-        columnPaths = [path]
-        store.update { $0.lastPath = path }
+        columnPaths = [target]
+        store.update { $0.lastPath = target }
         reload()
+        refreshHistoryFlags()
+    }
+
+    /// Como Alt+← en Windows / ⌘[ en Finder.
+    func goBack() {
+        guard let previous = backStack.popLast() else { return }
+        forwardStack.append(currentPath)
+        navigate(to: previous, recordHistory: false)
+        statusMessage = "Atrás"
+    }
+
+    /// Como Alt+→ en Windows / ⌘] en Finder.
+    func goForward() {
+        guard let next = forwardStack.popLast() else { return }
+        backStack.append(currentPath)
+        navigate(to: next, recordHistory: false)
+        statusMessage = "Adelante"
     }
 
     func goUp() {
         let parent = (currentPath as NSString).deletingLastPathComponent
         guard parent != currentPath, !parent.isEmpty else { return }
         navigate(to: parent)
+    }
+
+    private func pushHistoryBeforeLeavingCurrent() {
+        let current = (currentPath as NSString).standardizingPath
+        if backStack.last != current {
+            backStack.append(current)
+            // Evitar historial infinito
+            if backStack.count > 80 {
+                backStack.removeFirst(backStack.count - 80)
+            }
+        }
+        forwardStack.removeAll()
+        refreshHistoryFlags()
+    }
+
+    private func refreshHistoryFlags() {
+        canGoBack = !backStack.isEmpty
+        canGoForward = !forwardStack.isEmpty
     }
 
     func navigateToDownloads() {
