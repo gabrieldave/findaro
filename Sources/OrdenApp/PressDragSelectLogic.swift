@@ -3,7 +3,7 @@ import AppKit
 import OrdenCore
 
 /// Arrastre inmediato (tras unos px) = marquee.
-/// ⌘+clic arma mover (`BrowserModel.armFileDrag`); luego el drag mueve archivos.
+/// ⌘+clic arma modo naranja sticky; luego el drag mueve archivos (Esc cancela).
 enum PressDragIntent: Equatable {
     case marquee
     case fileMove

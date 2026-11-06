@@ -235,7 +235,7 @@ struct IconsBrowserView: View {
                     if browser.hasArmedFileDrag {
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
-                        folderDragPaths = browser.consumeArmedFileDrag()
+                        folderDragPaths = browser.peekArmedFileDrag()
                         folderDragStarted = false
                         return
                     }
@@ -252,7 +252,7 @@ struct IconsBrowserView: View {
                     let dist = hypot(value.translation.width, value.translation.height)
                     if !folderDragStarted, dist >= PressDragSelectLogic.moveThreshold {
                         folderDragStarted = true
-                        _ = FolderDragBridge.shared.startDrag(paths: folderDragPaths)
+                        _ = browser.startArmedNativeDrag()
                     }
                     return
                 }
@@ -514,7 +514,7 @@ private struct ColumnPane: View {
                     if browser.hasArmedFileDrag {
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
-                        folderDragPaths = browser.consumeArmedFileDrag()
+                        folderDragPaths = browser.peekArmedFileDrag()
                         folderDragStarted = false
                         return
                     }
@@ -531,7 +531,7 @@ private struct ColumnPane: View {
                     let dist = hypot(value.translation.width, value.translation.height)
                     if !folderDragStarted, dist >= PressDragSelectLogic.moveThreshold {
                         folderDragStarted = true
-                        _ = FolderDragBridge.shared.startDrag(paths: folderDragPaths)
+                        _ = browser.startArmedNativeDrag()
                     }
                     return
                 }

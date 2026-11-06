@@ -31,14 +31,12 @@ final class BrowserModel: ObservableObject {
     @Published private(set) var canGoForward = false
     private var backStack: [String] = []
     private var forwardStack: [String] = []
-    /// ⌘+clic: listo para arrastrar/mover (naranja). Clic normal solo selecciona.
+    /// ⌘+clic: modo naranja sticky «listo para mover». Queda hasta Esc / Cancelar / drop.
     @Published private(set) var fileDragArmedPaths: [String] = []
     /// Paths en progreso de armado (toda la selección si hay varias).
     @Published private(set) var fileDragArmingPaths: Set<String> = []
     @Published private(set) var fileDragArmProgress: Double = 0
-    private var fileDragArmedUntil: Date?
     private var armingProgressTask: Task<Void, Never>?
-    private var armedExpiryTask: Task<Void, Never>?
     /// Path donde empezó el hold (para cancelar solo ese gesto).
     private var fileDragArmingPrimaryPath: String?
 
@@ -963,7 +961,7 @@ final class BrowserModel: ObservableObject {
         }
     }
 
-    /// Arma arrastre nativo (mover/copiar). Atajo: ⌘+clic.
+    /// Arma arrastre nativo (mover/copiar). Atajo: ⌘+clic — modo sticky.
     /// Si había varios seleccionados (y este está en la selección), arma todos.
     func armFileDrag(for entry: FileEntry) {
         armingProgressTask?.cancel()
@@ -985,23 +983,12 @@ final class BrowserModel: ObservableObject {
             selectOnly(entry.id)
             fileDragArmedPaths = [entry.path]
         }
-        fileDragArmedUntil = Date().addingTimeInterval(10)
         statusMessage = fileDragArmedPaths.count == 1
-            ? "Listo para mover — arrastra al destino (⌘+clic)"
-            : "\(fileDragArmedPaths.count) listos — arrastra al destino"
+            ? "Modo mover ON — arrastra cuando quieras · Esc cancela"
+            : "\(fileDragArmedPaths.count) listos — arrastra cuando quieras · Esc cancela"
 
         if !alreadyArmed {
             NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
-        }
-
-        armedExpiryTask?.cancel()
-        armedExpiryTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 10_000_000_000)
-            guard !Task.isCancelled else { return }
-            if self.hasArmedFileDrag {
-                self.clearArmedFileDrag()
-                self.statusMessage = "Se canceló el modo mover"
-            }
         }
         objectWillChange.send()
     }
@@ -1011,23 +998,36 @@ final class BrowserModel: ObservableObject {
     }
 
     var hasArmedFileDrag: Bool {
-        guard let until = fileDragArmedUntil, until > Date() else { return false }
-        return !fileDragArmedPaths.isEmpty
+        !fileDragArmedPaths.isEmpty
     }
 
+    /// Paths armados sin apagar el naranja (el drag puede fallar / cancelarse).
+    func peekArmedFileDrag() -> [String] {
+        hasArmedFileDrag ? fileDragArmedPaths : []
+    }
+
+    /// Compat: ya no apaga el modo; usa `peekArmedFileDrag`.
     func consumeArmedFileDrag() -> [String] {
-        let paths = hasArmedFileDrag ? fileDragArmedPaths : []
-        clearArmedFileDrag()
-        return paths
+        peekArmedFileDrag()
+    }
+
+    /// Arrastre nativo sin apagar el naranja; solo se apaga si el drop tuvo éxito.
+    @discardableResult
+    func startArmedNativeDrag() -> Bool {
+        let paths = peekArmedFileDrag()
+        guard !paths.isEmpty else { return false }
+        FolderDragBridge.shared.onSessionEnded = { [weak self] dropped in
+            guard let self, dropped else { return }
+            self.clearArmedFileDrag()
+            self.reload()
+        }
+        return FolderDragBridge.shared.startDrag(paths: paths)
     }
 
     func clearArmedFileDrag() {
-        armedExpiryTask?.cancel()
-        armedExpiryTask = nil
         armingProgressTask?.cancel()
         armingProgressTask = nil
         fileDragArmedPaths = []
-        fileDragArmedUntil = nil
         fileDragArmingPaths = []
         fileDragArmingPrimaryPath = nil
         fileDragArmProgress = 0

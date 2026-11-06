@@ -1,12 +1,14 @@
 import AppKit
 
 /// Arrastre nativo de archivos/carpetas (AppKit) — convive con el marquee de SwiftUI.
-/// Tras mantener ~1s sobre un ítem, se arma el arrastre para mover/copiar (1 o muchos).
+/// El modo naranja se arma con ⌘+clic (sticky) y solo se apaga tras drop / Esc.
 @MainActor
 final class FolderDragBridge: NSObject, NSDraggingSource {
     static let shared = FolderDragBridge()
 
     private var isDragging = false
+    /// `true` si el drop aceptó move/copy; `false` si se canceló.
+    var onSessionEnded: ((Bool) -> Void)?
 
     func draggingSession(
         _ session: NSDraggingSession,
@@ -21,6 +23,12 @@ final class FolderDragBridge: NSObject, NSDraggingSource {
         operation: NSDragOperation
     ) {
         isDragging = false
+        let dropped = !operation.isEmpty
+        let callback = onSessionEnded
+        onSessionEnded = nil
+        Task { @MainActor in
+            callback?(dropped)
+        }
     }
 
     /// Inicia arrastre de una o varias rutas desde el evento de mouse actual.

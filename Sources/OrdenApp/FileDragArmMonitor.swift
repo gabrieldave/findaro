@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import OrdenCore
 
-/// Monitor AppKit: ⌘+clic arma «listo para mover»; doble clic abre.
+/// Monitor AppKit: ⌘+clic enciende modo naranja sticky; doble clic abre.
 @MainActor
 final class FileDragArmMonitor {
     static let shared = FileDragArmMonitor()

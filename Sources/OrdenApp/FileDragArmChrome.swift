@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import OrdenCore
 
-/// Feedback visual del modo «listo para mover» (⌘+clic).
+/// Feedback visual del modo sticky «listo para mover» (⌘+clic).
 enum FileDragArmChrome {
     static let holdDuration: TimeInterval = 1.0
     static let maxWiggle: CGFloat = 14
@@ -113,8 +113,8 @@ enum FileDragArmChrome {
                         .font(.subheadline.weight(.bold))
                         Text(
                             browser.fileDragArmedPaths.count == 1
-                                ? "Arrastra a otra carpeta · Esc cancela"
-                                : "Arrástralos juntos a una carpeta · Esc cancela"
+                                ? "Queda activo — arrastra cuando quieras · Esc cancela"
+                                : "Queda activo — arrástralos juntos · Esc cancela"
                         )
                             .font(.caption)
                             .opacity(0.9)

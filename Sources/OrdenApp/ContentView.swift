@@ -997,11 +997,11 @@ struct FileBrowserPane: View {
         DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named("fileList"))
             .onChanged { value in
                 if marqueeStart == nil {
-                    // Con modo naranja (⌘+clic): el arrastre mueve archivos (no marquee)
+                    // Con modo naranja (⌘+clic sticky): arrastre mueve archivos (no marquee)
                     if browser.hasArmedFileDrag {
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
-                        folderDragPaths = browser.consumeArmedFileDrag()
+                        folderDragPaths = browser.peekArmedFileDrag()
                         folderDragStarted = false
                         return
                     }
@@ -1025,7 +1025,7 @@ struct FileBrowserPane: View {
                     let dist = hypot(value.translation.width, value.translation.height)
                     if !folderDragStarted, dist >= PressDragSelectLogic.moveThreshold {
                         folderDragStarted = true
-                        _ = FolderDragBridge.shared.startDrag(paths: folderDragPaths)
+                        _ = browser.startArmedNativeDrag()
                     }
                     return
                 }
