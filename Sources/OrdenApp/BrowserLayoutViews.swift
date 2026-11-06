@@ -57,7 +57,7 @@ struct SelectionCheckButton: View {
     }
 }
 
-/// Misma lógica que `FileRowButton.selectRow`: doble clic abre; ⇧ rango; ⌘ / modo varios toggle.
+/// Misma lógica que `FileRowButton.selectRow`.
 @MainActor
 func browserSelectEntry(_ browser: BrowserModel, entry: FileEntry, openOnDoubleClick: Bool = true) {
     if openOnDoubleClick, (NSApp.currentEvent?.clickCount ?? 1) >= 2 {
@@ -68,40 +68,78 @@ func browserSelectEntry(_ browser: BrowserModel, entry: FileEntry, openOnDoubleC
     browser.clickSelect(entry.id)
 }
 
-// MARK: - Iconos
+// MARK: - Iconos (misma selección que lista: marquee + jalar carpetas)
 
 struct IconsBrowserView: View {
     @EnvironmentObject private var browser: BrowserModel
 
-    private let columns = [GridItem(.adaptive(minimum: 110, maximum: 130), spacing: 12)]
+    /// Celda fija — hit-test por índice como `rowHeight` en lista.
+    private let cellW: CGFloat = 118
+    private let cellH: CGFloat = 118
+    private let spacing: CGFloat = 14
+    private let gridPadding: CGFloat = 16
 
-    @State private var itemFrames: [String: CGRect] = [:]
+    @State private var containerWidth: CGFloat = 640
     @State private var marqueeStart: CGPoint?
     @State private var marqueeCurrent: CGPoint?
     @State private var marqueeBase: Set<String> = []
     @State private var marqueeAdditive = false
+    @State private var folderDragPaths: [String] = []
+    @State private var folderDragStarted = false
+
+    private var colCount: Int {
+        let inner = max(cellW, containerWidth - gridPadding * 2)
+        return max(1, Int(floor((inner + spacing) / (cellW + spacing))))
+    }
+
+    private var rowCount: Int {
+        let n = browser.visibleEntries.count
+        guard n > 0 else { return 0 }
+        return Int(ceil(Double(n) / Double(colCount)))
+    }
+
+    private var gridContentHeight: CGFloat {
+        guard rowCount > 0 else { return 0 }
+        return CGFloat(rowCount) * cellH + CGFloat(max(0, rowCount - 1)) * spacing
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             iconsHeader
+                .fixedSize(horizontal: false, vertical: true)
+
             Divider().opacity(0.35)
+
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 14) {
-                    ForEach(browser.visibleEntries) { entry in
-                        IconsItemCell(entry: entry)
-                            .background(
-                                GeometryReader { geo in
-                                    Color.clear.preference(
-                                        key: IconFrameKey.self,
-                                        value: [entry.id: geo.frame(in: .named("iconsGrid"))]
-                                    )
-                                }
-                            )
+                VStack(spacing: 0) {
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: cellW, maximum: cellW), spacing: spacing)],
+                        spacing: spacing
+                    ) {
+                        ForEach(browser.visibleEntries) { entry in
+                            IconsItemCell(entry: entry)
+                                .frame(width: cellW, height: cellH)
+                        }
                     }
+                    .padding(gridPadding)
+
+                    // Zona vacía: igual que lista — clic cancela; arrastre inicia marquee
+                    Color.clear
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 320)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            browser.cancelSelection()
+                        }
                 }
-                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear
+                            .preference(key: IconsWidthKey.self, value: geo.size.width)
+                    }
+                )
                 .coordinateSpace(name: "iconsGrid")
-                .onPreferenceChange(IconFrameKey.self) { itemFrames = $0 }
                 .overlay(alignment: .topLeading) {
                     if let rect = marqueeRect {
                         RoundedRectangle(cornerRadius: 3, style: .continuous)
@@ -118,10 +156,13 @@ struct IconsBrowserView: View {
                 .contentShape(Rectangle())
                 .highPriorityGesture(iconsMarqueeGesture)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .onTapGesture {
                 browser.cancelSelection()
             }
+            .onPreferenceChange(IconsWidthKey.self) { containerWidth = $0 }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -157,7 +198,16 @@ struct IconsBrowserView: View {
         .padding(.vertical, 8)
     }
 
+    private func resetMarquee() {
+        marqueeStart = nil
+        marqueeCurrent = nil
+        marqueeBase = []
+        folderDragPaths = []
+        folderDragStarted = false
+    }
+
     private var marqueeRect: CGRect? {
+        guard folderDragPaths.isEmpty else { return nil }
         guard let start = marqueeStart, let current = marqueeCurrent else { return nil }
         return CGRect(
             x: min(start.x, current.x),
@@ -167,47 +217,113 @@ struct IconsBrowserView: View {
         )
     }
 
+    /// Hit por índice en la grilla (equivalente a `entryAtY` de lista).
+    private func entryAtPoint(_ point: CGPoint) -> FileEntry? {
+        let entries = browser.visibleEntries
+        guard !entries.isEmpty else { return nil }
+        let x = point.x - gridPadding
+        let y = point.y - gridPadding
+        guard x >= 0, y >= 0 else { return nil }
+        let cols = colCount
+        let col = Int(floor(x / (cellW + spacing)))
+        let row = Int(floor(y / (cellH + spacing)))
+        guard col >= 0, col < cols, row >= 0 else { return nil }
+        let localX = x - CGFloat(col) * (cellW + spacing)
+        let localY = y - CGFloat(row) * (cellH + spacing)
+        guard localX <= cellW, localY <= cellH else { return nil }
+        let idx = row * cols + col
+        guard idx >= 0, idx < entries.count else { return nil }
+        return entries[idx]
+    }
+
     private var iconsMarqueeGesture: some Gesture {
-        DragGesture(minimumDistance: 4, coordinateSpace: .named("iconsGrid"))
+        DragGesture(minimumDistance: 3, coordinateSpace: .named("iconsGrid"))
             .onChanged { value in
                 if marqueeStart == nil {
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
+
                     let flags = NSEvent.modifierFlags
+                    // Copiado de lista: jalar carpeta SOLO si ya estaba seleccionada.
+                    if !flags.contains(.shift), !flags.contains(.command),
+                       let hit = entryAtPoint(value.startLocation),
+                       hit.isDirectory,
+                       browser.selectedIDs.contains(hit.id) {
+                        let selectedDirs = browser.selectedEntries.filter(\.isDirectory).map(\.path)
+                        folderDragPaths = selectedDirs.isEmpty ? [hit.path] : selectedDirs
+                        folderDragStarted = false
+                        return
+                    }
+
+                    folderDragPaths = []
                     marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
                     marqueeBase = marqueeAdditive ? browser.selectedIDs : []
                     if !marqueeAdditive {
                         browser.clearSelection()
                     }
                 }
+
+                if !folderDragPaths.isEmpty {
+                    let dist = hypot(value.translation.width, value.translation.height)
+                    if !folderDragStarted, dist >= 6 {
+                        folderDragStarted = true
+                        _ = FolderDragBridge.shared.startDrag(paths: folderDragPaths)
+                    }
+                    return
+                }
+
                 marqueeCurrent = value.location
                 applyIconsMarquee()
             }
             .onEnded { _ in
-                applyIconsMarquee()
+                if folderDragPaths.isEmpty {
+                    applyIconsMarquee()
+                }
                 resetMarquee()
             }
     }
 
     private func applyIconsMarquee() {
-        guard let rect = marqueeRect else { return }
-        let hits = Set(itemFrames.compactMap { id, frame in
-            frame.intersects(rect) ? id : nil
-        })
-        browser.applyMarqueeSelection(hitIDs: hits, base: marqueeBase, additive: marqueeAdditive)
-    }
+        guard let start = marqueeStart, let current = marqueeCurrent else { return }
+        let entries = browser.visibleEntries
+        guard !entries.isEmpty else { return }
 
-    private func resetMarquee() {
-        marqueeStart = nil
-        marqueeCurrent = nil
-        marqueeBase = []
+        let rect = CGRect(
+            x: min(start.x, current.x),
+            y: min(start.y, current.y),
+            width: max(abs(current.x - start.x), 1),
+            height: max(abs(current.y - start.y), 1)
+        )
+
+        let contentBottom = gridPadding + gridContentHeight
+        if rect.minY >= contentBottom {
+            browser.applyMarqueeSelection(hitIDs: [], base: marqueeBase, additive: marqueeAdditive)
+            return
+        }
+
+        let cols = colCount
+        var hits = Set<String>()
+        for (idx, entry) in entries.enumerated() {
+            let row = idx / cols
+            let col = idx % cols
+            let cell = CGRect(
+                x: gridPadding + CGFloat(col) * (cellW + spacing),
+                y: gridPadding + CGFloat(row) * (cellH + spacing),
+                width: cellW,
+                height: cellH
+            )
+            if cell.intersects(rect) {
+                hits.insert(entry.id)
+            }
+        }
+        browser.applyMarqueeSelection(hitIDs: hits, base: marqueeBase, additive: marqueeAdditive)
     }
 }
 
-private struct IconFrameKey: PreferenceKey {
-    static let defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { $1 })
+private struct IconsWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 640
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
@@ -245,7 +361,7 @@ private struct IconsItemCell: View {
             .buttonStyle(.plain)
         }
         .padding(8)
-        .frame(width: 118, height: 118)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             isSelected ? OrdenTheme.accent.opacity(0.28) : Color.clear,
             in: RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -254,7 +370,7 @@ private struct IconsItemCell: View {
     }
 }
 
-// MARK: - Columnas
+// MARK: - Columnas (cada columna = lista con el mismo marquee)
 
 struct ColumnsBrowserView: View {
     @EnvironmentObject private var browser: BrowserModel
@@ -262,6 +378,7 @@ struct ColumnsBrowserView: View {
     var body: some View {
         VStack(spacing: 0) {
             columnsHeader
+                .fixedSize(horizontal: false, vertical: true)
             Divider().opacity(0.35)
             ScrollView(.horizontal, showsIndicators: true) {
                 HStack(alignment: .top, spacing: 0) {
@@ -272,6 +389,7 @@ struct ColumnsBrowserView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -295,7 +413,7 @@ struct ColumnsBrowserView: View {
                     .frame(width: 22)
             }
             .buttonStyle(.plain)
-            .help("Seleccionar / quitar todos (columna activa)")
+            .help("Seleccionar / quitar todos")
 
             Text("Columnas")
                 .font(.caption.weight(.semibold))
@@ -310,34 +428,177 @@ struct ColumnsBrowserView: View {
     }
 }
 
+/// Copia del marquee de `listBrowser`, aplicado a una columna.
 private struct ColumnPane: View {
     @EnvironmentObject private var browser: BrowserModel
     let path: String
     let columnIndex: Int
 
-    @State private var entries: [FileEntry] = []
+    private let rowHeight: CGFloat = 28
 
-    var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(sortedEntries) { entry in
-                    ColumnRow(entry: entry, columnIndex: columnIndex)
-                }
-            }
-        }
-        .frame(width: 240)
-        .onAppear(perform: reload)
-        .onChange(of: path) { _, _ in reload() }
-        .onChange(of: browser.rule) { _, _ in reload() }
-        .onChange(of: browser.selectionCancelToken) { _, _ in }
-    }
+    @State private var entries: [FileEntry] = []
+    @State private var marqueeStart: CGPoint?
+    @State private var marqueeCurrent: CGPoint?
+    @State private var marqueeBase: Set<String> = []
+    @State private var marqueeAdditive = false
+    @State private var folderDragPaths: [String] = []
+    @State private var folderDragStarted = false
 
     private var sortedEntries: [FileEntry] {
         SortEngine.sort(entries, by: browser.rule)
     }
 
+    private var listContentHeight: CGFloat {
+        CGFloat(sortedEntries.count) * rowHeight
+    }
+
+    private var spaceName: String { "columnList-\(columnIndex)" }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(sortedEntries) { entry in
+                    ColumnRow(entry: entry, columnIndex: columnIndex)
+                        .frame(minHeight: rowHeight)
+                }
+                Color.clear
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 320)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        browser.cancelSelection()
+                    }
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .coordinateSpace(name: spaceName)
+            .overlay(alignment: .topLeading) {
+                if let rect = marqueeRect {
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .fill(OrdenTheme.accent.opacity(0.18))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .strokeBorder(OrdenTheme.accent.opacity(0.85), lineWidth: 1)
+                        )
+                        .frame(width: rect.width, height: rect.height)
+                        .offset(x: rect.minX, y: rect.minY)
+                        .allowsHitTesting(false)
+                }
+            }
+            .contentShape(Rectangle())
+            .highPriorityGesture(marqueeGesture)
+        }
+        .frame(width: 240)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .onTapGesture {
+            browser.cancelSelection()
+        }
+        .onAppear(perform: reload)
+        .onChange(of: path) { _, _ in reload() }
+        .onChange(of: browser.rule) { _, _ in reload() }
+        .onChange(of: browser.selectionCancelToken) { _, _ in
+            resetMarquee()
+        }
+    }
+
     private func reload() {
         entries = (try? DirectoryLoader.load(path: path)) ?? []
+    }
+
+    private func resetMarquee() {
+        marqueeStart = nil
+        marqueeCurrent = nil
+        marqueeBase = []
+        folderDragPaths = []
+        folderDragStarted = false
+    }
+
+    private var marqueeRect: CGRect? {
+        guard folderDragPaths.isEmpty else { return nil }
+        guard let start = marqueeStart, let current = marqueeCurrent else { return nil }
+        return CGRect(
+            x: min(start.x, current.x),
+            y: min(start.y, current.y),
+            width: max(abs(current.x - start.x), 1),
+            height: max(abs(current.y - start.y), 1)
+        )
+    }
+
+    private func entryAtY(_ y: CGFloat) -> FileEntry? {
+        let entries = sortedEntries
+        guard !entries.isEmpty else { return nil }
+        if y < 0 || y >= listContentHeight { return nil }
+        let idx = min(entries.count - 1, max(0, Int(floor(y / rowHeight))))
+        return entries[idx]
+    }
+
+    private var marqueeGesture: some Gesture {
+        DragGesture(minimumDistance: 3, coordinateSpace: .named(spaceName))
+            .onChanged { value in
+                if marqueeStart == nil {
+                    marqueeStart = value.startLocation
+                    marqueeCurrent = value.location
+
+                    let flags = NSEvent.modifierFlags
+                    if !flags.contains(.shift), !flags.contains(.command),
+                       let hit = entryAtY(value.startLocation.y),
+                       hit.isDirectory,
+                       browser.selectedIDs.contains(hit.id) {
+                        let selectedDirs = browser.selectedEntries.filter(\.isDirectory).map(\.path)
+                        folderDragPaths = selectedDirs.isEmpty ? [hit.path] : selectedDirs
+                        folderDragStarted = false
+                        return
+                    }
+
+                    folderDragPaths = []
+                    marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
+                    marqueeBase = marqueeAdditive ? browser.selectedIDs : []
+                    if !marqueeAdditive {
+                        browser.clearSelection()
+                    }
+                }
+
+                if !folderDragPaths.isEmpty {
+                    let dist = hypot(value.translation.width, value.translation.height)
+                    if !folderDragStarted, dist >= 6 {
+                        folderDragStarted = true
+                        _ = FolderDragBridge.shared.startDrag(paths: folderDragPaths)
+                    }
+                    return
+                }
+
+                marqueeCurrent = value.location
+                applyMarquee()
+            }
+            .onEnded { _ in
+                if folderDragPaths.isEmpty {
+                    applyMarquee()
+                }
+                resetMarquee()
+            }
+    }
+
+    private func applyMarquee() {
+        guard let start = marqueeStart, let current = marqueeCurrent else { return }
+        let entries = sortedEntries
+        guard !entries.isEmpty else { return }
+
+        let y0 = min(start.y, current.y)
+        let y1 = max(start.y, current.y)
+        let contentH = listContentHeight
+
+        if y0 >= contentH {
+            browser.applyMarqueeSelection(hitIDs: [], base: marqueeBase, additive: marqueeAdditive)
+            return
+        }
+
+        let first = max(0, Int(floor(y0 / rowHeight)))
+        let last = min(entries.count - 1, Int(floor((min(y1, contentH) - 0.001) / rowHeight)))
+        guard first <= last else {
+            browser.applyMarqueeSelection(hitIDs: [], base: marqueeBase, additive: marqueeAdditive)
+            return
+        }
+        let hits = Set(entries[first...last].map(\.id))
+        browser.applyMarqueeSelection(hitIDs: hits, base: marqueeBase, additive: marqueeAdditive)
     }
 }
 
@@ -378,7 +639,7 @@ private struct ColumnRow: View {
                     }
                 }
                 .padding(.horizontal, 6)
-                .padding(.vertical, 5)
+                .padding(.vertical, 4)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
@@ -398,7 +659,6 @@ private struct ColumnRow: View {
             browser.activateEntry(entry)
             return
         }
-        // ⇧/⌘ / modo varios: solo selección (como Finder)
         let flags = NSEvent.modifierFlags
         if flags.contains(.shift) || flags.contains(.command) || browser.multiSelectMode {
             browser.clickSelect(entry.id)
