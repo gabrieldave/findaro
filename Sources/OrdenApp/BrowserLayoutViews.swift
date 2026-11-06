@@ -630,11 +630,12 @@ private struct ColumnRow: View {
     }
 
     private func handleClick() {
-        // Doble clic → monitor. ⌘+clic arma mover (monitor); no abras columna.
+        // Doble clic → monitor. ⌘+clic suma multi + naranja (monitor); no abras columna.
         let flags = NSEvent.modifierFlags
         if flags.contains(.command) {
-            if !browser.selectedIDs.contains(entry.id) {
-                browser.selectOnly(entry.id)
+            browser.addToSelection(entry.id)
+            if browser.hasArmedFileDrag {
+                browser.syncArmedWithSelection()
             }
             return
         }

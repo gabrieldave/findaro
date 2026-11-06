@@ -113,8 +113,8 @@ enum FileDragArmChrome {
                         .font(.subheadline.weight(.bold))
                         Text(
                             browser.fileDragArmedPaths.count == 1
-                                ? "Queda activo — arrastra cuando quieras · Esc cancela"
-                                : "Queda activo — arrástralos juntos · Esc cancela"
+                                ? "⌘+clic suma más · arrastra cuando quieras · Esc cancela"
+                                : "Quedan activos — arrástralos juntos · Esc cancela"
                         )
                             .font(.caption)
                             .opacity(0.9)

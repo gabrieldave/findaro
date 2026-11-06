@@ -1266,17 +1266,17 @@ struct FileRowButton: View {
     }
 
     private func selectRow() {
-        // El doble clic lo resuelve FileDragArmMonitor (NSEvent.clickCount real).
-        // ⌘+clic arma «listo para mover» en el monitor; aquí no uses ⌘ para multi-select.
+        // Doble clic → FileDragArmMonitor. ⌘+clic → suma multi + naranja sticky.
         let flags = NSEvent.modifierFlags
         if flags.contains(.shift) {
             browser.selectRange(to: entry.id)
         } else if browser.multiSelectMode {
             browser.toggleSelection(entry.id)
         } else if flags.contains(.command) {
-            // El monitor ya armó; deja (o pone) la selección.
-            if !browser.selectedIDs.contains(entry.id) {
-                browser.selectOnly(entry.id)
+            // El monitor ya armó el grupo; asegura que este ítem quede en la selección.
+            browser.addToSelection(entry.id)
+            if browser.hasArmedFileDrag {
+                browser.syncArmedWithSelection()
             }
         } else {
             browser.selectOnly(entry.id)

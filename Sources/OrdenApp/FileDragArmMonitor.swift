@@ -67,15 +67,12 @@ final class FileDragArmMonitor {
         lastClickPath = path
         lastClickAt = Date()
 
-        // ⌘+clic (sin Shift/⌥): modo naranja «listo para mover».
+        // ⌘+clic (sin Shift/⌥): enciende naranja sticky y suma a la selección múltiple.
         guard cmd, !shift, !opt,
               let path,
               let entry = browser.visibleEntries.first(where: { $0.path == path })
         else { return }
 
-        if !browser.selectedIDs.contains(entry.id) {
-            browser.selectOnly(entry.id)
-        }
         browser.armFileDrag(for: entry)
     }
 

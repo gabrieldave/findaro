@@ -105,13 +105,16 @@ final class BrowserModel: ObservableObject {
         objectWillChange.send()
     }
 
-    /// Clic con ⇧ rango · ⌘ / modo Varios toggle · normal = solo ese.
+    /// Clic con ⇧ rango · modo Varios toggle · ⌘ suma (arma naranja en el monitor) · normal = solo ese.
     func clickSelect(_ id: String) {
         let flags = NSEvent.modifierFlags
         if flags.contains(.shift) {
             selectRange(to: id)
-        } else if multiSelectMode || flags.contains(.command) {
+        } else if multiSelectMode {
             toggleSelection(id)
+        } else if flags.contains(.command) {
+            // ⌘+clic: suma a la selección (multi) y el monitor enciende/actualiza el naranja.
+            addToSelection(id)
         } else {
             selectOnly(id)
         }
@@ -249,6 +252,18 @@ final class BrowserModel: ObservableObject {
         selectedIDs = [id]
         selectionAnchorID = id
         selectionFocusID = id
+        syncArmedWithSelection()
+        refreshSelectionStatus()
+    }
+
+    /// Suma un ítem sin quitar los demás (⌘+clic / multi + naranja).
+    func addToSelection(_ id: String) {
+        selectedIDs.insert(id)
+        if selectionAnchorID == nil {
+            selectionAnchorID = id
+        }
+        selectionFocusID = id
+        syncArmedWithSelection()
         refreshSelectionStatus()
     }
 
@@ -260,6 +275,7 @@ final class BrowserModel: ObservableObject {
         }
         selectionAnchorID = id
         selectionFocusID = id
+        syncArmedWithSelection()
         refreshSelectionStatus()
     }
 
@@ -273,6 +289,7 @@ final class BrowserModel: ObservableObject {
         let range = a <= b ? a...b : b...a
         selectedIDs = Set(ids[range])
         selectionFocusID = id
+        syncArmedWithSelection()
         refreshSelectionStatus()
     }
 
@@ -317,6 +334,7 @@ final class BrowserModel: ObservableObject {
             selectionAnchorID = last
             selectionFocusID = last
         }
+        syncArmedWithSelection()
         refreshSelectionStatus()
     }
 
@@ -324,6 +342,7 @@ final class BrowserModel: ObservableObject {
         selectedIDs = Set(visibleEntries.map(\.id))
         selectionAnchorID = visibleEntries.first?.id
         selectionFocusID = visibleEntries.last?.id ?? visibleEntries.first?.id
+        syncArmedWithSelection()
         refreshSelectionStatus()
     }
 
@@ -331,7 +350,22 @@ final class BrowserModel: ObservableObject {
         selectedIDs = []
         selectionAnchorID = nil
         selectionFocusID = nil
+        if hasArmedFileDrag {
+            clearArmedFileDrag()
+        }
         statusMessage = "Nada seleccionado"
+    }
+
+    /// Si el naranja está ON, el grupo armado sigue la selección múltiple.
+    func syncArmedWithSelection() {
+        guard hasArmedFileDrag else { return }
+        let paths = selectedEntries.map(\.path)
+        if paths.isEmpty {
+            clearArmedFileDrag()
+            return
+        }
+        fileDragArmedPaths = paths
+        objectWillChange.send()
     }
 
     /// Esc / Cancelar: quita selección múltiple, hold-armar, marquee y drop target.
@@ -961,8 +995,8 @@ final class BrowserModel: ObservableObject {
         }
     }
 
-    /// Arma arrastre nativo (mover/copiar). Atajo: ⌘+clic — modo sticky.
-    /// Si había varios seleccionados (y este está en la selección), arma todos.
+    /// Arma arrastre nativo (mover/copiar). Atajo: ⌘+clic — sticky + multi.
+    /// Suma el ítem a la selección y arma todos los seleccionados.
     func armFileDrag(for entry: FileEntry) {
         armingProgressTask?.cancel()
         armingProgressTask = nil
@@ -971,20 +1005,21 @@ final class BrowserModel: ObservableObject {
         fileDragArmProgress = 1
 
         let alreadyArmed = hasArmedFileDrag && fileDragArmedPaths.contains(entry.path)
-        let group = dragArmGroup(for: entry)
 
-        if group.count > 1 {
-            // Mantén la selección múltiple; no hagas selectOnly.
-            fileDragArmedPaths = group
-            selectedIDs = Set(group) // ids == paths
-            selectionAnchorID = entry.id
-            selectionFocusID = entry.id
-        } else {
-            selectOnly(entry.id)
-            fileDragArmedPaths = [entry.path]
+        // Multi: nunca reemplazar — suma este ítem y arma el grupo entero.
+        if !selectedIDs.contains(entry.id) {
+            selectedIDs.insert(entry.id)
         }
+        if selectionAnchorID == nil {
+            selectionAnchorID = entry.id
+        }
+        selectionFocusID = entry.id
+
+        let group = selectedEntries.map(\.path)
+        fileDragArmedPaths = group.isEmpty ? [entry.path] : group
+
         statusMessage = fileDragArmedPaths.count == 1
-            ? "Modo mover ON — arrastra cuando quieras · Esc cancela"
+            ? "Modo mover ON — suma más con ⌘+clic / ⇧ · Esc cancela"
             : "\(fileDragArmedPaths.count) listos — arrastra cuando quieras · Esc cancela"
 
         if !alreadyArmed {
