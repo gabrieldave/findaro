@@ -39,6 +39,12 @@ public struct SortRule: Codable, Equatable, Sendable, Hashable {
         foldersFirst: true
     )
 
+    /// Por tipo de archivo (vídeo, Excel, PDF…) y luego nombre.
+    public static let byType = SortRule(
+        keys: [.category(ascending: true), .name(ascending: true)],
+        foldersFirst: true
+    )
+
     public var usesSplitKeys: Bool {
         folderKeys != nil || fileKeys != nil
     }
@@ -92,6 +98,8 @@ public enum SortKey: Codable, Equatable, Sendable, Hashable {
     case dateAdded(ascending: Bool)
     case size(ascending: Bool)
     case kind(ascending: Bool)
+    /// Categoría Orden (vídeo, Excel, PDF…) — no el “Kind” localizado del sistema.
+    case category(ascending: Bool)
 
     public var summarySpanish: String {
         switch self {
@@ -107,13 +115,15 @@ public enum SortKey: Codable, Equatable, Sendable, Hashable {
             return ascending ? "Tamaño ↑" : "Tamaño ↓"
         case .kind(let ascending):
             return ascending ? "Clase A→Z" : "Clase Z→A"
+        case .category(let ascending):
+            return ascending ? "Tipo (vídeo, Excel…)" : "Tipo Z→A"
         }
     }
 
     public var isAscending: Bool {
         switch self {
         case .name(let a), .dateModified(let a), .dateCreated(let a),
-             .dateAdded(let a), .size(let a), .kind(let a):
+             .dateAdded(let a), .size(let a), .kind(let a), .category(let a):
             return a
         }
     }

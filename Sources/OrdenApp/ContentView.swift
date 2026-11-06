@@ -94,6 +94,9 @@ struct SortBar: View {
                 Button("Proyectos (Nombre A→Z)") {
                     browser.applyRule(.projects, saveAsFolderDefault: true)
                 }
+                Button("Por tipo (vídeo, Excel, PDF…)") {
+                    browser.applyRule(.byType, saveAsFolderDefault: true)
+                }
                 Divider()
                 Button("Nombre A→Z") {
                     browser.applyRule(
@@ -123,16 +126,6 @@ struct SortBar: View {
                 Button("Tamaño · grandes primero") {
                     browser.applyRule(
                         SortRule(keys: [.size(ascending: false)], foldersFirst: true),
-                        saveAsFolderDefault: true
-                    )
-                }
-                Divider()
-                Button("Clase + Nombre") {
-                    browser.applyRule(
-                        SortRule(
-                            keys: [.kind(ascending: true), .name(ascending: true)],
-                            foldersFirst: true
-                        ),
                         saveAsFolderDefault: true
                     )
                 }
@@ -211,8 +204,7 @@ struct FileTableView: View {
             Table(browser.visibleEntries, selection: $browser.selectedIDs) {
                 TableColumn("Nombre") { entry in
                     HStack(spacing: 8) {
-                        Image(systemName: entry.isDirectory ? "folder.fill" : "doc")
-                            .foregroundStyle(entry.isDirectory ? Color.accentColor : .secondary)
+                        FileTypeIcon(category: entry.category)
                         Text(entry.name)
                             .lineLimit(1)
                     }
@@ -237,8 +229,8 @@ struct FileTableView: View {
                 }
                 .width(min: 220, ideal: 320)
 
-                TableColumn("Clase") { entry in
-                    Text(entry.kind)
+                TableColumn("Tipo") { entry in
+                    Text(entry.category.labelSpanish)
                         .foregroundStyle(.secondary)
                 }
                 .width(min: 90, ideal: 120)

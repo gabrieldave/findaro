@@ -49,6 +49,14 @@ public enum SortEngine {
             else { raw = .orderedSame }
         case .kind:
             raw = lhs.kind.localizedStandardCompare(rhs.kind)
+        case .category:
+            if lhs.category.sortIndex < rhs.category.sortIndex {
+                raw = .orderedAscending
+            } else if lhs.category.sortIndex > rhs.category.sortIndex {
+                raw = .orderedDescending
+            } else {
+                raw = .orderedSame
+            }
         }
 
         return key.isAscending ? raw : invert(raw)

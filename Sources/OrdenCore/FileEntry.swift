@@ -30,4 +30,9 @@ public struct FileEntry: Equatable, Sendable, Identifiable, Hashable {
         self.dateAdded = dateAdded
         self.kind = kind
     }
+
+    /// Categoría visual estable (mismo tipo → mismo icono).
+    public var category: FileCategory {
+        FileCategory.classify(fileName: name, isDirectory: isDirectory)
+    }
 }
