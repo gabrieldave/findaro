@@ -86,8 +86,7 @@ struct IconsBrowserView: View {
     @State private var marqueeCurrent: CGPoint?
     @State private var marqueeBase: Set<String> = []
     @State private var marqueeAdditive = false
-    @State private var folderDragPaths: [String] = []
-    @State private var folderDragStarted = false
+    @State private var pressDrag = PressDragSelectLogic()
 
     /// Ancho efectivo: preferir medida local; si no, la del resize de ventana.
     private var containerWidth: CGFloat {
@@ -216,12 +215,11 @@ struct IconsBrowserView: View {
         marqueeStart = nil
         marqueeCurrent = nil
         marqueeBase = []
-        folderDragPaths = []
-        folderDragStarted = false
+        pressDrag.reset()
     }
 
     private var marqueeRect: CGRect? {
-        guard folderDragPaths.isEmpty else { return nil }
+        guard pressDrag.intent != .fileMove else { return nil }
         guard let start = marqueeStart, let current = marqueeCurrent else { return nil }
         return CGRect(
             x: min(start.x, current.x),
@@ -251,48 +249,50 @@ struct IconsBrowserView: View {
     }
 
     private var iconsMarqueeGesture: some Gesture {
-        DragGesture(minimumDistance: 3, coordinateSpace: .named("iconsGrid"))
+        DragGesture(minimumDistance: 0, coordinateSpace: .named("iconsGrid"))
             .onChanged { value in
                 if marqueeStart == nil {
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
-
+                    let hit = entryAtPoint(value.startLocation)
                     let flags = NSEvent.modifierFlags
-                    // Copiado de lista: jalar carpeta SOLO si ya estaba seleccionada.
-                    if !flags.contains(.shift), !flags.contains(.command),
-                       let hit = entryAtPoint(value.startLocation),
-                       hit.isDirectory,
-                       browser.selectedIDs.contains(hit.id) {
-                        let selectedDirs = browser.selectedEntries.filter(\.isDirectory).map(\.path)
-                        folderDragPaths = selectedDirs.isEmpty ? [hit.path] : selectedDirs
-                        folderDragStarted = false
-                        return
+                    pressDrag.begin(
+                        hit: hit,
+                        selectedIDs: browser.selectedIDs,
+                        selectedPaths: browser.selectedEntries.map(\.path),
+                        forceMarquee: hit == nil
+                    ) { _ in
+                        if let hit, !browser.selectedIDs.contains(hit.id) {
+                            browser.selectOnly(hit.id)
+                        }
+                        browser.statusMessage = "Listo para mover — arrastra"
                     }
-
-                    folderDragPaths = []
-                    marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
-                    marqueeBase = marqueeAdditive ? browser.selectedIDs : []
-                    if !marqueeAdditive {
-                        browser.clearSelection()
+                    if pressDrag.intent == .marquee {
+                        marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
+                        marqueeBase = marqueeAdditive ? browser.selectedIDs : []
+                        if !marqueeAdditive { browser.clearSelection() }
                     }
                 }
 
-                if !folderDragPaths.isEmpty {
-                    let dist = hypot(value.translation.width, value.translation.height)
-                    if !folderDragStarted, dist >= 6 {
-                        folderDragStarted = true
-                        _ = FolderDragBridge.shared.startDrag(paths: folderDragPaths)
-                    }
+                let dist = hypot(value.translation.width, value.translation.height)
+                let previous = pressDrag.intent
+                let intent = pressDrag.moved(distance: dist)
+                if intent == .undecided { return }
+                if intent == .fileMove {
+                    _ = pressDrag.tryStartFileDrag()
                     return
                 }
-
+                if previous == .undecided, intent == .marquee {
+                    let flags = NSEvent.modifierFlags
+                    marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
+                    marqueeBase = marqueeAdditive ? browser.selectedIDs : []
+                    if !marqueeAdditive { browser.clearSelection() }
+                }
                 marqueeCurrent = value.location
                 applyIconsMarquee()
             }
             .onEnded { _ in
-                if folderDragPaths.isEmpty {
-                    applyIconsMarquee()
-                }
+                if pressDrag.intent == .marquee { applyIconsMarquee() }
                 resetMarquee()
             }
     }
@@ -448,8 +448,7 @@ private struct ColumnPane: View {
     @State private var marqueeCurrent: CGPoint?
     @State private var marqueeBase: Set<String> = []
     @State private var marqueeAdditive = false
-    @State private var folderDragPaths: [String] = []
-    @State private var folderDragStarted = false
+    @State private var pressDrag = PressDragSelectLogic()
 
     private var sortedEntries: [FileEntry] {
         SortEngine.sort(entries, by: browser.rule)
@@ -515,12 +514,11 @@ private struct ColumnPane: View {
         marqueeStart = nil
         marqueeCurrent = nil
         marqueeBase = []
-        folderDragPaths = []
-        folderDragStarted = false
+        pressDrag.reset()
     }
 
     private var marqueeRect: CGRect? {
-        guard folderDragPaths.isEmpty else { return nil }
+        guard pressDrag.intent != .fileMove else { return nil }
         guard let start = marqueeStart, let current = marqueeCurrent else { return nil }
         return CGRect(
             x: min(start.x, current.x),
@@ -539,47 +537,50 @@ private struct ColumnPane: View {
     }
 
     private var marqueeGesture: some Gesture {
-        DragGesture(minimumDistance: 3, coordinateSpace: .named(spaceName))
+        DragGesture(minimumDistance: 0, coordinateSpace: .named(spaceName))
             .onChanged { value in
                 if marqueeStart == nil {
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
-
+                    let hit = entryAtY(value.startLocation.y)
                     let flags = NSEvent.modifierFlags
-                    if !flags.contains(.shift), !flags.contains(.command),
-                       let hit = entryAtY(value.startLocation.y),
-                       hit.isDirectory,
-                       browser.selectedIDs.contains(hit.id) {
-                        let selectedDirs = browser.selectedEntries.filter(\.isDirectory).map(\.path)
-                        folderDragPaths = selectedDirs.isEmpty ? [hit.path] : selectedDirs
-                        folderDragStarted = false
-                        return
+                    pressDrag.begin(
+                        hit: hit,
+                        selectedIDs: browser.selectedIDs,
+                        selectedPaths: browser.selectedEntries.map(\.path),
+                        forceMarquee: hit == nil
+                    ) { _ in
+                        if let hit, !browser.selectedIDs.contains(hit.id) {
+                            browser.selectOnly(hit.id)
+                        }
+                        browser.statusMessage = "Listo para mover — arrastra"
                     }
-
-                    folderDragPaths = []
-                    marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
-                    marqueeBase = marqueeAdditive ? browser.selectedIDs : []
-                    if !marqueeAdditive {
-                        browser.clearSelection()
+                    if pressDrag.intent == .marquee {
+                        marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
+                        marqueeBase = marqueeAdditive ? browser.selectedIDs : []
+                        if !marqueeAdditive { browser.clearSelection() }
                     }
                 }
 
-                if !folderDragPaths.isEmpty {
-                    let dist = hypot(value.translation.width, value.translation.height)
-                    if !folderDragStarted, dist >= 6 {
-                        folderDragStarted = true
-                        _ = FolderDragBridge.shared.startDrag(paths: folderDragPaths)
-                    }
+                let dist = hypot(value.translation.width, value.translation.height)
+                let previous = pressDrag.intent
+                let intent = pressDrag.moved(distance: dist)
+                if intent == .undecided { return }
+                if intent == .fileMove {
+                    _ = pressDrag.tryStartFileDrag()
                     return
                 }
-
+                if previous == .undecided, intent == .marquee {
+                    let flags = NSEvent.modifierFlags
+                    marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
+                    marqueeBase = marqueeAdditive ? browser.selectedIDs : []
+                    if !marqueeAdditive { browser.clearSelection() }
+                }
                 marqueeCurrent = value.location
                 applyMarquee()
             }
             .onEnded { _ in
-                if folderDragPaths.isEmpty {
-                    applyMarquee()
-                }
+                if pressDrag.intent == .marquee { applyMarquee() }
                 resetMarquee()
             }
     }

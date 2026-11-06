@@ -698,16 +698,37 @@ final class BrowserModel: ObservableObject {
         statusMessage = count == 1 ? "Duplicado" : "\(count) duplicados"
     }
 
-    /// Copia archivos (URLs) al portapapeles — pegable en Finder/Orden.
+    /// Rutas pendientes de «Cortar» (⌘X); al pegar se mueven y se limpia.
+    private var pendingCutPaths: [String] = []
+
+    /// Copia archivos (URLs) al portapapeles — pegable en Finder/Ordena (⌘C).
     func copySelectionToPasteboard() {
         let urls = selectedEntries.map { URL(fileURLWithPath: $0.path) as NSURL }
         guard !urls.isEmpty else {
             statusMessage = "Nada seleccionado"
             return
         }
+        pendingCutPaths = []
         NSPasteboard.general.clearContents()
         NSPasteboard.general.writeObjects(urls)
-        statusMessage = urls.count == 1 ? "Copiado (archivo)" : "\(urls.count) archivos copiados"
+        statusMessage = urls.count == 1 ? "Copiado — ⌘V para pegar" : "\(urls.count) copiados — ⌘V para pegar"
+    }
+
+    /// Corta archivos (⌘X): al pegar se mueven (como Windows).
+    func cutSelectionToPasteboard() {
+        let entries = selectedEntries
+        guard !entries.isEmpty else {
+            statusMessage = "Nada seleccionado"
+            return
+        }
+        let urls = entries.map { URL(fileURLWithPath: $0.path) as NSURL }
+        pendingCutPaths = entries.map(\.path)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects(urls)
+        statusMessage = entries.count == 1
+            ? "Cortado — ⌘V mueve aquí"
+            : "\(entries.count) cortados — ⌘V mueve aquí"
+        objectWillChange.send()
     }
 
     func pasteFromPasteboard() {
@@ -718,14 +739,23 @@ final class BrowserModel: ObservableObject {
             statusMessage = "El portapapeles no tiene archivos"
             return
         }
+        let paths = urls.map(\.path)
+        let cutSet = Set(pendingCutPaths.map { ($0 as NSString).standardizingPath })
+        let pasteSet = Set(paths.map { ($0 as NSString).standardizingPath })
+        let shouldMove = !cutSet.isEmpty && !cutSet.isDisjoint(with: pasteSet)
         do {
             let n = try FileOps.transfer(
-                paths: urls.map(\.path),
+                paths: paths,
                 toDirectory: currentPath,
-                move: false
+                move: shouldMove
             )
+            if shouldMove {
+                pendingCutPaths = []
+            }
             reload()
-            statusMessage = n == 1 ? "1 archivo pegado" : "\(n) archivos pegados"
+            statusMessage = shouldMove
+                ? (n == 1 ? "1 archivo movido" : "\(n) archivos movidos")
+                : (n == 1 ? "1 archivo pegado" : "\(n) archivos pegados")
         } catch {
             statusMessage = "No se pudo pegar: \(error.localizedDescription)"
         }

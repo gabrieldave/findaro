@@ -44,6 +44,7 @@ enum SelectionCancelMonitor {
 
             // ⌘1 / ⌘2 → atrás / adelante (cómodo con una mano)
             // keyCodes: 18 = 1, 19 = 2
+            // ⌘C / ⌘X / ⌘V → copiar / cortar / pegar archivos
             if cmd, !opt, !ctrl, !shift {
                 if chars == "1" || key == 18 {
                     browser.goBack()
@@ -51,6 +52,18 @@ enum SelectionCancelMonitor {
                 }
                 if chars == "2" || key == 19 {
                     browser.goForward()
+                    return nil
+                }
+                if chars.lowercased() == "c" || key == 8 {
+                    browser.copySelectionToPasteboard()
+                    return nil
+                }
+                if chars.lowercased() == "x" || key == 7 {
+                    browser.cutSelectionToPasteboard()
+                    return nil
+                }
+                if chars.lowercased() == "v" || key == 9 {
+                    browser.pasteFromPasteboard()
                     return nil
                 }
             }

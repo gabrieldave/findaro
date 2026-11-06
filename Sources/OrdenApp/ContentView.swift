@@ -500,7 +500,16 @@ struct FileActionsBar: View {
             }
             .controlSize(.regular)
             .disabled(browser.selectedIDs.isEmpty)
-            .help("Copia archivos al portapapeles (⌘C)")
+            .help("⌘C")
+
+            Button {
+                browser.cutSelectionToPasteboard()
+            } label: {
+                Label("Cortar", systemImage: "scissors")
+            }
+            .controlSize(.regular)
+            .disabled(browser.selectedIDs.isEmpty)
+            .help("⌘X — al pegar se mueve")
 
             Button {
                 browser.pasteFromPasteboard()
@@ -508,7 +517,7 @@ struct FileActionsBar: View {
                 Label("Pegar", systemImage: "doc.on.clipboard")
             }
             .controlSize(.regular)
-            .help("Pega archivos aquí (⌘V)")
+            .help("⌘V")
 
             Button {
                 browser.addFoldersToFavoritesFromUI()
@@ -831,9 +840,7 @@ struct FileBrowserPane: View {
     @State private var marqueeCurrent: CGPoint?
     @State private var marqueeBase: Set<String> = []
     @State private var marqueeAdditive = false
-    /// Si el gesto nace en carpeta(s): arrastre AppKit a Favoritos, no marquee.
-    @State private var folderDragPaths: [String] = []
-    @State private var folderDragStarted = false
+    @State private var pressDrag = PressDragSelectLogic()
 
     var body: some View {
         Group {
@@ -929,12 +936,11 @@ struct FileBrowserPane: View {
         marqueeStart = nil
         marqueeCurrent = nil
         marqueeBase = []
-        folderDragPaths = []
-        folderDragStarted = false
+        pressDrag.reset()
     }
 
     private var marqueeRect: CGRect? {
-        guard folderDragPaths.isEmpty else { return nil }
+        guard pressDrag.intent != .fileMove else { return nil }
         guard let start = marqueeStart, let current = marqueeCurrent else { return nil }
         return CGRect(
             x: min(start.x, current.x),
@@ -957,52 +963,63 @@ struct FileBrowserPane: View {
     }
 
     private var marqueeGesture: some Gesture {
-        DragGesture(minimumDistance: 3, coordinateSpace: .named("fileList"))
+        // minimumDistance 0: permite detectar hold 1s sin mover
+        DragGesture(minimumDistance: 0, coordinateSpace: .named("fileList"))
             .onChanged { value in
                 if marqueeStart == nil {
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
-
+                    let hit = entryAtY(value.startLocation.y)
                     let flags = NSEvent.modifierFlags
-                    // Arrastrar carpetas SOLO si ya estaban seleccionadas (como Finder).
-                    // Si la carpeta no está seleccionada → marquee (puedes marcar varias).
-                    // ⇧/⌘ siempre fuerzan marquee / selección múltiple.
-                    if !flags.contains(.shift), !flags.contains(.command),
-                       let hit = entryAtY(value.startLocation.y),
-                       hit.isDirectory,
-                       browser.selectedIDs.contains(hit.id) {
-                        let selectedDirs = browser.selectedEntries.filter(\.isDirectory).map(\.path)
-                        folderDragPaths = selectedDirs.isEmpty ? [hit.path] : selectedDirs
-                        folderDragStarted = false
-                        return
+                    pressDrag.begin(
+                        hit: hit,
+                        selectedIDs: browser.selectedIDs,
+                        selectedPaths: browser.selectedEntries.map(\.path),
+                        forceMarquee: hit == nil
+                    ) { _ in
+                        if let hit, !browser.selectedIDs.contains(hit.id) {
+                            browser.selectOnly(hit.id)
+                        }
+                        browser.statusMessage = "Listo para mover — arrastra"
                     }
-
-                    folderDragPaths = []
-                    marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
-                    marqueeBase = marqueeAdditive ? browser.selectedIDs : []
-                    if !marqueeAdditive {
-                        browser.clearSelection()
+                    if pressDrag.intent == .marquee {
+                        beginMarqueeSelection(flags: flags)
                     }
                 }
 
-                if !folderDragPaths.isEmpty {
-                    let dist = hypot(value.translation.width, value.translation.height)
-                    if !folderDragStarted, dist >= 6 {
-                        folderDragStarted = true
-                        _ = FolderDragBridge.shared.startDrag(paths: folderDragPaths)
-                    }
+                let dist = hypot(value.translation.width, value.translation.height)
+                let previous = pressDrag.intent
+                let intent = pressDrag.moved(distance: dist)
+
+                if intent == .undecided { return }
+
+                if intent == .fileMove {
+                    _ = pressDrag.tryStartFileDrag()
                     return
+                }
+
+                // Pasó de undecided → marquee (jaló antes de 1s)
+                if previous == .undecided, intent == .marquee {
+                    beginMarqueeSelection(flags: NSEvent.modifierFlags)
                 }
 
                 marqueeCurrent = value.location
                 applyMarquee()
             }
             .onEnded { _ in
-                if folderDragPaths.isEmpty {
+                if pressDrag.intent == .marquee {
                     applyMarquee()
                 }
                 resetMarquee()
             }
+    }
+
+    private func beginMarqueeSelection(flags: NSEvent.ModifierFlags) {
+        marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
+        marqueeBase = marqueeAdditive ? browser.selectedIDs : []
+        if !marqueeAdditive {
+            browser.clearSelection()
+        }
     }
 
     private func applyMarquee() {
@@ -1234,8 +1251,8 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Selección") {
-                Text("Clic = uno · Arrastrar = rectángulo · ⇧ clic = rango · ⌘ clic = sumar/quitar · Jalar carpeta ya seleccionada = a Favoritos · Botón «A Favoritos»")
+            Section("Selección y mover") {
+                Text("Clic = uno · Arrastrar al instante = rectángulo · Mantener 1s sobre un archivo y arrastrar = mover · ⇧/⌘ clic = multi · ⌘C copiar · ⌘X cortar · ⌘V pegar")
             }
             Section("Ordena") {
                 LabeledContent("Ámbito", value: browser.scopeBadge)

@@ -27,6 +27,8 @@ struct OrdenApp: App {
             CommandGroup(after: .pasteboard) {
                 Button("Copiar archivos") { browser.copySelectionToPasteboard() }
                     .keyboardShortcut("c", modifiers: .command)
+                Button("Cortar archivos") { browser.cutSelectionToPasteboard() }
+                    .keyboardShortcut("x", modifiers: .command)
                 Button("Pegar archivos") { browser.pasteFromPasteboard() }
                     .keyboardShortcut("v", modifiers: .command)
                 Button("Duplicar") { browser.duplicateSelection() }
