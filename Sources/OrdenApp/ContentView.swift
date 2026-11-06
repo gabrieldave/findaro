@@ -88,7 +88,7 @@ struct SortBar: View {
                 .lineLimit(1)
             Spacer()
             Menu("Ordenar") {
-                Button("Descargas (tipo juntos · Agregado ↓)") {
+                Button("Descargas (tipos por recencia · Agregado ↓)") {
                     browser.applyRule(.downloads, saveAsFolderDefault: true)
                 }
                 Button("Solo Agregado · lo más nuevo arriba") {

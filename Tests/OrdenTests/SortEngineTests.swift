@@ -64,24 +64,24 @@ final class SortEngineTests: XCTestCase {
         XCTAssertEqual(sorted.map(\.name), ["new.zip", "old.zip"])
     }
 
-    func testDownloadsTypesTogetherThenAgregado() {
-        let older = Date().addingTimeInterval(-day * 3)
+    func testDownloadsCategoryBlocksByRecencyVideosLast() {
+        let older = Date().addingTimeInterval(-day * 3) // ~4 nov
         let mid = Date().addingTimeInterval(-day)
-        let newer = Date()
+        let newer = Date() // ~5 nov tarde
         let files = [
-            entry("05_Multimedia", isDir: true, added: older),
-            entry("01_Trading", isDir: true, added: older),
-            entry("DISENO.md", added: mid),
-            entry("old.zip", added: older),
-            entry("new.zip", added: newer),
-            entry("AGENTS.md", added: older),
-            entry("davitor", isDir: true, added: newer)
+            entry("clip.mp4", added: older),
+            entry("DISENO.md", added: newer),
+            entry("AGENTS.md", added: mid),
+            entry("pack.zip", added: mid),
+            entry("davitor", isDir: true, added: newer),
+            entry("01_Trading", isDir: true, added: older)
         ]
         let sorted = SortEngine.sort(files, by: .downloads)
-        // Carpetas Agregado ↓; archivos: todos .md juntos (reciente arriba), luego zips.
+        // Carpetas primero (reciente); luego bloque Texto (más reciente del set),
+        // luego Zip, luego Vídeo (el más viejo) al final.
         XCTAssertEqual(
             sorted.map(\.name),
-            ["davitor", "01_Trading", "05_Multimedia", "DISENO.md", "AGENTS.md", "new.zip", "old.zip"]
+            ["davitor", "01_Trading", "DISENO.md", "AGENTS.md", "pack.zip", "clip.mp4"]
         )
     }
 

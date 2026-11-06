@@ -3,8 +3,59 @@ import Foundation
 /// Motor de orden determinista. Vista previa y lista usan la misma función.
 public enum SortEngine {
     public static func sort(_ entries: [FileEntry], by rule: SortRule) -> [FileEntry] {
+        if rule.orderCategoriesByRecency {
+            return sortGroupingCategoriesByRecency(entries, rule: rule)
+        }
         let comparator = makeComparator(rule: rule)
         return entries.sorted(by: comparator)
+    }
+
+    /// Carpetas con folderKeys; archivos agrupados por categoría;
+    /// bloques ordenados por el Agregado más reciente del bloque (↓);
+    /// dentro del bloque, fileKeys.
+    private static func sortGroupingCategoriesByRecency(
+        _ entries: [FileEntry],
+        rule: SortRule
+    ) -> [FileEntry] {
+        let folders = entries.filter(\.isDirectory)
+        let files = entries.filter { !$0.isDirectory }
+
+        let folderRule = SortRule(
+            keys: rule.folderKeys ?? rule.keys,
+            foldersFirst: false
+        )
+        let sortedFolders = folders.sorted(by: makeComparator(rule: folderRule))
+
+        var buckets: [FileCategory: [FileEntry]] = [:]
+        for file in files {
+            buckets[file.category, default: []].append(file)
+        }
+
+        let withinFileRule = SortRule(
+            keys: rule.fileKeys ?? rule.keys,
+            foldersFirst: false
+        )
+        let withinCmp = makeComparator(rule: withinFileRule)
+
+        let orderedCategories = buckets.keys.sorted { a, b in
+            let maxA = buckets[a]!.map(\.dateAdded).max() ?? .distantPast
+            let maxB = buckets[b]!.map(\.dateAdded).max() ?? .distantPast
+            if maxA != maxB {
+                return maxA > maxB // bloque más reciente primero
+            }
+            return a.sortIndex < b.sortIndex
+        }
+
+        var sortedFiles: [FileEntry] = []
+        for category in orderedCategories {
+            let group = buckets[category]!.sorted(by: withinCmp)
+            sortedFiles.append(contentsOf: group)
+        }
+
+        if rule.foldersFirst {
+            return sortedFolders + sortedFiles
+        }
+        return sortedFiles + sortedFolders
     }
 
     public static func makeComparator(rule: SortRule) -> (FileEntry, FileEntry) -> Bool {
@@ -13,7 +64,6 @@ public enum SortEngine {
                 return lhs.isDirectory && !rhs.isDirectory
             }
 
-            // Mismo tipo (o sin carpetas-arriba): claves por tipo si hay split.
             let keys: [SortKey]
             if lhs.isDirectory == rhs.isDirectory {
                 keys = rule.keysForComparing(isDirectory: lhs.isDirectory)
@@ -27,7 +77,6 @@ public enum SortEngine {
                     return cmp == .orderedAscending
                 }
             }
-            // Desempate estable: ruta
             return lhs.path.localizedStandardCompare(rhs.path) == .orderedAscending
         }
     }
@@ -62,7 +111,6 @@ public enum SortEngine {
         return key.isAscending ? raw : invert(raw)
     }
 
-    /// Orden natural: `file2` antes que `file10`. Usa collator del sistema.
     public static func naturalCompare(_ a: String, _ b: String) -> ComparisonResult {
         a.localizedStandardCompare(b)
     }

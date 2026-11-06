@@ -9,19 +9,24 @@ public struct SortRule: Codable, Equatable, Sendable, Hashable {
     public var fileKeys: [SortKey]?
     public var foldersFirst: Bool
     public var groupBy: GroupBy?
+    /// Si true: los bloques de tipo se ordenan por el Agregado más reciente del bloque
+    /// (vídeos viejos abajo; textos nuevos arriba). Dentro del bloque: fileKeys.
+    public var orderCategoriesByRecency: Bool
 
     public init(
         keys: [SortKey] = [.name(ascending: true)],
         folderKeys: [SortKey]? = nil,
         fileKeys: [SortKey]? = nil,
         foldersFirst: Bool = true,
-        groupBy: GroupBy? = nil
+        groupBy: GroupBy? = nil,
+        orderCategoriesByRecency: Bool = false
     ) {
         self.keys = keys.isEmpty ? [.name(ascending: true)] : keys
         self.folderKeys = folderKeys
         self.fileKeys = fileKeys
         self.foldersFirst = foldersFirst
         self.groupBy = groupBy
+        self.orderCategoriesByRecency = orderCategoriesByRecency
     }
 
     /// Agregado · lo más nuevo arriba (puede mezclar tipos si las fechas se cruzan).
@@ -36,11 +41,10 @@ public struct SortRule: Codable, Equatable, Sendable, Hashable {
     /// Por defecto = Descargas: tipos juntos + dentro lo más nuevo arriba.
     public static let `default` = SortRule.downloads
 
-    /// Descargas: carpetas por Agregado ↓; archivos por TIPO juntos y dentro Agregado ↓.
-    /// Así el zip nunca se mete entre los .md.
+    /// Descargas: carpetas Agregado ↓; archivos por tipo juntos;
+    /// bloques de tipo ordenados por lo más reciente del bloque; dentro Agregado ↓.
     public static let downloads = SortRule(
         keys: [
-            .category(ascending: true),
             .dateAdded(ascending: false),
             .name(ascending: true)
         ],
@@ -49,11 +53,11 @@ public struct SortRule: Codable, Equatable, Sendable, Hashable {
             .name(ascending: true)
         ],
         fileKeys: [
-            .category(ascending: true),
             .dateAdded(ascending: false),
             .name(ascending: true)
         ],
-        foldersFirst: true
+        foldersFirst: true,
+        orderCategoriesByRecency: true
     )
 
     public static let projects = SortRule(
@@ -98,10 +102,30 @@ public struct SortRule: Codable, Equatable, Sendable, Hashable {
             }
         }
 
+        if orderCategoriesByRecency {
+            parts.append("tipos juntos (bloque reciente primero)")
+            parts.append("dentro Agregado ↓")
+        }
+
         if let groupBy {
             parts.append("agrupado por \(groupBy.summarySpanish)")
         }
         return parts.joined(separator: " · ")
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case keys, folderKeys, fileKeys, foldersFirst, groupBy, orderCategoriesByRecency
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        keys = try c.decodeIfPresent([SortKey].self, forKey: .keys) ?? [.name(ascending: true)]
+        if keys.isEmpty { keys = [.name(ascending: true)] }
+        folderKeys = try c.decodeIfPresent([SortKey].self, forKey: .folderKeys)
+        fileKeys = try c.decodeIfPresent([SortKey].self, forKey: .fileKeys)
+        foldersFirst = try c.decodeIfPresent(Bool.self, forKey: .foldersFirst) ?? true
+        groupBy = try c.decodeIfPresent(GroupBy.self, forKey: .groupBy)
+        orderCategoriesByRecency = try c.decodeIfPresent(Bool.self, forKey: .orderCategoriesByRecency) ?? false
     }
 
     /// Claves efectivas al comparar dos entradas del mismo tipo.

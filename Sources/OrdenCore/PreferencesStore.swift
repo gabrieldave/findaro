@@ -2,7 +2,7 @@ import Foundation
 
 /// Preferencias propias — no dependemos del amnésico .DS_Store del Finder.
 public struct OrdenPreferences: Codable, Equatable, Sendable {
-    /// 6 = tipos juntos + Agregado ↓ dentro (zip no entre .md)
+    /// 7 = bloques de tipo ordenados por recencia (vídeos viejos abajo)
     public var schemaVersion: Int
     public var globalRule: SortRule
     public var folderOverrides: [String: SortRule]
@@ -89,7 +89,7 @@ public final class PreferencesStore: @unchecked Sendable {
     private static func freshDefaults() -> OrdenPreferences {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return OrdenPreferences(
-            schemaVersion: 6,
+            schemaVersion: 7,
             globalRule: .default,
             folderOverrides: [
                 (home as NSString).appendingPathComponent("Downloads"): .downloads,
@@ -138,6 +138,11 @@ public final class PreferencesStore: @unchecked Sendable {
             next.globalRule = .downloads
             next.folderOverrides[downloads] = .downloads
             next.schemaVersion = 6
+        }
+        if next.schemaVersion < 7 {
+            next.globalRule = .downloads
+            next.folderOverrides[downloads] = .downloads
+            next.schemaVersion = 7
         }
         return next
     }
