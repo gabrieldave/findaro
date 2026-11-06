@@ -43,6 +43,8 @@ struct OrdenApp: App {
             }
 
             CommandGroup(replacing: .newItem) {
+                Button("Nuevo archivo") { browser.promptNewFile() }
+                    .keyboardShortcut("n", modifiers: .command)
                 Button("Nueva carpeta") { browser.promptNewFolder() }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
             }
@@ -61,6 +63,13 @@ struct OrdenApp: App {
                     .keyboardShortcut("d", modifiers: .command)
                 Button("Copiar ruta") { browser.copySelectedPaths() }
                     .keyboardShortcut("c", modifiers: [.command, .option])
+            }
+
+            CommandMenu("Buscar") {
+                Button("Buscar en subcarpetas") { browser.startDeepSearch() }
+                    .keyboardShortcut("f", modifiers: [.command, .shift])
+                Button("Cerrar panel de búsqueda") { browser.clearDeepSearch() }
+                    .disabled(!browser.showDeepSearchPanel)
             }
 
             CommandMenu("Ir") {
@@ -93,6 +102,8 @@ struct OrdenApp: App {
             }
 
             CommandMenu("Archivo+") {
+                Button("Nuevo archivo") { browser.promptNewFile() }
+                    .keyboardShortcut("n", modifiers: .command)
                 Button("Nueva carpeta") { browser.promptNewFolder() }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button("Renombrar") { browser.promptRename() }

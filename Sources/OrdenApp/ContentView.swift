@@ -56,7 +56,14 @@ struct ContentView: View {
         .readLayoutWidth { w in
             applyWindowWidth(w)
         }
-        .searchable(text: $browser.searchText, placement: .toolbar, prompt: "Filtrar en esta carpeta")
+        .searchable(
+            text: $browser.searchText,
+            placement: .toolbar,
+            prompt: "Filtrar aquí · Return = subcarpetas"
+        )
+        .onSubmit(of: .search) {
+            browser.startDeepSearch()
+        }
         .onAppear { SelectionCancelMonitor.install(browser: browser) }
         .onDisappear { SelectionCancelMonitor.remove() }
         .modifier(BrowserToolbarModifier())
@@ -272,6 +279,21 @@ struct SortBar: View {
                 .controlSize(.regular)
             }
 
+            Button {
+                browser.startDeepSearch()
+            } label: {
+                Label(
+                    browser.deepSearchRunning ? "Buscando…" : "Subcarpetas",
+                    systemImage: "folder.badge.magnifyingglass"
+                )
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(browser.showDeepSearchPanel ? .orange : OrdenTheme.accent)
+            .controlSize(.regular)
+            .disabled(browser.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                      && !browser.deepSearchRunning)
+            .help("Busca el texto del filtro en esta carpeta y abajo (Return o ⌘⇧F)")
+
             if !browser.downloadsTodayMode {
                 Menu {
                     Section("Cambiar orden (solo esta carpeta)") {
@@ -438,6 +460,17 @@ struct FileActionsBar: View {
             .tint(OrdenTheme.accent)
             .controlSize(.regular)
             .help("⇧⌘N")
+
+            Button {
+                browser.promptNewFile()
+            } label: {
+                Label("Nuevo archivo", systemImage: "doc.badge.plus")
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(OrdenTheme.accent)
+            .controlSize(.regular)
+            .help("⌘N — texto u otro con extensión (.txt, .md, .json…)")
 
             Button {
                 browser.promptRename()
@@ -1159,6 +1192,7 @@ struct FileRowButton: View {
             Button("Copiar ruta completa") { browser.copyPath(entry) }
             Divider()
             Button("Nueva carpeta aquí") { browser.promptNewFolder() }
+            Button("Nuevo archivo aquí") { browser.promptNewFile() }
             Button("Seleccionar todos") { browser.selectAllVisible() }
             Button("Quitar selección") { browser.clearSelection() }
             Divider()
@@ -1242,6 +1276,13 @@ private struct BrowserToolbarModifier: ViewModifier {
                 }
                 .help("Crear carpeta aquí (⇧⌘N)")
 
+                Button {
+                    browser.promptNewFile()
+                } label: {
+                    Label("Nuevo archivo", systemImage: "doc.badge.plus")
+                }
+                .help("Crear archivo vacío aquí (⌘N)")
+
                 Toggle(isOn: $browser.multiSelectMode) {
                     Label("Varios", systemImage: "checkmark.circle")
                 }
@@ -1312,6 +1353,13 @@ private struct BrowserDialogsModifier: ViewModifier {
                 Button("Cancelar", role: .cancel) {}
             } message: {
                 Text("Se crea dentro de \(shortPath(browser.currentPath))")
+            }
+            .alert("Nuevo archivo", isPresented: $browser.showNewFileDialog) {
+                TextField("Nombre (ej. nota.txt)", text: $browser.nameDraft)
+                Button("Crear") { browser.createFileFromDraft() }
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text("Vacío, en \(shortPath(browser.currentPath)). Sin extensión → .txt")
             }
             .alert("Renombrar", isPresented: $browser.showRenameDialog) {
                 TextField("Nombre", text: $browser.nameDraft)

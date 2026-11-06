@@ -99,6 +99,28 @@ public enum FileOps {
         return dest.path
     }
 
+    /// Crea un archivo vacío (o con texto) dentro de `parent`. Si el nombre existe, añade " 2", " 3"…
+    @discardableResult
+    public static func createFile(
+        named name: String,
+        in parent: String,
+        contents: String = ""
+    ) throws -> String {
+        let cleaned = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { throw FileOpsError.failed("Nombre vacío") }
+        if cleaned.contains("/") || cleaned == ".." || cleaned == "." {
+            throw FileOpsError.failed("Nombre inválido")
+        }
+        let fm = FileManager.default
+        var dest = URL(fileURLWithPath: parent).appendingPathComponent(cleaned)
+        dest = uniqueURL(dest)
+        let data = Data(contents.utf8)
+        guard fm.createFile(atPath: dest.path, contents: data, attributes: nil) else {
+            throw FileOpsError.failed("No se pudo crear el archivo")
+        }
+        return dest.path
+    }
+
     /// Renombra un archivo/carpeta (mismo directorio padre).
     @discardableResult
     public static func rename(path: String, to newName: String) throws -> String {

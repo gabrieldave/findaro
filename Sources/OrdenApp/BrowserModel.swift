@@ -70,6 +70,7 @@ final class BrowserModel: ObservableObject {
     /// Cursor de teclado: fila activa al navegar con flechas (con o sin ⇧).
     @Published var selectionFocusID: String?
     @Published var showNewFolderDialog = false
+    @Published var showNewFileDialog = false
     @Published var showRenameDialog = false
     @Published var nameDraft = ""
     /// Ruta pendiente de renombrar (si el diálogo está abierto).
@@ -93,6 +94,8 @@ final class BrowserModel: ObservableObject {
     @Published var deepSearchProgress: SearchProgress?
     @Published var deepSearchRunning = false
     @Published var showDeepSearchPanel = false
+    @Published var deepSearchQuery: String = ""
+    @Published var deepSearchRoot: String = ""
     private var deepSearchTask: Task<Void, Never>?
 
     // MARK: Smart merge
@@ -584,14 +587,20 @@ final class BrowserModel: ObservableObject {
 
     // MARK: - Stubs Fase 1c–5 (compilan; UI se activa fase a fase)
 
-    func startDeepSearch(query: String) {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return }
+    func startDeepSearch(query: String? = nil) {
+        let q = (query ?? searchText).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else {
+            statusMessage = "Escribe algo en el filtro y pulsa Return o ⌘⇧F"
+            return
+        }
         cancelDeepSearch()
         deepSearchHits = []
+        deepSearchQuery = q
+        deepSearchRoot = currentPath
         deepSearchProgress = SearchProgress(currentFolder: currentPath)
         deepSearchRunning = true
         showDeepSearchPanel = true
+        statusMessage = "Buscando «\(q)» en subcarpetas…"
         let root = currentPath
         deepSearchTask = Task.detached(priority: .userInitiated) {
             RecursiveSearch.run(
@@ -601,6 +610,11 @@ final class BrowserModel: ObservableObject {
                     Task { @MainActor in
                         self.deepSearchProgress = progress
                         self.deepSearchRunning = !progress.done
+                        if progress.done {
+                            self.statusMessage = progress.matched == 0
+                                ? "Sin coincidencias para «\(q)»"
+                                : "\(progress.matched) resultados para «\(q)»"
+                        }
                     }
                 },
                 onHit: { hit in
@@ -625,7 +639,18 @@ final class BrowserModel: ObservableObject {
         cancelDeepSearch()
         deepSearchHits = []
         deepSearchProgress = nil
+        deepSearchQuery = ""
+        deepSearchRoot = ""
         showDeepSearchPanel = false
+    }
+
+    func openDeepSearchHit(_ hit: SearchHit) {
+        if hit.isDirectory {
+            navigate(to: hit.path)
+        } else {
+            navigate(to: (hit.path as NSString).deletingLastPathComponent)
+            selectOnly(hit.path)
+        }
     }
 
     func confirmPendingMerge() {
@@ -1184,6 +1209,29 @@ final class BrowserModel: ObservableObject {
             reload()
             selectOnly(path)
             statusMessage = "Carpeta creada: \(URL(fileURLWithPath: path).lastPathComponent)"
+        } catch {
+            statusMessage = "No se pudo crear: \(error.localizedDescription)"
+        }
+    }
+
+    func promptNewFile() {
+        nameDraft = "Sin título.txt"
+        showNewFileDialog = true
+    }
+
+    func createFileFromDraft() {
+        var name = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        // Si no pone extensión, .txt por defecto (cositas de texto).
+        if !name.contains(".") {
+            name += ".txt"
+        }
+        do {
+            let path = try FileOps.createFile(named: name, in: currentPath)
+            noteLocalFileMutation()
+            reload()
+            selectOnly(path)
+            statusMessage = "Archivo creado: \(URL(fileURLWithPath: path).lastPathComponent)"
         } catch {
             statusMessage = "No se pudo crear: \(error.localizedDescription)"
         }
