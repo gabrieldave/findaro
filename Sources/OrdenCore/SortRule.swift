@@ -26,11 +26,11 @@ public struct SortRule: Codable, Equatable, Sendable, Hashable {
 
     public static let `default` = SortRule()
 
-    /// Descargas: carpetas `01_…` por nombre; archivos recientes primero.
+    /// Descargas: carpetas `01_…` por nombre; archivos por tipo juntos, y dentro lo reciente primero.
     public static let downloads = SortRule(
-        keys: [.dateAdded(ascending: false)],
+        keys: [.category(ascending: true), .dateAdded(ascending: false)],
         folderKeys: [.name(ascending: true)],
-        fileKeys: [.dateAdded(ascending: false)],
+        fileKeys: [.category(ascending: true), .dateAdded(ascending: false)],
         foldersFirst: true
     )
 

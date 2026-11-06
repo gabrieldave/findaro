@@ -2,7 +2,7 @@ import Foundation
 
 /// Preferencias propias — no dependemos del amnésico .DS_Store del Finder.
 public struct OrdenPreferences: Codable, Equatable, Sendable {
-    /// 1 = MVP inicial · 2 = Descargas smart (carpetas por nombre / archivos por fecha)
+    /// 1 = MVP · 2 = Descargas smart · 3 = Descargas: archivos agrupados por tipo
     public var schemaVersion: Int
     public var globalRule: SortRule
     public var folderOverrides: [String: SortRule]
@@ -89,7 +89,7 @@ public final class PreferencesStore: @unchecked Sendable {
     private static func freshDefaults() -> OrdenPreferences {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return OrdenPreferences(
-            schemaVersion: 2,
+            schemaVersion: 3,
             globalRule: .default,
             folderOverrides: [
                 (home as NSString).appendingPathComponent("Downloads"): .downloads,
@@ -120,6 +120,11 @@ public final class PreferencesStore: @unchecked Sendable {
                     .appendingPathComponent("Projects")] = .projects
             }
             next.schemaVersion = 2
+        }
+        if next.schemaVersion < 3 {
+            // Forzar perfil Descargas: mismo tipo juntos (el zip ya no se cuela entre .md).
+            next.folderOverrides[downloads] = .downloads
+            next.schemaVersion = 3
         }
         return next
     }

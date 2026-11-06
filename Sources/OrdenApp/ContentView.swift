@@ -88,7 +88,7 @@ struct SortBar: View {
                 .lineLimit(1)
             Spacer()
             Menu("Ordenar") {
-                Button("Descargas (carpetas A→Z · archivos recientes)") {
+                Button("Descargas (carpetas A→Z · archivos por tipo)") {
                     browser.applyRule(.downloads, saveAsFolderDefault: true)
                 }
                 Button("Proyectos (Nombre A→Z)") {
