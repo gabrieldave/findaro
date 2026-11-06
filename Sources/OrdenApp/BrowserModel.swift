@@ -641,7 +641,7 @@ final class BrowserModel: ObservableObject {
     func quickLookSelection() {
         let paths = selectedEntries.map(\.path)
         guard !paths.isEmpty else { return }
-        QuickLookController.shared.toggle(paths: paths)
+        QuickLookController.shared.toggle(browser: self, focusing: paths)
     }
 
     func moveSelectionToTrash() {

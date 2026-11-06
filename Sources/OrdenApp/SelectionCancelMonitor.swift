@@ -37,6 +37,18 @@ enum SelectionCancelMonitor {
                 return nil
             }
 
+            // Con Vista rápida abierta: ← más nuevo · → más viejo (circular).
+            if QuickLookController.shared.isVisible, !opt, !cmd, !shift, !ctrl {
+                if key == 123 {
+                    QuickLookController.shared.navigate(delta: -1)
+                    return nil
+                }
+                if key == 124 {
+                    QuickLookController.shared.navigate(delta: 1)
+                    return nil
+                }
+            }
+
             // ⌥← / ⌥→ → atrás / adelante (como Alt+flechas en Windows)
             // Ignoramos `.function` que AppKit pone en las flechas.
             if opt, !cmd, !shift, !ctrl {
