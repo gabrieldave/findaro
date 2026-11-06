@@ -12,7 +12,8 @@ enum AboutOrdena {
             let alert = NSAlert()
             alert.messageText = "Ordena"
             alert.informativeText = """
-            Versión \(version) (\(build))
+            Versión \(version)
+            Por David DRC
             \(status.line)
             """
             alert.alertStyle = .informational
