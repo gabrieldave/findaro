@@ -926,7 +926,7 @@ struct FileBrowserPane: View {
                         .frame(height: 320)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            browser.cancelSelection()
+                            browser.cancelSelectionFromBackgroundTap()
                         }
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -949,7 +949,7 @@ struct FileBrowserPane: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .onTapGesture {
-                browser.cancelSelection()
+                browser.cancelSelectionFromBackgroundTap()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -1273,11 +1273,7 @@ struct FileRowButton: View {
         } else if browser.multiSelectMode {
             browser.toggleSelection(entry.id)
         } else if flags.contains(.command) {
-            // El monitor ya armó el grupo; asegura que este ítem quede en la selección.
-            browser.addToSelection(entry.id)
-            if browser.hasArmedFileDrag {
-                browser.syncArmedWithSelection()
-            }
+            browser.armFileDrag(for: entry)
         } else {
             browser.selectOnly(entry.id)
         }

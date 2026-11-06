@@ -113,8 +113,11 @@ final class BrowserModel: ObservableObject {
         } else if multiSelectMode {
             toggleSelection(id)
         } else if flags.contains(.command) {
-            // ⌘+clic: suma a la selección (multi) y el monitor enciende/actualiza el naranja.
+            // Fallback si el monitor no tragó el clic (p. ej. sin frame de fila).
             addToSelection(id)
+            if let entry = visibleEntries.first(where: { $0.id == id }) {
+                armFileDrag(for: entry)
+            }
         } else {
             selectOnly(id)
         }
@@ -376,6 +379,13 @@ final class BrowserModel: ObservableObject {
         clearSelection()
         selectionCancelToken &+= 1
         statusMessage = "Selección cancelada"
+    }
+
+    /// Clic en zona vacía: no cancelar si hay ⌘/⇧ (evita apagar el naranja al soltar ⌘+clic).
+    func cancelSelectionFromBackgroundTap() {
+        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags.contains(.command) || flags.contains(.shift) { return }
+        cancelSelection()
     }
 
     func toggleSelectAllVisible() {

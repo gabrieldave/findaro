@@ -138,7 +138,7 @@ struct IconsBrowserView: View {
                         .frame(height: 320)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            browser.cancelSelection()
+                            browser.cancelSelectionFromBackgroundTap()
                         }
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -166,7 +166,7 @@ struct IconsBrowserView: View {
                 }
             }
             .onTapGesture {
-                browser.cancelSelection()
+                browser.cancelSelectionFromBackgroundTap()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -450,7 +450,7 @@ private struct ColumnPane: View {
                     .frame(height: 320)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        browser.cancelSelection()
+                        browser.cancelSelectionFromBackgroundTap()
                     }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -474,7 +474,7 @@ private struct ColumnPane: View {
         .frame(width: 240)
         .frame(maxHeight: .infinity, alignment: .topLeading)
         .onTapGesture {
-            browser.cancelSelection()
+            browser.cancelSelectionFromBackgroundTap()
         }
         .onAppear(perform: reload)
         .onChange(of: path) { _, _ in reload() }
@@ -633,10 +633,7 @@ private struct ColumnRow: View {
         // Doble clic → monitor. ⌘+clic suma multi + naranja (monitor); no abras columna.
         let flags = NSEvent.modifierFlags
         if flags.contains(.command) {
-            browser.addToSelection(entry.id)
-            if browser.hasArmedFileDrag {
-                browser.syncArmedWithSelection()
-            }
+            browser.armFileDrag(for: entry)
             return
         }
         if flags.contains(.shift) || browser.multiSelectMode {

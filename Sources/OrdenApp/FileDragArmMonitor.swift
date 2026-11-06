@@ -23,8 +23,8 @@ final class FileDragArmMonitor {
         monitor = NSEvent.addLocalMonitorForEvents(
             matching: [.leftMouseDown]
         ) { [weak self] event in
-            self?.handle(event)
-            return event
+            // nil = tragar el evento (evita que un onTapGesture de fondo apague el naranja).
+            self?.handle(event) ?? event
         }
     }
 
@@ -37,8 +37,9 @@ final class FileDragArmMonitor {
         rowFrames.removeValue(forKey: path)
     }
 
-    private func handle(_ event: NSEvent) {
-        guard let browser, event.type == .leftMouseDown else { return }
+    /// `nil` = consumir el evento; si no, dejarlo pasar.
+    private func handle(_ event: NSEvent) -> NSEvent? {
+        guard let browser, event.type == .leftMouseDown else { return event }
         let path = pathAt(event.locationInWindow)
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let cmd = flags.contains(.command)
@@ -61,19 +62,21 @@ final class FileDragArmMonitor {
             browser.clearArmedFileDrag()
             browser.selectOnly(entry.id)
             browser.activateEntry(entry)
-            return
+            return nil
         }
 
         lastClickPath = path
         lastClickAt = Date()
 
-        // ⌘+clic (sin Shift/⌥): enciende naranja sticky y suma a la selección múltiple.
+        // ⌘+clic (sin Shift/⌥): naranja sticky + multi.
+        // Tragamos el clic: si pasa a SwiftUI, el tap del fondo llama cancelSelection().
         guard cmd, !shift, !opt,
               let path,
               let entry = browser.visibleEntries.first(where: { $0.path == path })
-        else { return }
+        else { return event }
 
         browser.armFileDrag(for: entry)
+        return nil
     }
 
     private func pathAt(_ pointInWindow: CGPoint) -> String? {
