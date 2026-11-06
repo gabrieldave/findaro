@@ -1,5 +1,5 @@
 import AppKit
-import QuickLookUI
+@preconcurrency import QuickLookUI
 
 /// Panel de Quick Look estilo Finder (Space).
 @MainActor
@@ -14,6 +14,7 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
         panel.dataSource = self
         panel.delegate = self
         panel.currentPreviewItemIndex = 0
+        panel.reloadData()
         panel.makeKeyAndOrderFront(nil)
     }
 
@@ -21,9 +22,9 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
         guard let panel = QLPreviewPanel.shared() else { return }
         if panel.isVisible {
             panel.orderOut(nil)
-        } else {
-            show(paths: paths)
+            return
         }
+        show(paths: paths)
     }
 
     nonisolated func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {

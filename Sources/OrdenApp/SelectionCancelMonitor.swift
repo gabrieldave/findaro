@@ -30,6 +30,13 @@ enum SelectionCancelMonitor {
                 return nil
             }
 
+            // Espacio → Vista rápida (Quick Look). onKeyPress de SwiftUI no llega
+            // con el foco en la lista/scroll; el monitor AppKit sí.
+            if key == 49, !opt, !cmd, !shift, !ctrl {
+                browser.quickLookSelection()
+                return nil
+            }
+
             // ⌥← / ⌥→ → atrás / adelante (como Alt+flechas en Windows)
             // Ignoramos `.function` que AppKit pone en las flechas.
             if opt, !cmd, !shift, !ctrl {

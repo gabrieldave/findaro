@@ -183,7 +183,7 @@ struct ContentView: View {
             browser.goForward()
             return .handled
         }
-        // Esc / ⌥← / ⌥→ / ⌘[ / ⌘] también en SelectionCancelMonitor (NSEvent)
+        // Espacio / Esc / ⌥← / ⌥→ también en SelectionCancelMonitor (NSEvent)
     }
 
     private func applyWindowWidth(_ w: CGFloat) {
