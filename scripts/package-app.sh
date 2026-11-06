@@ -109,6 +109,13 @@ else
   INSTALLED="$HOME/Applications/${PRODUCT_NAME}.app"
 fi
 
+# Si Ordena está abierta, reinicia para cargar el binario nuevo (si no, sigue el viejo en memoria).
+if pgrep -x "${PRODUCT_NAME}" >/dev/null 2>&1; then
+  pkill -x "${PRODUCT_NAME}" >/dev/null 2>&1 || true
+  sleep 0.4
+  open -a "${PRODUCT_NAME}" >/dev/null 2>&1 || true
+fi
+
 echo "APP=$APP_DIR"
 echo "INSTALLED=$INSTALLED"
 echo "TIP=Launchpad / Spotlight (⌘Space → ${PRODUCT_NAME}) / arrastra a Dock"
