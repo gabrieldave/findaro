@@ -3,6 +3,7 @@ import OrdenCore
 
 struct ContentView: View {
     @EnvironmentObject private var browser: BrowserModel
+    @FocusState private var tableFocused: Bool
 
     var body: some View {
         NavigationSplitView {
@@ -13,6 +14,16 @@ struct ContentView: View {
                 SortBar()
                 Divider()
                 FileTableView()
+                    .focused($tableFocused)
+                if let status = browser.statusMessage {
+                    Divider()
+                    Text(status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                }
             }
         }
         .searchable(text: $browser.searchText, prompt: "Filtrar en esta carpeta")
@@ -21,7 +32,7 @@ struct ContentView: View {
                 Button(action: browser.goUp) {
                     Label("Arriba", systemImage: "chevron.up")
                 }
-                .help("Carpeta superior")
+                .help("Carpeta superior (⌘↑)")
             }
             ToolbarItem(placement: .principal) {
                 Text(browser.currentPath.replacingOccurrences(
@@ -37,6 +48,29 @@ struct ContentView: View {
                     Label("Actualizar", systemImage: "arrow.clockwise")
                 }
             }
+        }
+        .onAppear { tableFocused = true }
+        .onKeyPress(.return) {
+            browser.openSelection()
+            return .handled
+        }
+        .onKeyPress(.space) {
+            browser.quickLookSelection()
+            return .handled
+        }
+        .onKeyPress(keys: [.downArrow], phases: .down) { press in
+            if press.modifiers.contains(.command) {
+                browser.openSelection()
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(keys: [.delete], phases: .down) { press in
+            if press.modifiers.contains(.command) {
+                browser.moveSelectionToTrash()
+                return .handled
+            }
+            return .ignored
         }
     }
 }
@@ -54,6 +88,13 @@ struct SortBar: View {
                 .lineLimit(1)
             Spacer()
             Menu("Ordenar") {
+                Button("Descargas (carpetas A→Z · archivos recientes)") {
+                    browser.applyRule(.downloads, saveAsFolderDefault: true)
+                }
+                Button("Proyectos (Nombre A→Z)") {
+                    browser.applyRule(.projects, saveAsFolderDefault: true)
+                }
+                Divider()
                 Button("Nombre A→Z") {
                     browser.applyRule(
                         SortRule(keys: [.name(ascending: true)], foldersFirst: true),
@@ -181,8 +222,17 @@ struct FileTableView: View {
                     }
                     .contextMenu {
                         Button("Abrir") { browser.open(entry) }
+                        Button("Vista rápida") {
+                            browser.selectedIDs = [entry.id]
+                            browser.quickLookSelection()
+                        }
                         Button("Mostrar en Finder") { browser.revealInFinder(entry) }
                         Button("Copiar ruta") { browser.copyPath(entry) }
+                        Divider()
+                        Button("Mover a la Papelera", role: .destructive) {
+                            browser.selectedIDs = [entry.id]
+                            browser.moveSelectionToTrash()
+                        }
                     }
                 }
                 .width(min: 220, ideal: 320)
@@ -221,14 +271,21 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Orden global") {
-                Text(browser.store.preferences.globalRule.summarySpanish)
-                Text("Las carpetas con override guardan su propia regla. Orden no usa el .DS_Store del Finder.")
+            Section("Orden en esta sesión") {
+                Text(browser.rule.summarySpanish)
+                Text("Descargas usa carpetas por nombre (01_, 02_…) y archivos por fecha. Proyectos usa Nombre A→Z.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section("Atajos") {
+                LabeledContent("Abrir", value: "Return o ⌘↓")
+                LabeledContent("Vista rápida", value: "Space")
+                LabeledContent("Papelera", value: "⌘⌫")
+                LabeledContent("Arriba", value: "⌘↑")
+                LabeledContent("Descargas", value: "⇧⌘L")
+            }
         }
-        .padding()
-        .frame(width: 420, height: 180)
+        .formStyle(.grouped)
+        .frame(width: 440, height: 320)
     }
 }

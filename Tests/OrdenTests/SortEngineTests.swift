@@ -64,6 +64,25 @@ final class SortEngineTests: XCTestCase {
         XCTAssertEqual(sorted.map(\.name), ["new.zip", "old.zip"])
     }
 
+    func testDownloadsSmartFoldersByNameFilesByDate() {
+        let older = Date().addingTimeInterval(-day * 3)
+        let newer = Date()
+        let files = [
+            entry("05_Multimedia", isDir: true, added: newer),
+            entry("01_Trading", isDir: true, added: older),
+            entry("old.zip", added: older),
+            entry("new.zip", added: newer),
+            entry("davitor", isDir: true, added: newer.addingTimeInterval(day))
+        ]
+        let sorted = SortEngine.sort(files, by: .downloads)
+        XCTAssertEqual(
+            sorted.map(\.name),
+            ["01_Trading", "05_Multimedia", "davitor", "new.zip", "old.zip"]
+        )
+        XCTAssertTrue(SortRule.downloads.summarySpanish.contains("carpetas"))
+        XCTAssertTrue(SortRule.downloads.summarySpanish.contains("archivos"))
+    }
+
     private func entry(
         _ name: String,
         isDir: Bool = false,

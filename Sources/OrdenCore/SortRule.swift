@@ -3,23 +3,34 @@ import Foundation
 /// Una sola idea de orden — sin pelear Arrange / Group / Sort.
 public struct SortRule: Codable, Equatable, Sendable, Hashable {
     public var keys: [SortKey]
+    /// Si está definido, las carpetas usan estas claves (p. ej. Nombre en Descargas).
+    public var folderKeys: [SortKey]?
+    /// Si está definido, los archivos usan estas claves (p. ej. Fecha agregada).
+    public var fileKeys: [SortKey]?
     public var foldersFirst: Bool
     public var groupBy: GroupBy?
 
     public init(
         keys: [SortKey] = [.name(ascending: true)],
+        folderKeys: [SortKey]? = nil,
+        fileKeys: [SortKey]? = nil,
         foldersFirst: Bool = true,
         groupBy: GroupBy? = nil
     ) {
         self.keys = keys.isEmpty ? [.name(ascending: true)] : keys
+        self.folderKeys = folderKeys
+        self.fileKeys = fileKeys
         self.foldersFirst = foldersFirst
         self.groupBy = groupBy
     }
 
     public static let `default` = SortRule()
 
+    /// Descargas: carpetas `01_…` por nombre; archivos recientes primero.
     public static let downloads = SortRule(
         keys: [.dateAdded(ascending: false)],
+        folderKeys: [.name(ascending: true)],
+        fileKeys: [.dateAdded(ascending: false)],
         foldersFirst: true
     )
 
@@ -28,25 +39,49 @@ public struct SortRule: Codable, Equatable, Sendable, Hashable {
         foldersFirst: true
     )
 
-    /// Frase legible para la barra: “Carpetas arriba · Nombre A→Z · números naturales”.
+    public var usesSplitKeys: Bool {
+        folderKeys != nil || fileKeys != nil
+    }
+
+    /// Frase legible para la barra.
     public var summarySpanish: String {
         var parts: [String] = []
         if foldersFirst {
             parts.append("Carpetas arriba")
         }
-        for key in keys {
-            parts.append(key.summarySpanish)
+
+        if usesSplitKeys {
+            let folders = (folderKeys ?? keys).map(\.summarySpanish).joined(separator: ", ")
+            let files = (fileKeys ?? keys).map(\.summarySpanish).joined(separator: ", ")
+            parts.append("carpetas \(folders)")
+            parts.append("archivos \(files)")
+            if (folderKeys ?? []).contains(where: { if case .name = $0 { return true }; return false }) {
+                parts.append("números naturales")
+            }
+        } else {
+            for key in keys {
+                parts.append(key.summarySpanish)
+            }
+            if keys.contains(where: {
+                if case .name = $0 { return true }
+                return false
+            }) {
+                parts.append("números naturales")
+            }
         }
-        if keys.contains(where: {
-            if case .name = $0 { return true }
-            return false
-        }) {
-            parts.append("números naturales")
-        }
+
         if let groupBy {
             parts.append("agrupado por \(groupBy.summarySpanish)")
         }
         return parts.joined(separator: " · ")
+    }
+
+    /// Claves efectivas al comparar dos entradas del mismo tipo.
+    public func keysForComparing(isDirectory: Bool) -> [SortKey] {
+        if isDirectory {
+            return folderKeys ?? keys
+        }
+        return fileKeys ?? keys
     }
 }
 
@@ -63,13 +98,13 @@ public enum SortKey: Codable, Equatable, Sendable, Hashable {
         case .name(let ascending):
             return ascending ? "Nombre A→Z" : "Nombre Z→A"
         case .dateModified(let ascending):
-            return ascending ? "Modificado ↑" : "Modificado ↓ (reciente primero)"
+            return ascending ? "Modificado ↑" : "Modificado ↓"
         case .dateCreated(let ascending):
-            return ascending ? "Creado ↑" : "Creado ↓ (reciente primero)"
+            return ascending ? "Creado ↑" : "Creado ↓"
         case .dateAdded(let ascending):
             return ascending ? "Agregado ↑" : "Agregado ↓ (reciente primero)"
         case .size(let ascending):
-            return ascending ? "Tamaño ↑" : "Tamaño ↓ (grandes primero)"
+            return ascending ? "Tamaño ↑" : "Tamaño ↓"
         case .kind(let ascending):
             return ascending ? "Clase A→Z" : "Clase Z→A"
         }

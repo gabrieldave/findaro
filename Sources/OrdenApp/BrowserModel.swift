@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 import OrdenCore
-import Combine
+import AppKit
 
 @MainActor
 final class BrowserModel: ObservableObject {
@@ -11,6 +11,7 @@ final class BrowserModel: ObservableObject {
     @Published var rule: SortRule
     @Published var errorMessage: String?
     @Published var searchText: String = ""
+    @Published var statusMessage: String?
 
     let store: PreferencesStore
 
@@ -31,6 +32,10 @@ final class BrowserModel: ObservableObject {
         return base.filter { $0.name.localizedCaseInsensitiveContains(q) }
     }
 
+    var selectedEntries: [FileEntry] {
+        visibleEntries.filter { selectedIDs.contains($0.id) }
+    }
+
     var ruleSummary: String { rule.summarySpanish }
 
     func reload() {
@@ -48,6 +53,7 @@ final class BrowserModel: ObservableObject {
         rule = store.preferences.rule(for: path)
         selectedIDs = []
         searchText = ""
+        statusMessage = nil
         store.update { $0.lastPath = path }
         reload()
     }
@@ -73,12 +79,12 @@ final class BrowserModel: ObservableObject {
     func applyRule(_ newRule: SortRule, saveAsFolderDefault: Bool) {
         rule = newRule
         store.update { prefs in
-            prefs.globalRule = newRule
             if saveAsFolderDefault {
                 prefs.folderOverrides[currentPath] = newRule
+            } else {
+                prefs.globalRule = newRule
             }
         }
-        // Re-sort only; no reload needed
         objectWillChange.send()
     }
 
@@ -90,6 +96,11 @@ final class BrowserModel: ObservableObject {
         }
     }
 
+    func openSelection() {
+        guard let first = selectedEntries.first else { return }
+        open(first)
+    }
+
     func revealInFinder(_ entry: FileEntry) {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: entry.path)])
     }
@@ -97,6 +108,41 @@ final class BrowserModel: ObservableObject {
     func copyPath(_ entry: FileEntry) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(entry.path, forType: .string)
+        statusMessage = "Ruta copiada"
+    }
+
+    func copySelectedPaths() {
+        let paths = selectedEntries.map(\.path)
+        guard !paths.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(paths.joined(separator: "\n"), forType: .string)
+        statusMessage = paths.count == 1 ? "Ruta copiada" : "\(paths.count) rutas copiadas"
+    }
+
+    func quickLookSelection() {
+        let paths = selectedEntries.map(\.path)
+        guard !paths.isEmpty else { return }
+        QuickLookController.shared.toggle(paths: paths)
+    }
+
+    func moveSelectionToTrash() {
+        let targets = selectedEntries
+        guard !targets.isEmpty else { return }
+        var moved = 0
+        for entry in targets {
+            let url = URL(fileURLWithPath: entry.path)
+            do {
+                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+                moved += 1
+            } catch {
+                statusMessage = "No se pudo tirar \(entry.name): \(error.localizedDescription)"
+            }
+        }
+        selectedIDs = []
+        reload()
+        if moved > 0 {
+            statusMessage = moved == 1 ? "1 elemento a la Papelera" : "\(moved) elementos a la Papelera"
+        }
     }
 
     private func home(_ component: String) -> String {

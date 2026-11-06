@@ -12,7 +12,16 @@ public enum SortEngine {
             if rule.foldersFirst, lhs.isDirectory != rhs.isDirectory {
                 return lhs.isDirectory && !rhs.isDirectory
             }
-            for key in rule.keys {
+
+            // Mismo tipo (o sin carpetas-arriba): claves por tipo si hay split.
+            let keys: [SortKey]
+            if lhs.isDirectory == rhs.isDirectory {
+                keys = rule.keysForComparing(isDirectory: lhs.isDirectory)
+            } else {
+                keys = rule.keys
+            }
+
+            for key in keys {
                 let cmp = compare(lhs, rhs, by: key)
                 if cmp != .orderedSame {
                     return cmp == .orderedAscending

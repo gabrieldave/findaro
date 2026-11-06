@@ -13,6 +13,14 @@ struct OrdenApp: App {
         }
         .commands {
             CommandGroup(replacing: .newItem) {}
+
+            CommandGroup(after: .pasteboard) {
+                Button("Copiar ruta") {
+                    browser.copySelectedPaths()
+                }
+                .keyboardShortcut("c", modifiers: [.command, .option])
+            }
+
             CommandMenu("Ir") {
                 Button("Descargas") { browser.navigateToDownloads() }
                     .keyboardShortcut("l", modifiers: [.command, .shift])
@@ -20,6 +28,14 @@ struct OrdenApp: App {
                 Button("Documentos") { browser.navigateToDocuments() }
                 Button("Arriba") { browser.goUp() }
                     .keyboardShortcut(.upArrow, modifiers: .command)
+            }
+
+            CommandMenu("Archivo+") {
+                Button("Abrir selección") { browser.openSelection() }
+                    .keyboardShortcut(.downArrow, modifiers: .command)
+                Button("Vista rápida") { browser.quickLookSelection() }
+                Button("Mover a la Papelera") { browser.moveSelectionToTrash() }
+                    .keyboardShortcut(.delete, modifiers: .command)
             }
         }
 
