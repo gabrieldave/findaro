@@ -235,13 +235,16 @@ struct IconsBrowserView: View {
         DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named("iconsGrid"))
             .onChanged { value in
                 if marqueeStart == nil {
-                    marqueeStart = value.startLocation
-                    marqueeCurrent = value.location
                     if browser.hasArmedFileDrag {
+                        marqueeStart = value.startLocation
+                        marqueeCurrent = value.location
                         folderDragPaths = browser.consumeArmedFileDrag()
                         folderDragStarted = false
                         return
                     }
+                    if browser.fileDragArmingPath != nil { return }
+                    marqueeStart = value.startLocation
+                    marqueeCurrent = value.location
                     folderDragPaths = []
                     let flags = NSEvent.modifierFlags
                     marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
@@ -322,7 +325,11 @@ private struct IconsItemCell: View {
                 browserSelectEntry(browser, entry: entry)
             } label: {
                 VStack(spacing: 6) {
-                    FileTypeIcon(category: entry.category, size: 36)
+                    ZStack {
+                        FileTypeIcon(category: entry.category, size: 36)
+                        FileDragArmChrome.Overlay(path: entry.path, size: 44)
+                    }
+                    .frame(width: 48, height: 48)
                     Text(entry.name)
                         .font(.caption)
                         .lineLimit(2)
@@ -341,10 +348,9 @@ private struct IconsItemCell: View {
             isSelected ? OrdenTheme.accent.opacity(0.28) : Color.clear,
             in: RoundedRectangle(cornerRadius: 10, style: .continuous)
         )
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 1.0, maximumDistance: 6)
-                .onEnded { _ in browser.armFileDrag(for: entry) }
-        )
+        .fileDragArmHighlight(path: entry.path)
+        .reportFileDragArmFrame(path: entry.path)
+        .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu { entryContextMenu(entry) }
     }
 }
@@ -506,13 +512,16 @@ private struct ColumnPane: View {
         DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named(spaceName))
             .onChanged { value in
                 if marqueeStart == nil {
-                    marqueeStart = value.startLocation
-                    marqueeCurrent = value.location
                     if browser.hasArmedFileDrag {
+                        marqueeStart = value.startLocation
+                        marqueeCurrent = value.location
                         folderDragPaths = browser.consumeArmedFileDrag()
                         folderDragStarted = false
                         return
                     }
+                    if browser.fileDragArmingPath != nil { return }
+                    marqueeStart = value.startLocation
+                    marqueeCurrent = value.location
                     folderDragPaths = []
                     let flags = NSEvent.modifierFlags
                     marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
@@ -585,7 +594,11 @@ private struct ColumnRow: View {
                 handleClick()
             } label: {
                 HStack(spacing: 8) {
-                    FileTypeIcon(category: entry.category, size: 14)
+                    ZStack {
+                        FileTypeIcon(category: entry.category, size: 14)
+                        FileDragArmChrome.Overlay(path: entry.path, size: 22)
+                    }
+                    .frame(width: 22, height: 22)
                     Text(entry.name)
                         .font(.callout)
                         .lineLimit(1)
@@ -609,10 +622,9 @@ private struct ColumnRow: View {
                 ? OrdenTheme.accent.opacity(0.25)
                 : Color.clear
         )
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 1.0, maximumDistance: 6)
-                .onEnded { _ in browser.armFileDrag(for: entry) }
-        )
+        .fileDragArmHighlight(path: entry.path)
+        .reportFileDragArmFrame(path: entry.path)
+        .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu { entryContextMenu(entry) }
     }
 

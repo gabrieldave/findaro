@@ -214,9 +214,13 @@ struct ContentView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
 
+            FileDragArmChrome.ReadyBanner()
+                .fixedSize(horizontal: false, vertical: true)
+
             FileBrowserPane()
                 .padding(.horizontal, 16)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .enableFileDragArmMonitor(browser: browser)
 
             DropShelfView()
                 .fixedSize(horizontal: false, vertical: true)
@@ -1002,16 +1006,21 @@ struct FileBrowserPane: View {
         DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named("fileList"))
             .onChanged { value in
                 if marqueeStart == nil {
-                    marqueeStart = value.startLocation
-                    marqueeCurrent = value.location
-
-                    // Hold 1s previo → arrastre de archivos; si no → marquee
+                    // Hold 1s → listo: el arrastre mueve archivos (no marquee)
                     if browser.hasArmedFileDrag {
+                        marqueeStart = value.startLocation
+                        marqueeCurrent = value.location
                         folderDragPaths = browser.consumeArmedFileDrag()
                         folderDragStarted = false
                         return
                     }
+                    // Todavía cargando el hold: no robes el gesto para marquee
+                    if browser.fileDragArmingPath != nil {
+                        return
+                    }
 
+                    marqueeStart = value.startLocation
+                    marqueeCurrent = value.location
                     folderDragPaths = []
                     let flags = NSEvent.modifierFlags
                     marqueeAdditive = flags.contains(.command) || flags.contains(.shift)
@@ -1121,7 +1130,11 @@ struct FileRowButton: View {
 
             Button(action: selectRow) {
                 HStack(alignment: .center, spacing: 12) {
-                    FileTypeIcon(category: entry.category, size: 17)
+                    ZStack {
+                        FileTypeIcon(category: entry.category, size: 17)
+                        FileDragArmChrome.Overlay(path: entry.path, size: 26)
+                    }
+                    .frame(width: 28, height: 28)
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(entry.name)
@@ -1170,12 +1183,9 @@ struct FileRowButton: View {
             .padding(.trailing, 10)
         }
         .background(rowBackground)
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 1.0, maximumDistance: 6)
-                .onEnded { _ in
-                    browser.armFileDrag(for: entry)
-                }
-        )
+        .fileDragArmHighlight(path: entry.path)
+        .reportFileDragArmFrame(path: entry.path)
+        .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu {
             Button("Abrir") {
                 browser.selectOnly(entry.id)

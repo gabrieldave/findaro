@@ -25,7 +25,12 @@ final class BrowserModel: ObservableObject {
     private var forwardStack: [String] = []
     /// Hold 1s sobre un ítem: listo para arrastrar/mover (clic rápido solo selecciona).
     @Published private(set) var fileDragArmedPaths: [String] = []
+    /// Path que se está cargando (anillo 0→1 mientras mantienes pulsado).
+    @Published private(set) var fileDragArmingPath: String?
+    @Published private(set) var fileDragArmProgress: Double = 0
     private var fileDragArmedUntil: Date?
+    private var armingProgressTask: Task<Void, Never>?
+    private var armedExpiryTask: Task<Void, Never>?
     /// Bandeja tipo Dropover: aparcas archivos y luego los mueves/copias a otra carpeta.
     @Published var shelf: [FileOps.ShelfItem] = []
     @Published var shelfDropTargeted = false
@@ -231,6 +236,7 @@ final class BrowserModel: ObservableObject {
 
     /// Esc: quita selección y cancela marquee / gestos a medias.
     func cancelSelection() {
+        clearArmedFileDrag()
         clearSelection()
         selectionCancelToken &+= 1
         statusMessage = "Selección cancelada"
@@ -701,19 +707,79 @@ final class BrowserModel: ObservableObject {
         statusMessage = count == 1 ? "Duplicado" : "\(count) duplicados"
     }
 
+    /// Empieza el anillo de progreso al pulsar (antes de los 1s).
+    func beginArmingFileDrag(for entry: FileEntry) {
+        // Si ya estamos armando este path, no reinicies el anillo.
+        if fileDragArmingPath == entry.path, armingProgressTask != nil { return }
+        if isFileDragArmed(path: entry.path) { return }
+
+        armingProgressTask?.cancel()
+        fileDragArmingPath = entry.path
+        fileDragArmProgress = 0
+        let path = entry.path
+        let entryCopy = entry
+        let steps = 20
+        let stepNanos: UInt64 = 50_000_000 // 20 × 50ms = 1s
+        armingProgressTask = Task { @MainActor in
+            for i in 1...steps {
+                try? await Task.sleep(nanoseconds: stepNanos)
+                guard !Task.isCancelled, self.fileDragArmingPath == path else { return }
+                self.fileDragArmProgress = Double(i) / Double(steps)
+            }
+            guard !Task.isCancelled, self.fileDragArmingPath == path else { return }
+            // Hold completo sin soltar → arma aunque el mouse no se haya movido.
+            self.armFileDrag(for: entryCopy)
+        }
+    }
+
+    /// Soltaste antes de armar → quita el anillo (no toca el estado armado).
+    func endArmingPress(for entry: FileEntry) {
+        armingProgressTask?.cancel()
+        armingProgressTask = nil
+        if fileDragArmingPath == entry.path {
+            fileDragArmingPath = nil
+            fileDragArmProgress = 0
+        }
+    }
+
     /// Mantener 1s sobre un archivo: arma arrastre nativo (mover/copiar).
     func armFileDrag(for entry: FileEntry) {
+        armingProgressTask?.cancel()
+        armingProgressTask = nil
+        fileDragArmingPath = nil
+        fileDragArmProgress = 1
+
+        let alreadyArmed = hasArmedFileDrag && fileDragArmedPaths.contains(entry.path)
+
         if selectedIDs.contains(entry.id), selectedIDs.count > 1 {
             fileDragArmedPaths = selectedEntries.map(\.path)
         } else {
             selectOnly(entry.id)
             fileDragArmedPaths = [entry.path]
         }
-        fileDragArmedUntil = Date().addingTimeInterval(3)
+        fileDragArmedUntil = Date().addingTimeInterval(10)
         statusMessage = fileDragArmedPaths.count == 1
-            ? "Listo para mover — arrastra"
-            : "\(fileDragArmedPaths.count) listos — arrastra"
+            ? "Listo para mover — arrastra ahora"
+            : "\(fileDragArmedPaths.count) listos — arrastra ahora"
+
+        if !alreadyArmed {
+            NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+        }
+
+        armedExpiryTask?.cancel()
+        armedExpiryTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            guard !Task.isCancelled else { return }
+            if self.hasArmedFileDrag {
+                self.clearArmedFileDrag()
+                self.statusMessage = "Se canceló el modo mover"
+            }
+        }
         objectWillChange.send()
+    }
+
+    func isFileDragArmed(path: String) -> Bool {
+        hasArmedFileDrag && fileDragArmedPaths.contains(path)
     }
 
     var hasArmedFileDrag: Bool {
@@ -723,14 +789,19 @@ final class BrowserModel: ObservableObject {
 
     func consumeArmedFileDrag() -> [String] {
         let paths = hasArmedFileDrag ? fileDragArmedPaths : []
-        fileDragArmedPaths = []
-        fileDragArmedUntil = nil
+        clearArmedFileDrag()
         return paths
     }
 
     func clearArmedFileDrag() {
+        armedExpiryTask?.cancel()
+        armedExpiryTask = nil
+        armingProgressTask?.cancel()
+        armingProgressTask = nil
         fileDragArmedPaths = []
         fileDragArmedUntil = nil
+        fileDragArmingPath = nil
+        fileDragArmProgress = 0
     }
 
     /// ⌘C → a la bandeja como copia.
