@@ -31,6 +31,26 @@ struct ContentView: View {
                     .truncationMode(.middle)
             }
             ToolbarItemGroup(placement: .primaryAction) {
+                Toggle(isOn: $browser.multiSelectMode) {
+                    Label("Varios", systemImage: "checkmark.circle")
+                }
+                .toggleStyle(.button)
+                .help("Clic = agregar/quitar sin ⌘. Ideal para marcar muchos.")
+
+                Button {
+                    browser.selectAllVisible()
+                } label: {
+                    Label("Todos", systemImage: "checklist")
+                }
+                .help("Seleccionar todos los visibles")
+
+                Button {
+                    browser.clearSelection()
+                } label: {
+                    Label("Ninguno", systemImage: "xmark.circle")
+                }
+                .disabled(browser.selectedIDs.isEmpty)
+
                 Button {
                     browser.openSelection()
                 } label: {
@@ -43,7 +63,6 @@ struct ContentView: View {
                 } label: {
                     Label("Copiar ruta", systemImage: "doc.on.clipboard")
                 }
-                .help("Copia la ruta completa (selección o carpeta actual)")
 
                 Button {
                     browser.quickLookSelection()
@@ -378,6 +397,16 @@ struct FileBrowserPane: View {
 
     private var header: some View {
         HStack(spacing: 12) {
+            Button {
+                browser.toggleSelectAllVisible()
+            } label: {
+                Image(systemName: browser.allVisibleSelected ? "checkmark.square.fill" : "square")
+                    .foregroundStyle(OrdenTheme.accent)
+                    .frame(width: 22)
+            }
+            .buttonStyle(.plain)
+            .help("Seleccionar / quitar todos")
+
             Text("Nombre / ruta")
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text("Tipo")
@@ -386,6 +415,7 @@ struct FileBrowserPane: View {
                 .frame(width: 130, alignment: .trailing)
             Text("Tamaño")
                 .frame(width: 84, alignment: .trailing)
+            Color.clear.frame(width: 28)
         }
         .font(.caption.weight(.semibold))
         .foregroundStyle(.secondary)
@@ -404,7 +434,21 @@ struct FileRowButton: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
+        HStack(alignment: .center, spacing: 8) {
+            // Checkbox: siempre agrega/quita con un clic (sin ⌘)
+            Button {
+                browser.toggleSelection(entry.id)
+            } label: {
+                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                    .font(.body)
+                    .foregroundStyle(isSelected ? OrdenTheme.accent : .secondary)
+                    .frame(width: 22, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Marcar / desmarcar")
+            .padding(.leading, 10)
+
             Button(action: selectRow) {
                 HStack(alignment: .center, spacing: 12) {
                     FileTypeIcon(category: entry.category, size: 17)
@@ -436,7 +480,6 @@ struct FileRowButton: View {
                         .foregroundStyle(entry.size > 500_000_000 ? .orange : .secondary)
                         .frame(width: 84, alignment: .trailing)
                 }
-                .padding(.leading, 14)
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
@@ -458,10 +501,9 @@ struct FileRowButton: View {
         }
         .background(rowBackground)
         .onDrag {
-            // Arrastre nativo → Dropover, Finder, otras apps
             let paths = browser.dragPaths(for: entry)
             if !browser.selectedIDs.contains(entry.id) {
-                browser.selectedIDs = [entry.id]
+                browser.selectOnly(entry.id)
             }
             if let first = paths.first {
                 return NSItemProvider(contentsOf: URL(fileURLWithPath: first)) ?? NSItemProvider()
@@ -470,24 +512,29 @@ struct FileRowButton: View {
         }
         .contextMenu {
             Button("Abrir") {
-                browser.selectedIDs = [entry.id]
+                browser.selectOnly(entry.id)
                 browser.open(entry)
             }
             Button("A bandeja") {
                 if !browser.selectedIDs.contains(entry.id) {
-                    browser.selectedIDs = [entry.id]
+                    browser.selectOnly(entry.id)
                 }
                 browser.addSelectionToShelf()
             }
             Button("Vista rápida") {
-                browser.selectedIDs = [entry.id]
+                browser.selectOnly(entry.id)
                 browser.quickLookSelection()
             }
             Button("Mostrar en Finder") { browser.revealInFinder(entry) }
             Button("Copiar ruta completa") { browser.copyPath(entry) }
             Divider()
+            Button("Seleccionar todos") { browser.selectAllVisible() }
+            Button("Quitar selección") { browser.clearSelection() }
+            Divider()
             Button("Mover a la Papelera", role: .destructive) {
-                browser.selectedIDs = [entry.id]
+                if !browser.selectedIDs.contains(entry.id) {
+                    browser.selectOnly(entry.id)
+                }
                 browser.moveSelectionToTrash()
             }
         }
@@ -511,36 +558,20 @@ struct FileRowButton: View {
     }
 
     private func selectRow() {
-        // Doble clic: abrir.
         if (NSApp.currentEvent?.clickCount ?? 1) >= 2 {
-            browser.selectedIDs = [entry.id]
+            browser.selectOnly(entry.id)
             browser.open(entry)
             return
         }
 
         let flags = NSEvent.modifierFlags
-        if flags.contains(.command) {
-            if browser.selectedIDs.contains(entry.id) {
-                browser.selectedIDs.remove(entry.id)
-            } else {
-                browser.selectedIDs.insert(entry.id)
-            }
-        } else if flags.contains(.shift), let anchor = browser.selectedIDs.first {
-            stretchSelection(from: anchor, to: entry.id)
+        if flags.contains(.shift) {
+            browser.selectRange(to: entry.id)
+        } else if browser.multiSelectMode || flags.contains(.command) {
+            browser.toggleSelection(entry.id)
         } else {
-            browser.selectedIDs = [entry.id]
+            browser.selectOnly(entry.id)
         }
-        browser.statusMessage = "\(browser.selectedIDs.count) seleccionado(s) — \(entry.name)"
-    }
-
-    private func stretchSelection(from anchorID: String, to endID: String) {
-        let ids = browser.visibleEntries.map(\.id)
-        guard let a = ids.firstIndex(of: anchorID), let b = ids.firstIndex(of: endID) else {
-            browser.selectedIDs = [endID]
-            return
-        }
-        let range = a <= b ? a...b : b...a
-        browser.selectedIDs = Set(ids[range])
     }
 }
 

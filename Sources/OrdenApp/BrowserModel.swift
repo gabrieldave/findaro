@@ -18,6 +18,10 @@ final class BrowserModel: ObservableObject {
     /// Bandeja tipo Dropover: aparcas archivos y luego los mueves/copias a otra carpeta.
     @Published var shelf: [FileOps.ShelfItem] = []
     @Published var shelfDropTargeted = false
+    /// Clic simple agrega/quita sin ⌘ (ideal para marcar muchos rápido).
+    @Published var multiSelectMode = false
+    /// Ancla para ⇧ clic (rango).
+    @Published var selectionAnchorID: String?
 
     let store: PreferencesStore
     private var measureTask: Task<Void, Never>?
@@ -71,6 +75,70 @@ final class BrowserModel: ObservableObject {
             .map { $0 }
     }
 
+    var allVisibleSelected: Bool {
+        let ids = visibleEntries.map(\.id)
+        return !ids.isEmpty && ids.allSatisfy { selectedIDs.contains($0) }
+    }
+
+    func selectOnly(_ id: String) {
+        selectedIDs = [id]
+        selectionAnchorID = id
+        refreshSelectionStatus()
+    }
+
+    func toggleSelection(_ id: String) {
+        if selectedIDs.contains(id) {
+            selectedIDs.remove(id)
+        } else {
+            selectedIDs.insert(id)
+        }
+        selectionAnchorID = id
+        refreshSelectionStatus()
+    }
+
+    func selectRange(to id: String) {
+        let ids = visibleEntries.map(\.id)
+        let anchor = selectionAnchorID ?? selectedIDs.first ?? id
+        guard let a = ids.firstIndex(of: anchor), let b = ids.firstIndex(of: id) else {
+            selectOnly(id)
+            return
+        }
+        let range = a <= b ? a...b : b...a
+        selectedIDs = Set(ids[range])
+        refreshSelectionStatus()
+    }
+
+    func selectAllVisible() {
+        selectedIDs = Set(visibleEntries.map(\.id))
+        selectionAnchorID = visibleEntries.first?.id
+        refreshSelectionStatus()
+    }
+
+    func clearSelection() {
+        selectedIDs = []
+        selectionAnchorID = nil
+        statusMessage = "Nada seleccionado"
+    }
+
+    func toggleSelectAllVisible() {
+        if allVisibleSelected {
+            clearSelection()
+        } else {
+            selectAllVisible()
+        }
+    }
+
+    private func refreshSelectionStatus() {
+        let n = selectedIDs.count
+        if n == 0 {
+            statusMessage = "Nada seleccionado"
+        } else if n == 1, let name = selectedEntries.first?.name {
+            statusMessage = "1 seleccionado — \(name)"
+        } else {
+            statusMessage = "\(n) seleccionados"
+        }
+    }
+
     func reload() {
         measureTask?.cancel()
         do {
@@ -91,6 +159,7 @@ final class BrowserModel: ObservableObject {
             rule = store.preferences.rule(for: path)
         }
         selectedIDs = []
+        selectionAnchorID = nil
         searchText = ""
         statusMessage = nil
         store.update { $0.lastPath = path }

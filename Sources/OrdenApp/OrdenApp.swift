@@ -36,6 +36,13 @@ struct OrdenApp: App {
             }
 
             CommandMenu("Archivo+") {
+                Button("Seleccionar todos") { browser.selectAllVisible() }
+                    .keyboardShortcut("a", modifiers: .command)
+                Button("Quitar selección") { browser.clearSelection() }
+                    .keyboardShortcut(.escape, modifiers: [])
+                Button("Modo varios") { browser.multiSelectMode.toggle() }
+                    .keyboardShortcut("m", modifiers: [.command, .shift])
+                Divider()
                 Button("Abrir selección") { browser.openSelection() }
                     .keyboardShortcut(.downArrow, modifiers: .command)
                 Button("Vista rápida") { browser.quickLookSelection() }
