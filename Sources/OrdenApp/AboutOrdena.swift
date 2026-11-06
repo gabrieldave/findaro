@@ -1,28 +1,25 @@
 import AppKit
 
-/// Acerca de Ordena: versión + estado de actualización + botón para buscar/instalar.
+/// Acerca de Ordena: versión + si ya estás al día (o si hay update).
 @MainActor
 enum AboutOrdena {
     static func show() {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-
-        let alert = NSAlert()
-        alert.messageText = "Ordena"
-        alert.informativeText = "Versión \(version) (\(build))\nComprobando actualizaciones…"
-        alert.alertStyle = .informational
-        if let icon = NSApp.applicationIconImage {
-            alert.icon = icon
-        }
-
-        // Consulta rápida antes de mostrar el diálogo definitivo.
         Task { @MainActor in
+            let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+            let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
             let status = await AppUpdateChecker.shared.aboutStatus(current: version)
+
+            let alert = NSAlert()
+            alert.messageText = "Ordena"
             alert.informativeText = """
             Versión \(version) (\(build))
             \(status.line)
             """
-            alert.buttons.removeAll()
+            alert.alertStyle = .informational
+            if let icon = NSApp.applicationIconImage {
+                alert.icon = icon
+            }
+
             switch status {
             case .upToDate:
                 alert.addButton(withTitle: "Listo")
@@ -33,13 +30,11 @@ enum AboutOrdena {
                 if alert.runModal() == .alertFirstButtonReturn {
                     await AppUpdateChecker.shared.check(interactive: true)
                 }
-            case .unreachable(let detail):
+            case .unreachable:
                 alert.addButton(withTitle: "Reintentar")
                 alert.addButton(withTitle: "Cerrar")
                 if alert.runModal() == .alertFirstButtonReturn {
                     await AppUpdateChecker.shared.check(interactive: true)
-                } else {
-                    _ = detail
                 }
             }
         }

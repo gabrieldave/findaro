@@ -23,6 +23,38 @@ final class AppUpdateChecker: ObservableObject {
         let notesURL: URL
     }
 
+    enum AboutStatus {
+        case upToDate
+        case updateAvailable(String)
+        case unreachable(String)
+
+        var line: String {
+            switch self {
+            case .upToDate:
+                return "Ya estás al día."
+            case .updateAvailable(let latest):
+                return "Hay una versión nueva: \(latest)."
+            case .unreachable:
+                return "No pude comprobar actualizaciones ahora."
+            }
+        }
+    }
+
+    /// Estado corto para el panel Acerca de (sin diálogos propios).
+    func aboutStatus(current: String) async -> AboutStatus {
+        do {
+            guard let release = try await fetchLatestRelease() else {
+                return .unreachable("Sin versión publicada")
+            }
+            if Self.isVersion(release.version, newerThan: current) {
+                return .updateAvailable(release.version)
+            }
+            return .upToDate
+        } catch {
+            return .unreachable(error.localizedDescription)
+        }
+    }
+
     func checkOnLaunchIfNeeded() {
         let last = UserDefaults.standard.double(forKey: Self.lastCheckKey)
         let now = Date().timeIntervalSince1970
