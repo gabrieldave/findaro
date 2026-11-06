@@ -36,15 +36,15 @@ struct OrdenApp: App {
             }
 
             CommandMenu("Ir") {
+                // Atajos reales van por SelectionCancelMonitor (NSEvent).
+                // Aquí sin .disabled: si el ítem está disabled, AppKit ignora el shortcut.
                 Button("Atrás") { browser.goBack() }
                     .keyboardShortcut("[", modifiers: .command)
-                    .disabled(!browser.canGoBack)
                 Button("Adelante") { browser.goForward() }
                     .keyboardShortcut("]", modifiers: .command)
-                    .disabled(!browser.canGoForward)
-                Button("Atrás (como Windows)") { browser.goBack() }
+                Button("Atrás (⌥←)") { browser.goBack() }
                     .keyboardShortcut(.leftArrow, modifiers: .option)
-                Button("Adelante (como Windows)") { browser.goForward() }
+                Button("Adelante (⌥→)") { browser.goForward() }
                     .keyboardShortcut(.rightArrow, modifiers: .option)
                 Button("Arriba") { browser.goUp() }
                     .keyboardShortcut(.upArrow, modifiers: .command)

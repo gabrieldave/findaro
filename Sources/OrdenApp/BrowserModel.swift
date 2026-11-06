@@ -54,6 +54,7 @@ final class BrowserModel: ObservableObject {
         self.viewMode = store.preferences.viewMode
         self.columnPaths = [start]
         reload()
+        refreshHistoryFlags()
     }
 
     func setViewMode(_ mode: BrowserViewMode) {
@@ -287,25 +288,52 @@ final class BrowserModel: ObservableObject {
     }
 
     /// Como Alt+← en Windows / ⌘[ en Finder.
+    /// Sin historial (p. ej. abriste directo en una subcarpeta): sube al padre.
     func goBack() {
-        guard let previous = backStack.popLast() else { return }
-        forwardStack.append(currentPath)
-        navigate(to: previous, recordHistory: false)
-        statusMessage = "Atrás"
+        if let previous = backStack.popLast() {
+            forwardStack.append(currentPath)
+            navigate(to: previous, recordHistory: false)
+            statusMessage = "Atrás"
+            refreshHistoryFlags()
+            return
+        }
+        if canNavigateUp {
+            goUp()
+            statusMessage = "Atrás · carpeta superior"
+            return
+        }
+        statusMessage = "No hay carpeta anterior"
+        refreshHistoryFlags()
     }
 
     /// Como Alt+→ en Windows / ⌘] en Finder.
     func goForward() {
-        guard let next = forwardStack.popLast() else { return }
+        guard let next = forwardStack.popLast() else {
+            statusMessage = "No hay carpeta siguiente"
+            refreshHistoryFlags()
+            return
+        }
         backStack.append(currentPath)
         navigate(to: next, recordHistory: false)
         statusMessage = "Adelante"
+        refreshHistoryFlags()
     }
 
     func goUp() {
-        let parent = (currentPath as NSString).deletingLastPathComponent
-        guard parent != currentPath, !parent.isEmpty else { return }
+        guard let parent = parentPath(of: currentPath) else { return }
         navigate(to: parent)
+    }
+
+    private var canNavigateUp: Bool {
+        parentPath(of: currentPath) != nil
+    }
+
+    private func parentPath(of path: String) -> String? {
+        let parent = (path as NSString).deletingLastPathComponent
+        let current = (path as NSString).standardizingPath
+        let standardizedParent = (parent as NSString).standardizingPath
+        guard !parent.isEmpty, standardizedParent != current else { return nil }
+        return standardizedParent
     }
 
     private func pushHistoryBeforeLeavingCurrent() {
@@ -322,7 +350,7 @@ final class BrowserModel: ObservableObject {
     }
 
     private func refreshHistoryFlags() {
-        canGoBack = !backStack.isEmpty
+        canGoBack = !backStack.isEmpty || canNavigateUp
         canGoForward = !forwardStack.isEmpty
     }
 

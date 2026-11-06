@@ -173,7 +173,17 @@ struct ContentView: View {
             browser.cancelSelection()
             return .handled
         }
-        // Esc también vía SelectionCancelMonitor (NSEvent) — más fiable con foco en búsqueda
+        .onKeyPress(keys: [.leftArrow], phases: .down) { press in
+            guard press.modifiers.contains(.option) else { return .ignored }
+            browser.goBack()
+            return .handled
+        }
+        .onKeyPress(keys: [.rightArrow], phases: .down) { press in
+            guard press.modifiers.contains(.option) else { return .ignored }
+            browser.goForward()
+            return .handled
+        }
+        // Esc / ⌥← / ⌥→ / ⌘[ / ⌘] también en SelectionCancelMonitor (NSEvent)
     }
 
     private func applyWindowWidth(_ w: CGFloat) {
