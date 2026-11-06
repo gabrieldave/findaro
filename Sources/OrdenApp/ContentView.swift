@@ -450,15 +450,24 @@ struct SidebarView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(OrdenTheme.windowFill)
-        .onReceive(NotificationCenter.default.publisher(for: NSWorkspace.didMountNotification)) { _ in
-            volumesTick &+= 1
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSWorkspace.didUnmountNotification)) { _ in
-            volumesTick &+= 1
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSWorkspace.didRenameVolumeNotification)) { _ in
-            volumesTick &+= 1
-        }
+        .onReceive(
+            NotificationCenter.Publisher(
+                center: NSWorkspace.shared.notificationCenter,
+                name: NSWorkspace.didMountNotification
+            )
+        ) { _ in volumesTick &+= 1 }
+        .onReceive(
+            NotificationCenter.Publisher(
+                center: NSWorkspace.shared.notificationCenter,
+                name: NSWorkspace.didUnmountNotification
+            )
+        ) { _ in volumesTick &+= 1 }
+        .onReceive(
+            NotificationCenter.Publisher(
+                center: NSWorkspace.shared.notificationCenter,
+                name: NSWorkspace.didRenameVolumeNotification
+            )
+        ) { _ in volumesTick &+= 1 }
     }
 
     private var favoriteItems: [SidebarItem] {
