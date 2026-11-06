@@ -494,30 +494,45 @@ struct FileActionsBar: View {
             .disabled(browser.selectedIDs.isEmpty)
 
             Button {
-                browser.copySelectionToPasteboard()
+                browser.addSelectionToShelf(intent: .copy)
             } label: {
                 Label("Copiar", systemImage: "doc.on.doc")
             }
             .controlSize(.regular)
             .disabled(browser.selectedIDs.isEmpty)
-            .help("⌘C")
+            .help("⌘C — a la bandeja para copiar")
 
             Button {
-                browser.cutSelectionToPasteboard()
+                browser.addSelectionToShelf(intent: .move)
             } label: {
                 Label("Cortar", systemImage: "scissors")
             }
             .controlSize(.regular)
             .disabled(browser.selectedIDs.isEmpty)
-            .help("⌘X — al pegar se mueve")
+            .help("⌘X — a la bandeja para mover")
 
             Button {
-                browser.pasteFromPasteboard()
+                browser.depositShelfHere()
             } label: {
                 Label("Pegar", systemImage: "doc.on.clipboard")
             }
             .controlSize(.regular)
-            .help("⌘V")
+            .disabled(browser.shelf.isEmpty && !browser.canPasteFiles)
+            .help("⌘V — suelta la bandeja aquí")
+
+            Button {
+                browser.addSelectionToShelf(intent: .move)
+            } label: {
+                Label(
+                    browser.shelf.isEmpty ? "Bandeja" : "Bandeja (\(browser.shelf.count))",
+                    systemImage: "tray.and.arrow.down.fill"
+                )
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(OrdenTheme.accent)
+            .controlSize(.regular)
+            .disabled(browser.selectedIDs.isEmpty)
+            .help("Mete la selección en la bandeja (abajo)")
 
             Button {
                 browser.addFoldersToFavoritesFromUI()
@@ -1251,8 +1266,8 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Selección y mover") {
-                Text("Clic = uno · Arrastrar al instante = rectángulo · Mantener 1s sobre un archivo y arrastrar = mover · ⇧/⌘ clic = multi · ⌘C copiar · ⌘X cortar · ⌘V pegar")
+            Section("Selección y bandeja") {
+                Text("Clic = uno · Arrastrar = rectángulo · Hold 1s = arrastrar archivo · ⌘C → bandeja (copiar) · ⌘X → bandeja (mover) · ⌘V suelta la bandeja aquí")
             }
             Section("Ordena") {
                 LabeledContent("Ámbito", value: browser.scopeBadge)

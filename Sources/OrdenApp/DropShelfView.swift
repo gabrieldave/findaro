@@ -14,40 +14,44 @@ struct DropShelfView: View {
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                     .foregroundStyle(OrdenTheme.accent)
 
-                Text(browser.shelf.isEmpty ? "Arrastra archivos aquí o usa «A bandeja»" : "\(browser.shelf.count) listos para mover")
+                Text(
+                    browser.shelf.isEmpty
+                        ? "⌘C copia · ⌘X mueve · o arrastra aquí"
+                        : "\(browser.shelf.count) en bandeja · ⌘V suelta aquí"
+                )
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
                 Spacer()
 
                 Button {
-                    browser.addSelectionToShelf()
+                    browser.addSelectionToShelf(intent: .copy)
                 } label: {
-                    Label("A bandeja", systemImage: "plus.circle.fill")
+                    Label("Copiar", systemImage: "doc.on.doc")
+                }
+                .controlSize(.small)
+                .disabled(browser.selectedIDs.isEmpty)
+                .help("⌘C")
+
+                Button {
+                    browser.addSelectionToShelf(intent: .move)
+                } label: {
+                    Label("Cortar", systemImage: "scissors")
+                }
+                .controlSize(.small)
+                .disabled(browser.selectedIDs.isEmpty)
+                .help("⌘X")
+
+                Button {
+                    browser.depositShelfHere()
+                } label: {
+                    Label("Soltar aquí", systemImage: "arrow.down.doc")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(OrdenTheme.accent)
                 .controlSize(.small)
-                .disabled(browser.selectedIDs.isEmpty)
-                .help("Mete la selección en la bandeja")
-
-                Button {
-                    browser.copyShelfHere()
-                } label: {
-                    Label("Copiar aquí", systemImage: "doc.on.doc")
-                }
-                .controlSize(.small)
                 .disabled(browser.shelf.isEmpty)
-
-                Button {
-                    browser.moveShelfHere()
-                } label: {
-                    Label("Mover aquí", systemImage: "arrow.right.doc.on.clipboard")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(browser.shelf.isEmpty)
-                .help("Mueve todo a la carpeta actual (\(browser.currentPath))")
+                .help("⌘V — copia o mueve según cada ítem")
 
                 Button(role: .destructive) {
                     browser.clearShelf()
@@ -101,11 +105,14 @@ struct DropShelfView: View {
 
     private func shelfChip(_ item: FileOps.ShelfItem) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: "doc")
+            Image(systemName: item.intent == .move ? "arrow.right.doc.on.clipboard" : "doc.on.doc")
                 .font(.caption2)
             Text(item.name)
                 .font(.caption)
                 .lineLimit(1)
+            Text(item.intent == .move ? "mover" : "copiar")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(item.intent == .move ? .orange : OrdenTheme.accent)
             Button {
                 browser.removeFromShelf(item)
             } label: {
@@ -117,7 +124,10 @@ struct DropShelfView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(OrdenTheme.accent.opacity(0.18), in: Capsule())
+        .background(
+            (item.intent == .move ? Color.orange : OrdenTheme.accent).opacity(0.18),
+            in: Capsule()
+        )
         .help(item.path)
         .onDrag {
             NSItemProvider(contentsOf: URL(fileURLWithPath: item.path)) ?? NSItemProvider()

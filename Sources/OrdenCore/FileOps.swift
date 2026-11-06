@@ -15,19 +15,28 @@ public enum FileOpsError: Error, LocalizedError {
 }
 
 public enum FileOps {
+    /// Qué hará la bandeja al soltar en una carpeta.
+    public enum ShelfIntent: String, Codable, Sendable, Hashable {
+        case copy
+        case move
+    }
+
     public struct ShelfItem: Equatable, Identifiable, Sendable, Codable, Hashable {
         public var id: String { path }
         public let path: String
         public let name: String
+        public var intent: ShelfIntent
 
-        public init(path: String, name: String) {
+        public init(path: String, name: String, intent: ShelfIntent = .move) {
             self.path = path
             self.name = name
+            self.intent = intent
         }
 
-        public init(entry: FileEntry) {
+        public init(entry: FileEntry, intent: ShelfIntent = .move) {
             self.path = entry.path
             self.name = entry.name
+            self.intent = intent
         }
     }
 

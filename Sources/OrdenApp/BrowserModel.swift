@@ -698,64 +698,38 @@ final class BrowserModel: ObservableObject {
         statusMessage = count == 1 ? "Duplicado" : "\(count) duplicados"
     }
 
-    /// Rutas pendientes de «Cortar» (⌘X); al pegar se mueven y se limpia.
-    private var pendingCutPaths: [String] = []
-
-    /// Copia archivos (URLs) al portapapeles — pegable en Finder/Ordena (⌘C).
+    /// ⌘C → a la bandeja como copia.
     func copySelectionToPasteboard() {
-        let urls = selectedEntries.map { URL(fileURLWithPath: $0.path) as NSURL }
-        guard !urls.isEmpty else {
-            statusMessage = "Nada seleccionado"
-            return
-        }
-        pendingCutPaths = []
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.writeObjects(urls)
-        statusMessage = urls.count == 1 ? "Copiado — ⌘V para pegar" : "\(urls.count) copiados — ⌘V para pegar"
+        addSelectionToShelf(intent: .copy)
     }
 
-    /// Corta archivos (⌘X): al pegar se mueven (como Windows).
+    /// ⌘X → a la bandeja como mover.
     func cutSelectionToPasteboard() {
-        let entries = selectedEntries
-        guard !entries.isEmpty else {
-            statusMessage = "Nada seleccionado"
-            return
-        }
-        let urls = entries.map { URL(fileURLWithPath: $0.path) as NSURL }
-        pendingCutPaths = entries.map(\.path)
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.writeObjects(urls)
-        statusMessage = entries.count == 1
-            ? "Cortado — ⌘V mueve aquí"
-            : "\(entries.count) cortados — ⌘V mueve aquí"
-        objectWillChange.send()
+        addSelectionToShelf(intent: .move)
     }
 
+    /// ⌘V → suelta la bandeja aquí (cada ítem según su intención).
     func pasteFromPasteboard() {
+        if !shelf.isEmpty {
+            depositShelfHere()
+            return
+        }
+        // Fallback: portapapeles del sistema (Finder, etc.)
         let pb = NSPasteboard.general
         guard let urls = pb.readObjects(forClasses: [NSURL.self], options: [
             .urlReadingFileURLsOnly: true
         ]) as? [URL], !urls.isEmpty else {
-            statusMessage = "El portapapeles no tiene archivos"
+            statusMessage = "Bandeja y portapapeles vacíos"
             return
         }
-        let paths = urls.map(\.path)
-        let cutSet = Set(pendingCutPaths.map { ($0 as NSString).standardizingPath })
-        let pasteSet = Set(paths.map { ($0 as NSString).standardizingPath })
-        let shouldMove = !cutSet.isEmpty && !cutSet.isDisjoint(with: pasteSet)
         do {
             let n = try FileOps.transfer(
-                paths: paths,
+                paths: urls.map(\.path),
                 toDirectory: currentPath,
-                move: shouldMove
+                move: false
             )
-            if shouldMove {
-                pendingCutPaths = []
-            }
             reload()
-            statusMessage = shouldMove
-                ? (n == 1 ? "1 archivo movido" : "\(n) archivos movidos")
-                : (n == 1 ? "1 archivo pegado" : "\(n) archivos pegados")
+            statusMessage = n == 1 ? "1 archivo pegado" : "\(n) archivos pegados"
         } catch {
             statusMessage = "No se pudo pegar: \(error.localizedDescription)"
         }
@@ -769,27 +743,36 @@ final class BrowserModel: ObservableObject {
 
     // MARK: - Bandeja (Dropover casero)
 
-    func addSelectionToShelf() {
-        let items = selectedEntries.map(FileOps.ShelfItem.init(entry:))
-        guard !items.isEmpty else {
+    func addSelectionToShelf(intent: FileOps.ShelfIntent = .move) {
+        let entries = selectedEntries
+        guard !entries.isEmpty else {
             statusMessage = "Selecciona algo para la bandeja"
             return
         }
-        for item in items where !shelf.contains(where: { $0.path == item.path }) {
-            shelf.append(item)
+        for entry in entries {
+            upsertShelfItem(FileOps.ShelfItem(entry: entry, intent: intent))
+        }
+        let verb = intent == .move ? "para mover" : "para copiar"
+        statusMessage = entries.count == 1
+            ? "En bandeja \(verb) — ve abajo o ⌘V aquí"
+            : "\(entries.count) en bandeja \(verb) — ⌘V suelta aquí"
+        objectWillChange.send()
+    }
+
+    func addPathsToShelf(_ paths: [String], intent: FileOps.ShelfIntent = .move) {
+        for path in paths {
+            let name = URL(fileURLWithPath: path).lastPathComponent
+            upsertShelfItem(FileOps.ShelfItem(path: path, name: name, intent: intent))
         }
         statusMessage = "Bandeja: \(shelf.count) ítem(s)"
     }
 
-    func addPathsToShelf(_ paths: [String]) {
-        for path in paths {
-            let name = URL(fileURLWithPath: path).lastPathComponent
-            let item = FileOps.ShelfItem(path: path, name: name)
-            if !shelf.contains(where: { $0.path == path }) {
-                shelf.append(item)
-            }
+    private func upsertShelfItem(_ item: FileOps.ShelfItem) {
+        if let idx = shelf.firstIndex(where: { $0.path == item.path }) {
+            shelf[idx].intent = item.intent
+        } else {
+            shelf.append(item)
         }
-        statusMessage = "Bandeja: \(shelf.count) ítem(s)"
     }
 
     func removeFromShelf(_ item: FileOps.ShelfItem) {
@@ -802,26 +785,60 @@ final class BrowserModel: ObservableObject {
     }
 
     func moveShelfHere() {
-        transferShelf(move: true)
+        transferShelf(forceMove: true)
     }
 
     func copyShelfHere() {
-        transferShelf(move: false)
+        transferShelf(forceMove: false)
     }
 
-    private func transferShelf(move: Bool) {
+    /// Respeta la intención de cada ítem (⌘C copia / ⌘X mueve).
+    func depositShelfHere() {
+        guard !shelf.isEmpty else {
+            statusMessage = "La bandeja está vacía"
+            return
+        }
+        var moved = 0
+        var copied = 0
+        var remaining: [FileOps.ShelfItem] = []
+        do {
+            for item in shelf {
+                let n = try FileOps.transfer(
+                    paths: [item.path],
+                    toDirectory: currentPath,
+                    move: item.intent == .move
+                )
+                if item.intent == .move {
+                    moved += n
+                } else {
+                    copied += n
+                    remaining.append(item) // copias se pueden volver a usar
+                }
+            }
+            shelf = remaining
+            reload()
+            var parts: [String] = []
+            if moved > 0 { parts.append("\(moved) movido(s)") }
+            if copied > 0 { parts.append("\(copied) copiado(s)") }
+            statusMessage = parts.isEmpty ? "Nada transferido" : parts.joined(separator: " · ")
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func transferShelf(forceMove: Bool) {
         let paths = shelf.map(\.path)
         guard !paths.isEmpty else {
             statusMessage = "La bandeja está vacía"
             return
         }
         do {
-            let n = try FileOps.transfer(paths: paths, toDirectory: currentPath, move: move)
-            if move {
+            let n = try FileOps.transfer(paths: paths, toDirectory: currentPath, move: forceMove)
+            if forceMove {
                 shelf.removeAll { paths.contains($0.path) }
             }
             reload()
-            statusMessage = move
+            statusMessage = forceMove
                 ? "Movidos \(n) a esta carpeta"
                 : "Copiados \(n) a esta carpeta"
         } catch {

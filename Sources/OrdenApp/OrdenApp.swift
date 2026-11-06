@@ -25,11 +25,11 @@ struct OrdenApp: App {
             }
 
             CommandGroup(after: .pasteboard) {
-                Button("Copiar archivos") { browser.copySelectionToPasteboard() }
+                Button("Copiar a bandeja") { browser.addSelectionToShelf(intent: .copy) }
                     .keyboardShortcut("c", modifiers: .command)
-                Button("Cortar archivos") { browser.cutSelectionToPasteboard() }
+                Button("Cortar a bandeja") { browser.addSelectionToShelf(intent: .move) }
                     .keyboardShortcut("x", modifiers: .command)
-                Button("Pegar archivos") { browser.pasteFromPasteboard() }
+                Button("Soltar bandeja aquí") { browser.pasteFromPasteboard() }
                     .keyboardShortcut("v", modifiers: .command)
                 Button("Duplicar") { browser.duplicateSelection() }
                     .keyboardShortcut("d", modifiers: .command)

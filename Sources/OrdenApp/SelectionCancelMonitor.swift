@@ -55,11 +55,11 @@ enum SelectionCancelMonitor {
                     return nil
                 }
                 if chars.lowercased() == "c" || key == 8 {
-                    browser.copySelectionToPasteboard()
+                    browser.addSelectionToShelf(intent: .copy)
                     return nil
                 }
                 if chars.lowercased() == "x" || key == 7 {
-                    browser.cutSelectionToPasteboard()
+                    browser.addSelectionToShelf(intent: .move)
                     return nil
                 }
                 if chars.lowercased() == "v" || key == 9 {
