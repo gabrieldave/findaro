@@ -13,6 +13,8 @@ Finder mezcla tres conceptos (`Arrange` / `Group` / `Sort`), olvida preferencias
 3. **Preferencias propias** (JSON en Application Support), no `.DS_Store`.
 4. **Multi-criterio** — p. ej. Clase + Nombre.
 5. **Orden natural** — `file2` antes que `file10`.
+6. **Perfil Descargas smart** — carpetas `01_…` por nombre; archivos por fecha agregada.
+7. **Atajos tipo Finder** — Return/⌘↓ abrir, Space vista rápida, ⌘⌫ Papelera, ⌘↑ arriba.
 
 ## Requisitos
 
