@@ -40,20 +40,30 @@ public enum FileOps {
         }
     }
 
-    /// Copia o mueve rutas a una carpeta destino. Devuelve cuántos se procesaron.
+    /// Par origen → destino tras transferir (para deshacer).
+    public struct TransferPair: Equatable, Sendable {
+        public let from: String
+        public let to: String
+        public init(from: String, to: String) {
+            self.from = from
+            self.to = to
+        }
+    }
+
+    /// Copia o mueve rutas a una carpeta destino. Devuelve los pares realizados.
     @discardableResult
     public static func transfer(
         paths: [String],
         toDirectory destinationDir: String,
         move: Bool
-    ) throws -> Int {
+    ) throws -> [TransferPair] {
         let fm = FileManager.default
         var destIsDir: ObjCBool = false
         guard fm.fileExists(atPath: destinationDir, isDirectory: &destIsDir), destIsDir.boolValue else {
             throw FileOpsError.failed("Destino no es carpeta")
         }
 
-        var count = 0
+        var pairs: [TransferPair] = []
         for path in paths {
             let src = URL(fileURLWithPath: path)
             let parent = src.deletingLastPathComponent().path
@@ -69,12 +79,12 @@ public enum FileOps {
                 } else {
                     try fm.copyItem(at: src, to: dest)
                 }
-                count += 1
+                pairs.append(TransferPair(from: path, to: dest.path))
             } catch {
                 throw FileOpsError.failed(error.localizedDescription)
             }
         }
-        return count
+        return pairs
     }
 
     /// Crea una carpeta dentro de `parent`. Si el nombre existe, añade " 2", " 3"…

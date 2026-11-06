@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
 import OrdenCore
 
 /// Monitor AppKit: hold 1s + doble clic sin pelear con el marquee de SwiftUI.
@@ -237,47 +236,5 @@ extension View {
                 browser.activateEntry(entry)
             }
         )
-    }
-
-    /// Si es carpeta: aceptar drop para meter archivos adentro (no a la bandeja).
-    @ViewBuilder
-    func folderDropTarget(entry: FileEntry, browser: BrowserModel) -> some View {
-        if entry.isDirectory {
-            self
-                .onDrop(of: [UTType.fileURL], isTargeted: Binding(
-                    get: { browser.folderDropTargetPath == entry.path },
-                    set: { hovering in
-                        if hovering {
-                            browser.folderDropTargetPath = entry.path
-                        } else if browser.folderDropTargetPath == entry.path {
-                            browser.folderDropTargetPath = nil
-                        }
-                    }
-                )) { providers in
-                    browser.handleDropIntoFolder(providers: providers, folderPath: entry.path)
-                }
-                .overlay {
-                    if browser.folderDropTargetPath == entry.path {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Color.green.opacity(0.22))
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .strokeBorder(Color.green, lineWidth: 3)
-                            Label("Soltar aquí", systemImage: "folder.badge.plus")
-                                .font(.caption.weight(.bold))
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .foregroundStyle(.white)
-                                .background(Color.green, in: Capsule())
-                                .shadow(color: .green.opacity(0.45), radius: 6, y: 1)
-                        }
-                        .allowsHitTesting(false)
-                        .transition(.opacity)
-                    }
-                }
-                .animation(.easeOut(duration: 0.12), value: browser.folderDropTargetPath == entry.path)
-        } else {
-            self
-        }
     }
 }

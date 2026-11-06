@@ -36,6 +36,17 @@ final class BrowserModel: ObservableObject {
     @Published var shelfDropTargeted = false
     /// Carpeta bajo el cursor al arrastrar (drop para meter adentro).
     @Published var folderDropTargetPath: String?
+
+    /// Historial para ⌘Z (mover/copiar).
+    private var undoStack: [UndoRecord] = []
+    private let undoLimit = 30
+
+    private enum UndoRecord {
+        /// Mover: deshacer = devolver `to` → `from`.
+        case moved(pairs: [FileOps.TransferPair])
+        /// Copiar: deshacer = tirar los `to` a la Papelera.
+        case copied(created: [String])
+    }
     /// Clic simple agrega/quita sin ⌘ (ideal para marcar muchos rápido).
     @Published var multiSelectMode = false
     /// Ancla para ⇧ clic (rango).
@@ -834,13 +845,14 @@ final class BrowserModel: ObservableObject {
             return
         }
         do {
-            let n = try FileOps.transfer(
+            let pairs = try FileOps.transfer(
                 paths: urls.map(\.path),
                 toDirectory: currentPath,
                 move: false
             )
+            pushUndo(.copied(created: pairs.map(\.to)))
             reload()
-            statusMessage = n == 1 ? "1 archivo pegado" : "\(n) archivos pegados"
+            statusMessage = pairs.count == 1 ? "1 archivo pegado" : "\(pairs.count) archivos pegados"
         } catch {
             statusMessage = "No se pudo pegar: \(error.localizedDescription)"
         }
@@ -909,29 +921,31 @@ final class BrowserModel: ObservableObject {
             statusMessage = "La bandeja está vacía"
             return
         }
-        var moved = 0
-        var copied = 0
+        var movedPairs: [FileOps.TransferPair] = []
+        var copiedPairs: [FileOps.TransferPair] = []
         var remaining: [FileOps.ShelfItem] = []
         do {
             for item in shelf {
-                let n = try FileOps.transfer(
+                let pairs = try FileOps.transfer(
                     paths: [item.path],
                     toDirectory: currentPath,
                     move: item.intent == .move
                 )
                 if item.intent == .move {
-                    moved += n
+                    movedPairs.append(contentsOf: pairs)
                 } else {
-                    copied += n
+                    copiedPairs.append(contentsOf: pairs)
                     remaining.append(item) // copias se pueden volver a usar
                 }
             }
             shelf = remaining
+            if !movedPairs.isEmpty { pushUndo(.moved(pairs: movedPairs)) }
+            if !copiedPairs.isEmpty { pushUndo(.copied(created: copiedPairs.map(\.to))) }
             reload()
             var parts: [String] = []
-            if moved > 0 { parts.append("\(moved) movido(s)") }
-            if copied > 0 { parts.append("\(copied) copiado(s)") }
-            statusMessage = parts.isEmpty ? "Nada transferido" : parts.joined(separator: " · ")
+            if !movedPairs.isEmpty { parts.append("\(movedPairs.count) movido(s)") }
+            if !copiedPairs.isEmpty { parts.append("\(copiedPairs.count) copiado(s)") }
+            statusMessage = parts.isEmpty ? "Nada transferido" : parts.joined(separator: " · ") + " · ⌘Z deshace"
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -944,16 +958,76 @@ final class BrowserModel: ObservableObject {
             return
         }
         do {
-            let n = try FileOps.transfer(paths: paths, toDirectory: currentPath, move: forceMove)
+            let pairs = try FileOps.transfer(paths: paths, toDirectory: currentPath, move: forceMove)
             if forceMove {
                 shelf.removeAll { paths.contains($0.path) }
+                pushUndo(.moved(pairs: pairs))
+            } else {
+                pushUndo(.copied(created: pairs.map(\.to)))
             }
             reload()
             statusMessage = forceMove
-                ? "Movidos \(n) a esta carpeta"
-                : "Copiados \(n) a esta carpeta"
+                ? "Movidos \(pairs.count) a esta carpeta · ⌘Z deshace"
+                : "Copiados \(pairs.count) a esta carpeta · ⌘Z deshace"
         } catch {
             statusMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - Deshacer (⌘Z)
+
+    private func pushUndo(_ record: UndoRecord) {
+        undoStack.append(record)
+        if undoStack.count > undoLimit {
+            undoStack.removeFirst(undoStack.count - undoLimit)
+        }
+    }
+
+    var canUndo: Bool { !undoStack.isEmpty }
+
+    /// ⌘Z — deshacer último movimiento/copia (como Explorer).
+    func undoLastFileOp() {
+        guard let record = undoStack.popLast() else {
+            statusMessage = "Nada que deshacer"
+            return
+        }
+        do {
+            switch record {
+            case .moved(let pairs):
+                var restored = 0
+                for pair in pairs.reversed() {
+                    let current = URL(fileURLWithPath: pair.to)
+                    guard FileManager.default.fileExists(atPath: current.path) else { continue }
+                    let originalParent = URL(fileURLWithPath: pair.from).deletingLastPathComponent()
+                    var isDir: ObjCBool = false
+                    guard FileManager.default.fileExists(atPath: originalParent.path, isDirectory: &isDir),
+                          isDir.boolValue else { continue }
+                    var dest = URL(fileURLWithPath: pair.from)
+                    if FileManager.default.fileExists(atPath: dest.path) {
+                        dest = FileOps.uniqueURL(dest)
+                    }
+                    try FileManager.default.moveItem(at: current, to: dest)
+                    restored += 1
+                }
+                reload()
+                statusMessage = restored == 0
+                    ? "No se pudo deshacer el movimiento"
+                    : "Deshecho: \(restored) movido(s) de vuelta"
+            case .copied(let created):
+                var trashed = 0
+                for path in created.reversed() {
+                    let url = URL(fileURLWithPath: path)
+                    guard FileManager.default.fileExists(atPath: url.path) else { continue }
+                    try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+                    trashed += 1
+                }
+                reload()
+                statusMessage = trashed == 0
+                    ? "No se pudo deshacer la copia"
+                    : "Deshecho: \(trashed) copia(s) a la Papelera"
+            }
+        } catch {
+            statusMessage = "No se pudo deshacer: \(error.localizedDescription)"
         }
     }
 
@@ -1068,18 +1142,21 @@ final class BrowserModel: ObservableObject {
         }
 
         do {
-            let n = try FileOps.transfer(paths: unique, toDirectory: dest, move: !copy)
-            if !copy {
+            let pairs = try FileOps.transfer(paths: unique, toDirectory: dest, move: !copy)
+            if copy {
+                pushUndo(.copied(created: pairs.map(\.to)))
+            } else {
                 shelf.removeAll { unique.contains(($0.path as NSString).standardizingPath) }
                 selectedIDs = []
+                pushUndo(.moved(pairs: pairs))
             }
             folderDropTargetPath = nil
             clearArmedFileDrag()
             reload()
             let name = URL(fileURLWithPath: dest).lastPathComponent
             statusMessage = copy
-                ? "Copiados \(n) → \(name)"
-                : "Movidos \(n) → \(name)"
+                ? "Copiados \(pairs.count) → \(name) · ⌘Z deshace"
+                : "Movidos \(pairs.count) → \(name) · ⌘Z deshace"
         } catch {
             statusMessage = error.localizedDescription
         }

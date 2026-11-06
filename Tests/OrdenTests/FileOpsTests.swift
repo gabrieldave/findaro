@@ -15,8 +15,8 @@ final class FileOpsTests: XCTestCase {
         let file = a.appendingPathComponent("nota.txt")
         try Data("hola".utf8).write(to: file)
 
-        let n = try FileOps.transfer(paths: [file.path], toDirectory: b.path, move: true)
-        XCTAssertEqual(n, 1)
+        let pairs = try FileOps.transfer(paths: [file.path], toDirectory: b.path, move: true)
+        XCTAssertEqual(pairs.count, 1)
         XCTAssertFalse(fm.fileExists(atPath: file.path))
         XCTAssertTrue(fm.fileExists(atPath: b.appendingPathComponent("nota.txt").path))
     }

@@ -347,7 +347,7 @@ private struct IconsItemCell: View {
         )
         .fileDragArmHighlight(path: entry.path)
         .reportFileDragArmFrame(path: entry.path)
-        .folderDropTarget(entry: entry, browser: browser)
+        .folderDropTarget(entry: entry)
         .fileOpenOnDoubleClick(entry: entry, browser: browser)
         .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu { entryContextMenu(entry) }
@@ -623,7 +623,7 @@ private struct ColumnRow: View {
         )
         .fileDragArmHighlight(path: entry.path)
         .reportFileDragArmFrame(path: entry.path)
-        .folderDropTarget(entry: entry, browser: browser)
+        .folderDropTarget(entry: entry)
         .fileOpenOnDoubleClick(entry: entry, browser: browser)
         .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu { entryContextMenu(entry) }

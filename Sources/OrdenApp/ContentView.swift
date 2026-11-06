@@ -224,16 +224,18 @@ struct ContentView: View {
                     Text("Suelta para meter en «\(URL(fileURLWithPath: dest).lastPathComponent)»")
                         .font(.subheadline.weight(.semibold))
                     Spacer(minLength: 0)
-                    Text("⌥ = copiar")
+                    Text("⌥ copia · ⌘Z deshace")
                         .font(.caption)
                         .opacity(0.85)
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.green.gradient, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .padding(.horizontal, 16)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                // Banner de altura fija (evita saltos de layout que traban el drop).
+                .animation(nil, value: dest)
             }
 
             FileBrowserPane()
@@ -1204,7 +1206,7 @@ struct FileRowButton: View {
         .background(rowBackground)
         .fileDragArmHighlight(path: entry.path)
         .reportFileDragArmFrame(path: entry.path)
-        .folderDropTarget(entry: entry, browser: browser)
+        .folderDropTarget(entry: entry)
         .fileOpenOnDoubleClick(entry: entry, browser: browser)
         .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu {

@@ -25,6 +25,9 @@ struct OrdenApp: App {
             }
 
             CommandGroup(after: .pasteboard) {
+                Button("Deshacer movimiento") { browser.undoLastFileOp() }
+                    .keyboardShortcut("z", modifiers: .command)
+                    .disabled(!browser.canUndo)
                 Button("Copiar a bandeja") { browser.addSelectionToShelf(intent: .copy) }
                     .keyboardShortcut("c", modifiers: .command)
                 Button("Cortar a bandeja") { browser.addSelectionToShelf(intent: .move) }
