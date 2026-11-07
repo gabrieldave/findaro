@@ -8,7 +8,10 @@ public enum AgentRisk: String, Codable, Sendable {
 }
 
 public enum AgentToolName: String, Codable, Sendable, CaseIterable {
+    /// Búsqueda rápida por nombre (igual que ⌘4).
     case searchFiles
+    /// Búsqueda del asistente/IA: lenguaje natural + contenido de archivos de texto (no Spotlight).
+    case searchContent
     case listDirectory
     case getFileMetadata
     case openFile
@@ -65,7 +68,7 @@ public struct AgentPlan: Equatable, Sendable, Identifiable {
 public enum AgentPolicy {
     public static func risk(for name: AgentToolName) -> AgentRisk {
         switch name {
-        case .searchFiles, .listDirectory, .getFileMetadata, .openFile, .previewFile, .getStorageUsage, .findDuplicates:
+        case .searchFiles, .searchContent, .listDirectory, .getFileMetadata, .openFile, .previewFile, .getStorageUsage, .findDuplicates:
             return .read
         case .createDirectory, .copyFiles, .renameFiles, .organizeFiles:
             return .write
@@ -111,13 +114,34 @@ public enum AgentIntentParser {
             summary = "Buscar posibles duplicados en esta carpeta"
         }
 
+        let wantsContentSearch =
+            lower.contains("contenido")
+            || lower.contains("dentro del")
+            || lower.contains("dentro de")
+            || lower.contains("que diga")
+            || lower.contains("que dice")
+            || lower.contains("factura")
+            || lower.contains("contrato")
+            || lower.contains("menciona")
+            || lower.contains("containing")
+            || lower.contains("inside ")
+
         if let name = extractQuoted(text) ?? extractAfter(lower, keys: ["busca ", "buscar ", "encuentra ", "find ", "search "]) {
-            steps.append(AgentToolCall(
-                name: .searchFiles,
-                arguments: ["query": name, "root": currentPath],
-                risk: .read
-            ))
-            summary = "Buscar «\(name)» bajo la carpeta actual"
+            if wantsContentSearch || name.split(separator: " ").count >= 3 {
+                steps.append(AgentToolCall(
+                    name: .searchContent,
+                    arguments: ["query": name, "root": currentPath],
+                    risk: .read
+                ))
+                summary = "Búsqueda asistente (nombre + contenido) «\(name)»"
+            } else {
+                steps.append(AgentToolCall(
+                    name: .searchFiles,
+                    arguments: ["query": name, "root": currentPath],
+                    risk: .read
+                ))
+                summary = "Buscar por nombre «\(name)» bajo la carpeta actual"
+            }
         }
 
         if lower.contains("pdf") && steps.isEmpty {
@@ -129,7 +153,7 @@ public enum AgentIntentParser {
             summary = "Listar PDFs en esta carpeta y subcarpetas"
         }
 
-        if lower.contains("lista") || lower.contains("list ") || lower.contains("contenido") {
+        if (lower.contains("lista") || lower.contains("list ")) && !wantsContentSearch {
             steps.append(AgentToolCall(
                 name: .listDirectory,
                 arguments: ["path": currentPath],
@@ -157,12 +181,17 @@ public enum AgentIntentParser {
         }
 
         if steps.isEmpty {
+            let tool: AgentToolName = (wantsContentSearch || text.split(separator: " ").count >= 3)
+                ? .searchContent
+                : .searchFiles
             steps.append(AgentToolCall(
-                name: .searchFiles,
+                name: tool,
                 arguments: ["query": text, "root": currentPath],
                 risk: .read
             ))
-            summary = "Búsqueda general con tu texto"
+            summary = tool == .searchContent
+                ? "Búsqueda asistente (nombre + contenido)"
+                : "Búsqueda por nombre"
         }
 
         return AgentPlan(prompt: text, summary: summary, steps: steps)

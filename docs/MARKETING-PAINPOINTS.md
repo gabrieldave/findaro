@@ -23,7 +23,7 @@ Actualizado con el estado del producto Ordena (explorador nativo Swift).
 
 | Queja real | Ángulo de marketing | Estado en Ordena |
 |---|---|---|
-| Spotlight no encuentra partes de palabra / iCloud | “Búsqueda propia en disco, sin depender solo de Spotlight.” | Filtro local hoy; búsqueda recursiva en roadmap |
+| Spotlight no encuentra partes de palabra / iCloud | “Búsqueda propia en disco, sin depender solo de Spotlight.” | ⌘4 por nombre (parcial) ya; IA local = contenido + frases (roadmap) |
 | Al mover carpeta sobre otra: Reemplazar borra todo | “Smart Merge: ves qué es nuevo, igual o conflicto antes de tocar nada.” | Preview de fusión (roadmap / en curso) |
 | SMB/NAS lento, archivos grises, .DS_Store por todos lados | “Preferencias en la app, no .DS_Store; listados sin congelar la UI.” | Prefs propias ya; modo red dedicado = roadmap |
 
@@ -56,7 +56,7 @@ Pilares a repetir:
 
 1. **Nativo Swift** (no Electron) — sin “impuesto de RAM” de stacks web.
 2. **Ergonomía** — cortar/pegar, bandeja, ⌘+clic listo para mover, ⇧+flechas.
-3. **Búsqueda confiable** — propia, no solo Spotlight (mensaje cuando esté la fase).
+3. **Búsqueda en dos capas** — ⌘4 por nombre (ya); asistente/IA local por contenido y frases (roadmap).
 4. **Smart Merge** — cero pérdida silenciosa (mensaje cuando esté la fase).
 5. **IA y voz 100 % locales y opcionales** — no requisito; offline tras instalar modelos.
 6. **Pago único / offline** (cuando exista licencia) — sin telemetría.

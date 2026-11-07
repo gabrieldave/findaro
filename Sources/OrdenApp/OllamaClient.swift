@@ -51,7 +51,11 @@ final class OllamaClient: ObservableObject {
         }
         let system = """
         Eres el planificador de Ordena (explorador macOS). Responde SOLO JSON:
-        {"summary":"...","steps":[{"name":"searchFiles|listDirectory|getStorageUsage|findDuplicates|organizeFiles","arguments":{"key":"value"}}]}
+        {"summary":"...","steps":[{"name":"searchFiles|searchContent|listDirectory|getStorageUsage|findDuplicates|organizeFiles","arguments":{"key":"value"}}]}
+        Reglas de búsqueda:
+        - searchFiles: solo nombre de archivo (rápido; igual que ⌘4). Usa si piden un nombre corto o extensión (.pdf, factura.pdf).
+        - searchContent: lenguaje natural o mirar DENTRO de archivos de texto. Usa si piden «facturas de marzo», «que diga…», «contratos», frases largas o contenido.
+        Ámbito: carpeta actual y abajo. No uses Spotlight.
         Ruta actual: \(currentPath)
         Usuario: \(prompt)
         """

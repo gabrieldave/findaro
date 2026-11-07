@@ -1409,6 +1409,9 @@ struct SettingsView: View {
                 Text("Reglas: por nombre (extensión incluida) · parte del nombre basta (vibe → vibesystems) · mayúsculas da igual · no lee el contenido · sin comodines * ?")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Text("Asistente / IA local (después): lenguaje natural y contenido dentro de archivos de texto — aparte de ⌘4.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section("Usar Ordena siempre (rápido)") {
                 Text("macOS no deja borrar Finder. Ordena se usa como tu explorador con estos trucos:")

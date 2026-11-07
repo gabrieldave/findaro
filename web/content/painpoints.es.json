@@ -27,8 +27,14 @@
     {
       "id": "spotlight-fails",
       "complaint_es": "Spotlight falla con partes de palabra e iCloud",
-      "promise_es": "Búsqueda propia en disco",
+      "promise_es": "⌘4 por nombre; IA local por contenido y frases",
       "status": "partial"
+    },
+    {
+      "id": "ai-content-search",
+      "complaint_es": "No puedo pedir «facturas de marzo» ni buscar dentro de archivos",
+      "promise_es": "Asistente local: lenguaje natural + contenido (aparte de ⌘4)",
+      "status": "planned"
     },
     {
       "id": "replace-destroys-folder",

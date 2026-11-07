@@ -713,6 +713,12 @@ final class BrowserModel: ObservableObject {
                 let q = step.arguments["query"] ?? plan.prompt
                 startDeepSearch(query: q)
                 agentLog.append("searchFiles «\(q)»")
+            case .searchContent:
+                let q = step.arguments["query"] ?? plan.prompt
+                // Por ahora: nombre (⌘4). Contenido real de archivos = fase asistente/IA.
+                startDeepSearch(query: q)
+                agentLog.append("searchContent «\(q)» (nombre ya; contenido en fase IA)")
+                statusMessage = "Asistente: por ahora busca por nombre. Contenido + lenguaje natural llega con la IA local."
             case .listDirectory:
                 reload()
                 agentLog.append("listDirectory")
