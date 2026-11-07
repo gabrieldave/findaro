@@ -1345,6 +1345,34 @@ final class BrowserModel: ObservableObject {
         persistAssistantShortcuts()
     }
 
+    func updateAssistantShortcut(_ shortcut: AssistantShortcut) {
+        guard let idx = assistantShortcuts.firstIndex(where: { $0.id == shortcut.id }) else {
+            _ = addAssistantShortcut(shortcut)
+            return
+        }
+        var next = shortcut
+        if next.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            next.title = defaultTitle(for: next)
+        }
+        assistantShortcuts[idx] = next
+        if activeAssistantShortcut?.id == next.id {
+            activeAssistantShortcut = next
+        }
+        persistAssistantShortcuts()
+    }
+
+    func moveAssistantShortcut(from source: IndexSet, to destination: Int) {
+        assistantShortcuts.move(fromOffsets: source, toOffset: destination)
+        persistAssistantShortcuts()
+    }
+
+    func restoreDefaultAssistantShortcuts() {
+        assistantShortcuts = AssistantShortcut.factoryDefaults()
+        activeAssistantShortcut = nil
+        persistAssistantShortcuts()
+        appendAgentReply("Restauré los atajos de fábrica (\(assistantShortcuts.count)).")
+    }
+
     func persistAssistantShortcuts() {
         let capped = Array(assistantShortcuts.prefix(AssistantShortcut.maxCount))
         assistantShortcuts = capped

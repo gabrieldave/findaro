@@ -1488,6 +1488,8 @@ private struct BrowserDialogsModifier: ViewModifier {
 struct SettingsView: View {
     @EnvironmentObject private var browser: BrowserModel
     @StateObject private var ollama = OllamaClient.shared
+    @State private var editingShortcut: AssistantShortcut?
+    @State private var showNewShortcut = false
 
     var body: some View {
         TabView {
@@ -1495,12 +1497,14 @@ struct SettingsView: View {
                 .tabItem { Label("General", systemImage: "slider.horizontal.3") }
             settingsAssistant
                 .tabItem { Label("Asistente", systemImage: "sparkles") }
+            settingsShortcuts
+                .tabItem { Label("Atajos", systemImage: "bookmark.fill") }
             settingsSearch
                 .tabItem { Label("Búsqueda", systemImage: "magnifyingglass") }
             settingsMaintenance
                 .tabItem { Label("Mantenimiento", systemImage: "wrench.and.screwdriver") }
         }
-        .frame(width: 520, height: 420)
+        .frame(width: 560, height: 460)
         .sheet(isPresented: $browser.showOllamaSetupDialog) {
             OllamaSetupSheet()
                 .environmentObject(browser)
@@ -1508,6 +1512,16 @@ struct SettingsView: View {
         .sheet(isPresented: $browser.showFolderHandlerSetupDialog) {
             FolderHandlerSetupSheet(result: browser.folderHandlerSetupResult)
                 .environmentObject(browser)
+        }
+        .sheet(isPresented: $showNewShortcut) {
+            ShortcutEditorSheet(existing: nil) { shortcut in
+                _ = browser.addAssistantShortcut(shortcut)
+            }
+        }
+        .sheet(item: $editingShortcut) { shortcut in
+            ShortcutEditorSheet(existing: shortcut) { updated in
+                browser.updateAssistantShortcut(updated)
+            }
         }
         .task {
             ollama.applyPreferences(browser.store.preferences)
@@ -1611,26 +1625,150 @@ struct SettingsView: View {
             }
 
             Section {
-                settingsRow(
-                    icon: "bookmark.fill",
-                    tint: .orange,
-                    title: "Atajos guardados",
-                    subtitle: "Tipo + fecha · p. ej. imágenes de hoy"
-                ) {
-                    Text("\(browser.assistantShortcuts.count)/\(AssistantShortcut.maxCount)")
-                        .font(.subheadline.monospacedDigit().weight(.semibold))
-                }
                 Button("Abrir asistente (⌘5)") {
                     browser.showAssistantPanel = true
                 }
+                Text("Los atajos se editan en la pestaña Atajos.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } header: {
-                Text("Atajos")
-            } footer: {
-                Text("Créalos en el panel del asistente → Nuevo. La lista hace scroll si tienes muchos.")
+                Text("Panel")
             }
         }
         .formStyle(.grouped)
         .padding(8)
+    }
+
+    // MARK: Atajos
+
+    private var settingsShortcuts: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Mis atajos")
+                        .font(.headline)
+                    Text("\(browser.assistantShortcuts.count) de \(AssistantShortcut.maxCount) · arrastra para reordenar")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    showNewShortcut = true
+                } label: {
+                    Label("Nuevo", systemImage: "plus")
+                }
+                .disabled(browser.assistantShortcuts.count >= AssistantShortcut.maxCount)
+                .buttonStyle(.borderedProminent)
+                .tint(OrdenTheme.accent)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+
+            Divider().opacity(0.35)
+
+            if browser.assistantShortcuts.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "bookmark.slash")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
+                    Text("Sin atajos")
+                        .font(.headline)
+                    Text("Crea uno: imágenes de hoy, docs de ayer…")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Button("Crear el primero") { showNewShortcut = true }
+                        .buttonStyle(.borderedProminent)
+                        .tint(OrdenTheme.accent)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(browser.assistantShortcuts) { shortcut in
+                        shortcutSettingsRow(shortcut)
+                    }
+                    .onMove(perform: browser.moveAssistantShortcut)
+                    .onDelete { indexSet in
+                        let ids = indexSet.map { browser.assistantShortcuts[$0].id }
+                        for id in ids {
+                            browser.deleteAssistantShortcut(id: id)
+                        }
+                    }
+                }
+                .listStyle(.inset)
+            }
+
+            Divider().opacity(0.35)
+            HStack {
+                Button("Restaurar de fábrica") {
+                    browser.restoreDefaultAssistantShortcuts()
+                }
+                .foregroundStyle(.secondary)
+                Spacer()
+                Text("Clic = editar · swipe o Delete = borrar")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+        }
+    }
+
+    private func shortcutSettingsRow(_ shortcut: AssistantShortcut) -> some View {
+        Button {
+            editingShortcut = shortcut
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: shortcutSettingsIcon(shortcut))
+                    .font(.title3)
+                    .foregroundStyle(OrdenTheme.accent)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(shortcut.title)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                    Text(shortcutSubtitle(shortcut))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "pencil.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button("Editar") { editingShortcut = shortcut }
+            Button("Usar ahora") {
+                browser.showAssistantPanel = true
+                browser.applyAssistantShortcut(shortcut)
+            }
+            Divider()
+            Button("Borrar", role: .destructive) {
+                browser.deleteAssistantShortcut(id: shortcut.id)
+            }
+        }
+    }
+
+    private func shortcutSettingsIcon(_ shortcut: AssistantShortcut) -> String {
+        if shortcut.categories == AssistantShortcut.documentCategories { return "doc.text" }
+        return shortcut.categories.first?.symbolName ?? "line.3.horizontal.decrease.circle"
+    }
+
+    private func shortcutSubtitle(_ shortcut: AssistantShortcut) -> String {
+        let type: String
+        if shortcut.categories == AssistantShortcut.documentCategories {
+            type = "Documentos"
+        } else if shortcut.categories.isEmpty {
+            type = "Cualquier tipo"
+        } else if shortcut.categories.count == 1, let only = shortcut.categories.first {
+            type = only.labelSpanish
+        } else {
+            type = "\(shortcut.categories.count) tipos"
+        }
+        return "\(type) · \(shortcut.dateWindow.labelSpanish)"
     }
 
     // MARK: Búsqueda
