@@ -106,9 +106,4 @@ enum OpenFolderBridge {
         return handler == bundleID
     }
 
-    static func revealInFinderForOpenWithDemo() {
-        let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
-            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
-        NSWorkspace.shared.activateFileViewerSelecting([downloads])
-    }
 }

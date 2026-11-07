@@ -48,10 +48,10 @@ struct FolderHandlerSetupSheet: View {
             OrdenDialogFooter(
                 shortcutHint: "Atajo ⌃⌥O",
                 cancelTitle: "Cerrar",
-                actionTitle: "Mostrar Descargas",
+                actionTitle: "Ir a Descargas",
                 onCancel: { browser.showFolderHandlerSetupDialog = false },
                 onAction: {
-                    OpenFolderBridge.revealInFinderForOpenWithDemo()
+                    browser.navigateToDownloads()
                     browser.showFolderHandlerSetupDialog = false
                 }
             )
