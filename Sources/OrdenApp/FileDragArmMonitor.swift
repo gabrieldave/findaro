@@ -77,7 +77,8 @@ final class FileDragArmMonitor {
               let entry = browser.visibleEntries.first(where: { $0.path == path })
         else { return event }
 
-        browser.armFileDrag(for: entry)
+        // Mismo rango que ⇧+clic, en modo naranja para mover.
+        browser.commandRangeSelectForMove(to: entry.id)
         return nil
     }
 
