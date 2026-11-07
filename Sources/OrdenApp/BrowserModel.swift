@@ -186,7 +186,7 @@ final class BrowserModel: ObservableObject {
     let store: PreferencesStore
     private var measureTask: Task<Void, Never>?
     private let folderWatcher = FolderWatcher()
-    private var ignoreWatcherUntil: Date?
+    private let secondaryFolderWatcher = FolderWatcher()
 
     struct PathSegment: Equatable, Identifiable {
         var id: String { path }
@@ -238,6 +238,11 @@ final class BrowserModel: ObservableObject {
                 self?.handleFolderWatcherEvent()
             }
         }
+        secondaryFolderWatcher.onChange = { [weak self] in
+            Task { @MainActor in
+                self?.handleSecondaryFolderWatcherEvent()
+            }
+        }
         reload()
         reloadSecondary()
         refreshHistoryFlags()
@@ -275,8 +280,15 @@ final class BrowserModel: ObservableObject {
         objectWillChange.send()
     }
 
+    private func canonicalFolderPath(_ path: String) -> String {
+        URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
+    }
+
+    private func sameFolder(_ lhs: String, _ rhs: String) -> Bool {
+        canonicalFolderPath(lhs) == canonicalFolderPath(rhs)
+    }
+
     private func handleFolderWatcherEvent() {
-        if let until = ignoreWatcherUntil, until > Date() { return }
         let before = Set(entries.map(\.id))
         reload(preserveSelection: true, fromWatcher: true)
         let after = Set(entries.map(\.id))
@@ -285,16 +297,37 @@ final class BrowserModel: ObservableObject {
         }
     }
 
-    private func startWatchingCurrentFolder() {
-        folderWatcher.watch(path: currentPath)
+    private func handleSecondaryFolderWatcherEvent() {
+        guard dualPaneEnabled, !sameFolder(currentPath, secondaryPath) else { return }
+        let before = Set(secondaryEntries.map(\.id))
+        reloadSecondary(fromWatcher: true)
+        let after = Set(secondaryEntries.map(\.id))
+        if before != after {
+            statusMessage = "Panel destino actualizado"
+        }
     }
 
-    /// Tras ops locales: ignora el watcher un momento para no recargar dos veces.
-    func noteLocalFileMutation(quietSeconds: TimeInterval = 0.7) {
-        ignoreWatcherUntil = Date().addingTimeInterval(quietSeconds)
+    private func startWatchingCurrentFolder() {
+        folderWatcher.watch(path: currentPath)
+        startWatchingSecondaryFolder()
+    }
+
+    private func startWatchingSecondaryFolder() {
+        guard dualPaneEnabled, !secondaryPath.isEmpty,
+              !sameFolder(currentPath, secondaryPath) else {
+            secondaryFolderWatcher.stop()
+            return
+        }
+        secondaryFolderWatcher.watch(path: secondaryPath)
     }
 
     func reload(preserveSelection: Bool = false, fromWatcher: Bool = false) {
+        // Inicia FSEvents ANTES de leer el directorio para no perder una descarga
+        // que termine justo entre la lectura y el alta del observador.
+        if !fromWatcher {
+            startWatchingCurrentFolder()
+        }
+
         let previous = preserveSelection ? selectedIDs : []
         let prevFocus = selectionFocusID
         let prevAnchor = selectionAnchorID
@@ -323,8 +356,11 @@ final class BrowserModel: ObservableObject {
             folderTotalBytes = 0
             errorMessage = error.localizedDescription
         }
-        if !fromWatcher {
-            startWatchingCurrentFolder()
+
+        // Si ambos paneles muestran la misma carpeta, el evento del panel principal
+        // también debe actualizar la lista secundaria.
+        if dualPaneEnabled, sameFolder(currentPath, secondaryPath) {
+            reloadSecondary(fromWatcher: true)
         }
     }
 
@@ -745,7 +781,6 @@ final class BrowserModel: ObservableObject {
         statusMessage = nil
         columnPaths = [target]
         store.update { $0.lastPath = target }
-        ignoreWatcherUntil = Date().addingTimeInterval(0.6)
         reload()
         refreshHistoryFlags()
     }
@@ -762,6 +797,7 @@ final class BrowserModel: ObservableObject {
             reloadSecondary()
             statusMessage = "Dos paneles: izquierda origen · derecha destino. Arrastra o «Mover →»"
         } else {
+            secondaryFolderWatcher.stop()
             focusedPane = .primary
             statusMessage = "Un panel"
         }
@@ -814,10 +850,16 @@ final class BrowserModel: ObservableObject {
         statusMessage = "Panel derecho: \((target as NSString).lastPathComponent)"
     }
 
-    func reloadSecondary() {
+    func reloadSecondary(fromWatcher: Bool = false) {
         guard !secondaryPath.isEmpty else {
             secondaryEntries = []
+            secondaryFolderWatcher.stop()
             return
+        }
+        // El observador se activa antes de leer para cerrar la ventana en la que
+        // una descarga o copia podría ocurrir sin generar una actualización visible.
+        if !fromWatcher {
+            startWatchingSecondaryFolder()
         }
         do {
             let loaded = try DirectoryLoader.load(path: secondaryPath)
@@ -920,7 +962,6 @@ final class BrowserModel: ObservableObject {
             } else {
                 pushUndo(.moved(pairs: pairs))
             }
-            noteLocalFileMutation()
             if clearPrimary { clearSelection() }
             if clearSecondary { secondarySelectedIDs = [] }
             reload()
@@ -1145,8 +1186,6 @@ final class BrowserModel: ObservableObject {
             pendingMergeMove = false
             folderDropTargetPath = nil
             clearArmedFileDrag()
-            ignoreWatcherUntil = Date().addingTimeInterval(0.8)
-            noteLocalFileMutation()
             reload()
 
             let name = URL(fileURLWithPath: preview.destPath).lastPathComponent
@@ -2299,7 +2338,6 @@ final class BrowserModel: ObservableObject {
         selectedIDs = []
         selectionAnchorID = nil
         selectionFocusID = nil
-        noteLocalFileMutation()
         reload()
         if moved > 0 {
             statusMessage = moved == 1 ? "1 elemento a la Papelera" : "\(moved) elementos a la Papelera"
@@ -2319,7 +2357,6 @@ final class BrowserModel: ObservableObject {
         do {
             let path = try FileOps.createFolder(named: name, in: currentPath)
             pushUndo(.copied(created: [path]))
-            noteLocalFileMutation()
             reload()
             selectOnly(path)
             statusMessage = "Carpeta creada: \(URL(fileURLWithPath: path).lastPathComponent)"
@@ -2343,7 +2380,6 @@ final class BrowserModel: ObservableObject {
         do {
             let path = try FileOps.createFile(named: name, in: currentPath)
             pushUndo(.copied(created: [path]))
-            noteLocalFileMutation()
             reload()
             selectOnly(path)
             statusMessage = "Archivo creado: \(URL(fileURLWithPath: path).lastPathComponent)"
@@ -2369,7 +2405,6 @@ final class BrowserModel: ObservableObject {
         do {
             let newPath = try FileOps.rename(path: path, to: newName)
             pushUndo(.moved(pairs: [.init(from: path, to: newPath)]))
-            noteLocalFileMutation()
             reload()
             selectOnly(newPath)
             statusMessage = "Renombrado a \(newName)"
@@ -2396,13 +2431,11 @@ final class BrowserModel: ObservableObject {
                 statusMessage = createdPaths.isEmpty
                     ? "No se pudo duplicar \(entry.name): \(error.localizedDescription)"
                     : "Duplicación parcial (\(createdPaths.count) elemento(s)); ⌘Z deshace lo creado. \(error.localizedDescription)"
-                noteLocalFileMutation()
                 reload()
                 return
             }
         }
         if !createdPaths.isEmpty { pushUndo(.copied(created: createdPaths)) }
-        noteLocalFileMutation()
         reload()
         if let lastPath {
             selectOnly(lastPath)
@@ -2539,7 +2572,6 @@ final class BrowserModel: ObservableObject {
         do {
             let pairs = try FileOps.transfer(paths: rest, toDirectory: currentPath, move: false)
             pushUndo(.copied(created: pairs.map(\.to)))
-            noteLocalFileMutation()
             reload()
             statusMessage = pairs.count == 1 ? "1 archivo pegado" : "\(pairs.count) archivos pegados"
         } catch {
@@ -2936,7 +2968,6 @@ final class BrowserModel: ObservableObject {
             }
             folderDropTargetPath = nil
             clearArmedFileDrag()
-            noteLocalFileMutation()
             reload()
             let name = URL(fileURLWithPath: dest).lastPathComponent
             statusMessage = copy
