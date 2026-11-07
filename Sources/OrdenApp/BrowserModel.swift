@@ -691,7 +691,7 @@ final class BrowserModel: ObservableObject {
         startDeepSearch(query: q)
     }
 
-    func startDeepSearch(query: String? = nil) {
+    func startDeepSearch(query: String? = nil, includeContent: Bool = false) {
         let q = (query ?? searchText).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else {
             promptDeepSearch()
@@ -704,11 +704,13 @@ final class BrowserModel: ObservableObject {
         deepSearchProgress = SearchProgress(currentFolder: currentPath)
         deepSearchRunning = true
         showDeepSearchPanel = true
-        statusMessage = "Buscando «\(q)» en subcarpetas…"
+        statusMessage = includeContent
+            ? "Buscando «\(q)» en nombres y contenido…"
+            : "Buscando «\(q)» en subcarpetas…"
         let root = currentPath
         deepSearchTask = Task.detached(priority: .userInitiated) {
             RecursiveSearch.run(
-                query: .init(text: q, root: root),
+                query: .init(text: q, root: root, searchContent: includeContent),
                 isCancelled: { Task.isCancelled },
                 onProgress: { progress in
                     Task { @MainActor in
@@ -892,23 +894,133 @@ final class BrowserModel: ObservableObject {
         }
 
         if let llm = await OllamaClient.shared.proposePlan(prompt: trimmed, currentPath: currentPath) {
-            agentPlan = llm
+            agentPlan = enrichAgentPlan(llm)
             agentLog.append("Plan (Ollama): \(llm.summary)")
         } else {
             let plan = AgentIntentParser.plan(from: trimmed, currentPath: currentPath)
-            agentPlan = plan
+            agentPlan = enrichAgentPlan(plan)
             agentLog.append("Plan (reglas): \(plan.summary)")
         }
-        // Fase 2–3: solo lectura se ejecuta solo. Escritura espera aprobación (fase 5).
+        // Lectura: ejecuta solo. Escritura: tarjeta de aprobación (fase 5).
         if let plan = agentPlan, !plan.needsApproval {
             executeAgentPlan(approved: true)
         } else if let plan = agentPlan, plan.needsApproval {
-            pendingAgentApproval = plan
-            appendAgentReply(
-                "Esto va a modificar archivos. Revisa el plan y dale a Aprobar si estás de acuerdo.",
-                alsoStatus: true
-            )
+            if plan.steps.isEmpty {
+                appendAgentReply(
+                    plan.prompt.lowercased().contains("organiza")
+                        ? "No hay archivos sueltos para organizar por tipo en esta carpeta."
+                        : "No hay nada que hacer con ese pedido en esta carpeta."
+                )
+                agentPlan = nil
+            } else if let block = validateWritePlan(plan) {
+                appendAgentReply(block)
+                agentPlan = nil
+                pendingAgentApproval = nil
+            } else {
+                pendingAgentApproval = plan
+                appendAgentReply(
+                    "Esto va a modificar archivos. Revisa el plan y dale a Aprobar si estás de acuerdo.",
+                    alsoStatus: true
+                )
+            }
         }
+    }
+
+    /// Si falta selección o destino, no mostramos aprobación a medias.
+    private func validateWritePlan(_ plan: AgentPlan) -> String? {
+        for step in plan.steps {
+            switch step.name {
+            case .moveFiles, .copyFiles:
+                if (step.arguments["destination"] ?? "").isEmpty {
+                    return "Dime el destino, por ejemplo: «mueve a Facturas» o «copia a Documentos»."
+                }
+                if step.pathsArgument.isEmpty {
+                    return "Selecciona primero los archivos en la lista y vuelve a pedirlo."
+                }
+            case .renameFiles:
+                if (step.arguments["newName"] ?? "").isEmpty {
+                    return "Dime el nombre nuevo: «renombra a informe-final.pdf»."
+                }
+                if (step.arguments["path"] ?? step.pathsArgument.first) == nil {
+                    return "Selecciona un archivo o carpeta y di «renombra a …»."
+                }
+            default:
+                break
+            }
+        }
+        return nil
+    }
+
+    /// Rellena rutas de la selección y expande «organizar» a crear+mover concretos.
+    private func enrichAgentPlan(_ plan: AgentPlan) -> AgentPlan {
+        var steps: [AgentToolCall] = []
+        for step in plan.steps {
+            switch step.name {
+            case .organizeFiles:
+                let built = buildOrganizeSteps(in: step.arguments["path"] ?? currentPath)
+                if built.isEmpty {
+                    // Dejamos el organize vacío → el caller avisa.
+                } else {
+                    steps.append(contentsOf: built)
+                }
+            case .moveFiles, .copyFiles, .renameFiles:
+                var args = step.arguments
+                if args["paths"] == nil || (args["paths"] ?? "").isEmpty {
+                    let paths = selectedEntries.map(\.path)
+                    if !paths.isEmpty {
+                        args["paths"] = paths.joined(separator: "\n")
+                    }
+                }
+                if step.name == .renameFiles, args["path"] == nil, let first = selectedEntries.first {
+                    args["path"] = first.path
+                }
+                steps.append(AgentToolCall(name: step.name, arguments: args, risk: step.risk))
+            default:
+                steps.append(step)
+            }
+        }
+        let summary: String
+        if steps.contains(where: { $0.name == .createDirectory || $0.name == .moveFiles }),
+           plan.steps.contains(where: { $0.name == .organizeFiles }) {
+            summary = "Organizar por tipo: \(steps.count) pasos"
+        } else {
+            summary = plan.summary
+        }
+        return AgentPlan(id: plan.id, prompt: plan.prompt, summary: summary, steps: steps, createdAt: plan.createdAt)
+    }
+
+    /// Crea carpetas por categoría y mueve los archivos de primer nivel.
+    private func buildOrganizeSteps(in folder: String) -> [AgentToolCall] {
+        let folderStd = (folder as NSString).standardizingPath
+        let direct = entries.filter { entry in
+            guard !entry.isDirectory else { return false }
+            let parent = ((entry.path as NSString).deletingLastPathComponent as NSString).standardizingPath
+            return parent == folderStd
+        }
+        var byCategory: [FileCategory: [FileEntry]] = [:]
+        for entry in direct {
+            byCategory[entry.category, default: []].append(entry)
+        }
+        var steps: [AgentToolCall] = []
+        for category in FileCategory.allCases where category != .folder {
+            guard let group = byCategory[category], !group.isEmpty else { continue }
+            let folderName = category.organizeFolderName
+            let dest = (folder as NSString).appendingPathComponent(folderName)
+            steps.append(AgentToolCall(
+                name: .createDirectory,
+                arguments: ["name": folderName, "parent": folder],
+                risk: .write
+            ))
+            steps.append(AgentToolCall(
+                name: .moveFiles,
+                arguments: [
+                    "paths": group.map(\.path).joined(separator: "\n"),
+                    "destination": dest
+                ],
+                risk: .write
+            ))
+        }
+        return steps
     }
 
     func executeAgentPlan(approved: Bool) {
@@ -922,15 +1034,15 @@ final class BrowserModel: ObservableObject {
             switch step.name {
             case .searchFiles:
                 let q = step.arguments["query"] ?? plan.prompt
-                startDeepSearch(query: q)
+                startDeepSearch(query: q, includeContent: false)
                 appendAgentReply(
                     "Busco archivos cuyo nombre coincida con «\(q)» en esta carpeta y subcarpetas. Mira la lista o el filtro de búsqueda."
                 )
             case .searchContent:
                 let q = step.arguments["query"] ?? plan.prompt
-                startDeepSearch(query: q)
+                startDeepSearch(query: q, includeContent: true)
                 appendAgentReply(
-                    "Por ahora busco por nombre «\(q)» (aún no leo el contenido con IA; eso es fase 3)."
+                    "Busco «\(q)» en nombres y dentro de archivos de texto/código de esta carpeta y abajo."
                 )
             case .listDirectory:
                 reload()
@@ -959,9 +1071,8 @@ final class BrowserModel: ObservableObject {
                     )
                 }
             case .organizeFiles:
-                appendAgentReply(
-                    "Organizar archivos (mover/crear carpetas) llega en la fase 5, con tu visto bueno antes de tocar nada."
-                )
+                // Ya se expandió en enrichAgentPlan; si llega aquí, no había archivos.
+                appendAgentReply("No encontré archivos sueltos para organizar por tipo aquí.")
             case .openFile:
                 if let p = step.arguments["path"], let entry = entries.first(where: { $0.path == p }) {
                     open(entry)
@@ -982,15 +1093,132 @@ final class BrowserModel: ObservableObject {
                 } else {
                     appendAgentReply("No hay nada seleccionado para mostrar info.")
                 }
-            case .createDirectory, .copyFiles, .moveFiles, .renameFiles:
-                appendAgentReply(
-                    "Esa acción escribe o mueve archivos. Todavía no la ejecuto sola: llega en la fase 5 con aprobación."
-                )
+            case .createDirectory:
+                executeCreateDirectory(step)
+            case .copyFiles:
+                executeTransfer(step, move: false)
+            case .moveFiles:
+                executeTransfer(step, move: true)
+            case .renameFiles:
+                executeRename(step)
             }
         }
         if !plan.needsApproval || approved {
             agentPlan = nil
             pendingAgentApproval = nil
+        }
+    }
+
+    private func executeCreateDirectory(_ step: AgentToolCall) {
+        let name = (step.arguments["name"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let parent = step.arguments["parent"] ?? currentPath
+        guard !name.isEmpty else {
+            appendAgentReply("No me diste nombre para la carpeta.")
+            return
+        }
+        guard AgentPolicy.isPathAllowed(parent) else {
+            appendAgentReply("Esa ruta no está permitida.")
+            return
+        }
+        // Si ya existe (p. ej. al organizar), reutilízala.
+        let existing = (parent as NSString).appendingPathComponent(name)
+        if FileManager.default.fileExists(atPath: existing) {
+            appendAgentReply("La carpeta «\(name)» ya estaba; la reutilizo.")
+            return
+        }
+        do {
+            let created = try FileOps.createFolder(named: name, in: parent)
+            pushUndo(.copied(created: [created])) // deshacer = papelera de la carpeta nueva vacía/casi
+            if parent == currentPath { reload() }
+            appendAgentReply("Creé la carpeta «\((created as NSString).lastPathComponent)».")
+        } catch {
+            appendAgentReply("No pude crear la carpeta: \(error.localizedDescription)")
+        }
+    }
+
+    private func executeTransfer(_ step: AgentToolCall, move: Bool) {
+        let paths = step.pathsArgument
+        let dest = (step.arguments["destination"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !paths.isEmpty else {
+            appendAgentReply(
+                move
+                    ? "Selecciona algo y di p. ej. «mueve a Facturas»."
+                    : "Selecciona algo y di p. ej. «copia a Facturas»."
+            )
+            return
+        }
+        guard !dest.isEmpty else {
+            appendAgentReply("Falta el destino. Prueba «mueve a NombreCarpeta».")
+            return
+        }
+        guard AgentPolicy.isPathAllowed(dest), paths.allSatisfy({ AgentPolicy.isPathAllowed($0) }) else {
+            appendAgentReply("Alguna ruta no está permitida.")
+            return
+        }
+        // Crear destino si es carpeta relativa que aún no existe.
+        var destIsDir: ObjCBool = false
+        if !FileManager.default.fileExists(atPath: dest, isDirectory: &destIsDir) {
+            do {
+                try FileManager.default.createDirectory(
+                    atPath: dest,
+                    withIntermediateDirectories: true,
+                    attributes: nil
+                )
+                destIsDir = true
+            } catch {
+                appendAgentReply("No pude preparar el destino: \(error.localizedDescription)")
+                return
+            }
+        }
+        guard destIsDir.boolValue || FileManager.default.fileExists(atPath: dest) else {
+            appendAgentReply("El destino no es una carpeta.")
+            return
+        }
+        // Si dest es archivo (raro), abortar.
+        var check: ObjCBool = false
+        FileManager.default.fileExists(atPath: dest, isDirectory: &check)
+        guard check.boolValue else {
+            appendAgentReply("El destino tiene que ser una carpeta.")
+            return
+        }
+        do {
+            let pairs = try FileOps.transfer(paths: paths, toDirectory: dest, move: move)
+            if move {
+                pushUndo(.moved(pairs: pairs))
+            } else {
+                pushUndo(.copied(created: pairs.map(\.to)))
+            }
+            reload()
+            let verb = move ? "Moví" : "Copié"
+            appendAgentReply(
+                pairs.count == 1
+                    ? "\(verb) 1 ítem a «\((dest as NSString).lastPathComponent)»."
+                    : "\(verb) \(pairs.count) ítems a «\((dest as NSString).lastPathComponent)»."
+            )
+        } catch {
+            appendAgentReply("No pude \(move ? "mover" : "copiar"): \(error.localizedDescription)")
+        }
+    }
+
+    private func executeRename(_ step: AgentToolCall) {
+        let newName = (step.arguments["newName"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let path = step.arguments["path"] ?? step.pathsArgument.first ?? selectedEntries.first?.path
+        guard let path, !newName.isEmpty else {
+            appendAgentReply("Selecciona un ítem y di «renombra a nombre-nuevo».")
+            return
+        }
+        guard AgentPolicy.isPathAllowed(path) else {
+            appendAgentReply("Esa ruta no está permitida.")
+            return
+        }
+        do {
+            let newPath = try FileOps.rename(path: path, to: newName)
+            pushUndo(.moved(pairs: [.init(from: path, to: newPath)]))
+            reload()
+            selectOnly(newPath)
+            appendAgentReply("Renombré a «\(newName)».")
+        } catch {
+            appendAgentReply("No pude renombrar: \(error.localizedDescription)")
         }
     }
 

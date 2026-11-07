@@ -56,6 +56,26 @@ public enum FileCategory: String, Codable, Sendable, CaseIterable, Comparable {
         }
     }
 
+    /// Nombre de carpeta al organizar por tipo (fase 5).
+    public var organizeFolderName: String {
+        switch self {
+        case .folder: return "Carpetas"
+        case .video: return "Vídeos"
+        case .audio: return "Audio"
+        case .image: return "Imágenes"
+        case .pdf: return "PDFs"
+        case .word: return "Word"
+        case .excel: return "Excel"
+        case .powerpoint: return "PowerPoint"
+        case .text: return "Texto"
+        case .code: return "Código"
+        case .archive: return "Comprimidos"
+        case .diskImage: return "Discos"
+        case .app: return "Apps"
+        case .other: return "Otros"
+        }
+    }
+
     /// SF Symbol estable por categoría (misma pinta siempre).
     public var symbolName: String {
         switch self {

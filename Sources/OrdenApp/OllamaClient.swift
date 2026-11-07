@@ -70,11 +70,17 @@ final class OllamaClient: ObservableObject {
         }
         let system = """
         Eres el planificador de Ordena (explorador macOS). Responde SOLO JSON:
-        {"summary":"...","steps":[{"name":"searchFiles|searchContent|listDirectory|getStorageUsage|findDuplicates|organizeFiles","arguments":{"key":"value"}}]}
-        Reglas de búsqueda:
-        - searchFiles: solo nombre de archivo (rápido; igual que ⌘4). Usa si piden un nombre corto o extensión (.pdf, factura.pdf).
-        - searchContent: lenguaje natural o mirar DENTRO de archivos de texto. Usa si piden «facturas de marzo», «que diga…», «contratos», frases largas o contenido.
-        Ámbito: carpeta actual y abajo. No uses Spotlight.
+        {"summary":"...","steps":[{"name":"TOOL","arguments":{"key":"value"}}]}
+        Tools lectura: searchFiles, searchContent, listDirectory, getStorageUsage, findDuplicates, openFile, previewFile, getFileMetadata
+        Tools escritura (el usuario aprobará antes): createDirectory, copyFiles, moveFiles, renameFiles, organizeFiles
+        Reglas:
+        - searchFiles: solo nombre (rápido). Extensión o nombre corto.
+        - searchContent: nombre + contenido de texto. Frases naturales / «que diga…».
+        - createDirectory: arguments.name + parent (ruta). parent por defecto = carpeta actual.
+        - moveFiles/copyFiles: arguments.destination (ruta carpeta). paths opcionales (el cliente rellena la selección).
+        - renameFiles: arguments.newName. path opcional (selección).
+        - organizeFiles: agrupar archivos sueltos de la carpeta actual por tipo.
+        Ámbito: carpeta actual y abajo. Sin Spotlight. Sin borrar a la papelera.
         Ruta actual: \(currentPath)
         Usuario: \(prompt)
         """

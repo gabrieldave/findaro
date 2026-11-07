@@ -137,7 +137,7 @@ struct AssistantPanel: View {
             Text("Hola")
                 .font(.title2.weight(.semibold))
             Text(
-                "Soy el asistente del explorador. Atajos, texto o mantén el micrófono y habla (español). La IA (Ollama) es opcional."
+                "Atajos, texto o ⌃Espacio para hablar. Puedo buscar (también dentro de archivos) y, con tu visto bueno, crear/mover/organizar. Ollama es opcional."
             )
             .font(.body)
             .foregroundStyle(.secondary)
@@ -185,13 +185,25 @@ struct AssistantPanel: View {
             Text(plan.summary)
                 .font(.body)
                 .foregroundStyle(.secondary)
-            ForEach(plan.steps) { step in
-                Text("• \(step.name.rawValue)")
-                    .font(.subheadline.monospaced())
+                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(plan.steps) { step in
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: step.risk == .destructive ? "exclamationmark.triangle.fill" : "pencil.circle.fill")
+                            .foregroundStyle(.orange)
+                        Text(step.labelSpanish)
+                            .font(.subheadline)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             }
             HStack {
-                Button("Cancelar") { browser.agentPlan = nil }
-                Button("Aprobar") { browser.executeAgentPlan(approved: true) }
+                Button("Cancelar") {
+                    browser.agentPlan = nil
+                    browser.pendingAgentApproval = nil
+                    browser.appendAgentReply("Cancelé el plan. No toqué nada.")
+                }
+                Button("Aprobar y ejecutar") { browser.executeAgentPlan(approved: true) }
                     .buttonStyle(.borderedProminent)
                     .tint(.orange)
             }

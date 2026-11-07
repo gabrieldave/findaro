@@ -37,6 +37,57 @@ public struct AgentToolCall: Equatable, Sendable, Identifiable, Codable {
         self.arguments = arguments
         self.risk = risk
     }
+
+    /// Texto legible para la tarjeta de aprobación / chat.
+    public var labelSpanish: String {
+        switch name {
+        case .searchFiles:
+            return "Buscar por nombre «\(arguments["query"] ?? "")»"
+        case .searchContent:
+            return "Buscar nombre + contenido «\(arguments["query"] ?? "")»"
+        case .listDirectory:
+            return "Listar carpeta"
+        case .getFileMetadata:
+            return "Mostrar info"
+        case .openFile:
+            let p = arguments["path"] ?? ""
+            return "Abrir «\((p as NSString).lastPathComponent)»"
+        case .previewFile:
+            return "Vista rápida"
+        case .getStorageUsage:
+            return "Qué pesa más"
+        case .findDuplicates:
+            return "Buscar duplicados"
+        case .createDirectory:
+            return "Crear carpeta «\(arguments["name"] ?? "")»"
+        case .copyFiles:
+            let n = pathsArgument.count
+            let destRaw = arguments["destination"] ?? "?"
+            let dest = (destRaw as NSString).lastPathComponent
+            return n <= 1
+                ? "Copiar 1 ítem → \(dest)"
+                : "Copiar \(n) ítems → \(dest)"
+        case .moveFiles:
+            let n = pathsArgument.count
+            let destRaw = arguments["destination"] ?? "?"
+            let dest = (destRaw as NSString).lastPathComponent
+            return n <= 1
+                ? "Mover 1 ítem → \(dest)"
+                : "Mover \(n) ítems → \(dest)"
+        case .renameFiles:
+            return "Renombrar → «\(arguments["newName"] ?? "")»"
+        case .organizeFiles:
+            return "Organizar por tipo"
+        }
+    }
+
+    public var pathsArgument: [String] {
+        let raw = arguments["paths"] ?? arguments["path"] ?? ""
+        return raw
+            .split(whereSeparator: { $0 == "\n" || $0 == "|" })
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
 }
 
 public struct AgentPlan: Equatable, Sendable, Identifiable {
@@ -118,12 +169,17 @@ public enum AgentIntentParser {
             categories = [.pdf]
         } else if folded.contains("documento") || folded.contains("docs") {
             categories = AssistantShortcut.documentCategories
+        } else if folded.contains("archivo") || folded.contains("todo") || folded.contains("file") {
+            // Vacío = cualquier tipo (p. ej. «archivos de hoy»).
+            categories = []
         } else {
             return nil
         }
 
         let title: String
-        if categories == AssistantShortcut.documentCategories {
+        if categories.isEmpty {
+            title = "Archivos \(window.labelSpanish)"
+        } else if categories == AssistantShortcut.documentCategories {
             title = "Documentos \(window.labelSpanish)"
         } else if let only = categories.first {
             title = "\(only.labelSpanish)s \(window.labelSpanish)"
@@ -188,7 +244,7 @@ public enum AgentIntentParser {
             || lower.contains("containing")
             || lower.contains("inside ")
 
-        if let name = extractQuoted(text) ?? extractAfter(lower, keys: ["busca ", "buscar ", "encuentra ", "find ", "search "]) {
+        if let name = extractQuoted(text) ?? extractAfter(text, keys: ["busca ", "buscar ", "encuentra ", "find ", "search "]) {
             if wantsContentSearch || name.split(separator: " ").count >= 3 {
                 steps.append(AgentToolCall(
                     name: .searchContent,
@@ -224,22 +280,70 @@ public enum AgentIntentParser {
             summary = "Listar contenido de la carpeta actual"
         }
 
-        if lower.contains("organiza") || lower.contains("organize") {
+        if (lower.contains("carpeta") || lower.contains("folder") || lower.contains("mkdir")),
+           let folderName = extractQuoted(text) ?? extractAfter(text, keys: [
+                "crea carpeta ", "crear carpeta ", "nueva carpeta ",
+                "create folder ", "mkdir "
+           ]) {
+            steps.append(AgentToolCall(
+                name: .createDirectory,
+                arguments: ["name": folderName, "parent": currentPath],
+                risk: .write
+            ))
+            summary = "Crear carpeta «\(folderName)» (requiere aprobación)"
+        }
+
+        if lower.contains("renombr") || lower.contains("rename"),
+           let newName = extractQuoted(text) ?? extractAfter(text, keys: [
+                "renombra a ", "renombrar a ", "rename to ", "rename "
+           ]) {
+            steps.append(AgentToolCall(
+                name: .renameFiles,
+                arguments: ["newName": newName],
+                risk: .write
+            ))
+            summary = "Renombrar selección a «\(newName)» (requiere aprobación)"
+        }
+
+        if lower.contains("organiza") || lower.contains("organize") || lower.contains("ordenar por tipo") {
             steps.append(AgentToolCall(
                 name: .organizeFiles,
                 arguments: ["path": currentPath],
                 risk: .write
             ))
-            summary = "Proponer organizar por tipo (requiere aprobación)"
+            summary = "Organizar por tipo en subcarpetas (requiere aprobación)"
         }
 
-        if lower.contains("mueve") || lower.contains("mover") || lower.contains("move ") {
+        if let dest = extractAfter(text, keys: [
+            "mueve a ", "mover a ", "muéve a ", "move to ", "move into "
+        ]) ?? (lower.contains("mueve") || lower.contains("mover") || lower.contains("move ")
+               ? extractQuoted(text) : nil) {
+            let destPath = resolveDestination(dest, currentPath: currentPath)
+            steps.append(AgentToolCall(
+                name: .moveFiles,
+                arguments: ["destination": destPath, "note": text],
+                risk: .write
+            ))
+            summary = "Mover selección → \(destPath) (requiere aprobación)"
+        } else if lower.contains("mueve") || lower.contains("mover") || lower.contains("move ") {
             steps.append(AgentToolCall(
                 name: .moveFiles,
                 arguments: ["note": text],
                 risk: .write
             ))
-            summary = "Plan de movimiento (requiere aprobación y destinos claros)"
+            summary = "Mover (indica destino: «mueve a Facturas»)"
+        }
+
+        if let dest = extractAfter(text, keys: [
+            "copia a ", "copiar a ", "copy to ", "copy into "
+        ]) {
+            let destPath = resolveDestination(dest, currentPath: currentPath)
+            steps.append(AgentToolCall(
+                name: .copyFiles,
+                arguments: ["destination": destPath, "note": text],
+                risk: .write
+            ))
+            summary = "Copiar selección → \(destPath) (requiere aprobación)"
         }
 
         if steps.isEmpty {
@@ -291,15 +395,27 @@ public enum AgentIntentParser {
         return value.isEmpty ? nil : value
     }
 
-    private static func extractAfter(_ lower: String, keys: [String]) -> String? {
+    private static func extractAfter(_ text: String, keys: [String]) -> String? {
         for key in keys {
-            if let range = lower.range(of: key) {
-                let rest = String(lower[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+            if let range = text.range(of: key, options: [.caseInsensitive, .diacriticInsensitive]) {
+                let rest = String(text[range.upperBound...]).trimmingCharacters(in: .whitespaces)
                 let cut = rest.split(whereSeparator: { $0 == "." || $0 == "," || $0 == ";" }).first.map(String.init) ?? rest
                 let cleaned = cut.trimmingCharacters(in: .whitespaces)
-                if cleaned.count >= 2 { return cleaned }
+                if cleaned.count >= 1 { return cleaned }
             }
         }
         return nil
+    }
+
+    /// Destino relativo a la carpeta actual, o ruta absoluta / ~.
+    private static func resolveDestination(_ raw: String, currentPath: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("/") {
+            return (trimmed as NSString).standardizingPath
+        }
+        if trimmed.hasPrefix("~") {
+            return (trimmed as NSString).expandingTildeInPath
+        }
+        return (currentPath as NSString).appendingPathComponent(trimmed)
     }
 }

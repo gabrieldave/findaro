@@ -37,16 +37,35 @@ public enum RecursiveSearch {
         public var root: String
         public var maxResults: Int
         public var maxDepth: Int
+        /// Si true, también mira dentro de archivos de texto/código (límite de tamaño).
+        public var searchContent: Bool
+        public var maxContentBytes: Int
 
-        public init(text: String, root: String, maxResults: Int = 400, maxDepth: Int = 12) {
+        public init(
+            text: String,
+            root: String,
+            maxResults: Int = 400,
+            maxDepth: Int = 12,
+            searchContent: Bool = false,
+            maxContentBytes: Int = 2_000_000
+        ) {
             self.text = text
             self.root = root
             self.maxResults = maxResults
             self.maxDepth = maxDepth
+            self.searchContent = searchContent
+            self.maxContentBytes = maxContentBytes
         }
     }
 
-    /// Enumera el árbol buscando en nombre (case-insensitive). Reporta progreso.
+    /// Extensiones donde tiene sentido buscar texto plano.
+    public static let textContentExtensions: Set<String> = [
+        "txt", "md", "markdown", "text", "log", "csv", "tsv", "json", "yml", "yaml", "toml", "xml",
+        "html", "htm", "css", "scss", "js", "jsx", "ts", "tsx", "swift", "py", "rs", "go", "java",
+        "kt", "c", "h", "cpp", "hpp", "m", "mm", "rb", "php", "sh", "zsh", "bash", "sql", "rtf"
+    ]
+
+    /// Enumera el árbol buscando en nombre (y opcionalmente contenido). Reporta progreso.
     public static func run(
         query: Query,
         isCancelled: @escaping () -> Bool,
@@ -90,13 +109,19 @@ public enum RecursiveSearch {
                 if values?.isHidden == true { continue }
                 let name = url.lastPathComponent
                 let isDir = values?.isDirectory == true
-                if name.lowercased().contains(needle) {
+                let size = Int64(values?.fileSize ?? 0)
+                let nameHit = name.lowercased().contains(needle)
+                let contentHit: Bool = {
+                    guard query.searchContent, !isDir, !nameHit else { return false }
+                    return fileContains(url, needle: needle, maxBytes: query.maxContentBytes)
+                }()
+                if nameHit || contentHit {
                     matched += 1
                     onHit(SearchHit(
                         path: url.path,
                         name: name,
                         isDirectory: isDir,
-                        size: Int64(values?.fileSize ?? 0),
+                        size: size,
                         modified: values?.contentModificationDate
                     ))
                     if matched >= query.maxResults {
@@ -125,5 +150,31 @@ public enum RecursiveSearch {
             currentFolder: query.root,
             done: true
         ))
+    }
+
+    public static func isTextContentFile(name: String) -> Bool {
+        let ext = (name as NSString).pathExtension.lowercased()
+        return textContentExtensions.contains(ext)
+    }
+
+    private static func fileContains(_ url: URL, needle: String, maxBytes: Int) -> Bool {
+        guard isTextContentFile(name: url.lastPathComponent) else { return false }
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        let data: Data
+        do {
+            if #available(macOS 10.15.4, *) {
+                guard let chunk = try handle.read(upToCount: maxBytes) else { return false }
+                data = chunk
+            } else {
+                data = handle.readData(ofLength: maxBytes)
+            }
+        } catch {
+            return false
+        }
+        if data.contains(0) { return false }
+        guard let text = String(data: data, encoding: .utf8)
+                ?? String(data: data, encoding: .isoLatin1) else { return false }
+        return text.lowercased().contains(needle)
     }
 }

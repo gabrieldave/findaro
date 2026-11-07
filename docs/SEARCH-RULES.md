@@ -13,7 +13,7 @@ Dos modos. No mezclar en el copy ni en la UX.
 
 Ejemplo: `vibe` encuentra `vibesystems-ecosistema.zip`.
 
-## 2. Búsqueda del asistente / IA local — roadmap
+## 2. Búsqueda del asistente / IA local — hecha (fase 5)
 
 | Regla | Valor |
 |---|---|
@@ -22,5 +22,6 @@ Ejemplo: `vibe` encuentra `vibesystems-ecosistema.zip`.
 | Cómo | Frases naturales: «facturas de marzo», «que diga IBAN», «contratos firmados». |
 | Motor | Reglas + Ollama opcional en el Mac. Sin nube. |
 | Tool | `searchContent` (distinto de `searchFiles`). |
+| Límite | ~2 MB por archivo; sin binarios. |
 
 ⌘4 sigue siendo el camino rápido por nombre. La IA no reemplaza ⌘4; lo complementa.
