@@ -589,7 +589,7 @@ public enum FolderMerge {
         for (path, record) in records.sorted(by: { $0.key < $1.key }) {
             hasher.update(data: Data(path.utf8))
             hasher.update(data: Data([0]))
-            hasher.update(data: Data(record.isDirectory ? "D" : "F"))
+            hasher.update(data: Data((record.isDirectory ? "D" : "F").utf8))
             hasher.update(data: Data([0]))
             hasher.update(data: Data(String(record.size).utf8))
             hasher.update(data: Data([0]))

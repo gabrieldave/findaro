@@ -38,7 +38,6 @@ public struct AgentToolCall: Equatable, Sendable, Identifiable, Codable {
         self.risk = risk
     }
 
-    /// Texto legible para la tarjeta de aprobación / chat.
     public var labelSpanish: String {
         switch name {
         case .searchFiles:
@@ -50,8 +49,8 @@ public struct AgentToolCall: Equatable, Sendable, Identifiable, Codable {
         case .getFileMetadata:
             return "Mostrar info"
         case .openFile:
-            let p = arguments["path"] ?? ""
-            return "Abrir «\((p as NSString).lastPathComponent)»"
+            let path = arguments["path"] ?? ""
+            return "Abrir «\((path as NSString).lastPathComponent)»"
         case .previewFile:
             return "Vista rápida"
         case .getStorageUsage:
@@ -60,20 +59,11 @@ public struct AgentToolCall: Equatable, Sendable, Identifiable, Codable {
             return "Buscar duplicados"
         case .createDirectory:
             return "Crear carpeta «\(arguments["name"] ?? "")»"
-        case .copyFiles:
-            let n = pathsArgument.count
-            let destRaw = arguments["destination"] ?? "?"
-            let dest = (destRaw as NSString).lastPathComponent
-            return n <= 1
-                ? "Copiar 1 ítem → \(dest)"
-                : "Copiar \(n) ítems → \(dest)"
-        case .moveFiles:
-            let n = pathsArgument.count
-            let destRaw = arguments["destination"] ?? "?"
-            let dest = (destRaw as NSString).lastPathComponent
-            return n <= 1
-                ? "Mover 1 ítem → \(dest)"
-                : "Mover \(n) ítems → \(dest)"
+        case .copyFiles, .moveFiles:
+            let count = pathsArgument.count
+            let destination = ((arguments["destination"] ?? "?") as NSString).lastPathComponent
+            let verb = name == .copyFiles ? "Copiar" : "Mover"
+            return "\(verb) \(count <= 1 ? "1 ítem" : "\(count) ítems") → \(destination)"
         case .renameFiles:
             return "Renombrar → «\(arguments["newName"] ?? "")»"
         case .organizeFiles:
@@ -81,6 +71,7 @@ public struct AgentToolCall: Equatable, Sendable, Identifiable, Codable {
         }
     }
 
+    /// Los lotes se serializan con saltos de línea para no romper nombres que contengan «|».
     public var pathsArgument: [String] {
         let raw = arguments["paths"] ?? arguments["path"] ?? ""
         return raw
@@ -88,9 +79,8 @@ public struct AgentToolCall: Equatable, Sendable, Identifiable, Codable {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
     }
-}
 
-    /// Detalle visible en la tarjeta de aprobación; el usuario debe poder revisar el origen real.
+    /// Detalle visible en la tarjeta de aprobación para revisar el origen real.
     public var approvalDetailsSpanish: String? {
         switch name {
         case .copyFiles, .moveFiles:
@@ -106,7 +96,7 @@ public struct AgentToolCall: Equatable, Sendable, Identifiable, Codable {
             return nil
         }
     }
-
+}
 
 public struct AgentPlan: Equatable, Sendable, Identifiable {
     public var id: String
