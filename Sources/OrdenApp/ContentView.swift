@@ -811,13 +811,17 @@ struct SidebarView: View {
 struct FileBrowserPane: View {
     @EnvironmentObject private var browser: BrowserModel
 
-    /// Altura aproximada por fila (nombre + ruta + padding). Marquee por índice, sin GeometryReader.
-    private let rowHeight: CGFloat = 52
+    /// Debe coincidir con la altura fija de cada `FileRowButton`.
+    private var rowHeight: CGFloat {
+        PressDragSelectLogic.listRowHeight(showPaths: browser.showRowPaths)
+    }
 
     @State private var marqueeStart: CGPoint?
     @State private var marqueeCurrent: CGPoint?
     @State private var marqueeBase: Set<String> = []
     @State private var marqueeAdditive = false
+    @State private var marqueeCommitted = false
+    @State private var marqueeStartEntryID: String?
     @State private var folderDragPaths: [String] = []
     @State private var folderDragStarted = false
 
@@ -869,7 +873,7 @@ struct FileBrowserPane: View {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(browser.visibleEntries.enumerated()), id: \.element.id) { index, entry in
                         FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
-                            .frame(minHeight: rowHeight)
+                            .frame(height: rowHeight)
                     }
                     Color.clear
                         .frame(maxWidth: .infinity)
@@ -915,12 +919,14 @@ struct FileBrowserPane: View {
         marqueeStart = nil
         marqueeCurrent = nil
         marqueeBase = []
+        marqueeCommitted = false
+        marqueeStartEntryID = nil
         folderDragPaths = []
         folderDragStarted = false
     }
 
     private var marqueeRect: CGRect? {
-        guard folderDragPaths.isEmpty else { return nil }
+        guard folderDragPaths.isEmpty, marqueeCommitted else { return nil }
         guard let start = marqueeStart, let current = marqueeCurrent else { return nil }
         return CGRect(
             x: min(start.x, current.x),
@@ -943,7 +949,8 @@ struct FileBrowserPane: View {
     }
 
     private var marqueeGesture: some Gesture {
-        // minimumDistance > 0: el clic rápido llega al botón (selecciona 1 archivo)
+        // minimumDistance > 0: el clic limpio llega al botón (1 archivo).
+        // Marquee solo tras rectángulo intencional (marqueeCommitSize).
         DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named("fileList"))
             .onChanged { value in
                 if marqueeStart == nil {
@@ -967,11 +974,11 @@ struct FileBrowserPane: View {
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
                     folderDragPaths = []
+                    marqueeCommitted = false
+                    marqueeStartEntryID = entryAtY(value.startLocation.y)?.id
                     marqueeAdditive = flags.contains(.shift)
                     marqueeBase = marqueeAdditive ? browser.selectedIDs : []
-                    if !marqueeAdditive {
-                        browser.clearSelection()
-                    }
+                    // No limpiar selección hasta confirmar marquee (si no, un temblor deja multi raro).
                 }
 
                 if !folderDragPaths.isEmpty {
@@ -984,11 +991,31 @@ struct FileBrowserPane: View {
                 }
 
                 marqueeCurrent = value.location
-                applyMarquee()
+                if PressDragSelectLogic.isMarqueeCommitted(translation: value.translation) {
+                    if !marqueeCommitted {
+                        marqueeCommitted = true
+                        if !marqueeAdditive {
+                            browser.clearSelection()
+                        }
+                    }
+                    applyMarquee()
+                }
             }
             .onEnded { _ in
                 if folderDragPaths.isEmpty {
-                    applyMarquee()
+                    if marqueeCommitted {
+                        applyMarquee()
+                    } else if let id = marqueeStartEntryID {
+                        // Arrastre corto / temblor: 1 solo ítem (el del clic).
+                        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                        if flags.contains(.shift) {
+                            browser.selectRange(to: id)
+                        } else if browser.multiSelectMode {
+                            browser.toggleSelection(id)
+                        } else {
+                            browser.selectOnly(id)
+                        }
+                    }
                 }
                 resetMarquee()
             }
@@ -1223,7 +1250,8 @@ struct FileRowButton: View {
 
     private func selectRow() {
         // Doble clic → FileDragArmMonitor. ⌘+clic → suma multi + naranja sticky.
-        let flags = NSEvent.modifierFlags
+        // Clic normal: SIEMPRE un solo ítem (reemplaza selección). Casilla = toggle.
+        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.shift) {
             browser.selectRange(to: entry.id)
         } else if browser.multiSelectMode {
