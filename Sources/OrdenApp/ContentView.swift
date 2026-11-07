@@ -288,16 +288,19 @@ struct SortBar: View {
                 Button {
                     browser.exitCleanupMode()
                 } label: {
-                    Label("Salir limpieza", systemImage: "xmark.circle")
+                    Label("Volver al orden normal", systemImage: "xmark.circle")
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
                 .controlSize(.regular)
+                .help("Quita el orden por peso y regresa al orden que tenías")
             } else if !browser.downloadsTodayMode {
                 Button {
                     browser.showHeaviestForCleanup()
                 } label: {
-                    Label("Pesados", systemImage: "gauge.with.dots.needle.67percent")
+                    Label("Más pesados", systemImage: "gauge.with.dots.needle.67percent")
                 }
-                .help("Ordena por peso para ver qué limpia más espacio")
+                .help("No borra nada: solo pone arriba lo que más ocupa espacio")
                 .controlSize(.regular)
             }
 
@@ -380,7 +383,7 @@ struct SortBar: View {
         Button("Por tipo fijo") {
             browser.applyRule(.byType, scope: scope)
         }
-        Button("Más pesados primero (limpieza)") {
+        Button("Más pesados primero") {
             browser.applyRule(.heaviestFirst, scope: scope)
         }
         Toggle(
@@ -446,26 +449,28 @@ struct FolderStatsBar: View {
                 }
             }
 
-            // Solo en modo limpieza — evita una segunda franja permanente
+            // Solo con orden por peso — evita una segunda franja permanente
             if browser.cleanupMode {
-                HStack(spacing: 8) {
-                    Text("Top peso:")
-                        .font(.caption2.weight(.semibold))
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Ordenado por peso (no se borra nada). Toca uno para seleccionarlo:")
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    ForEach(browser.heaviestPreview.prefix(4)) { entry in
-                        Text("\(entry.name) (\(FolderSizer.format(entry.size)))")
-                            .font(.caption2)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(OrdenTheme.accent.opacity(0.15), in: Capsule())
-                            .lineLimit(1)
-                            .help(entry.path)
-                            .onTapGesture {
-                                browser.selectOnly(entry.id)
-                                browser.statusMessage = entry.path
-                            }
+                    HStack(spacing: 8) {
+                        ForEach(browser.heaviestPreview.prefix(4)) { entry in
+                            Text("\(entry.name) (\(FolderSizer.format(entry.size)))")
+                                .font(.subheadline)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(OrdenTheme.accent.opacity(0.15), in: Capsule())
+                                .lineLimit(1)
+                                .help(entry.path)
+                                .onTapGesture {
+                                    browser.selectOnly(entry.id)
+                                    browser.statusMessage = entry.path
+                                }
+                        }
+                        Spacer(minLength: 0)
                     }
-                    Spacer(minLength: 0)
                 }
             }
         }

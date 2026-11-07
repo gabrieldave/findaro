@@ -1216,19 +1216,20 @@ final class BrowserModel: ObservableObject {
         applyRule(rule, scope: .everywhere)
     }
 
-    /// Modo limpieza: lo más pesado arriba.
+    /// Orden por peso: lo más pesado arriba (no borra nada).
     func showHeaviestForCleanup() {
         downloadsTodayMode = false
         cleanupMode = true
         rule = .heaviestFirst
-        statusMessage = "Limpieza: archivos/carpetas más pesados arriba"
+        let msg = "Listo: ordené por peso. Arriba está lo que más ocupa. No borré nada."
+        appendAgentReply(msg)
         objectWillChange.send()
     }
 
     func exitCleanupMode() {
         cleanupMode = false
         rule = store.preferences.rule(for: currentPath)
-        statusMessage = "Volviste al orden normal"
+        appendAgentReply("Volviste al orden normal de esta carpeta.")
         objectWillChange.send()
     }
 
