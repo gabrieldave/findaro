@@ -64,9 +64,15 @@ public enum FolderMerge {
         return Preview(sourcePath: source, destPath: dest, items: items)
     }
 
-    /// Copia solo lo que falta en destino; conflictos se renombran con uniqueURL vía FileOps.transfer de archivos sueltos.
+    /// Copia lo nuevo al destino.
+    /// - `overwriteConflicts == false`: los que chocan se guardan como «nombre 2».
+    /// - `overwriteConflicts == true`: los que chocan se reemplazan por el archivo de origen.
     @discardableResult
-    public static func mergeCopy(source: String, dest: String) throws -> [FileOps.TransferPair] {
+    public static func mergeCopy(
+        source: String,
+        dest: String,
+        overwriteConflicts: Bool = false
+    ) throws -> [FileOps.TransferPair] {
         let preview = preview(source: source, dest: dest)
         var pairs: [FileOps.TransferPair] = []
         let fm = FileManager.default
@@ -77,12 +83,22 @@ public enum FolderMerge {
                 ? URL(fileURLWithPath: dest)
                 : URL(fileURLWithPath: dest).appendingPathComponent(parentRel)
             try fm.createDirectory(at: destParent, withIntermediateDirectories: true)
-            let transferred = try FileOps.transfer(
-                paths: [src.path],
-                toDirectory: destParent.path,
-                move: false
-            )
-            pairs.append(contentsOf: transferred)
+
+            if item.kind == .different, overwriteConflicts {
+                let destFile = destParent.appendingPathComponent(src.lastPathComponent)
+                if fm.fileExists(atPath: destFile.path) {
+                    try fm.removeItem(at: destFile)
+                }
+                try fm.copyItem(at: src, to: destFile)
+                pairs.append(FileOps.TransferPair(from: src.path, to: destFile.path))
+            } else {
+                let transferred = try FileOps.transfer(
+                    paths: [src.path],
+                    toDirectory: destParent.path,
+                    move: false
+                )
+                pairs.append(contentsOf: transferred)
+            }
         }
         return pairs
     }

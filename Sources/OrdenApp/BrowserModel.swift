@@ -709,14 +709,19 @@ final class BrowserModel: ObservableObject {
         }
     }
 
-    func confirmPendingMerge() {
+    func confirmPendingMerge(overwriteConflicts: Bool = false) {
         guard let preview = pendingMergePreview else { return }
         let asMove = pendingMergeMove
         do {
-            let pairs = try FolderMerge.mergeCopy(source: preview.sourcePath, dest: preview.destPath)
-            if !pairs.isEmpty {
+            let pairs = try FolderMerge.mergeCopy(
+                source: preview.sourcePath,
+                dest: preview.destPath,
+                overwriteConflicts: overwriteConflicts
+            )
+            if !pairs.isEmpty, !overwriteConflicts {
                 pushUndo(.copied(created: pairs.map(\.to)))
             }
+            // Con reemplazo no deshacemos fácil el archivo pisado; solo avisamos.
             if asMove {
                 let src = URL(fileURLWithPath: preview.sourcePath)
                 if FileManager.default.fileExists(atPath: src.path) {
@@ -734,9 +739,15 @@ final class BrowserModel: ObservableObject {
             noteLocalFileMutation()
             reload()
             let name = URL(fileURLWithPath: preview.destPath).lastPathComponent
-            statusMessage = asMove
-                ? "Fusionado y origen a Papelera → \(name) · \(pairs.count) ítems · ⌘Z deshace copias"
-                : "Fusionado → \(name) · \(pairs.count) ítems · ⌘Z deshace"
+            if overwriteConflicts {
+                statusMessage = asMove
+                    ? "Fusionado reemplazando · origen a Papelera → \(name)"
+                    : "Fusionado reemplazando conflictos → \(name) · \(pairs.count) ítems"
+            } else {
+                statusMessage = asMove
+                    ? "Fusionado y origen a Papelera → \(name) · \(pairs.count) ítems · ⌘Z deshace copias"
+                    : "Fusionado → \(name) · \(pairs.count) ítems · ⌘Z deshace"
+            }
         } catch {
             statusMessage = error.localizedDescription
         }

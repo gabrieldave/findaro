@@ -26,14 +26,24 @@ struct MergePreviewSheet: View {
                     .init(
                         icon: "checkmark.circle.fill",
                         tint: .green,
-                        text: "Se copian los archivos nuevos. Los que chocan se guardan con otro nombre. El destino no se borra."
+                        text: "Los nuevos siempre se copian. Los iguales no se tocan."
+                    ),
+                    .init(
+                        icon: "doc.on.doc",
+                        tint: OrdenTheme.accent,
+                        text: "Conservar ambos: los que chocan se guardan como «nombre 2»."
+                    ),
+                    .init(
+                        icon: "exclamationmark.triangle.fill",
+                        tint: .orange,
+                        text: "Reemplazar: el archivo que traes pisa al del destino (mismo nombre)."
                     ),
                     .init(
                         icon: asMove ? "trash" : "info.circle.fill",
-                        tint: asMove ? .orange : OrdenTheme.accent,
+                        tint: asMove ? .orange : .secondary,
                         text: asMove
-                            ? "Al confirmar, la carpeta de origen va a la Papelera (es un movimiento + fusión)."
-                            : "Es una fusión por copia. ⌘Z puede deshacer los archivos nuevos."
+                            ? "Si eliges mover, la carpeta de origen va a la Papelera al confirmar."
+                            : "⌘Z deshace bien la opción «conservar ambos»; con reemplazo el archivo viejo no se recupera fácil."
                     )
                 ])
 
@@ -54,20 +64,31 @@ struct MergePreviewSheet: View {
                                 .foregroundStyle(color(for: item.kind))
                         }
                     }
-                    .frame(minHeight: 200)
+                    .frame(minHeight: 180)
                 }
             }
             .padding(20)
         } footer: {
-            OrdenDialogFooter(
-                shortcutHint: asMove ? "Mover + fusionar" : "Solo copiar",
-                cancelTitle: "Cancelar",
-                actionTitle: asMove ? "Fusionar y mover" : "Fusionar copia",
-                onCancel: { browser.cancelPendingMerge() },
-                onAction: { browser.confirmPendingMerge() }
-            )
+            HStack(spacing: 10) {
+                Button("Cancelar") { browser.cancelPendingMerge() }
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Conservar ambos") {
+                    browser.confirmPendingMerge(overwriteConflicts: false)
+                }
+                .help("Conflictos → nombre 2")
+                Button(asMove ? "Reemplazar y mover" : "Reemplazar conflictos") {
+                    browser.confirmPendingMerge(overwriteConflicts: true)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+                .help("El que traes pisa al del destino")
+                .disabled(preview.conflictCount == 0 && preview.onlySourceCount == 0)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
         }
-        .frame(width: 560)
+        .frame(width: 580)
     }
 
     private func labeled(_ title: String, _ n: Int, _ color: Color) -> some View {
