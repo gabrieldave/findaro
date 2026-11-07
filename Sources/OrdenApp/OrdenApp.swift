@@ -12,7 +12,7 @@ struct OrdenApp: App {
             ContentView()
                 .environmentObject(browser)
                 // Sidebar fijo 212 + detalle mínimo — no permitir achicar hasta perder el menú
-                .frame(minWidth: 612, minHeight: 480)
+                .frame(minWidth: 612, minHeight: 480) // +300 si el asistente está abierto (ContentView)
                 .tint(OrdenTheme.accent)
                 .onAppear {
                     if let pending = OpenFolderBridge.pendingFolderPath {
@@ -70,6 +70,13 @@ struct OrdenApp: App {
                     .keyboardShortcut("4", modifiers: .command)
                 Button("Cerrar panel de búsqueda") { browser.clearDeepSearch() }
                     .disabled(!browser.showDeepSearchPanel)
+            }
+
+            CommandMenu("Asistente") {
+                Button(browser.showAssistantPanel ? "Ocultar asistente" : "Mostrar asistente") {
+                    browser.showAssistantPanel.toggle()
+                }
+                .keyboardShortcut("5", modifiers: .command)
             }
 
             CommandMenu("Ir") {

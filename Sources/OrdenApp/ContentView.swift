@@ -9,6 +9,7 @@ struct ContentView: View {
     /// REGLA: el menú izquierdo NUNCA se colapsa ni desaparece al achicar la ventana.
     private let sidebarWidth: CGFloat = 212
     private let detailMinWidth: CGFloat = 400
+    private let assistantWidth: CGFloat = 300
 
     /// Se actualiza en cada resize — fuerza redibujar sidebar + iconos al momento.
     @State private var layoutGeneration: Int = 0
@@ -32,11 +33,22 @@ struct ContentView: View {
                 // minWidth 0: comprime el detalle, NUNCA el sidebar
                 .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
                 .layoutPriority(0)
-                .environment(\.ordenWindowWidth, max(0, windowWidth - sidebarWidth))
+                .environment(
+                    \.ordenWindowWidth,
+                    max(0, windowWidth - sidebarWidth - (browser.showAssistantPanel ? assistantWidth : 0))
+                )
                 .environment(\.ordenLayoutGeneration, layoutGeneration)
+
+            if browser.showAssistantPanel {
+                Divider().opacity(0.35)
+                AssistantPanel()
+                    .frame(width: assistantWidth)
+                    .frame(minWidth: assistantWidth, maxWidth: assistantWidth)
+                    .layoutPriority(1)
+            }
         }
         .frame(
-            minWidth: sidebarWidth + detailMinWidth,
+            minWidth: sidebarWidth + detailMinWidth + (browser.showAssistantPanel ? assistantWidth : 0),
             minHeight: 480
         )
         .background(OrdenTheme.windowFill)
@@ -1299,6 +1311,13 @@ private struct BrowserToolbarModifier: ViewModifier {
                     Label("Nuevo archivo", systemImage: "doc.badge.plus")
                 }
                 .help("Crear archivo vacío aquí (⌘N)")
+
+                Button {
+                    browser.showAssistantPanel.toggle()
+                } label: {
+                    Label("Asistente", systemImage: "sparkles")
+                }
+                .help("Asistente local · ⌘5")
 
                 Toggle(isOn: $browser.multiSelectMode) {
                     Label("Varios", systemImage: "checkmark.circle")

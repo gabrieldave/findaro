@@ -792,14 +792,24 @@ final class BrowserModel: ObservableObject {
     }
 
     func runAssistant(prompt: String) async {
-        agentLog.append("> \(prompt)")
-        if let llm = await OllamaClient.shared.proposePlan(prompt: prompt, currentPath: currentPath) {
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        showAssistantPanel = true
+        agentLog.append("> \(trimmed)")
+        if agentLog.count > 80 {
+            agentLog = Array(agentLog.suffix(60))
+        }
+        if let llm = await OllamaClient.shared.proposePlan(prompt: trimmed, currentPath: currentPath) {
             agentPlan = llm
             agentLog.append("Plan (Ollama): \(llm.summary)")
         } else {
-            let plan = AgentIntentParser.plan(from: prompt, currentPath: currentPath)
+            let plan = AgentIntentParser.plan(from: trimmed, currentPath: currentPath)
             agentPlan = plan
             agentLog.append("Plan (reglas): \(plan.summary)")
+        }
+        // Fase 2: solo lectura se ejecuta solo. Escritura espera aprobación (fase 5).
+        if let plan = agentPlan, !plan.needsApproval {
+            executeAgentPlan(approved: true)
         }
     }
 
@@ -815,42 +825,52 @@ final class BrowserModel: ObservableObject {
             case .searchFiles:
                 let q = step.arguments["query"] ?? plan.prompt
                 startDeepSearch(query: q)
-                agentLog.append("searchFiles «\(q)»")
+                agentLog.append("✓ buscar «\(q)»")
+                statusMessage = "Asistente: buscando «\(q)»"
             case .searchContent:
                 let q = step.arguments["query"] ?? plan.prompt
-                // Por ahora: nombre (⌘4). Contenido real de archivos = fase asistente/IA.
                 startDeepSearch(query: q)
-                agentLog.append("searchContent «\(q)» (nombre ya; contenido en fase IA)")
-                statusMessage = "Asistente: por ahora busca por nombre. Contenido + lenguaje natural llega con la IA local."
+                agentLog.append("✓ buscar «\(q)» (nombre; contenido con IA en fase 3)")
+                statusMessage = "Asistente: búsqueda por nombre «\(q)»"
             case .listDirectory:
                 reload()
-                agentLog.append("listDirectory")
+                agentLog.append("✓ listar \(visibleEntries.count) ítems")
+                statusMessage = "Asistente: \(visibleEntries.count) ítems aquí"
             case .getStorageUsage:
                 showHeaviestForCleanup()
-                agentLog.append("getStorageUsage")
+                agentLog.append("✓ mostrar pesados")
+                statusMessage = "Asistente: ordenado por peso"
             case .findDuplicates:
                 let dups = findDuplicateCandidates()
-                agentLog.append("findDuplicates: \(dups) grupos")
+                agentLog.append("✓ duplicados: \(dups) grupos")
             case .organizeFiles:
-                agentLog.append("organizeFiles: propone carpetas por tipo (manual por ahora)")
-                statusMessage = "Organizar: usa filtro Tipo / orden por categoría"
+                agentLog.append("· organizar: aún manual (fase 5)")
+                statusMessage = "Organizar con escritura llega en la fase 5"
             case .openFile:
                 if let p = step.arguments["path"], let entry = entries.first(where: { $0.path == p }) {
                     open(entry)
+                    agentLog.append("✓ abrir \(entry.name)")
                 }
             case .previewFile:
                 quickLookSelection()
+                agentLog.append("✓ vista rápida")
             case .getFileMetadata:
                 if let p = step.arguments["path"], let entry = entries.first(where: { $0.path == p }) {
                     showInfo(entry)
+                    agentLog.append("✓ info \(entry.name)")
+                } else if let entry = selectedEntries.first {
+                    showInfo(entry)
+                    agentLog.append("✓ info selección")
                 }
             case .createDirectory, .copyFiles, .moveFiles, .renameFiles:
-                agentLog.append("\(step.name.rawValue): requiere destinos concretos — usa bandeja / drag")
-                statusMessage = "Acción de escritura: usa bandeja o arrastre (aprobada en plan)"
+                agentLog.append("· \(step.name.rawValue): escritura en fase 5")
+                statusMessage = "Esa acción escribe archivos — fase 5 con aprobación"
             }
         }
-        agentPlan = nil
-        pendingAgentApproval = nil
+        if !plan.needsApproval || approved {
+            agentPlan = nil
+            pendingAgentApproval = nil
+        }
     }
 
     /// Duplicados simples por nombre+tamaño en la carpeta actual (no recursivo aún).
