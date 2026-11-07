@@ -11,16 +11,24 @@ if [[ -z "$DMG" ]]; then
 fi
 [[ -n "$DMG" && -f "$DMG" ]] || { echo "Uso: $0 path/al/Findaro.dmg"; exit 1; }
 
-: "${APPLE_ID:?Define APPLE_ID}"
-: "${APPLE_APP_SPECIFIC_PASSWORD:?Define APPLE_APP_SPECIFIC_PASSWORD (appleid.apple.com → App-Specific Password)}"
 TEAM_ID="${APPLE_TEAM_ID:-YH6W55MP95}"
+PROFILE="${NOTARY_KEYCHAIN_PROFILE:-ordena-notary}"
 
 echo "==> Enviando a notarytool: $DMG"
-xcrun notarytool submit "$DMG" \
-  --apple-id "$APPLE_ID" \
-  --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-  --team-id "$TEAM_ID" \
-  --wait
+if [[ -n "${APPLE_ID:-}" && -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]]; then
+  xcrun notarytool submit "$DMG" \
+    --apple-id "$APPLE_ID" \
+    --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+    --team-id "$TEAM_ID" \
+    --wait
+elif xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1; then
+  xcrun notarytool submit "$DMG" \
+    --keychain-profile "$PROFILE" \
+    --wait
+else
+  echo "Define APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD, o un perfil notarytool ($PROFILE)." >&2
+  exit 1
+fi
 
 echo "==> Stapling…"
 xcrun stapler staple "$DMG"
