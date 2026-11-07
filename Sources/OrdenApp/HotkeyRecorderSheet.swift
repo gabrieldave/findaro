@@ -25,11 +25,11 @@ struct HotkeyRecorderSheet: View {
 
             HStack {
                 Text(draft.displayLabel)
-                    .font(.system(.title, design: .rounded).weight(.bold).monospaced())
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .font(.system(size: 34, weight: .bold, design: .rounded).monospaced())
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 18)
                     .frame(maxWidth: .infinity)
-                    .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
 
             Text(listening ? "Pulsa la nueva combinación…" : "Combinación capturada")

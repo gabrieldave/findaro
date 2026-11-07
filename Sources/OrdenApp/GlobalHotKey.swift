@@ -2,7 +2,7 @@ import AppKit
 import Carbon
 import OrdenCore
 
-/// Atajo global ⌃⌥O → trae Findaro al frente en la carpeta configurada (por defecto Descargas).
+/// Atajo global (por defecto ⌃⌥O) → trae Findaro al frente en la carpeta configurada.
 /// Funciona mientras Findaro esté abierta (ponla en «Abrir al iniciar sesión»).
 @MainActor
 enum GlobalHotKey {
@@ -48,15 +48,20 @@ enum GlobalHotKey {
             &handlerRef
         )
 
-        // ⌃⌥O
+        let chord = resolvedChord()
         RegisterEventHotKey(
-            UInt32(kVK_ANSI_O),
-            UInt32(controlKey | optionKey),
+            UInt32(chord.keyCode),
+            carbonModifiers(chord),
             hotKeyID,
             GetEventDispatcherTarget(),
             0,
             &hotKeyRef
         )
+    }
+
+    /// Vuelve a registrar el atajo tras cambiar preferencias.
+    static func reload() {
+        install()
     }
 
     static func uninstall() {
@@ -75,6 +80,21 @@ enum GlobalHotKey {
         NotificationCenter.default.post(name: .ordenaOpenFolder, object: resolvedFolderPath())
     }
 
+    static func resolvedChord() -> KeyChord {
+        let overrides = PreferencesStore().preferences.keyboardHotkeyOverrides
+        return AppHotkeyCatalog.resolvedChord(id: "nav.globalOpen", overrides: overrides)
+            ?? KeyChord(keyCode: 31, character: "o", option: true, control: true)
+    }
+
+    private static func carbonModifiers(_ chord: KeyChord) -> UInt32 {
+        var mods: UInt32 = 0
+        if chord.control { mods |= UInt32(controlKey) }
+        if chord.option { mods |= UInt32(optionKey) }
+        if chord.shift { mods |= UInt32(shiftKey) }
+        if chord.command { mods |= UInt32(cmdKey) }
+        return mods
+    }
+
     /// Carpeta del atajo global: preferencia del usuario o Descargas.
     static func resolvedFolderPath() -> String {
         let store = PreferencesStore()
@@ -83,8 +103,7 @@ enum GlobalHotKey {
            FileManager.default.fileExists(atPath: custom) {
             return (custom as NSString).standardizingPath
         }
-        return FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path
-            ?? NSString(string: "~/Downloads").expandingTildeInPath
+        return defaultDownloadsPath()
     }
 
     static func defaultDownloadsPath() -> String {

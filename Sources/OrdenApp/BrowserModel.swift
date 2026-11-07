@@ -2328,16 +2328,23 @@ final class BrowserModel: ObservableObject {
             }
         }
         objectWillChange.send()
+        if id == "nav.globalOpen" {
+            GlobalHotKey.reload()
+        }
     }
 
     func resetKeyboardHotkey(_ id: String) {
         store.update { $0.keyboardHotkeyOverrides.removeValue(forKey: id) }
         objectWillChange.send()
+        if id == "nav.globalOpen" {
+            GlobalHotKey.reload()
+        }
     }
 
     func restoreDefaultKeyboardHotkeys() {
         store.update { $0.keyboardHotkeyOverrides = [:] }
         objectWillChange.send()
+        GlobalHotKey.reload()
     }
 
     var globalHotkeyFolderPath: String {

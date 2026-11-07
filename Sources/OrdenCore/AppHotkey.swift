@@ -149,8 +149,8 @@ public enum AppHotkeyCatalog {
               defaultChord: .init(keyCode: 37, character: "l", command: true)),
         .init(id: "nav.downloads", title: "Ir a Descargas", detail: "Salto rápido a Descargas", group: .navigation,
               defaultChord: .init(keyCode: 37, character: "l", command: true, shift: true)),
-        .init(id: "nav.globalOpen", title: "Abrir Findaro (global)", detail: "Desde cualquier app → Descargas", group: .navigation,
-              defaultChord: .init(keyCode: 31, character: "o", option: true, control: true), isEditable: false),
+        .init(id: "nav.globalOpen", title: "Abrir Findaro (global)", detail: "Desde cualquier app → carpeta elegida", group: .navigation,
+              defaultChord: .init(keyCode: 31, character: "o", option: true, control: true), isEditable: true),
 
         // Archivos
         .init(id: "files.undo", title: "Deshacer", detail: "Deshace el último movimiento/copia", group: .files,

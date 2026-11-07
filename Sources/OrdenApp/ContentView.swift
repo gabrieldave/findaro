@@ -1751,24 +1751,41 @@ struct SettingsView: View {
                 settingsRow(
                     icon: "keyboard",
                     tint: OrdenTheme.accent,
-                    title: "Atajo global ⌃⌥O",
+                    title: "Atajo global",
                     subtitle: "Abre Findaro en «\(browser.globalHotkeyFolderDisplayName)»"
                 ) {
-                    HStack(spacing: 8) {
-                        Text("⌃⌥O")
-                            .font(.body.monospaced().weight(.semibold))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(OrdenTheme.panelFill, in: Capsule())
+                    HStack(spacing: 6) {
+                        let globalChord = browser.chord(forHotkey: "nav.globalOpen")
+                            ?? KeyChord(keyCode: 31, character: "o", option: true, control: true)
+                        Button {
+                            if let def = AppHotkeyCatalog.definition(id: "nav.globalOpen") {
+                                editingHotkey = def
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(globalChord.displayLabel)
+                                    .font(.title3.monospaced().weight(.bold))
+                                Image(systemName: "pencil.circle.fill")
+                                    .font(.title3)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(OrdenTheme.accent.opacity(0.18), in: Capsule())
+                            .foregroundStyle(OrdenTheme.accent)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Cambiar teclas del atajo global")
+
                         Button {
                             browser.pickGlobalHotkeyFolder()
                         } label: {
-                            Image(systemName: "pencil.circle.fill")
+                            Image(systemName: "folder.badge.plus")
                                 .font(.title3)
                                 .foregroundStyle(OrdenTheme.accent)
                         }
                         .buttonStyle(.plain)
-                        .help("Elegir carpeta del atajo global")
+                        .help("Elegir carpeta que abre el atajo")
+
                         if browser.usesCustomGlobalHotkeyFolder {
                             Button {
                                 browser.resetGlobalHotkeyFolder()
@@ -1798,7 +1815,7 @@ struct SettingsView: View {
             } header: {
                 Text("Inicio rápido")
             } footer: {
-                Text("El lapicito elige qué carpeta abre ⌃⌥O. «Abrir con → Siempre» es aparte (Apple no deja un solo clic).")
+                Text("Lapicito = cambiar teclas · carpeta = a dónde abre. «Abrir con → Siempre» es aparte.")
             }
 
             Section {
@@ -2005,16 +2022,18 @@ struct SettingsView: View {
                 }
                 Spacer(minLength: 8)
                 Text(chord.displayLabel)
-                    .font(.caption.monospaced().weight(.semibold))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    .font(.title3.monospaced().weight(.bold))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
                     .background(
-                        (customized ? OrdenTheme.accent.opacity(0.18) : OrdenTheme.panelFill),
-                        in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        (customized ? OrdenTheme.accent.opacity(0.22) : OrdenTheme.panelFill),
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous)
                     )
+                    .foregroundStyle(customized ? OrdenTheme.accent : .primary)
                 if def.isEditable {
                     Image(systemName: "pencil.circle.fill")
-                        .foregroundStyle(.secondary)
+                        .font(.title2)
+                        .foregroundStyle(OrdenTheme.accent)
                 }
             }
             .padding(.vertical, 2)
