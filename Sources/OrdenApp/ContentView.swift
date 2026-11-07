@@ -204,7 +204,8 @@ struct ContentView: View {
 
             Group {
                 if browser.dualPaneEnabled {
-                    HSplitView {
+                    // Siempre 50 % / 50 % — sin HSplitView (evita que Destino se coma el ancho).
+                    HStack(spacing: 8) {
                         VStack(spacing: 0) {
                             HStack(spacing: 8) {
                                 Text("Origen")
@@ -268,7 +269,7 @@ struct ContentView: View {
                                     }
                                 }
                         }
-                        .frame(minWidth: 220)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .layoutPriority(1)
                         .overlay(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -277,8 +278,10 @@ struct ContentView: View {
                                     lineWidth: 2
                                 )
                         )
+
                         SecondaryBrowserPane()
-                            .frame(minWidth: 220)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .layoutPriority(1)
                     }
                     .padding(.horizontal, 16)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

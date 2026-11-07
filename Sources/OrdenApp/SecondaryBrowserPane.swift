@@ -28,6 +28,7 @@ struct SecondaryBrowserPane: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .layoutPriority(1)
         .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
