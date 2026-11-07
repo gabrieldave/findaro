@@ -1360,9 +1360,10 @@ struct FileBrowserPane: View {
             if !metrics.isCompact {
                 Text("Tipo")
                     .frame(width: 100, alignment: .leading)
-                Text("Agregado")
-                    .frame(width: 130, alignment: .trailing)
             }
+            // Siempre visible: al filtrar ordenamos por esto (más nuevo arriba).
+            Text("Agregado")
+                .frame(width: metrics.isCompact ? 108 : 130, alignment: .trailing)
             Text("Tamaño")
                 .frame(width: metrics.isCompact ? 72 : 84, alignment: .trailing)
             Color.clear.frame(width: 28)
@@ -1429,11 +1430,11 @@ struct FileRowButton: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .frame(width: 100, alignment: .leading)
-                        Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .frame(width: 130, alignment: .trailing)
                     }
+                    Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .frame(width: metrics.isCompact ? 108 : 130, alignment: .trailing)
                     Text(sizeLabel)
                         .font(.caption.monospacedDigit().weight(entry.size > 100_000_000 ? .semibold : .regular))
                         .foregroundStyle(entry.size > 500_000_000 ? .orange : .secondary)

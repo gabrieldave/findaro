@@ -425,11 +425,10 @@ final class BrowserModel: ObservableObject {
         let base: [FileEntry]
         if let shortcut = activeAssistantShortcut {
             let matched = entries.filter { shortcut.matches($0) }
-            base = DownloadDayFilter.sortNewestFirst(matched)
+            base = matched
         } else if downloadsTodayMode {
-            // Exclusivo: oculta todo lo que no sea actividad de hoy; orden fijo (más nuevo arriba)
-            let today = entries.filter { DownloadDayFilter.isActivityToday($0) }
-            base = DownloadDayFilter.sortNewestFirst(today)
+            // Exclusivo: oculta todo lo que no sea actividad de hoy
+            base = entries.filter { DownloadDayFilter.isActivityToday($0) }
         } else {
             base = SortEngine.sort(entries, by: rule)
         }
@@ -442,13 +441,30 @@ final class BrowserModel: ObservableObject {
             typed = base
         }
         let needles = Self.filterNeedles(from: searchText)
-        guard !needles.isEmpty else { return typed }
-        return typed.filter { entry in
-            needles.contains { needle in
-                entry.name.localizedCaseInsensitiveContains(needle)
-                    || entry.path.localizedCaseInsensitiveContains(needle)
+        let filtered: [FileEntry]
+        if needles.isEmpty {
+            filtered = typed
+        } else {
+            filtered = typed.filter { entry in
+                needles.contains { needle in
+                    entry.name.localizedCaseInsensitiveContains(needle)
+                        || entry.path.localizedCaseInsensitiveContains(needle)
+                }
             }
         }
+        // Cualquier filtro → lo más nuevo (Agregado) arriba.
+        if isFilterSortingNewestFirst {
+            return DownloadDayFilter.sortNewestFirst(filtered)
+        }
+        return filtered
+    }
+
+    /// Descarga hoy, tipo, búsqueda o atajo del asistente.
+    private var isFilterSortingNewestFirst: Bool {
+        downloadsTodayMode
+            || categoryFilter != nil
+            || activeAssistantShortcut != nil
+            || !Self.filterNeedles(from: searchText).isEmpty
     }
 
     /// `*.png` → `.png` (comodines como en Finder no son regex; se ignoran `*` y `?`).
