@@ -1346,31 +1346,21 @@ private struct BrowserDialogsModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .alert("Nueva carpeta", isPresented: $browser.showNewFolderDialog) {
-                TextField("Nombre", text: $browser.nameDraft)
-                Button("Crear") { browser.createFolderFromDraft() }
-                Button("Cancelar", role: .cancel) {}
-            } message: {
-                Text("Se crea dentro de \(shortPath(browser.currentPath))")
+            .sheet(isPresented: $browser.showNewFolderDialog) {
+                NamePromptSheet(kind: .newFolder)
+                    .environmentObject(browser)
             }
-            .alert("Nuevo archivo", isPresented: $browser.showNewFileDialog) {
-                TextField("Nombre (ej. nota.txt)", text: $browser.nameDraft)
-                Button("Crear") { browser.createFileFromDraft() }
-                Button("Cancelar", role: .cancel) {}
-            } message: {
-                Text("Vacío, en \(shortPath(browser.currentPath)). Sin extensión → .txt")
+            .sheet(isPresented: $browser.showNewFileDialog) {
+                NamePromptSheet(kind: .newFile)
+                    .environmentObject(browser)
             }
-            .alert("Renombrar", isPresented: $browser.showRenameDialog) {
-                TextField("Nombre", text: $browser.nameDraft)
-                Button("Guardar") { browser.commitRenameFromDraft() }
-                Button("Cancelar", role: .cancel) { browser.renameTargetPath = nil }
+            .sheet(isPresented: $browser.showRenameDialog) {
+                NamePromptSheet(kind: .rename)
+                    .environmentObject(browser)
             }
-            .alert("Ir a carpeta", isPresented: $browser.showGoToFolderDialog) {
-                TextField("Ruta", text: $browser.goToFolderDraft)
-                Button("Ir") { browser.submitGoToFolder() }
-                Button("Cancelar", role: .cancel) {}
-            } message: {
-                Text("Pega una ruta absoluta o empieza con ~/ … Atajo ⌘3")
+            .sheet(isPresented: $browser.showGoToFolderDialog) {
+                GoToFolderSheet()
+                    .environmentObject(browser)
             }
             .sheet(isPresented: $browser.showDeepSearchDialog) {
                 DeepSearchSheet()

@@ -1,0 +1,11 @@
+# Diálogos formales (Ordena)
+
+Al crear o tocar cualquier diálogo de producto (ir a carpeta, buscar, nueva carpeta/archivo, renombrar, merge, asistente, confirmaciones):
+
+1. **Usar sheet + chrome** de `OrdenDialogChrome.swift` (`OrdenDialogShell`, `OrdenDialogHeader`, `OrdenDialogSection`, `OrdenDialogHintBox`, `OrdenDialogFooter`).
+2. **No** usar `.alert` de sistema para flujos con explicación o campo de texto (quedan feos / “con las patas”).
+3. Copiar el tono del sheet de búsqueda: título claro, subtítulo, secciones con label en mayúsculas, pistas con ✓/✗, atajo en el footer.
+4. Ancho estándar: `OrdenDialogMetrics.width` (440).
+5. Texto en español, formal y breve; sin jerga técnica innecesaria.
+
+Referencia visual: `DeepSearchSheet.swift`, `GoToFolderSheet.swift`, `NamePromptSheet.swift`.

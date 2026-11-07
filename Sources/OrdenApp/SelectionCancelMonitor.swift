@@ -136,7 +136,13 @@ enum SelectionCancelMonitor {
     private static func shouldIgnore(_ event: NSEvent, browser: BrowserModel) -> Bool {
         if isEditingText { return true }
         if NSApp.keyWindow?.attachedSheet != nil { return true }
-        if browser.showNewFolderDialog || browser.showRenameDialog { return true }
+        if browser.showNewFolderDialog
+            || browser.showNewFileDialog
+            || browser.showRenameDialog
+            || browser.showGoToFolderDialog
+            || browser.showDeepSearchDialog {
+            return true
+        }
         return false
     }
 
