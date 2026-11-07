@@ -298,9 +298,11 @@ final class BrowserModel: ObservableObject {
     }
 
     private func handleSecondaryFolderWatcherEvent() {
-        guard dualPaneEnabled, !sameFolder(currentPath, secondaryPath) else { return }
+        guard dualPaneEnabled else { return }
+        // Misma carpeta: el watcher primario ya refresca ambos paneles.
+        guard !sameFolder(currentPath, secondaryPath) else { return }
         let before = Set(secondaryEntries.map(\.id))
-        reloadSecondary(fromWatcher: true)
+        reloadSecondary(preserveSelection: true, fromWatcher: true)
         let after = Set(secondaryEntries.map(\.id))
         if before != after {
             statusMessage = "Panel destino actualizado"
@@ -331,10 +333,35 @@ final class BrowserModel: ObservableObject {
         let previous = preserveSelection ? selectedIDs : []
         let prevFocus = selectionFocusID
         let prevAnchor = selectionAnchorID
+        // En refrescos FSEvents reutilizamos tamaños de carpeta ya medidos para
+        // no relanzar walks caros ni provocar parpadeos durante descargas.
+        let previousDirectorySizes = Dictionary(
+            uniqueKeysWithValues: entries.compactMap { entry -> (String, Int64)? in
+                guard entry.isDirectory, entry.size > 0 else { return nil }
+                return (entry.path, entry.size)
+            }
+        )
         measureTask?.cancel()
         do {
             let loaded = try DirectoryLoader.load(path: currentPath)
-            entries = SortEngine.sort(loaded, by: rule)
+            var nextEntries = SortEngine.sort(loaded, by: rule)
+            if fromWatcher, !previousDirectorySizes.isEmpty {
+                nextEntries = nextEntries.map { entry in
+                    guard entry.isDirectory,
+                          let known = previousDirectorySizes[entry.path] else { return entry }
+                    return FileEntry(
+                        path: entry.path,
+                        name: entry.name,
+                        isDirectory: entry.isDirectory,
+                        size: known,
+                        dateModified: entry.dateModified,
+                        dateCreated: entry.dateCreated,
+                        dateAdded: entry.dateAdded,
+                        kind: entry.kind
+                    )
+                }
+            }
+            entries = nextEntries
             errorMessage = nil
             if preserveSelection {
                 selectedIDs = previous.intersection(Set(entries.map(\.id)))
@@ -349,8 +376,12 @@ final class BrowserModel: ObservableObject {
                     selectionAnchorID = selectedIDs.first
                 }
             }
-            folderTotalBytes = FolderSizer.sum(entries.filter { !$0.isDirectory })
-            startMeasuringSizes()
+            folderTotalBytes = entries.reduce(Int64(0)) { $0 + $1.size }
+            if !fromWatcher {
+                startMeasuringSizes()
+            } else {
+                isMeasuringSizes = false
+            }
         } catch {
             entries = []
             folderTotalBytes = 0
@@ -358,9 +389,9 @@ final class BrowserModel: ObservableObject {
         }
 
         // Si ambos paneles muestran la misma carpeta, el evento del panel principal
-        // también debe actualizar la lista secundaria.
+        // también debe actualizar la lista secundaria (un solo FSEvents, dos listas).
         if dualPaneEnabled, sameFolder(currentPath, secondaryPath) {
-            reloadSecondary(fromWatcher: true)
+            reloadSecondary(preserveSelection: true, fromWatcher: true)
         }
     }
 
@@ -850,9 +881,10 @@ final class BrowserModel: ObservableObject {
         statusMessage = "Panel derecho: \((target as NSString).lastPathComponent)"
     }
 
-    func reloadSecondary(fromWatcher: Bool = false) {
+    func reloadSecondary(preserveSelection: Bool = false, fromWatcher: Bool = false) {
         guard !secondaryPath.isEmpty else {
             secondaryEntries = []
+            secondarySelectedIDs = []
             secondaryFolderWatcher.stop()
             return
         }
@@ -861,12 +893,19 @@ final class BrowserModel: ObservableObject {
         if !fromWatcher {
             startWatchingSecondaryFolder()
         }
+        let previous = preserveSelection ? secondarySelectedIDs : []
         do {
             let loaded = try DirectoryLoader.load(path: secondaryPath)
             secondaryEntries = SortEngine.sort(loaded, by: store.preferences.rule(for: secondaryPath))
             secondaryError = nil
+            if preserveSelection {
+                secondarySelectedIDs = previous.intersection(Set(secondaryEntries.map(\.id)))
+            }
         } catch {
             secondaryEntries = []
+            if preserveSelection {
+                secondarySelectedIDs = []
+            }
             secondaryError = error.localizedDescription
         }
         objectWillChange.send()

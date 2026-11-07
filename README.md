@@ -25,12 +25,19 @@ open /Applications/Ordena.app
 
 ## Requisitos
 
-- macOS 15+
+- macOS 15+ (mínimo de despliegue; sin bajar el target)
 - Apple Silicon (`arm64`)
+- Entorno de desarrollo validado: **macOS 27** + **Xcode 27.2** + **Swift 6.4**
 
 ## Desarrollo
 
+Usa el Xcode.app completo (no solo Command Line Tools):
+
 ```bash
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 swift test
+swift build --product Orden
 ./scripts/package-app.sh
 ```
+
+CI (GitHub Actions) corre en el runner `xcode-27` (macOS 27 + Xcode 27).
