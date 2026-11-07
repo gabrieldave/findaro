@@ -552,13 +552,13 @@ struct ActiveFiltersBar: View {
             Button {
                 browser.resetToNormalView()
             } label: {
-                Label("Orden normal", systemImage: "xmark.circle.fill")
+                Label("Quitar filtro", systemImage: "xmark.circle.fill")
                     .font(.subheadline.weight(.semibold))
             }
             .buttonStyle(.borderedProminent)
             .tint(.orange)
             .controlSize(.regular)
-            .help("Quita búsqueda, tipo, descargados, pesados y atajos · Esc")
+            .help("Quita búsqueda, tipo, descargados y atajos · Esc. Al filtrar la lista va por Agregado (más nuevo arriba).")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -590,8 +590,8 @@ struct ActiveFiltersBar: View {
         if browser.activeAssistantShortcut != nil {
             parts.append("atajo")
         }
-        if parts.isEmpty { return "Filtros activos" }
-        return "Activo: " + parts.joined(separator: " · ")
+        if parts.isEmpty { return "Filtros activos · más nuevo arriba" }
+        return "Activo: " + parts.joined(separator: " · ") + " · más nuevo arriba"
     }
 }
 
