@@ -113,8 +113,8 @@ enum FileDragArmChrome {
                         .font(.subheadline.weight(.bold))
                         Text(
                             browser.fileDragArmedPaths.count == 1
-                                ? "⌘+clic amplía el rango (igual que ⇧) · arrastra · Esc cancela"
-                                : "⌘+clic = rango como ⇧ · arrástralos juntos · Esc cancela"
+                                ? "⌘+clic en el siguiente lo suma · otra vez en este lo quita · Esc cancela"
+                                : "⌘+clic suma (1 por 1, no borra) · otra vez en uno lo quita · Esc cancela"
                         )
                             .font(.caption)
                             .opacity(0.9)

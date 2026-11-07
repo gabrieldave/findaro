@@ -67,6 +67,8 @@ final class BrowserModel: ObservableObject {
     @Published var multiSelectMode = false
     /// Ancla para ⇧ clic / ⇧ flechas (rango). No se mueve al extender.
     @Published var selectionAnchorID: String?
+    /// Tras ⌘+clic del monitor AppKit, ignorar el clic SwiftUI que llega sin modificadores y te deja 1 solo.
+    private var ignorePlainSelectUntil: Date?
     /// Cursor de teclado: fila activa al navegar con flechas (con o sin ⇧).
     @Published var selectionFocusID: String?
     @Published var showNewFolderDialog = false
@@ -230,38 +232,81 @@ final class BrowserModel: ObservableObject {
         objectWillChange.send()
     }
 
-    /// Clic: ⇧ rango normal · ⌘ mismo rango + modo naranja (mover) · Varios/casilla toggle · normal = uno.
+    /// Clic: ⇧ rango (reemplaza) · ⌘ rango naranja que SUMA (1 por 1 no borra) · Varios/casilla · normal = uno.
     func clickSelect(_ id: String) {
         let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.shift) {
             selectRange(to: id)
-            // ⇧ no enciende naranja; si ya estaba, el rango lo sigue.
             if hasArmedFileDrag { syncArmedWithSelection() }
         } else if flags.contains(.command) {
-            // Igual que ⇧ (rango desde el ancla), pero deja el grupo listo para arrastrar.
             commandRangeSelectForMove(to: id)
         } else if multiSelectMode {
             toggleSelection(id)
             if hasArmedFileDrag { syncArmedWithSelection() }
         } else {
+            // El monitor ya manejó ⌘+clic; el Button a veces dispara otro clic “pelado” y te deja 1.
+            if let until = ignorePlainSelectUntil, Date() < until { return }
             if hasArmedFileDrag { clearArmedFileDrag() }
             selectOnly(id)
         }
     }
 
-    /// ⌘+clic = exactamente `selectRange` (como ⇧) + arma naranja con esa selección.
+    func noteCommandClickHandled() {
+        ignorePlainSelectUntil = Date().addingTimeInterval(0.45)
+    }
+
+    /// ⌘+clic (modo mover): mismo gesto que ⇧ (rango desde el ancla), pero **suma** al grupo.
+    /// Así puedes ir 1 por 1: cada ⌘+clic agrega hasta ese archivo sin quitar los anteriores.
+    /// ⌘+clic otra vez sobre uno ya marcado → solo ese se quita.
     func commandRangeSelectForMove(to id: String) {
-        selectRange(to: id)
-        let paths = selectedEntries.map(\.path)
-        fileDragArmedPaths = paths
-        fileDragArmProgress = 1
-        fileDragArmingPaths = []
-        fileDragArmingPrimaryPath = nil
+        noteCommandClickHandled()
+        let ids = visibleEntries.map(\.id)
+        guard ids.contains(id) else { return }
+
+        // Ancla estable (como ⇧): el primer ítem del gesto de mover.
+        if selectionAnchorID == nil || !hasArmedFileDrag && selectedIDs.count <= 1 {
+            if selectedIDs.count == 1, let only = selectedIDs.first, only != id {
+                selectionAnchorID = only
+            } else if selectionAnchorID == nil {
+                selectionAnchorID = selectedIDs.first ?? id
+            }
+        }
+        let anchor = selectionAnchorID ?? id
+        if selectionAnchorID == nil {
+            selectionAnchorID = anchor
+        }
+
+        if hasArmedFileDrag, selectedIDs.contains(id) {
+            // Ya estaba: ⌘ otra vez lo saca (solo ese).
+            selectedIDs.remove(id)
+            if selectionFocusID == id { selectionFocusID = selectedIDs.first }
+            if selectionAnchorID == id { selectionAnchorID = selectedIDs.first }
+        } else if let a = ids.firstIndex(of: anchor), let b = ids.firstIndex(of: id) {
+            let slice = Set(ids[a <= b ? a...b : b...a])
+            // SUMA el rango (no reemplaza): ir 1→2→3 no te borra el 1.
+            selectedIDs.formUnion(slice)
+            selectionFocusID = id
+        } else {
+            selectedIDs.insert(id)
+            selectionFocusID = id
+            selectionAnchorID = id
+        }
+
         armingProgressTask?.cancel()
         armingProgressTask = nil
-        statusMessage = paths.count <= 1
-            ? "Listo para mover — ⌘+clic amplía el rango (igual que ⇧) · Esc cancela"
-            : "\(paths.count) listos — ⌘+clic = rango como ⇧ · arrastra · Esc cancela"
+        fileDragArmingPaths = []
+        fileDragArmingPrimaryPath = nil
+        fileDragArmProgress = 1
+
+        if selectedIDs.isEmpty {
+            clearArmedFileDrag()
+            statusMessage = "Modo mover OFF"
+        } else {
+            fileDragArmedPaths = selectedEntries.map(\.path)
+            statusMessage = fileDragArmedPaths.count == 1
+                ? "Listo para mover — ⌘+clic suma el siguiente (como ⇧, sin borrar) · Esc cancela"
+                : "\(fileDragArmedPaths.count) listos — ⌘+clic suma rango · otra vez en uno lo quita · Esc"
+        }
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
         objectWillChange.send()
     }
@@ -428,6 +473,9 @@ final class BrowserModel: ObservableObject {
     func selectRange(to id: String) {
         let ids = visibleEntries.map(\.id)
         let anchor = selectionAnchorID ?? selectedIDs.first ?? id
+        if selectionAnchorID == nil {
+            selectionAnchorID = anchor
+        }
         guard let a = ids.firstIndex(of: anchor), let b = ids.firstIndex(of: id) else {
             selectOnly(id)
             return

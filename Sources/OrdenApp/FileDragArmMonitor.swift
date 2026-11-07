@@ -77,8 +77,9 @@ final class FileDragArmMonitor {
               let entry = browser.visibleEntries.first(where: { $0.path == path })
         else { return event }
 
-        // Mismo rango que ⇧+clic, en modo naranja para mover.
+        // Rango como ⇧, en naranja; el monitor traga el evento para que SwiftUI no haga clic pelado.
         browser.commandRangeSelectForMove(to: entry.id)
+        browser.noteCommandClickHandled()
         return nil
     }
 
