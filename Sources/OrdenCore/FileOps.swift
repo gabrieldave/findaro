@@ -50,41 +50,82 @@ public enum FileOps {
         }
     }
 
-    /// Copia o mueve rutas a una carpeta destino. Devuelve los pares realizados.
+    /// Copia o mueve rutas a una carpeta destino. Si falla una operación,
+    /// intenta revertir las operaciones anteriores para evitar transferencias parciales.
     @discardableResult
-    public static func transfer(
-        paths: [String],
-        toDirectory destinationDir: String,
-        move: Bool
-    ) throws -> [TransferPair] {
+    public static func transfer(paths: [String], toDirectory destinationDir: String, move: Bool) throws -> [TransferPair] {
         let fm = FileManager.default
-        var destIsDir: ObjCBool = false
-        guard fm.fileExists(atPath: destinationDir, isDirectory: &destIsDir), destIsDir.boolValue else {
-            throw FileOpsError.failed("Destino no es carpeta")
+        let destinationURL = URL(fileURLWithPath: destinationDir).standardizedFileURL.resolvingSymlinksInPath()
+        var destinationIsDirectory: ObjCBool = false
+        guard fm.fileExists(atPath: destinationURL.path, isDirectory: &destinationIsDirectory),
+              destinationIsDirectory.boolValue else { throw FileOpsError.failed("Destino no es carpeta") }
+
+        var seen = Set<String>()
+        let uniquePaths = paths.filter { seen.insert(URL(fileURLWithPath: $0).standardizedFileURL.path).inserted }
+        for path in uniquePaths {
+            let sourceURL = URL(fileURLWithPath: path).standardizedFileURL
+            guard fm.fileExists(atPath: sourceURL.path) else {
+                throw FileOpsError.failed("No existe el origen: \(sourceURL.lastPathComponent)")
+            }
+            if sourceURL.resolvingSymlinksInPath().path == destinationURL.path { throw FileOpsError.sameFolder }
+            var sourceIsDirectory: ObjCBool = false
+            _ = fm.fileExists(atPath: sourceURL.path, isDirectory: &sourceIsDirectory)
+            if sourceIsDirectory.boolValue,
+               isSameOrDescendant(destinationURL.path, of: sourceURL.resolvingSymlinksInPath().path) {
+                throw FileOpsError.sameFolder
+            }
         }
 
         var pairs: [TransferPair] = []
-        for path in paths {
-            let src = URL(fileURLWithPath: path)
-            let parent = src.deletingLastPathComponent().path
-            if (parent as NSString).standardizingPath == (destinationDir as NSString).standardizingPath {
-                continue
-            }
-            var dest = URL(fileURLWithPath: destinationDir)
-                .appendingPathComponent(src.lastPathComponent)
-            dest = uniqueURL(dest)
-            do {
-                if move {
-                    try fm.moveItem(at: src, to: dest)
-                } else {
-                    try fm.copyItem(at: src, to: dest)
+        do {
+            for path in uniquePaths {
+                let sourceURL = URL(fileURLWithPath: path).standardizedFileURL
+                if sourceURL.deletingLastPathComponent().resolvingSymlinksInPath().path == destinationURL.path { continue }
+                let destination = uniqueURL(destinationURL.appendingPathComponent(sourceURL.lastPathComponent))
+                do {
+                    if move { try fm.moveItem(at: sourceURL, to: destination) }
+                    else { try fm.copyItem(at: sourceURL, to: destination) }
+                    pairs.append(TransferPair(from: sourceURL.path, to: destination.path))
+                } catch {
+                    if !move, fm.fileExists(atPath: destination.path) { try? fm.removeItem(at: destination) }
+                    if move, !fm.fileExists(atPath: sourceURL.path), fm.fileExists(atPath: destination.path) {
+                        pairs.append(TransferPair(from: sourceURL.path, to: destination.path))
+                    }
+                    throw error
                 }
-                pairs.append(TransferPair(from: path, to: dest.path))
-            } catch {
-                throw FileOpsError.failed(error.localizedDescription)
             }
+        } catch {
+            let originalError = error.localizedDescription
+            var rollbackErrors: [String] = []
+            for pair in pairs.reversed() {
+                let current = URL(fileURLWithPath: pair.to)
+                let original = URL(fileURLWithPath: pair.from)
+                do {
+                    if move {
+                        guard fm.fileExists(atPath: current.path) else { continue }
+                        guard !fm.fileExists(atPath: original.path) else {
+                            rollbackErrors.append("El origen ya existe: \(original.lastPathComponent)")
+                            continue
+                        }
+                        try fm.moveItem(at: current, to: original)
+                    } else if fm.fileExists(atPath: current.path) {
+                        try fm.removeItem(at: current)
+                    }
+                } catch {
+                    rollbackErrors.append("\(current.lastPathComponent): \(error.localizedDescription)")
+                }
+            }
+            if rollbackErrors.isEmpty {
+                throw FileOpsError.failed("La transferencia falló y se revirtieron los cambios: \(originalError)")
+            }
+            throw FileOpsError.failed("La transferencia falló: \(originalError). Errores al revertir: \(rollbackErrors.joined(separator: "; "))")
         }
         return pairs
+    }
+
+    private static func isSameOrDescendant(_ path: String, of root: String) -> Bool {
+        if path == root { return true }
+        return path.hasPrefix(root.hasSuffix("/") ? root : root + "/")
     }
 
     /// Crea una carpeta dentro de `parent`. Si el nombre existe, añade " 2", " 3"…

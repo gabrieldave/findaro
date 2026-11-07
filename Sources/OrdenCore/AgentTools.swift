@@ -128,14 +128,23 @@ public enum AgentPolicy {
         }
     }
 
-    /// Rutas fuera de home / volúmenes montados se rechazan salvo que estén bajo /Volumes o home.
+    /// Solo permite rutas dentro del home actual o de volúmenes montados.
+    /// Resuelve enlaces simbólicos y comprueba límites de directorio, no prefijos de texto.
     public static func isPathAllowed(_ path: String) -> Bool {
-        let p = (path as NSString).standardizingPath
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        if p.hasPrefix(home) { return true }
-        if p.hasPrefix("/Volumes/") { return true }
-        if p == "/" || p.hasPrefix("/Users/") { return true }
-        return false
+        guard !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        let resolved = URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
+        let home = FileManager.default.homeDirectoryForCurrentUser
+            .standardizedFileURL.resolvingSymlinksInPath().path
+        let mountedVolume = resolved != "/Volumes" && isSameOrDescendant(resolved, of: "/Volumes")
+        return isSameOrDescendant(resolved, of: home) || mountedVolume
+    }
+
+    public static func isSameOrDescendant(_ path: String, of root: String) -> Bool {
+        let resolvedPath = URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
+        let resolvedRoot = URL(fileURLWithPath: root).standardizedFileURL.resolvingSymlinksInPath().path
+        if resolvedPath == resolvedRoot { return true }
+        let prefix = resolvedRoot.hasSuffix("/") ? resolvedRoot : resolvedRoot + "/"
+        return resolvedPath.hasPrefix(prefix)
     }
 }
 
