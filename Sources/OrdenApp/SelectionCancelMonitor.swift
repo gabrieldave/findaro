@@ -1,7 +1,9 @@
 import AppKit
+import OrdenCore
 
 /// Atajos de teclado fiables (AppKit). Los del menú SwiftUI fallan con
 /// Option+flechas (llevan flag `.function`) y con foco en la búsqueda.
+/// Las combinaciones se resuelven desde `AppHotkeyCatalog` + preferencias.
 @MainActor
 enum SelectionCancelMonitor {
     private static var keyMonitor: Any?
@@ -25,7 +27,6 @@ enum SelectionCancelMonitor {
         }
 
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            // ⌃Espacio (mantener): push-to-talk — también con foco en campos de texto.
             if handleVoicePTTKeyDown(event, browser: browser) {
                 return nil
             }
@@ -37,15 +38,29 @@ enum SelectionCancelMonitor {
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             let key = event.keyCode
             let chars = event.charactersIgnoringModifiers ?? ""
-
             let opt = flags.contains(.option)
             let cmd = flags.contains(.command)
             let shift = flags.contains(.shift)
             let ctrl = flags.contains(.control)
-            // Las flechas suelen traer `.function` — no exigir igualdad exacta de flags.
+
+            // Preferencias vía store (@unchecked); el monitor corre en el hilo principal.
+            let overrides = browser.store.preferences.keyboardHotkeyOverrides
+            func hit(_ id: String) -> Bool {
+                guard let chord = AppHotkeyCatalog.resolvedChord(id: id, overrides: overrides) else {
+                    return false
+                }
+                return chord.matches(
+                    keyCode: key,
+                    characters: chars,
+                    command: cmd,
+                    option: opt,
+                    shift: shift,
+                    control: ctrl
+                )
+            }
 
             // Esc → búsqueda → otros filtros → selección / modo naranja
-            if key == 53, !opt, !cmd, !shift, !ctrl {
+            if hit("files.cancel") {
                 if browser.showDeepSearchPanel {
                     browser.clearDeepSearch()
                     return nil
@@ -59,35 +74,30 @@ enum SelectionCancelMonitor {
             }
 
             // Tab → alternar Origen ↔ Destino (solo dual pane)
-            // keyCode 48 = Tab
-            if browser.dualPaneEnabled, key == 48, !opt, !cmd, !ctrl {
+            if browser.dualPaneEnabled, hit("dual.swapFocus") {
                 browser.toggleFocusedPane()
                 return nil
             }
 
-            // ⌘⇧← Origen · ⌘⇧→ Destino
-            if browser.dualPaneEnabled, cmd, shift, !opt, !ctrl {
-                if key == 123 { // left
-                    browser.focusOriginPane()
-                    return nil
-                }
-                if key == 124 { // right
-                    browser.focusDestinationPane()
-                    return nil
-                }
+            if browser.dualPaneEnabled, hit("dual.focusOrigin") {
+                browser.focusOriginPane()
+                return nil
             }
-
-            // ⌘⇧M → mover selección del Origen al Destino
-            if browser.dualPaneEnabled, cmd, shift, !opt, !ctrl,
-               chars.lowercased() == "m" || key == 46 {
+            if browser.dualPaneEnabled, hit("dual.focusDest") {
+                browser.focusDestinationPane()
+                return nil
+            }
+            if browser.dualPaneEnabled, hit("dual.moveToDest") {
                 browser.transferPrimarySelectionToSecondary(copy: false)
                 return nil
             }
+            if browser.dualPaneEnabled, hit("dual.moveToOrigin") {
+                browser.transferSecondarySelectionToPrimary(copy: false)
+                return nil
+            }
 
-            // Espacio → Vista rápida (Quick Look). onKeyPress de SwiftUI no llega
-            // con el foco en la lista/scroll; el monitor AppKit sí.
-            // ⌃Espacio es voz (arriba); aquí solo Espacio solo.
-            if key == 49, !opt, !cmd, !shift, !ctrl {
+            // Espacio → Vista rápida (⌃Espacio es voz, arriba)
+            if hit("files.quickLook") {
                 browser.quickLookSelection()
                 return nil
             }
@@ -104,40 +114,33 @@ enum SelectionCancelMonitor {
                 }
             }
 
-            // ↑↓ / ←→ → mover selección · ⇧+flechas → extender rango (como Windows).
-            // Solo selección; no mueve archivos. Ignora .function de las flechas.
+            // ↑↓ / ←→ → mover selección · ⇧+flechas → extender rango
             if !opt, !cmd, !ctrl, (key == 125 || key == 126 || key == 123 || key == 124) {
                 if QuickLookController.shared.isVisible, !shift {
-                    // ↑↓ con QL abierto: no navegamos la lista (QL usa ←→).
                     if key == 125 || key == 126 {
                         return event
                     }
                 } else {
                     let delta: Int
                     switch key {
-                    case 126, 123: delta = -1 // ↑ / ←
-                    default: delta = 1        // ↓ / →
+                    case 126, 123: delta = -1
+                    default: delta = 1
                     }
                     browser.moveSelectionByKeyboard(delta: delta, extending: shift)
                     return nil
                 }
             }
 
-            // ⌥← / ⌥→ → atrás / adelante (como Alt+flechas en Windows)
-            // Ignoramos `.function` que AppKit pone en las flechas.
-            if opt, !cmd, !shift, !ctrl {
-                if key == 123 { // left arrow
-                    browser.goBack()
-                    return nil
-                }
-                if key == 124 { // right arrow
-                    browser.goForward()
-                    return nil
-                }
+            if hit("nav.backOption") {
+                browser.goBack()
+                return nil
+            }
+            if hit("nav.forwardOption") {
+                browser.goForward()
+                return nil
             }
 
-            // Return (36): Explorer → abrir; Finder → renombrar
-            if key == 36, !opt, !cmd, !shift, !ctrl {
+            if hit("files.return") {
                 if browser.explorerKeyboardProfile {
                     browser.openSelection()
                 } else if browser.selectedIDs.count == 1 {
@@ -146,62 +149,107 @@ enum SelectionCancelMonitor {
                 return nil
             }
 
-            // F2 (120) → renombrar (perfil Explorer / siempre útil)
-            if key == 120, !opt, !cmd, !shift, !ctrl {
+            if hit("files.renameF2") {
                 browser.promptRename()
                 return nil
             }
 
-            // ⌘L → omnibox de ruta
-            if cmd, !opt, !ctrl, !shift, (chars.lowercased() == "l" || key == 37) {
+            if hit("nav.omnibox") {
                 browser.beginPathOmnibox()
                 return nil
             }
 
-            // ⌘⇧. → mostrar/ocultar ocultos
-            if cmd, shift, !opt, !ctrl, chars == "." {
+            if hit("view.hidden") {
                 browser.toggleShowHiddenFiles()
                 return nil
             }
 
-            // ⌘1 / ⌘2 / ⌘3 → atrás / adelante / Ir a carpeta (mano izquierda)
-            // keyCodes: 18 = 1, 19 = 2, 20 = 3
-            // ⌘Z → deshacer movimiento/copia
-            // ⌘C / ⌘X / ⌘V → copiar / cortar / pegar archivos
-            if cmd, !opt, !ctrl, !shift {
-                if chars == "1" || key == 18 {
-                    browser.goBack()
-                    return nil
-                }
-                if chars == "2" || key == 19 {
-                    browser.goForward()
-                    return nil
-                }
-                if chars == "3" || key == 20 {
-                    browser.promptGoToFolder()
-                    return nil
-                }
-                if chars.lowercased() == "z" || key == 6 {
-                    browser.undoLastFileOp()
-                    return nil
-                }
-                if chars.lowercased() == "c" || key == 8 {
-                    browser.addSelectionToShelf(intent: .copy)
-                    return nil
-                }
-                if chars.lowercased() == "x" || key == 7 {
-                    browser.addSelectionToShelf(intent: .move)
-                    return nil
-                }
-                if chars.lowercased() == "v" || key == 9 {
-                    browser.pasteFromPasteboard()
-                    return nil
-                }
+            if hit("nav.back") {
+                browser.goBack()
+                return nil
+            }
+            if hit("nav.forward") {
+                browser.goForward()
+                return nil
+            }
+            if hit("nav.goTo") {
+                browser.promptGoToFolder()
+                return nil
+            }
+            if hit("files.undo") {
+                browser.undoLastFileOp()
+                return nil
+            }
+            if hit("files.copy") {
+                browser.addSelectionToShelf(intent: .copy)
+                return nil
+            }
+            if hit("files.cut") {
+                browser.addSelectionToShelf(intent: .move)
+                return nil
+            }
+            if hit("files.paste") {
+                browser.pasteFromPasteboard()
+                return nil
             }
 
-            // ⌘↑ → carpeta superior
-            if cmd, !opt, !shift, !ctrl, key == 126 {
+            if hit("nav.up") {
                 browser.goUp()
+                return nil
+            }
+
+            if hit("search.deep") {
+                browser.promptDeepSearch()
+                return nil
+            }
+            if hit("assistant.toggle") {
+                browser.showAssistantPanel.toggle()
+                return nil
+            }
+            if hit("assistant.focus") {
+                browser.showAssistantPanel = true
+                return nil
+            }
+            if hit("dual.toggle") {
+                browser.toggleDualPane()
+                return nil
+            }
+            if hit("nav.downloads") {
+                browser.navigateToDownloads()
+                return nil
+            }
+            if hit("files.favorite") {
+                browser.addCurrentFolderToFavorites()
+                return nil
+            }
+            if hit("files.open") {
+                browser.openSelection()
+                return nil
+            }
+            if hit("files.trash") {
+                browser.moveSelectionToTrash()
+                return nil
+            }
+            if hit("files.newFile") {
+                browser.promptNewFile()
+                return nil
+            }
+            if hit("files.newFolder") {
+                browser.promptNewFolder()
+                return nil
+            }
+            if hit("files.duplicate") {
+                browser.duplicateSelection()
+                return nil
+            }
+            if hit("files.selectAll") {
+                browser.selectAllVisible()
+                return nil
+            }
+            // «Modo varios» comparte ⌘⇧M de fábrica con «Mover → Destino»;
+            // si dual pane está activo, el movimiento ya se manejó arriba.
+            if hit("view.multi") {
+                browser.multiSelectMode.toggle()
                 return nil
             }
 
@@ -209,7 +257,7 @@ enum SelectionCancelMonitor {
         }
 
         keyUpMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyUp) { event in
-            if handleVoicePTTKeyUp(event) {
+            if handleVoicePTTKeyUp(event, browser: browser) {
                 return nil
             }
             return event
@@ -240,16 +288,20 @@ enum SelectionCancelMonitor {
         browserRef = nil
     }
 
-    /// ⌃Espacio: keyDown inicia; keyUp / soltar ⌃ termina.
     private static func handleVoicePTTKeyDown(_ event: NSEvent, browser: BrowserModel) -> Bool {
         guard !event.isARepeat else { return voicePTTHeld }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let ctrl = flags.contains(.control)
-        let opt = flags.contains(.option)
-        let cmd = flags.contains(.command)
-        let shift = flags.contains(.shift)
-        // keyCode 49 = Espacio
-        guard event.keyCode == 49, ctrl, !opt, !cmd, !shift else { return false }
+        let chars = event.charactersIgnoringModifiers ?? ""
+        let overrides = browser.store.preferences.keyboardHotkeyOverrides
+        guard let chord = AppHotkeyCatalog.resolvedChord(id: "assistant.voice", overrides: overrides),
+              chord.matches(
+                keyCode: event.keyCode,
+                characters: chars,
+                command: flags.contains(.command),
+                option: flags.contains(.option),
+                shift: flags.contains(.shift),
+                control: flags.contains(.control)
+              ) else { return false }
         if NSApp.keyWindow?.attachedSheet != nil { return false }
         if browser.showOllamaSetupDialog || browser.showFolderHandlerSetupDialog { return false }
         guard !voicePTTHeld else { return true }
@@ -259,8 +311,14 @@ enum SelectionCancelMonitor {
         return true
     }
 
-    private static func handleVoicePTTKeyUp(_ event: NSEvent) -> Bool {
-        guard voicePTTHeld, event.keyCode == 49 else { return false }
+    private static func handleVoicePTTKeyUp(_ event: NSEvent, browser: BrowserModel) -> Bool {
+        guard voicePTTHeld else { return false }
+        let overrides = browser.store.preferences.keyboardHotkeyOverrides
+        guard let chord = AppHotkeyCatalog.resolvedChord(id: "assistant.voice", overrides: overrides) else { return false }
+        // Soltar la tecla principal del acorde (p. ej. Espacio).
+        guard event.keyCode == chord.keyCode || (!chord.character.isEmpty && (event.charactersIgnoringModifiers ?? "").lowercased() == chord.character) else {
+            return false
+        }
         endVoicePTT()
         return true
     }
@@ -268,7 +326,20 @@ enum SelectionCancelMonitor {
     private static func handleVoicePTTFlagsChanged(_ event: NSEvent) {
         guard voicePTTHeld else { return }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if !flags.contains(.control) {
+        guard let browser = browserRef else { return }
+        let overrides = browser.store.preferences.keyboardHotkeyOverrides
+        guard let chord = AppHotkeyCatalog.resolvedChord(id: "assistant.voice", overrides: overrides) else { return }
+        // Si el acorde exige ⌃ y se soltó, terminar.
+        if chord.control, !flags.contains(.control) {
+            endVoicePTT()
+        }
+        if chord.option, !flags.contains(.option) {
+            endVoicePTT()
+        }
+        if chord.command, !flags.contains(.command) {
+            endVoicePTT()
+        }
+        if chord.shift, !flags.contains(.shift) {
             endVoicePTT()
         }
     }

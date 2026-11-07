@@ -2308,6 +2308,38 @@ final class BrowserModel: ObservableObject {
         store.update { $0.assistantShortcuts = capped }
     }
 
+    // MARK: Atajos de teclado
+
+    var keyboardHotkeyOverrides: [String: KeyChord] {
+        store.preferences.keyboardHotkeyOverrides
+    }
+
+    func chord(forHotkey id: String) -> KeyChord? {
+        AppHotkeyCatalog.resolvedChord(id: id, overrides: keyboardHotkeyOverrides)
+    }
+
+    func setKeyboardHotkey(_ id: String, chord: KeyChord) {
+        guard let def = AppHotkeyCatalog.definition(id: id), def.isEditable else { return }
+        store.update { prefs in
+            if chord == def.defaultChord {
+                prefs.keyboardHotkeyOverrides.removeValue(forKey: id)
+            } else {
+                prefs.keyboardHotkeyOverrides[id] = chord
+            }
+        }
+        objectWillChange.send()
+    }
+
+    func resetKeyboardHotkey(_ id: String) {
+        store.update { $0.keyboardHotkeyOverrides.removeValue(forKey: id) }
+        objectWillChange.send()
+    }
+
+    func restoreDefaultKeyboardHotkeys() {
+        store.update { $0.keyboardHotkeyOverrides = [:] }
+        objectWillChange.send()
+    }
+
     func setOllamaEnabled(_ on: Bool) {
         store.update { $0.ollamaEnabled = on }
         OllamaClient.shared.applyPreferences(store.preferences)

@@ -1696,6 +1696,7 @@ struct SettingsView: View {
     @StateObject private var ollama = OllamaClient.shared
     @State private var editingShortcut: AssistantShortcut?
     @State private var showNewShortcut = false
+    @State private var editingHotkey: AppHotkeyDefinition?
 
     var body: some View {
         TabView {
@@ -1704,13 +1705,13 @@ struct SettingsView: View {
             settingsAssistant
                 .tabItem { Label("Asistente", systemImage: "sparkles") }
             settingsShortcuts
-                .tabItem { Label("Atajos", systemImage: "bookmark.fill") }
+                .tabItem { Label("Atajos", systemImage: "keyboard") }
             settingsSearch
                 .tabItem { Label("Búsqueda", systemImage: "magnifyingglass") }
             settingsMaintenance
                 .tabItem { Label("Mantenimiento", systemImage: "wrench.and.screwdriver") }
         }
-        .frame(width: 560, height: 460)
+        .frame(width: 560, height: 520)
         .sheet(isPresented: $browser.showOllamaSetupDialog) {
             OllamaSetupSheet()
                 .environmentObject(browser)
@@ -1728,6 +1729,13 @@ struct SettingsView: View {
             ShortcutEditorSheet(existing: shortcut) { updated in
                 browser.updateAssistantShortcut(updated)
             }
+        }
+        .sheet(item: $editingHotkey) { def in
+            HotkeyRecorderSheet(
+                definition: def,
+                current: browser.chord(forHotkey: def.id) ?? def.defaultChord
+            )
+            .environmentObject(browser)
         }
         .task {
             ollama.applyPreferences(browser.store.preferences)
@@ -1889,75 +1897,116 @@ struct SettingsView: View {
     // MARK: Atajos
 
     private var settingsShortcuts: some View {
-        VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Mis atajos")
-                        .font(.headline)
-                    Text("\(browser.assistantShortcuts.count) de \(AssistantShortcut.maxCount) · arrastra para reordenar")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button {
-                    showNewShortcut = true
-                } label: {
-                    Label("Nuevo", systemImage: "plus")
-                }
-                .disabled(browser.assistantShortcuts.count >= AssistantShortcut.maxCount)
-                .buttonStyle(.borderedProminent)
-                .tint(OrdenTheme.accent)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
-
-            Divider().opacity(0.35)
-
-            if browser.assistantShortcuts.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "bookmark.slash")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                    Text("Sin atajos")
-                        .font(.headline)
-                    Text("Crea uno: imágenes de hoy, docs de ayer…")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Button("Crear el primero") { showNewShortcut = true }
-                        .buttonStyle(.borderedProminent)
-                        .tint(OrdenTheme.accent)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                List {
-                    ForEach(browser.assistantShortcuts) { shortcut in
-                        shortcutSettingsRow(shortcut)
-                    }
-                    .onMove(perform: browser.moveAssistantShortcut)
-                    .onDelete { indexSet in
-                        let ids = indexSet.map { browser.assistantShortcuts[$0].id }
-                        for id in ids {
-                            browser.deleteAssistantShortcut(id: id)
+        List {
+            ForEach(AppHotkeyGroup.allCases, id: \.self) { group in
+                let items = AppHotkeyCatalog.catalog.filter { $0.group == group }
+                if !items.isEmpty {
+                    Section {
+                        ForEach(items) { def in
+                            keyboardHotkeyRow(def)
+                        }
+                    } header: {
+                        if group == AppHotkeyGroup.allCases.first {
+                            HStack {
+                                Text(group.titleSpanish)
+                                Spacer()
+                                Button("Restaurar teclado") {
+                                    browser.restoreDefaultKeyboardHotkeys()
+                                }
+                                .font(.caption)
+                            }
+                        } else {
+                            Text(group.titleSpanish)
+                        }
+                    } footer: {
+                        if group == .view {
+                            Text("Clic para cambiar la tecla. Reinicia Findaro si el menú de macOS no se actualiza.")
                         }
                     }
                 }
-                .listStyle(.inset)
             }
 
-            Divider().opacity(0.35)
-            HStack {
-                Button("Restaurar de fábrica") {
-                    browser.restoreDefaultAssistantShortcuts()
+            Section {
+                ForEach(browser.assistantShortcuts) { shortcut in
+                    shortcutSettingsRow(shortcut)
                 }
-                .foregroundStyle(.secondary)
-                Spacer()
-                Text("Clic = editar · swipe o Delete = borrar")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                .onMove(perform: browser.moveAssistantShortcut)
+                .onDelete { indexSet in
+                    let ids = indexSet.map { browser.assistantShortcuts[$0].id }
+                    for id in ids {
+                        browser.deleteAssistantShortcut(id: id)
+                    }
+                }
+
+                Button {
+                    showNewShortcut = true
+                } label: {
+                    Label("Nuevo filtro", systemImage: "plus")
+                }
+                .disabled(browser.assistantShortcuts.count >= AssistantShortcut.maxCount)
+            } header: {
+                HStack {
+                    Text("Filtros del asistente")
+                    Spacer()
+                    Text("\(browser.assistantShortcuts.count)/\(AssistantShortcut.maxCount)")
+                        .foregroundStyle(.secondary)
+                }
+            } footer: {
+                HStack {
+                    Button("Restaurar filtros") {
+                        browser.restoreDefaultAssistantShortcuts()
+                    }
+                    Spacer()
+                    Text("Imágenes de hoy, docs de ayer…")
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
         }
+        .listStyle(.inset)
+    }
+
+    private func keyboardHotkeyRow(_ def: AppHotkeyDefinition) -> some View {
+        let chord = browser.chord(forHotkey: def.id) ?? def.defaultChord
+        let customized = browser.keyboardHotkeyOverrides[def.id] != nil
+        return Button {
+            guard def.isEditable else { return }
+            editingHotkey = def
+        } label: {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(def.title)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.primary)
+                    Text(def.detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 8)
+                Text(chord.displayLabel)
+                    .font(.caption.monospaced().weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        (customized ? OrdenTheme.accent.opacity(0.18) : OrdenTheme.panelFill),
+                        in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    )
+                if def.isEditable {
+                    Image(systemName: "pencil.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 2)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            if def.isEditable {
+                Button("Cambiar…") { editingHotkey = def }
+                Button("Restablecer") { browser.resetKeyboardHotkey(def.id) }
+                    .disabled(!customized)
+            }
+        }
+        .help(def.isEditable ? "Clic para cambiar" : "Atajo del sistema (no editable aquí)")
     }
 
     private func shortcutSettingsRow(_ shortcut: AssistantShortcut) -> some View {

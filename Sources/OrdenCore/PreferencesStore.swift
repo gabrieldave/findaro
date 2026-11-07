@@ -25,9 +25,11 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public var ollamaModel: String
     /// Plantillas de vista (orden + modo + filtro) para reaplicar cuando quieras.
     public var viewTemplates: [ViewTemplate]
+    /// Overrides de atajos de teclado (id → acorde). Vacío = defaults de fábrica.
+    public var keyboardHotkeyOverrides: [String: KeyChord]
 
     public init(
-        schemaVersion: Int = 13,
+        schemaVersion: Int = 15,
         globalRule: SortRule = .downloads,
         folderOverrides: [String: SortRule] = [:],
         favorites: [String] = [],
@@ -40,7 +42,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         assistantShortcuts: [AssistantShortcut] = AssistantShortcut.factoryDefaults(),
         ollamaEnabled: Bool = false,
         ollamaModel: String = "qwen2.5:3b",
-        viewTemplates: [ViewTemplate] = ViewTemplate.factoryDefaults()
+        viewTemplates: [ViewTemplate] = ViewTemplate.factoryDefaults(),
+        keyboardHotkeyOverrides: [String: KeyChord] = [:]
     ) {
         self.schemaVersion = schemaVersion
         self.globalRule = globalRule
@@ -56,6 +59,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         self.ollamaEnabled = ollamaEnabled
         self.ollamaModel = ollamaModel
         self.viewTemplates = viewTemplates
+        self.keyboardHotkeyOverrides = keyboardHotkeyOverrides
     }
 
     /// Override de carpeta si existe; si no, el global (estilo Descargas por defecto).
@@ -72,7 +76,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     enum CodingKeys: String, CodingKey {
         case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode, showRowPaths,
              explorerKeyboardProfile, showHiddenFiles, flattenFolderView, assistantShortcuts,
-             ollamaEnabled, ollamaModel, viewTemplates
+             ollamaEnabled, ollamaModel, viewTemplates, keyboardHotkeyOverrides
     }
 
     public init(from decoder: Decoder) throws {
@@ -93,6 +97,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         ollamaModel = try c.decodeIfPresent(String.self, forKey: .ollamaModel) ?? "qwen2.5:3b"
         viewTemplates = try c.decodeIfPresent([ViewTemplate].self, forKey: .viewTemplates)
             ?? ViewTemplate.factoryDefaults()
+        keyboardHotkeyOverrides = try c.decodeIfPresent([String: KeyChord].self, forKey: .keyboardHotkeyOverrides) ?? [:]
     }
 }
 
@@ -225,6 +230,10 @@ public final class PreferencesStore: @unchecked Sendable {
             next.showHiddenFiles = false
             next.flattenFolderView = false
             next.schemaVersion = 14
+        }
+        if next.schemaVersion < 15 {
+            next.keyboardHotkeyOverrides = [:]
+            next.schemaVersion = 15
         }
         // Tope duro: gente crea muchos; no dejamos crecer sin límite.
         if next.assistantShortcuts.count > AssistantShortcut.maxCount {
