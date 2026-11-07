@@ -5,10 +5,31 @@ import AppKit
 @MainActor
 enum SelectionCancelMonitor {
     private static var keyMonitor: Any?
+    private static var keyUpMonitor: Any?
+    private static var flagsMonitor: Any?
+    /// Push-to-talk activo por ⌃Espacio (no por el botón del panel).
+    private static var voicePTTHeld = false
+    private static weak var browserRef: BrowserModel?
 
     static func install(browser: BrowserModel) {
         remove()
+        browserRef = browser
+        VoiceCaptureController.shared.onFinished = { text in
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            Task { @MainActor in
+                guard let browser = SelectionCancelMonitor.browserRef else { return }
+                browser.showAssistantPanel = true
+                await browser.runAssistant(prompt: trimmed)
+            }
+        }
+
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // ⌃Espacio (mantener): push-to-talk — también con foco en campos de texto.
+            if handleVoicePTTKeyDown(event, browser: browser) {
+                return nil
+            }
+
             if shouldIgnore(event, browser: browser) {
                 return event
             }
@@ -32,6 +53,7 @@ enum SelectionCancelMonitor {
 
             // Espacio → Vista rápida (Quick Look). onKeyPress de SwiftUI no llega
             // con el foco en la lista/scroll; el monitor AppKit sí.
+            // ⌃Espacio es voz (arriba); aquí solo Espacio solo.
             if key == 49, !opt, !cmd, !shift, !ctrl {
                 browser.quickLookSelection()
                 return nil
@@ -124,13 +146,76 @@ enum SelectionCancelMonitor {
 
             return event
         }
+
+        keyUpMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyUp) { event in
+            if handleVoicePTTKeyUp(event) {
+                return nil
+            }
+            return event
+        }
+
+        flagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+            handleVoicePTTFlagsChanged(event)
+            return event
+        }
     }
 
     static func remove() {
+        if voicePTTHeld {
+            endVoicePTT()
+        }
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
             self.keyMonitor = nil
         }
+        if let keyUpMonitor {
+            NSEvent.removeMonitor(keyUpMonitor)
+            self.keyUpMonitor = nil
+        }
+        if let flagsMonitor {
+            NSEvent.removeMonitor(flagsMonitor)
+            self.flagsMonitor = nil
+        }
+        browserRef = nil
+    }
+
+    /// ⌃Espacio: keyDown inicia; keyUp / soltar ⌃ termina.
+    private static func handleVoicePTTKeyDown(_ event: NSEvent, browser: BrowserModel) -> Bool {
+        guard !event.isARepeat else { return voicePTTHeld }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let ctrl = flags.contains(.control)
+        let opt = flags.contains(.option)
+        let cmd = flags.contains(.command)
+        let shift = flags.contains(.shift)
+        // keyCode 49 = Espacio
+        guard event.keyCode == 49, ctrl, !opt, !cmd, !shift else { return false }
+        if NSApp.keyWindow?.attachedSheet != nil { return false }
+        if browser.showOllamaSetupDialog || browser.showFolderHandlerSetupDialog { return false }
+        guard !voicePTTHeld else { return true }
+        voicePTTHeld = true
+        browser.showAssistantPanel = true
+        VoiceCaptureController.shared.beginPushToTalk()
+        return true
+    }
+
+    private static func handleVoicePTTKeyUp(_ event: NSEvent) -> Bool {
+        guard voicePTTHeld, event.keyCode == 49 else { return false }
+        endVoicePTT()
+        return true
+    }
+
+    private static func handleVoicePTTFlagsChanged(_ event: NSEvent) {
+        guard voicePTTHeld else { return }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if !flags.contains(.control) {
+            endVoicePTT()
+        }
+    }
+
+    private static func endVoicePTT() {
+        guard voicePTTHeld else { return }
+        voicePTTHeld = false
+        VoiceCaptureController.shared.endPushToTalk()
     }
 
     private static func shouldIgnore(_ event: NSEvent, browser: BrowserModel) -> Bool {

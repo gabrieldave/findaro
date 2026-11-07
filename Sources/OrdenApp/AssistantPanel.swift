@@ -37,10 +37,14 @@ struct AssistantPanel: View {
             }
         }
         .onAppear {
+            // El monitor de teclado (⌃Espacio) también asigna onFinished; reforzamos aquí
+            // por si el panel se abrió sin reinstalar el monitor.
             voice.onFinished = { text in
-                draft = text
-                Task { await browser.runAssistant(prompt: text) }
-                draft = ""
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return }
+                Task { @MainActor in
+                    await browser.runAssistant(prompt: trimmed)
+                }
             }
         }
         .task {
@@ -326,7 +330,7 @@ struct AssistantPanel: View {
                 .controlSize(.large)
             }
 
-            Text("Mantén el micrófono, habla, suelta → ejecuta. Local en tu Mac.")
+            Text("Mantén el micrófono o ⌃Espacio, habla, suelta → ejecuta. Local en tu Mac.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
@@ -355,7 +359,7 @@ struct AssistantPanel: View {
                         voice.endPushToTalk()
                     }
             )
-            .help("Mantén para hablar (español)")
+            .help("Mantén para hablar · atajo ⌃Espacio (español)")
             .accessibilityLabel("Mantener para hablar")
     }
 

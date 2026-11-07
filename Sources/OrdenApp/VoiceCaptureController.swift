@@ -36,7 +36,7 @@ final class VoiceCaptureController: ObservableObject, @unchecked Sendable {
 
     var statusLabel: String {
         switch phase {
-        case .idle: return "Mantén para hablar"
+        case .idle: return "Mantén el micrófono o ⌃Espacio"
         case .requestingPermission: return "Pidiendo permiso…"
         case .listening: return transcript.isEmpty ? "Escuchando…" : transcript
         case .processing: return "Procesando…"
