@@ -22,6 +22,19 @@ struct MergePreviewSheet: View {
                     labeled("Distintos", preview.conflictCount, .orange)
                 }
 
+                if !preview.canMerge {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Fusión bloqueada por seguridad", systemImage: "exclamationmark.triangle.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.orange)
+                        ForEach(preview.warnings, id: \.self) { warning in
+                            Text(warning).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                }
                 OrdenDialogHintBox(rows: [
                     .init(
                         icon: "checkmark.circle.fill",
@@ -77,13 +90,14 @@ struct MergePreviewSheet: View {
                     browser.confirmPendingMerge(overwriteConflicts: false)
                 }
                 .help("Conflictos → nombre 2")
+                .disabled(!preview.canMerge)
                 Button(asMove ? "Reemplazar y mover" : "Reemplazar conflictos") {
                     browser.confirmPendingMerge(overwriteConflicts: true)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
                 .help("El que traes pisa al del destino")
-                .disabled(preview.conflictCount == 0 && preview.onlySourceCount == 0)
+                .disabled(!preview.canMerge || (preview.conflictCount == 0 && preview.onlySourceCount == 0))
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)

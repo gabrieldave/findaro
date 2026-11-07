@@ -1031,6 +1031,10 @@ final class BrowserModel: ObservableObject {
     func confirmPendingMerge(overwriteConflicts: Bool = false) {
         guard let preview = pendingMergePreview else { return }
         let asMove = pendingMergeMove
+        guard preview.canMerge else {
+            statusMessage = preview.warnings.first ?? "La vista previa no está completa; no se realizará la fusión."
+            return
+        }
         do {
             let pairs = try FolderMerge.mergeCopy(
                 source: preview.sourcePath,
