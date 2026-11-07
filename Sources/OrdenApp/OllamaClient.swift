@@ -154,33 +154,61 @@ final class OllamaClient: ObservableObject {
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let stepsRaw = root["steps"] as? [[String: Any]] else { return nil }
 
-        let summary = (root["summary"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let summary = (root["summary"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         var steps: [AgentToolCall] = []
-        for step in stepsRaw {
+
+        // Un plan local no puede convertir una respuesta larga del modelo en cientos de acciones.
+        for step in stepsRaw.prefix(12) {
             guard let nameRaw = step["name"] as? String,
                   let name = AgentToolName(rawValue: nameRaw) else { continue }
+
+            let allowedKeys: Set<String>
+            switch name {
+            case .searchFiles, .searchContent:
+                allowedKeys = ["query", "root"]
+            case .listDirectory, .getStorageUsage, .findDuplicates, .organizeFiles:
+                allowedKeys = ["path"]
+            case .getFileMetadata, .openFile, .previewFile:
+                allowedKeys = ["path"]
+            case .createDirectory:
+                allowedKeys = ["name", "parent"]
+            case .copyFiles, .moveFiles:
+                allowedKeys = ["paths", "path", "destination"]
+            case .renameFiles:
+                allowedKeys = ["path", "paths", "newName"]
+            }
+
             var args: [String: String] = [:]
             if let dict = step["arguments"] as? [String: Any] {
-                for (k, v) in dict {
-                    args[k] = stringifyArg(v)
+                for (key, value) in dict where allowedKeys.contains(key) {
+                    let string = stringifyArg(value)
+                    guard !string.contains("\0"), string.count <= 8_192 else { continue }
+                    args[key] = string
                 }
             }
             steps.append(AgentToolCall(name: name, arguments: args, risk: AgentPolicy.risk(for: name)))
         }
+
         guard !steps.isEmpty else { return nil }
-        return AgentPlan(
-            prompt: prompt,
-            summary: (summary?.isEmpty == false ? summary! : "Plan de Ollama"),
-            steps: steps
-        )
+        let safeSummary = String((summary?.isEmpty == false ? summary! : "Plan de Ollama").prefix(240))
+        return AgentPlan(prompt: prompt, summary: safeSummary, steps: steps)
     }
 
     private func stringifyArg(_ value: Any) -> String {
-        switch value {
-        case let s as String: return s
-        case let n as NSNumber: return n.stringValue
-        case let b as Bool: return b ? "true" : "false"
-        default: return "\(value)"
+        if let strings = value as? [String] {
+            return strings.joined(separator: "\n")
         }
+        switch value {
+        case let bool as Bool:
+            return bool ? "true" : "false"
+        case let string as String:
+            return string
+        case let number as NSNumber:
+            return number.stringValue
+        default:
+            return ""
+        }
+    }
     }
 }
