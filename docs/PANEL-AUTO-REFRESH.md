@@ -44,3 +44,12 @@ Tras un evento:
 3. Copiar/mover entre paneles → origen y destino se actualizan.
 4. Renombrar/borrar desde Finder → Ordena refleja el cambio.
 5. Alternar doble panel on/off → no deben quedar watchers huérfanos.
+6. Clic en el vacío de un panel → ese panel queda **activo** al instante (sin botón Activar).
+
+## UX relacionada (Top 5)
+
+- Omnibox: ⌘L o doble clic en breadcrumbs.
+- Explorer: Ajustes → «Teclado tipo Explorer» (Enter abre / F2 renombra).
+- Cut visual: ⌘X atenúa y tacha el archivo hasta pegar.
+- Ocultos: ⌘⇧. · Vista plana: menú Ir / Ajustes.
+- TransferQueue: barra de progreso + verify de tamaño en moves/copias entre paneles.

@@ -14,6 +14,10 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public var showRowPaths: Bool
     /// Enter abre / F2 renombra (perfil tipo Explorer).
     public var explorerKeyboardProfile: Bool
+    /// Mostrar archivos/carpetas ocultos (punto / flag hidden).
+    public var showHiddenFiles: Bool
+    /// Lista plana de archivos bajo la carpeta actual (sin jerarquía).
+    public var flattenFolderView: Bool
     /// Atajos del asistente (tipo + fecha). Muchos → UI scrolleable.
     public var assistantShortcuts: [AssistantShortcut]
     /// Fase 3: usar Ollama si está corriendo (opt-in).
@@ -31,6 +35,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         viewMode: BrowserViewMode = .list,
         showRowPaths: Bool = true,
         explorerKeyboardProfile: Bool = false,
+        showHiddenFiles: Bool = false,
+        flattenFolderView: Bool = false,
         assistantShortcuts: [AssistantShortcut] = AssistantShortcut.factoryDefaults(),
         ollamaEnabled: Bool = false,
         ollamaModel: String = "qwen2.5:3b",
@@ -44,6 +50,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         self.viewMode = viewMode
         self.showRowPaths = showRowPaths
         self.explorerKeyboardProfile = explorerKeyboardProfile
+        self.showHiddenFiles = showHiddenFiles
+        self.flattenFolderView = flattenFolderView
         self.assistantShortcuts = assistantShortcuts
         self.ollamaEnabled = ollamaEnabled
         self.ollamaModel = ollamaModel
@@ -63,7 +71,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode, showRowPaths,
-             explorerKeyboardProfile, assistantShortcuts, ollamaEnabled, ollamaModel, viewTemplates
+             explorerKeyboardProfile, showHiddenFiles, flattenFolderView, assistantShortcuts,
+             ollamaEnabled, ollamaModel, viewTemplates
     }
 
     public init(from decoder: Decoder) throws {
@@ -76,6 +85,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         viewMode = try c.decodeIfPresent(BrowserViewMode.self, forKey: .viewMode) ?? .list
         showRowPaths = try c.decodeIfPresent(Bool.self, forKey: .showRowPaths) ?? true
         explorerKeyboardProfile = try c.decodeIfPresent(Bool.self, forKey: .explorerKeyboardProfile) ?? false
+        showHiddenFiles = try c.decodeIfPresent(Bool.self, forKey: .showHiddenFiles) ?? false
+        flattenFolderView = try c.decodeIfPresent(Bool.self, forKey: .flattenFolderView) ?? false
         assistantShortcuts = try c.decodeIfPresent([AssistantShortcut].self, forKey: .assistantShortcuts)
             ?? AssistantShortcut.factoryDefaults()
         ollamaEnabled = try c.decodeIfPresent(Bool.self, forKey: .ollamaEnabled) ?? false
@@ -129,7 +140,7 @@ public final class PreferencesStore: @unchecked Sendable {
     private static func freshDefaults() -> OrdenPreferences {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return OrdenPreferences(
-            schemaVersion: 13,
+            schemaVersion: 14,
             globalRule: .downloads,
             folderOverrides: [:],
             favorites: [
@@ -141,6 +152,8 @@ public final class PreferencesStore: @unchecked Sendable {
             lastPath: (home as NSString).appendingPathComponent("Downloads"),
             showRowPaths: true,
             explorerKeyboardProfile: false,
+            showHiddenFiles: false,
+            flattenFolderView: false,
             viewTemplates: ViewTemplate.factoryDefaults()
         )
     }
@@ -189,6 +202,11 @@ public final class PreferencesStore: @unchecked Sendable {
                 next.viewTemplates = ViewTemplate.factoryDefaults()
             }
             next.schemaVersion = 13
+        }
+        if next.schemaVersion < 14 {
+            next.showHiddenFiles = false
+            next.flattenFolderView = false
+            next.schemaVersion = 14
         }
         // Tope duro: gente crea muchos; no dejamos crecer sin límite.
         if next.assistantShortcuts.count > AssistantShortcut.maxCount {

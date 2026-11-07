@@ -136,6 +136,34 @@ enum SelectionCancelMonitor {
                 }
             }
 
+            // Return (36): Explorer → abrir; Finder → renombrar
+            if key == 36, !opt, !cmd, !shift, !ctrl {
+                if browser.explorerKeyboardProfile {
+                    browser.openSelection()
+                } else if browser.selectedIDs.count == 1 {
+                    browser.promptRename()
+                }
+                return nil
+            }
+
+            // F2 (120) → renombrar (perfil Explorer / siempre útil)
+            if key == 120, !opt, !cmd, !shift, !ctrl {
+                browser.promptRename()
+                return nil
+            }
+
+            // ⌘L → omnibox de ruta
+            if cmd, !opt, !ctrl, !shift, (chars.lowercased() == "l" || key == 37) {
+                browser.beginPathOmnibox()
+                return nil
+            }
+
+            // ⌘⇧. → mostrar/ocultar ocultos
+            if cmd, shift, !opt, !ctrl, chars == "." {
+                browser.toggleShowHiddenFiles()
+                return nil
+            }
+
             // ⌘1 / ⌘2 / ⌘3 → atrás / adelante / Ir a carpeta (mano izquierda)
             // keyCodes: 18 = 1, 19 = 2, 20 = 3
             // ⌘Z → deshacer movimiento/copia

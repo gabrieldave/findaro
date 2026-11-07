@@ -110,6 +110,16 @@ final class BrowserModel: ObservableObject {
     @Published var showRowPaths: Bool
     /// Perfil Explorer: Enter abre, F2 renombra.
     @Published var explorerKeyboardProfile: Bool
+    /// Mostrar ocultos (⌘⇧.).
+    @Published var showHiddenFiles: Bool
+    /// Vista plana de archivos bajo la carpeta.
+    @Published var flattenFolderView: Bool
+    /// Omnibox: editar ruta en la barra de breadcrumbs.
+    @Published var pathOmniboxEditing = false
+    @Published var pathOmniboxDraft = ""
+    /// Progreso de TransferQueue (barra de estado).
+    @Published var transferProgressFraction: Double?
+    @Published var transferProgressLabel: String?
     /// Pilas de rutas para vista Columnas (Miller).
     @Published var columnPaths: [String] = []
 
@@ -226,6 +236,8 @@ final class BrowserModel: ObservableObject {
         self.viewMode = store.preferences.viewMode
         self.showRowPaths = store.preferences.showRowPaths
         self.explorerKeyboardProfile = store.preferences.explorerKeyboardProfile
+        self.showHiddenFiles = store.preferences.showHiddenFiles
+        self.flattenFolderView = store.preferences.flattenFolderView
         self.assistantShortcuts = store.preferences.assistantShortcuts
         self.viewTemplates = store.preferences.viewTemplates
         self.columnPaths = [start]
@@ -343,7 +355,7 @@ final class BrowserModel: ObservableObject {
         )
         measureTask?.cancel()
         do {
-            let loaded = try DirectoryLoader.load(path: currentPath)
+            let loaded = try loadEntries(at: currentPath)
             var nextEntries = SortEngine.sort(loaded, by: rule)
             if fromWatcher, !previousDirectorySizes.isEmpty {
                 nextEntries = nextEntries.map { entry in
@@ -763,10 +775,22 @@ final class BrowserModel: ObservableObject {
     }
 
     /// Clic en zona vacía: no cancelar si hay ⌘/⇧ (evita apagar el naranja al soltar ⌘+clic).
-    func cancelSelectionFromBackgroundTap() {
+    /// En doble panel también enfoca el panel donde se hizo clic.
+    func cancelSelectionFromBackgroundTap(activating pane: PaneFocus? = nil) {
+        if let pane, dualPaneEnabled {
+            focusPane(pane)
+        }
         let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.command) || flags.contains(.shift) { return }
         cancelSelection()
+    }
+
+    /// ¿Este path está «cortado» (en bandeja con intención mover)?
+    func isCutPending(path: String) -> Bool {
+        let key = (path as NSString).standardizingPath
+        return shelf.contains {
+            $0.intent == .move && ($0.path as NSString).standardizingPath == key
+        }
     }
 
     func toggleSelectAllVisible() {
@@ -895,7 +919,7 @@ final class BrowserModel: ObservableObject {
         }
         let previous = preserveSelection ? secondarySelectedIDs : []
         do {
-            let loaded = try DirectoryLoader.load(path: secondaryPath)
+            let loaded = try loadEntries(at: secondaryPath)
             secondaryEntries = SortEngine.sort(loaded, by: store.preferences.rule(for: secondaryPath))
             secondaryError = nil
             if preserveSelection {
@@ -909,6 +933,17 @@ final class BrowserModel: ObservableObject {
             secondaryError = error.localizedDescription
         }
         objectWillChange.send()
+    }
+
+    private func loadEntries(at path: String) throws -> [FileEntry] {
+        if flattenFolderView {
+            return try DirectoryFlatten.load(
+                root: path,
+                includeHidden: showHiddenFiles,
+                includeDirectories: false
+            )
+        }
+        return try DirectoryLoader.load(path: path, includeHidden: showHiddenFiles)
     }
 
     func goUpSecondary() {
@@ -994,26 +1029,64 @@ final class BrowserModel: ObservableObject {
             return true
         }
         guard !transferPaths.isEmpty else { return true }
-        do {
-            let pairs = try FileOps.transfer(paths: transferPaths, toDirectory: destStd, move: !copy)
-            if copy {
-                pushUndo(.copied(created: pairs.map(\.to)))
-            } else {
-                pushUndo(.moved(pairs: pairs))
+        enqueueTransfer(paths: transferPaths, toDirectory: destStd, move: !copy) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let pairs):
+                if copy {
+                    self.pushUndo(.copied(created: pairs.map(\.to)))
+                } else {
+                    self.pushUndo(.moved(pairs: pairs))
+                }
+                if clearPrimary { self.clearSelection() }
+                if clearSecondary { self.secondarySelectedIDs = [] }
+                self.reload()
+                self.reloadSecondary()
+                let verb = copy ? "Copié" : "Moví"
+                let short = (destStd as NSString).lastPathComponent
+                self.statusMessage = pairs.count == 1
+                    ? "\(verb) 1 ítem → \(short)"
+                    : "\(verb) \(pairs.count) ítems → \(short)"
+            case .failure(let error):
+                self.statusMessage = error.localizedDescription
+                self.reload()
+                self.reloadSecondary()
             }
-            if clearPrimary { clearSelection() }
-            if clearSecondary { secondarySelectedIDs = [] }
-            reload()
-            reloadSecondary()
-            let verb = copy ? "Copié" : "Moví"
-            let short = (destStd as NSString).lastPathComponent
-            statusMessage = pairs.count == 1
-                ? "\(verb) 1 ítem → \(short)"
-                : "\(verb) \(pairs.count) ítems → \(short)"
-            return true
-        } catch {
-            statusMessage = error.localizedDescription
-            return false
+        }
+        return true
+    }
+
+    /// Transfiere con TransferQueue (progreso + verify de tamaño).
+    func enqueueTransfer(
+        paths: [String],
+        toDirectory dest: String,
+        move: Bool,
+        completion: @escaping (Result<[FileOps.TransferPair], Error>) -> Void
+    ) {
+        let job = TransferQueue.Job(paths: paths, destinationDir: dest, move: move)
+        transferProgressFraction = 0
+        transferProgressLabel = move ? "Moviendo…" : "Copiando…"
+        statusMessage = transferProgressLabel
+        Task { @MainActor in
+            do {
+                let pairs = try await TransferQueue.shared.run(job) { progress in
+                    Task { @MainActor in
+                        self.transferProgressFraction = progress.fraction
+                        if progress.done {
+                            self.transferProgressFraction = nil
+                            self.transferProgressLabel = nil
+                        } else if !progress.currentName.isEmpty {
+                            self.transferProgressLabel = "\(progress.currentName) · \(progress.completed)/\(progress.total)"
+                            self.statusMessage = self.transferProgressLabel
+                        }
+                    }
+                }
+                completion(.success(pairs))
+            } catch {
+                self.transferProgressFraction = nil
+                self.transferProgressLabel = nil
+                completion(.failure(error))
+            }
         }
     }
 
@@ -1769,6 +1842,49 @@ final class BrowserModel: ObservableObject {
     func setExplorerKeyboardProfile(_ on: Bool) {
         explorerKeyboardProfile = on
         store.update { $0.explorerKeyboardProfile = on }
+    }
+
+    func setShowHiddenFiles(_ on: Bool) {
+        showHiddenFiles = on
+        store.update { $0.showHiddenFiles = on }
+        reload(preserveSelection: true)
+        if dualPaneEnabled { reloadSecondary(preserveSelection: true) }
+        statusMessage = on ? "Mostrando ocultos" : "Ocultos escondidos"
+    }
+
+    func toggleShowHiddenFiles() {
+        setShowHiddenFiles(!showHiddenFiles)
+    }
+
+    func setFlattenFolderView(_ on: Bool) {
+        flattenFolderView = on
+        store.update { $0.flattenFolderView = on }
+        reload(preserveSelection: true)
+        if dualPaneEnabled { reloadSecondary(preserveSelection: true) }
+        statusMessage = on ? "Vista plana (archivos anidados)" : "Vista de carpeta"
+    }
+
+    func toggleFlattenFolderView() {
+        setFlattenFolderView(!flattenFolderView)
+    }
+
+    func beginPathOmnibox() {
+        pathOmniboxDraft = currentPath
+        pathOmniboxEditing = true
+        showGoToFolderDialog = false
+    }
+
+    func cancelPathOmnibox() {
+        pathOmniboxEditing = false
+        pathOmniboxDraft = ""
+    }
+
+    func submitPathOmnibox() {
+        let raw = pathOmniboxDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        pathOmniboxEditing = false
+        guard !raw.isEmpty else { return }
+        goToFolderDraft = raw
+        submitGoToFolder()
     }
 
     /// Como Alt+← en Windows / ⌘[ en Finder.

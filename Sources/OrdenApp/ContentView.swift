@@ -104,10 +104,13 @@ struct ContentView: View {
             return .handled
         }
         .onKeyPress(keys: [.return], phases: .down) { press in
-            // Return = renombrar (Finder); ⌘↓ ya abre
             guard !press.modifiers.contains(.command) else { return .ignored }
-            guard browser.selectedIDs.count == 1 else { return .ignored }
-            browser.promptRename()
+            if browser.explorerKeyboardProfile {
+                browser.openSelection()
+            } else {
+                guard browser.selectedIDs.count == 1 else { return .ignored }
+                browser.promptRename()
+            }
             return .handled
         }
         .onKeyPress(.escape) {
@@ -218,16 +221,18 @@ struct ContentView: View {
                                         .background(OrdenTheme.accent.opacity(0.3), in: Capsule())
                                 }
                                 Spacer(minLength: 4)
-                                Button {
-                                    browser.focusOriginPane()
-                                } label: {
-                                    Label("Activar", systemImage: "arrow.left.circle.fill")
-                                        .font(.caption.weight(.semibold))
+                                if browser.focusedPane != .primary {
+                                    Button {
+                                        browser.focusOriginPane()
+                                    } label: {
+                                        Label("Activar", systemImage: "arrow.left.circle.fill")
+                                            .font(.caption.weight(.semibold))
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(OrdenTheme.accent)
+                                    .controlSize(.small)
+                                    .help("Enfoca el panel izquierdo · Tab · ⌘⇧← · o clic en vacío")
                                 }
-                                .buttonStyle(.borderedProminent)
-                                .tint(OrdenTheme.accent)
-                                .controlSize(.small)
-                                .help("Enfoca el panel izquierdo · Tab · ⌘⇧←")
                                 Button {
                                     browser.transferSecondarySelectionToPrimary(copy: false)
                                 } label: {
@@ -253,7 +258,7 @@ struct ContentView: View {
                             .padding(.vertical, 6)
                             .contentShape(Rectangle())
                             .onTapGesture { browser.focusOriginPane() }
-                            Text("Arrastra archivos al otro panel · o usa ← Mover / Mover →")
+                            Text("Clic en vacío activa · Arrastra · ← Mover / Mover →")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                                 .padding(.horizontal, 10)
@@ -261,6 +266,7 @@ struct ContentView: View {
                             FileBrowserPane()
                                 .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
                                     DualPaneDrop.handle(providers) { paths, copy in
+                                        browser.focusOriginPane()
                                         if paths.isEmpty {
                                             browser.transferSecondarySelectionToPrimary(copy: copy)
                                         } else {
@@ -271,6 +277,10 @@ struct ContentView: View {
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .layoutPriority(1)
+                        .contentShape(Rectangle())
+                        .simultaneousGesture(TapGesture().onEnded {
+                            browser.focusOriginPane()
+                        })
                         .overlay(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .strokeBorder(
@@ -298,6 +308,29 @@ struct ContentView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 6)
+
+            if let fraction = browser.transferProgressFraction {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Image(systemName: "arrow.left.arrow.right.circle.fill")
+                            .foregroundStyle(OrdenTheme.accent)
+                        Text(browser.transferProgressLabel ?? "Transferiendo…")
+                            .font(.caption.weight(.semibold))
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                        Text("\(Int((fraction * 100).rounded()))%")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                    ProgressView(value: fraction)
+                        .tint(OrdenTheme.accent)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 6)
+            }
 
             if let status = browser.statusMessage {
                 HStack(alignment: .top, spacing: 12) {
@@ -1032,10 +1065,10 @@ struct FileBrowserPane: View {
                         }
                         Color.clear
                             .frame(maxWidth: .infinity)
-                            .frame(height: 320)
+                            .frame(minHeight: 480)
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                browser.cancelSelectionFromBackgroundTap()
+                                browser.cancelSelectionFromBackgroundTap(activating: .primary)
                             }
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -1058,7 +1091,7 @@ struct FileBrowserPane: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .onTapGesture {
-                    browser.cancelSelectionFromBackgroundTap()
+                    browser.cancelSelectionFromBackgroundTap(activating: .primary)
                 }
                 .onChange(of: browser.revealToken) { _, _ in
                     guard let id = browser.revealEntryID else { return }
@@ -1252,6 +1285,10 @@ struct FileRowButton: View {
         browser.selectedIDs.contains(entry.id)
     }
 
+    private var isCut: Bool {
+        browser.isCutPending(path: entry.path)
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             Button {
@@ -1280,7 +1317,8 @@ struct FileRowButton: View {
                             .font(.body.weight(.medium))
                             .lineLimit(metrics.isCompact ? 2 : 1)
                             .minimumScaleFactor(0.85)
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(isCut ? .secondary : .primary)
+                            .strikethrough(isCut)
                         // Sin textSelection aquí: se come el doble clic para abrir.
                         if browser.showRowPaths && !metrics.isCompact {
                             Text(entry.path)
@@ -1326,6 +1364,7 @@ struct FileRowButton: View {
             .help("Copiar ruta completa")
             .padding(.trailing, 10)
         }
+        .opacity(isCut ? 0.42 : 1)
         .background(rowBackground)
         .fileDragArmHighlight(path: entry.path)
         .reportFileDragArmFrame(path: entry.path)
@@ -1681,6 +1720,42 @@ struct SettingsView: View {
                     Text(browser.scopeBadge)
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
+                }
+
+                Toggle(isOn: Binding(
+                    get: { browser.explorerKeyboardProfile },
+                    set: { browser.setExplorerKeyboardProfile($0) }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Teclado tipo Explorer")
+                        Text("Enter abre · F2 renombra (si no, Enter renombra como Finder)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Toggle(isOn: Binding(
+                    get: { browser.showHiddenFiles },
+                    set: { browser.setShowHiddenFiles($0) }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Mostrar ocultos")
+                        Text("Archivos con punto o flag hidden · ⌘⇧.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Toggle(isOn: Binding(
+                    get: { browser.flattenFolderView },
+                    set: { browser.setFlattenFolderView($0) }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Vista plana")
+                        Text("Lista archivos de subcarpetas sin jerarquía")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             } header: {
                 Text("Lista de archivos")
