@@ -57,6 +57,7 @@ struct FindaroMark: View {
 }
 
 struct FindaroToolbarButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
     var prominent = false
     var destructive = false
 
@@ -65,7 +66,7 @@ struct FindaroToolbarButtonStyle: ButtonStyle {
             .font(.system(size: 12, weight: .semibold, design: .rounded))
             .padding(.horizontal, prominent ? 10 : 8)
             .padding(.vertical, 6)
-            .foregroundStyle(foreground)
+            .foregroundStyle(foreground.opacity(isEnabled ? 1 : 0.42))
             .background(background(configuration.isPressed), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -88,7 +89,7 @@ struct FindaroToolbarButtonStyle: ButtonStyle {
         return OrdenTheme.hairline
     }
 
-    private func background(_ pressed: Bool) -> some ShapeStyle {
+    private func background(_ pressed: Bool) -> AnyShapeStyle {
         if destructive {
             return AnyShapeStyle(Color.red.opacity(pressed ? 0.19 : 0.10))
         }

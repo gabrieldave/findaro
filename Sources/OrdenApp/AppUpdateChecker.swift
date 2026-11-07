@@ -197,7 +197,7 @@ final class AppUpdateChecker: ObservableObject {
         APP=$(find "$MNT" -maxdepth 2 -name 'Findaro.app' -type d | head -1)
         test -n "$APP"
         ditto "$APP" /Applications/Findaro.app
-        open /Applications/Ordena.app
+        open /Applications/Findaro.app
         """
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/bash")

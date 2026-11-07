@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Empaqueta Ordena (.app) e instala en /Applications.
+# Empaqueta Findaro (.app) e instala en /Applications.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-PRODUCT_NAME="Ordena"
+PRODUCT_NAME="Findaro"
 BUNDLE_ID="app.ordena.files"
 VERSION="0.1.74"
 BUILD="77"
@@ -17,7 +17,7 @@ APP_DIR="$ROOT/dist/${PRODUCT_NAME}.app"
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
-# El binario SPM sigue llamándose Orden; en el bundle se nombra Ordena.
+# El producto SPM conserva el nombre interno Orden; el bundle comercial se llama Findaro.
 cp "$BIN" "$APP_DIR/Contents/MacOS/${PRODUCT_NAME}"
 chmod +x "$APP_DIR/Contents/MacOS/${PRODUCT_NAME}"
 
@@ -55,9 +55,9 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSSpeechRecognitionUsageDescription</key>
-  <string>Ordena usa reconocimiento de voz local para el asistente push-to-talk.</string>
+  <string>Findaro usa reconocimiento de voz local para el asistente push-to-talk.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>Ordena usa el micrófono solo mientras mantienes el botón de dictado.</string>
+  <string>Findaro usa el micrófono solo mientras mantienes el botón de dictado.</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
   <key>CFBundleIconFile</key>
@@ -129,7 +129,7 @@ else
   INSTALLED="$HOME/Applications/${PRODUCT_NAME}.app"
 fi
 
-# Si Ordena está abierta, reinicia para cargar el binario nuevo (si no, sigue el viejo en memoria).
+# Si Findaro está abierta, reinicia para cargar el binario nuevo.
 if pgrep -x "${PRODUCT_NAME}" >/dev/null 2>&1; then
   pkill -x "${PRODUCT_NAME}" >/dev/null 2>&1 || true
   sleep 0.4
