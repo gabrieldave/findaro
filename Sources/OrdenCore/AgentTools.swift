@@ -84,11 +84,29 @@ public struct AgentToolCall: Equatable, Sendable, Identifiable, Codable {
     public var pathsArgument: [String] {
         let raw = arguments["paths"] ?? arguments["path"] ?? ""
         return raw
-            .split(whereSeparator: { $0 == "\n" || $0 == "|" })
+            .split(whereSeparator: { $0 == "\n" })
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
     }
 }
+
+    /// Detalle visible en la tarjeta de aprobación; el usuario debe poder revisar el origen real.
+    public var approvalDetailsSpanish: String? {
+        switch name {
+        case .copyFiles, .moveFiles:
+            let names = pathsArgument.map { ($0 as NSString).lastPathComponent }
+            return names.isEmpty ? nil : "Origen: " + names.joined(separator: ", ")
+        case .createDirectory:
+            guard let parent = arguments["parent"] else { return nil }
+            return "En: \(parent)"
+        case .renameFiles:
+            guard let path = arguments["path"] ?? pathsArgument.first else { return nil }
+            return "Elemento: \(path)"
+        default:
+            return nil
+        }
+    }
+
 
 public struct AgentPlan: Equatable, Sendable, Identifiable {
     public var id: String
@@ -121,21 +139,35 @@ public enum AgentPolicy {
         switch name {
         case .searchFiles, .searchContent, .listDirectory, .getFileMetadata, .openFile, .previewFile, .getStorageUsage, .findDuplicates:
             return .read
-        case .createDirectory, .copyFiles, .renameFiles, .organizeFiles:
-            return .write
-        case .moveFiles:
+        case .createDirectory, .copyFiles, .moveFiles, .renameFiles, .organizeFiles:
             return .write
         }
     }
 
-    /// Rutas fuera de home / volúmenes montados se rechazan salvo que estén bajo /Volumes o home.
+    /// Solo permite el home del usuario y volúmenes montados. Resuelve symlinks
+    /// y comprueba límites de componentes para evitar prefijos como /Users/alguien-otro.
     public static func isPathAllowed(_ path: String) -> Bool {
-        let p = (path as NSString).standardizingPath
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        if p.hasPrefix(home) { return true }
-        if p.hasPrefix("/Volumes/") { return true }
-        if p == "/" || p.hasPrefix("/Users/") { return true }
-        return false
+        let expanded = (path as NSString).expandingTildeInPath
+        guard !expanded.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        let resolved = URL(fileURLWithPath: expanded).standardizedFileURL.resolvingSymlinksInPath().path
+        let home = FileManager.default.homeDirectoryForCurrentUser
+            .standardizedFileURL.resolvingSymlinksInPath().path
+        let mountedVolume = resolved != "/Volumes" && isSameOrDescendant(resolved, of: "/Volumes")
+        return isSameOrDescendant(resolved, of: home) || mountedVolume
+    }
+
+    public static func isSameOrDescendant(_ path: String, of root: String) -> Bool {
+        let expandedPath = (path as NSString).expandingTildeInPath
+        let expandedRoot = (root as NSString).expandingTildeInPath
+        let resolvedPath = URL(fileURLWithPath: expandedPath).standardizedFileURL.resolvingSymlinksInPath().path
+        let resolvedRoot = URL(fileURLWithPath: expandedRoot).standardizedFileURL.resolvingSymlinksInPath().path
+        if resolvedPath == resolvedRoot { return true }
+        let prefix = resolvedRoot == "/" ? "/" : resolvedRoot + "/"
+        return resolvedPath.hasPrefix(prefix)
+    }
+
+    public static func isPathWithinScope(_ path: String, root: String) -> Bool {
+        isSameOrDescendant(path, of: root)
     }
 }
 

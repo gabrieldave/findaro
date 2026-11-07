@@ -1,47 +1,88 @@
 import Foundation
 
-/// Mide peso de archivos y carpetas (para UI y limpieza).
+/// Medición de tamaños de archivos y carpetas.
 public enum FolderSizer {
+    public struct Measurement: Equatable, Sendable {
+        public let bytes: Int64
+        public let isComplete: Bool
+        public let visitedItems: Int
+
+        public init(bytes: Int64, isComplete: Bool, visitedItems: Int) {
+            self.bytes = bytes
+            self.isComplete = isComplete
+            self.visitedItems = visitedItems
+        }
+    }
+
     public static func format(_ bytes: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 
-    /// Tamaño de un archivo o carpeta (recursivo, con tope de ítems).
-    public static func measure(path: String, isDirectory: Bool, maxItems: Int = 80_000) -> Int64 {
-        if !isDirectory {
-            let vals = try? URL(fileURLWithPath: path)
-                .resourceValues(forKeys: [.fileSizeKey])
-            return Int64(vals?.fileSize ?? 0)
-        }
-        return recursiveDirectorySize(at: path, maxItems: maxItems)
+    public static func measure(path: String, isDirectory: Bool, maxItems: Int = 250_000) -> Int64 {
+        measureDetailed(path: path, isDirectory: isDirectory, maxItems: maxItems).bytes
     }
 
-    public static func recursiveDirectorySize(at path: String, maxItems: Int = 80_000) -> Int64 {
-        let root = URL(fileURLWithPath: path)
-        guard let enumerator = FileManager.default.enumerator(
-            at: root,
-            includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey, .isDirectoryKey],
-            options: [.skipsHiddenFiles, .skipsPackageDescendants]
-        ) else {
-            return 0
+    public static func measureDetailed(path: String, isDirectory: Bool, maxItems: Int = 250_000) -> Measurement {
+        if !isDirectory {
+            do {
+                let values = try URL(fileURLWithPath: path).resourceValues(forKeys: [.fileSizeKey, .isSymbolicLinkKey])
+                guard values.isSymbolicLink != true, let size = values.fileSize else {
+                    return Measurement(bytes: 0, isComplete: false, visitedItems: 1)
+                }
+                return Measurement(bytes: Int64(size), isComplete: true, visitedItems: 1)
+            } catch {
+                return Measurement(bytes: 0, isComplete: false, visitedItems: 1)
+            }
+        }
+        return measureDirectoryDetailed(at: path, maxItems: maxItems)
+    }
+
+    public static func recursiveDirectorySize(at path: String, maxItems: Int = 250_000) -> Int64 {
+        measureDirectoryDetailed(at: path, maxItems: maxItems).bytes
+    }
+
+    public static func measureDirectoryDetailed(at path: String, maxItems: Int = 250_000) -> Measurement {
+        let root = URL(fileURLWithPath: path).standardizedFileURL
+        let fm = FileManager.default
+        var isDirectory: ObjCBool = false
+        guard fm.fileExists(atPath: root.path, isDirectory: &isDirectory), isDirectory.boolValue,
+              let iterator = fm.enumerator(
+                at: root,
+                includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey, .isSymbolicLinkKey],
+                options: []
+              ) else {
+            return Measurement(bytes: 0, isComplete: false, visitedItems: 0)
         }
 
+        let limit = max(1, maxItems)
         var total: Int64 = 0
         var count = 0
-        for case let url as URL in enumerator {
+        var complete = true
+
+        while let url = iterator.nextObject() as? URL {
             count += 1
-            if count > maxItems { break }
-            guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]) else {
-                continue
+            if count > limit {
+                complete = false
+                break
             }
-            if values.isRegularFile == true {
-                total += Int64(values.fileSize ?? 0)
+            do {
+                let values = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .isSymbolicLinkKey])
+                if values.isSymbolicLink == true {
+                    complete = false
+                    iterator.skipDescendants()
+                    continue
+                }
+                if values.isRegularFile == true {
+                    total += Int64(values.fileSize ?? 0)
+                }
+            } catch {
+                complete = false
             }
         }
-        return total
+
+        return Measurement(bytes: total, isComplete: complete, visitedItems: count)
     }
 
-    /// Suma de tamaños ya medidos en la lista visible.
     public static func sum(_ entries: [FileEntry]) -> Int64 {
         entries.reduce(0) { $0 + $1.size }
     }
