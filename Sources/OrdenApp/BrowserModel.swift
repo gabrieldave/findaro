@@ -2986,14 +2986,14 @@ final class BrowserModel: ObservableObject {
         statusMessage = transferProgressLabel
         Task { @MainActor in
             do {
-                let pairs = try await TransferQueue.shared.run(job) { [weak self] progress in
+                let pairs = try await TransferQueue.shared.run(job) { progress in
                     Task { @MainActor in
-                        self?.transferProgressFraction = progress.done ? nil : progress.fraction
+                        self.transferProgressFraction = progress.done ? nil : progress.fraction
                         if progress.done {
-                            self?.transferProgressLabel = nil
+                            self.transferProgressLabel = nil
                         } else {
-                            self?.transferProgressLabel = "\(progress.currentName) · \(progress.completed)/\(progress.total)"
-                            self?.statusMessage = self?.transferProgressLabel
+                            self.transferProgressLabel = "\(progress.currentName) · \(progress.completed)/\(progress.total)"
+                            self.statusMessage = self.transferProgressLabel
                         }
                     }
                 }

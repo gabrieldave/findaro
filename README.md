@@ -1,82 +1,50 @@
-# Findaro — el espacio de trabajo de archivos para Mac
+# Findaro — explorador de archivos para Mac
 
-**Findaro** es un explorador avanzado de archivos para macOS, diseñado para quienes necesitan más control y velocidad que un navegador de archivos convencional.
+**Findaro** es un explorador avanzado para macOS: doble panel, bandeja, Smart Merge con verificación SHA-256, FSEvents y asistente local opcional (Ollama).
 
-Doble panel, organización visual, bandeja de transferencias, Smart Merge con verificación SHA-256 y asistente local opcional con Ollama.
+**Versión:** `0.1.80` (build `86`) · **Bundle ID:** `app.findaro.files` · **Apple Silicon** · **macOS 15+**
 
-> Marca comercial provisional. El bundle identifier heredado se conserva durante esta fase para no romper la continuidad de instalación y actualización.
-
-**Versión de código:** `0.1.74` · **Apple Silicon** · **Deployment target:** macOS 15+
-
-## La idea de Findaro
-
-Menos ventanas. Más contexto. Más control sobre tus archivos.
-
-- **Dos paneles:** trabaja con origen y destino al mismo tiempo.
-- **Organización inteligente:** orden por tipo, fecha, tamaño y reglas guardadas.
-- **Smart Merge:** compara contenido mediante SHA-256 y permite revisar antes de completar una fusión.
-- **Bandeja de archivos:** reúne elementos para moverlos o copiarlos en otro momento.
-- **Asistente local:** integración opcional con Ollama; tus archivos permanecen en tu Mac.
-- **Actualización automática:** los paneles observan cambios del sistema de archivos.
-
-## Instalar y actualizar
-
-Durante la transición de marca se conserva el canal de actualización existente:
-
-- Sitio temporal: https://ordena.iareal.net/
-- Feed: https://ordena.iareal.net/downloads/latest.json
-
-Para generar el instalador local:
+## Instalar (beta privada)
 
 ```bash
-./scripts/make-dmg.sh
+./scripts/package-beta.sh
 ```
 
-El DMG se genera en `dist/Findaro-0.1.74-arm64.dmg` y también se copia al Escritorio.
+Genera `dist/beta/Findaro-0.1.80-arm64-beta.dmg` + SHA-256 + instrucciones.  
+No publica al servidor ni sustituye tu instalación local.
 
-1. Abre el DMG.
-2. Arrastra `Findaro.app` a Aplicaciones.
-3. Abre Findaro desde Launchpad, Spotlight o el Dock.
+Instrucciones para testers: `docs/BETA_PRIVADA.md`.
 
-## Requisitos
+## Canal público (solo con autorización)
 
-- macOS 15 o posterior.
-- Apple Silicon (arm64).
-- Para compilar y probar: Xcode completo y Swift 6.4 o compatible.
-- Entorno CI previsto: runner `xcode-27`.
+- Sitio: https://ordena.iareal.net/
+- Feed: https://ordena.iareal.net/downloads/latest.json
+
+`scripts/publish-update.sh` exige **Developer ID Application** y notarización. Sin certificado válido **aborta** (no publica ad hoc).
 
 ## Desarrollo
 
 ```bash
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 swift test
-swift build --product Orden
-./scripts/package-app.sh
+swift build -c release --product Orden
+FINDARO_SKIP_INSTALL=1 ./scripts/package-app.sh
 ```
 
-El producto Swift Package y el ejecutable de compilación conservan internamente el nombre `Orden` durante la transición. La aplicación empaquetada y su nombre visible son `Findaro`.
+El producto SPM se llama `Orden` internamente; el bundle comercial es `Findaro`.
 
-## Funciones incluidas
+## Funciones
 
-- Exploración en lista e iconos.
-- Doble panel Origen | Destino.
-- Actualización automática mediante FSEvents.
-- Omnibox de rutas (`⌘L`).
-- Perfil de teclado Explorer (Enter abre / F2 renombra).
-- Archivos ocultos (`⌘⇧.`) y vista plana.
-- Smart Merge con SHA-256, rollback y aprobación.
-- Bandeja de archivos y operaciones de transferencia.
-- Atajo global configurable para abrir Descargas.
-- Asistente local opcional con Ollama.
+- Lista / iconos, doble panel, FSEvents
+- Omnibox (`⌘L`), Explorer keys, ocultos, vista plana
+- Smart Merge SHA-256 + rollback
+- Bandeja y TransferQueue con manifiesto de integridad
+- Actualizador por canal (Findaro ≠ Ordena)
 
-## Identidad visual
+## Icono
 
-El sistema visual usa una base grafito/azul noche, superficies de profundidad sutil, acento azul eléctrico y violeta, y un símbolo geométrico propio. Se prioriza contraste, legibilidad y densidad de información sobre adornos.
-
-## Estado del producto
-
-Esta rama contiene el primer pase de identidad y experiencia visual Findaro. Antes de distribuir una versión comercial deben completarse pruebas funcionales en macOS, revisión de licencias y disponibilidad de marca, firma Developer ID y notarización.
+Arte aprobado: `Resources/AppIcon.icns`. No inventar marcas en código; `FindaroMark` carga ese asset.
 
 ## Contacto
 
-VibeSystems / IAreal.
+WhatsApp: [+52 56 4567 4407](https://wa.me/525645674407)

@@ -1,7 +1,7 @@
 import Foundation
 
-/// Cola de transferencias con preflight, verificación (tamaño + SHA-256 / stats de árbol)
-/// y rollback best-effort del lote si falla un elemento posterior.
+/// Cola de transferencias con preflight, manifiesto SHA-256 (archivos + `.app`),
+/// verificación de MOVE y rollback del lote si falla un elemento posterior.
 public actor TransferQueue {
     public struct Job: Equatable, Sendable, Identifiable {
         public let id: UUID
@@ -50,8 +50,7 @@ public actor TransferQueue {
     private struct PreflightItem: Sendable {
         var path: String
         var isDirectory: Bool
-        var stats: FileDigest.TreeStats
-        var sha256: String?
+        var manifest: FileDigest.TreeManifest
     }
 
     public static let shared = TransferQueue()
@@ -142,18 +141,11 @@ public actor TransferQueue {
             guard fm.fileExists(atPath: path, isDirectory: &isDir) else {
                 throw FileOpsError.failed("No existe \(URL(fileURLWithPath: path).lastPathComponent)")
             }
-            let stats = try FileDigest.treeStats(at: path)
-            let digest: String?
-            if isDir.boolValue {
-                digest = nil
-            } else {
-                digest = try FileDigest.sha256File(at: path)
-            }
+            let manifest = try FileDigest.treeManifest(at: path)
             items.append(PreflightItem(
                 path: path,
                 isDirectory: isDir.boolValue,
-                stats: stats,
-                sha256: digest
+                manifest: manifest
             ))
         }
         return items
@@ -172,33 +164,20 @@ public actor TransferQueue {
             guard destIsDir.boolValue else {
                 throw FileOpsError.failed("Verificación falló: se esperaba carpeta en destino")
             }
-            let got = try FileDigest.treeStats(at: pair.to)
-            if got.fileCount != expected.stats.fileCount || got.totalBytes != expected.stats.totalBytes {
-                throw FileOpsError.failed(
-                    "Verificación de carpeta falló: \(got.fileCount)/\(got.totalBytes) ≠ \(expected.stats.fileCount)/\(expected.stats.totalBytes)"
-                )
-            }
         } else {
             guard !destIsDir.boolValue else {
                 throw FileOpsError.failed("Verificación falló: se esperaba archivo en destino")
             }
-            let got = try FileDigest.treeStats(at: pair.to)
-            if got.totalBytes != expected.stats.totalBytes {
-                throw FileOpsError.failed(
-                    "Verificación de tamaño falló (\(got.totalBytes) ≠ \(expected.stats.totalBytes))"
-                )
-            }
-            if let expectedHash = expected.sha256 {
-                let gotHash = try FileDigest.sha256File(at: pair.to)
-                if gotHash != expectedHash {
-                    throw FileOpsError.failed("Verificación SHA-256 falló en \(URL(fileURLWithPath: pair.to).lastPathComponent)")
-                }
-            }
         }
 
-        if expectingMove, fm.fileExists(atPath: pair.from) {
-            // Move same-volume debería haber quitado el origen; copy+delete cross-volume también.
-            // Si sigue, FileOps pudo haber hecho copy: validamos destino y dejamos aviso vía error solo si empty dest.
+        try FileDigest.verifyManifest(expected.manifest, at: pair.to)
+
+        if expectingMove {
+            if fm.fileExists(atPath: pair.from) {
+                throw FileOpsError.failed(
+                    "MOVE incompleto: el origen sigue existiendo (\(URL(fileURLWithPath: pair.from).lastPathComponent))"
+                )
+            }
         }
     }
 

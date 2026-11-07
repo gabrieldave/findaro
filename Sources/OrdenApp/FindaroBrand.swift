@@ -1,8 +1,8 @@
+import AppKit
 import SwiftUI
 
-/// Compact commercial mark: SF Symbol + wordmark only.
-/// Creative direction v1.1 forbids drawing logos in SwiftUI or inventing icon art in code.
-/// The Dock/app icon remains the installed PNG/ICNS asset until direction delivers a final PNG.
+/// Compact commercial mark: approved AppIcon asset + wordmark.
+/// Creative direction v1.1 forbids inventing logo art in code — use Resources/AppIcon.icns.
 struct FindaroMark: View {
     var size: CGFloat = 28
     var showWordmark: Bool = true
@@ -11,15 +11,9 @@ struct FindaroMark: View {
 
     var body: some View {
         HStack(spacing: compact ? 8 : 10) {
-            Image(systemName: "folder.badge.magnifyingglass")
-                .font(.system(size: size * 0.62, weight: .semibold))
-                .foregroundStyle(OrdenTheme.accent)
-                .symbolRenderingMode(.hierarchical)
+            brandGlyph
                 .frame(width: size, height: size)
-                .background(
-                    RoundedRectangle(cornerRadius: OrdenTheme.radiusControl, style: .continuous)
-                        .fill(OrdenTheme.elevatedFill)
-                )
+                .clipShape(RoundedRectangle(cornerRadius: OrdenTheme.radiusControl, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: OrdenTheme.radiusControl, style: .continuous)
                         .strokeBorder(OrdenTheme.hairline, lineWidth: 1)
@@ -41,6 +35,52 @@ struct FindaroMark: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Findaro")
+    }
+
+    @ViewBuilder
+    private var brandGlyph: some View {
+        if let icon = Self.loadBrandIcon() {
+            Image(nsImage: icon)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fill)
+        } else {
+            // Fallback visible si el .icns no está en el bundle (solo dev).
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: size * 0.48, weight: .bold))
+                .foregroundStyle(OrdenTheme.accent)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: OrdenTheme.radiusControl, style: .continuous)
+                        .fill(OrdenTheme.elevatedFill)
+                )
+        }
+    }
+
+    /// AppIcon del bundle empaquetado, o Resources/ en el árbol fuente.
+    private static func loadBrandIcon() -> NSImage? {
+        if let named = NSImage(named: "AppIcon"), named.size.width > 0 {
+            return named
+        }
+        if let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+           let img = NSImage(contentsOf: url) {
+            return img
+        }
+        let candidates = [
+            Bundle.main.bundleURL
+                .appendingPathComponent("Contents/Resources/AppIcon.icns"),
+            URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("Resources/AppIcon.icns"),
+        ]
+        for url in candidates {
+            if let img = NSImage(contentsOf: url), img.size.width > 0 {
+                return img
+            }
+        }
+        return nil
     }
 }
 

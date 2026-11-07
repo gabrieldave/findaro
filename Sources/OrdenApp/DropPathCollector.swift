@@ -1,15 +1,31 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// Resuelve `NSItemProvider` fileURL sin data races (NSLock + DispatchGroup).
+/// Resuelve `NSItemProvider` fileURL sin data races (caja + NSLock).
 enum DropPathCollector {
+    private final class PathBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var paths: [String] = []
+
+        func append(_ path: String) {
+            lock.lock()
+            paths.append(path)
+            lock.unlock()
+        }
+
+        func snapshot() -> [String] {
+            lock.lock()
+            defer { lock.unlock() }
+            return paths
+        }
+    }
+
     static func collect(
         _ providers: [NSItemProvider],
         typeIdentifier: String = UTType.fileURL.identifier,
         then: @escaping (_ paths: [String]) -> Void
     ) {
-        let lock = NSLock()
-        var paths: [String] = []
+        let box = PathBox()
         let group = DispatchGroup()
 
         for provider in providers {
@@ -26,17 +42,12 @@ enum DropPathCollector {
                     path = nil
                 }
                 guard let path else { return }
-                lock.lock()
-                paths.append(path)
-                lock.unlock()
+                box.append(path)
             }
         }
 
         group.notify(queue: .main) {
-            lock.lock()
-            let snapshot = paths
-            lock.unlock()
-            then(snapshot)
+            then(box.snapshot())
         }
     }
 }

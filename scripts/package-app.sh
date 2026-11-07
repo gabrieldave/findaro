@@ -9,8 +9,8 @@ PRODUCT_NAME="Findaro"
 # Bundle ID propio: si se reutiliza app.ordena.files, Dock/Launch Services
 # confunden Findaro con Ordena.app (mismo ID = misma app para macOS).
 BUNDLE_ID="app.findaro.files"
-VERSION="0.1.79"
-BUILD="85"
+VERSION="0.1.80"
+BUILD="86"
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
 swift build -c release --product Orden
@@ -180,6 +180,13 @@ verify_bundle() {
 }
 
 verify_bundle "$APP_DIR"
+
+if [[ "${FINDARO_SKIP_INSTALL:-0}" == "1" ]]; then
+  echo "APP=$APP_DIR"
+  echo "INSTALLED=(omitido FINDARO_SKIP_INSTALL=1)"
+  echo "BUNDLE_ID=$BUNDLE_ID"
+  exit 0
+fi
 
 INSTALLED=""
 if rm -rf "/Applications/${PRODUCT_NAME}.app" 2>/dev/null \
