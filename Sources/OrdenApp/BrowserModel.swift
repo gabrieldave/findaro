@@ -232,7 +232,7 @@ final class BrowserModel: ObservableObject {
         objectWillChange.send()
     }
 
-    /// Clic: ⇧ rango (reemplaza) · ⌘ rango naranja que SUMA (1 por 1 no borra) · Varios/casilla · normal = uno.
+    /// Clic: ⇧ rango · ⌘ = **el mismo** `selectRange` + naranja · Varios/casilla · normal = uno.
     func clickSelect(_ id: String) {
         let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.shift) {
@@ -244,7 +244,7 @@ final class BrowserModel: ObservableObject {
             toggleSelection(id)
             if hasArmedFileDrag { syncArmedWithSelection() }
         } else {
-            // El monitor ya manejó ⌘+clic; el Button a veces dispara otro clic “pelado” y te deja 1.
+            // Evita que un clic SwiftUI sin ⌘ pise el rango del monitor.
             if let until = ignorePlainSelectUntil, Date() < until { return }
             if hasArmedFileDrag { clearArmedFileDrag() }
             selectOnly(id)
@@ -252,61 +252,29 @@ final class BrowserModel: ObservableObject {
     }
 
     func noteCommandClickHandled() {
-        ignorePlainSelectUntil = Date().addingTimeInterval(0.45)
+        ignorePlainSelectUntil = Date().addingTimeInterval(0.5)
     }
 
-    /// ⌘+clic (modo mover): mismo gesto que ⇧ (rango desde el ancla), pero **suma** al grupo.
-    /// Así puedes ir 1 por 1: cada ⌘+clic agrega hasta ese archivo sin quitar los anteriores.
-    /// ⌘+clic otra vez sobre uno ya marcado → solo ese se quita.
+    /// ⌘+clic = idéntico a ⇧+clic (`selectRange` desde el ancla), y deja el grupo en naranja.
+    /// Clic a clic con ⌘ sostenido: 1, luego 2, luego 3 → va creciendo el bloque, igual que ⇧.
     func commandRangeSelectForMove(to id: String) {
         noteCommandClickHandled()
-        let ids = visibleEntries.map(\.id)
-        guard ids.contains(id) else { return }
-
-        // Ancla estable (como ⇧): el primer ítem del gesto de mover.
-        if selectionAnchorID == nil || !hasArmedFileDrag && selectedIDs.count <= 1 {
-            if selectedIDs.count == 1, let only = selectedIDs.first, only != id {
-                selectionAnchorID = only
-            } else if selectionAnchorID == nil {
-                selectionAnchorID = selectedIDs.first ?? id
-            }
-        }
-        let anchor = selectionAnchorID ?? id
+        // Misma ancla que ⇧: si ya hay un solo seleccionado, ese es el origen del rango.
         if selectionAnchorID == nil {
-            selectionAnchorID = anchor
+            selectionAnchorID = selectedIDs.first ?? id
         }
-
-        if hasArmedFileDrag, selectedIDs.contains(id) {
-            // Ya estaba: ⌘ otra vez lo saca (solo ese).
-            selectedIDs.remove(id)
-            if selectionFocusID == id { selectionFocusID = selectedIDs.first }
-            if selectionAnchorID == id { selectionAnchorID = selectedIDs.first }
-        } else if let a = ids.firstIndex(of: anchor), let b = ids.firstIndex(of: id) {
-            let slice = Set(ids[a <= b ? a...b : b...a])
-            // SUMA el rango (no reemplaza): ir 1→2→3 no te borra el 1.
-            selectedIDs.formUnion(slice)
-            selectionFocusID = id
-        } else {
-            selectedIDs.insert(id)
-            selectionFocusID = id
-            selectionAnchorID = id
-        }
+        selectRange(to: id)
 
         armingProgressTask?.cancel()
         armingProgressTask = nil
         fileDragArmingPaths = []
         fileDragArmingPrimaryPath = nil
         fileDragArmProgress = 1
+        fileDragArmedPaths = selectedEntries.map(\.path)
 
-        if selectedIDs.isEmpty {
-            clearArmedFileDrag()
-            statusMessage = "Modo mover OFF"
-        } else {
-            fileDragArmedPaths = selectedEntries.map(\.path)
-            statusMessage = fileDragArmedPaths.count == 1
-                ? "Listo para mover — ⌘+clic suma el siguiente (como ⇧, sin borrar) · Esc cancela"
-                : "\(fileDragArmedPaths.count) listos — ⌘+clic suma rango · otra vez en uno lo quita · Esc"
-        }
+        statusMessage = fileDragArmedPaths.count <= 1
+            ? "Listo para mover — ⌘+clic siguiente = mismo rango que ⇧ · Esc cancela"
+            : "\(fileDragArmedPaths.count) listos — ⌘+clic = igual que ⇧ · arrastra · Esc"
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
         objectWillChange.send()
     }
