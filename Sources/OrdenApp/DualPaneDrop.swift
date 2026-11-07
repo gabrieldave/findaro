@@ -3,12 +3,28 @@ import UniformTypeIdentifiers
 
 /// Resuelve providers de fileURL en callbacks concurrentes con NSLock (sin data race).
 enum DualPaneDrop {
+    private final class PathBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var paths: [String] = []
+
+        func append(_ path: String) {
+            lock.lock()
+            paths.append(path)
+            lock.unlock()
+        }
+
+        func snapshot() -> [String] {
+            lock.lock()
+            defer { lock.unlock() }
+            return paths
+        }
+    }
+
     static func handle(
         _ providers: [NSItemProvider],
         onPaths: @escaping (_ paths: [String], _ copy: Bool) -> Void
     ) -> Bool {
-        let lock = NSLock()
-        var paths: [String] = []
+        let box = PathBox()
         let group = DispatchGroup()
         for provider in providers {
             group.enter()
@@ -24,17 +40,12 @@ enum DualPaneDrop {
                     path = nil
                 }
                 guard let path else { return }
-                lock.lock()
-                paths.append(path)
-                lock.unlock()
+                box.append(path)
             }
         }
         group.notify(queue: .main) {
-            lock.lock()
-            let snapshot = paths
-            lock.unlock()
             let copy = NSEvent.modifierFlags.contains(.option)
-            onPaths(snapshot, copy)
+            onPaths(box.snapshot(), copy)
         }
         return true
     }

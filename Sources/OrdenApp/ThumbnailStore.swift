@@ -74,27 +74,25 @@ final class ThumbnailStore {
     }
 
     private func videoFrame(url: URL, pixel: Int) async -> NSImage? {
+        let asset = AVURLAsset(url: url)
+        let gen = AVAssetImageGenerator(asset: asset)
+        gen.appliesPreferredTrackTransform = true
+        gen.maximumSize = CGSize(width: pixel * 2, height: pixel * 2)
+        let primary = CMTime(seconds: 0.5, preferredTimescale: 600)
+        if let image = await generateFrame(gen, at: primary) {
+            return image
+        }
+        return await generateFrame(gen, at: .zero)
+    }
+
+    private func generateFrame(_ gen: AVAssetImageGenerator, at time: CMTime) async -> NSImage? {
         await withCheckedContinuation { cont in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let asset = AVURLAsset(url: url)
-                let gen = AVAssetImageGenerator(asset: asset)
-                gen.appliesPreferredTrackTransform = true
-                gen.maximumSize = CGSize(width: pixel * 2, height: pixel * 2)
-                let time = CMTime(seconds: 0.5, preferredTimescale: 600)
-                do {
-                    let cg = try gen.copyCGImage(at: time, actualTime: nil)
-                    let img = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
-                    cont.resume(returning: img)
-                } catch {
-                    // Intento en el inicio si 0.5s falla.
-                    do {
-                        let cg = try gen.copyCGImage(at: .zero, actualTime: nil)
-                        let img = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
-                        cont.resume(returning: img)
-                    } catch {
-                        cont.resume(returning: nil)
-                    }
+            gen.generateCGImageAsynchronously(for: time) { cg, _, _ in
+                guard let cg else {
+                    cont.resume(returning: nil)
+                    return
                 }
+                cont.resume(returning: NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height)))
             }
         }
     }
