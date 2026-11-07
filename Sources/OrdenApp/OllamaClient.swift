@@ -210,5 +210,4 @@ final class OllamaClient: ObservableObject {
             return ""
         }
     }
-    }
 }
