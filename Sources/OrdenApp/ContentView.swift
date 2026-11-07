@@ -1372,19 +1372,9 @@ private struct BrowserDialogsModifier: ViewModifier {
             } message: {
                 Text("Pega una ruta absoluta o empieza con ~/ … Atajo ⌘3")
             }
-            .alert("Buscar en subcarpetas", isPresented: $browser.showDeepSearchDialog) {
-                TextField("Parte del nombre (ej. vibe o .pdf)", text: $browser.deepSearchDraft)
-                Button("Buscar") { browser.submitDeepSearchFromDialog() }
-                Button("Cancelar", role: .cancel) {}
-            } message: {
-                Text(
-                    """
-                    Dónde: \(shortPath(browser.currentPath)) y carpetas dentro (no arriba).
-                    Qué: solo el nombre del archivo (la extensión cuenta).
-                    Cómo: con que coincida una parte basta · mayúsculas da igual.
-                    No busca: contenido dentro del archivo · ni * ni ?.
-                    """
-                )
+            .sheet(isPresented: $browser.showDeepSearchDialog) {
+                DeepSearchSheet()
+                    .environmentObject(browser)
             }
             .sheet(item: $browser.pendingMergePreview) { preview in
                 MergePreviewSheet(preview: preview)

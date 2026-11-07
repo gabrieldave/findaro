@@ -27,9 +27,9 @@ struct RecursiveSearchPanel: View {
                 }
             }
 
-            Text("Por nombre · parcial · desde aquí hacia abajo · no contenido · sin * ?")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+            Text("Por nombre de archivo, coincidencia parcial. No revisa el contenido.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             if let p = browser.deepSearchProgress {
                 Text(
