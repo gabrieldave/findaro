@@ -1374,8 +1374,8 @@ final class BrowserModel: ObservableObject {
         fileDragArmingPrimaryPath = nil
         fileDragArmProgress = 1
 
-        // Toggle OFF: segundo ⌘+clic sobre el mismo ítem armado.
-        if hasArmedFileDrag, selectedIDs.contains(entry.id) {
+        // Toggle OFF: segundo ⌘+clic sobre el mismo ítem armado (solo ese path).
+        if hasArmedFileDrag, fileDragArmedPaths.contains(entry.path) {
             selectedIDs.remove(entry.id)
             if selectionFocusID == entry.id {
                 selectionFocusID = selectedIDs.first
@@ -1395,15 +1395,13 @@ final class BrowserModel: ObservableObject {
         }
 
         if !hasArmedFileDrag {
-            // Encender: si ya había varios marcados e incluyo este → arma el grupo.
-            // Si no, solo ESTE ítem (evita heredar un marquee accidental).
-            if !(selectedIDs.contains(entry.id) && selectedIDs.count > 1) {
-                selectedIDs = [entry.id]
-                selectionAnchorID = entry.id
-            }
+            // Primer ⌘+clic: SIEMPRE solo este ítem (no heredar vecinos ni marquee).
+            // Para varios: ⌘+clic en cada uno después.
+            selectedIDs = [entry.id]
+            selectionAnchorID = entry.id
             selectionFocusID = entry.id
         } else {
-            // Ya en naranja: suma solo el clicados.
+            // Ya en naranja: suma SOLO el clicado (nunca vecinos).
             selectedIDs.insert(entry.id)
             selectionFocusID = entry.id
             if selectionAnchorID == nil {

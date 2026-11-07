@@ -10,7 +10,7 @@ final class FileDragArmMonitor {
     private var monitor: Any?
     private weak var browser: BrowserModel?
 
-    /// Frames de filas en coordenadas de la key window.
+    /// Frames de filas en coordenadas de la key window (path → rect).
     private var rowFrames: [String: CGRect] = [:]
 
     /// Fallback si `clickCount` no llega bien (SwiftUI / eventos sintéticos).
@@ -34,12 +34,14 @@ final class FileDragArmMonitor {
     }
 
     func removeRowFrame(path: String) {
+        guard !path.isEmpty else { return }
         rowFrames.removeValue(forKey: path)
     }
 
     /// `nil` = consumir el evento; si no, dejarlo pasar.
     private func handle(_ event: NSEvent) -> NSEvent? {
         guard let browser, event.type == .leftMouseDown else { return event }
+        pruneStaleFrames()
         let path = pathAt(event.locationInWindow)
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let cmd = flags.contains(.command)
@@ -68,7 +70,7 @@ final class FileDragArmMonitor {
         lastClickPath = path
         lastClickAt = Date()
 
-        // ⌘+clic (sin Shift/⌥): naranja sticky + multi.
+        // ⌘+clic (sin Shift/⌥): naranja sticky + multi (suma/quita 1).
         // Tragamos el clic: si pasa a SwiftUI, el tap del fondo llama cancelSelection().
         guard cmd, !shift, !opt,
               let path,
@@ -79,30 +81,63 @@ final class FileDragArmMonitor {
         return nil
     }
 
-    private func pathAt(_ pointInWindow: CGPoint) -> String? {
-        var best: (String, CGFloat)?
-        for (path, frame) in rowFrames where frame.contains(pointInWindow) {
-            let area = frame.width * frame.height
-            if best == nil || area < best!.1 {
-                best = (path, area)
-            }
+    /// Quita frames de paths que ya no están en la lista visible (LazyVStack recicla mal).
+    private func pruneStaleFrames() {
+        guard let browser else {
+            rowFrames.removeAll()
+            return
         }
-        if let best { return best.0 }
+        let live = Set(browser.visibleEntries.map(\.path))
+        if rowFrames.keys.contains(where: { !live.contains($0) }) {
+            rowFrames = rowFrames.filter { live.contains($0.key) }
+        }
+    }
 
-        var bandHit: (String, CGFloat)?
-        for (path, frame) in rowFrames where pointInWindow.y >= frame.minY && pointInWindow.y <= frame.maxY {
+    /// Elige la fila cuyo centro está más cerca del clic (no el frame “más chico”).
+    /// Así no arma el vecino cuando hay frames viejos o solapados.
+    private func pathAt(_ pointInWindow: CGPoint) -> String? {
+        var bestInside: (path: String, score: CGFloat)?
+        for (path, frame) in rowFrames where frame.insetBy(dx: 0, dy: 1).contains(pointInWindow) {
+            let dy = abs(frame.midY - pointInWindow.y)
             let dx = abs(frame.midX - pointInWindow.x)
-            if bandHit == nil || dx < bandHit!.1 {
-                bandHit = (path, dx)
+            let score = dy * 10_000 + dx
+            if bestInside == nil || score < bestInside!.score {
+                bestInside = (path, score)
             }
         }
-        return bandHit?.0
+        if let bestInside { return bestInside.path }
+
+        // Casi en la fila (borde): misma métrica, con tolerancia vertical corta.
+        var bestNear: (path: String, score: CGFloat)?
+        for (path, frame) in rowFrames {
+            guard pointInWindow.x >= frame.minX - 4, pointInWindow.x <= frame.maxX + 4 else { continue }
+            let dy = abs(frame.midY - pointInWindow.y)
+            guard dy <= max(14, frame.height * 0.5) else { continue }
+            let score = dy * 10_000 + abs(frame.midX - pointInWindow.x)
+            if bestNear == nil || score < bestNear!.score {
+                bestNear = (path, score)
+            }
+        }
+        return bestNear?.path
     }
 }
 
 /// NSView que reporta su frame en coordenadas de ventana al monitor.
 private final class FileDragArmFrameNSView: NSView {
-    var path: String = ""
+    private var trackedPath: String = ""
+
+    var path: String {
+        get { trackedPath }
+        set {
+            let old = trackedPath
+            guard old != newValue else { return }
+            if !old.isEmpty {
+                FileDragArmMonitor.shared.removeRowFrame(path: old)
+            }
+            trackedPath = newValue
+            report()
+        }
+    }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -133,11 +168,10 @@ private final class FileDragArmFrameNSView: NSView {
         report()
     }
 
-    private func report() {
-        guard !path.isEmpty, window != nil, !bounds.isEmpty else { return }
+    fileprivate func report() {
+        guard !trackedPath.isEmpty, window != nil, !bounds.isEmpty else { return }
         let rect = convert(bounds, to: nil)
-        let p = path
-        // Síncrono en main: si va en Task, el primer ⌘+clic no encuentra frame.
+        let p = trackedPath
         if Thread.isMainThread {
             MainActor.assumeIsolated {
                 FileDragArmMonitor.shared.updateRowFrame(path: p, frameInWindow: rect)
@@ -150,8 +184,8 @@ private final class FileDragArmFrameNSView: NSView {
     }
 
     override func viewWillMove(toWindow newWindow: NSWindow?) {
-        if newWindow == nil, !path.isEmpty {
-            let p = path
+        if newWindow == nil, !trackedPath.isEmpty {
+            let p = trackedPath
             if Thread.isMainThread {
                 MainActor.assumeIsolated {
                     FileDragArmMonitor.shared.removeRowFrame(path: p)
@@ -180,6 +214,7 @@ private struct FileDragArmFrameReader: NSViewRepresentable {
         DispatchQueue.main.async {
             nsView.needsLayout = true
             nsView.layoutSubtreeIfNeeded()
+            nsView.report()
         }
     }
 }
