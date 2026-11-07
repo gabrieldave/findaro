@@ -6,7 +6,7 @@ struct RecursiveSearchPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            HStack(alignment: .center, spacing: 10) {
                 Label(
                     browser.deepSearchQuery.isEmpty
                         ? "Búsqueda en subcarpetas"
@@ -15,19 +15,26 @@ struct RecursiveSearchPanel: View {
                 )
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
-                Spacer()
+                Spacer(minLength: 8)
                 if browser.deepSearchRunning {
                     ProgressView()
                         .controlSize(.small)
-                    Button("Cancelar") { browser.cancelDeepSearch() }
-                        .controlSize(.small)
-                } else {
-                    Button("Cerrar") { browser.clearDeepSearch() }
+                    Button("Detener") { browser.cancelDeepSearch() }
                         .controlSize(.small)
                 }
+                Button {
+                    browser.clearDeepSearch()
+                } label: {
+                    Label("Salir de búsqueda", systemImage: "xmark.circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+                .controlSize(.regular)
+                .help("Vuelve al orden normal de la carpeta · Esc")
             }
 
-            Text("Por nombre (parcial). `*.png` cuenta como .png. Clic → abre carpeta, selecciona y hace scroll.")
+            Text("Por nombre (parcial). `*.png` = .png. Clic en un resultado → va a la fila. Esc o «Salir» para volver al orden normal.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

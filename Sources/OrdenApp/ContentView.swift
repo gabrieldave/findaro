@@ -316,18 +316,30 @@ struct SortBar: View {
             }
 
             Button {
-                browser.promptDeepSearch()
+                if browser.showDeepSearchPanel {
+                    browser.clearDeepSearch()
+                } else {
+                    browser.promptDeepSearch()
+                }
             } label: {
                 Label(
-                    browser.deepSearchRunning ? "Buscando…" : "Subcarpetas",
-                    systemImage: "folder.badge.magnifyingglass"
+                    browser.deepSearchRunning
+                        ? "Buscando…"
+                        : (browser.showDeepSearchPanel ? "Salir búsqueda" : "Subcarpetas"),
+                    systemImage: browser.showDeepSearchPanel
+                        ? "xmark.circle.fill"
+                        : "folder.badge.magnifyingglass"
                 )
             }
             .buttonStyle(.borderedProminent)
             .tint(browser.showDeepSearchPanel ? .orange : OrdenTheme.accent)
             .controlSize(.regular)
             .disabled(browser.deepSearchRunning)
-            .help("Por nombre, desde esta carpeta hacia abajo · ⌘4")
+            .help(
+                browser.showDeepSearchPanel
+                    ? "Cerrar búsqueda y volver al orden normal · Esc"
+                    : "Por nombre, desde esta carpeta hacia abajo · ⌘4"
+            )
 
             if !browser.downloadsTodayMode {
                 Menu {

@@ -769,6 +769,11 @@ final class BrowserModel: ObservableObject {
         deepSearchQuery = ""
         deepSearchRoot = ""
         showDeepSearchPanel = false
+        // Quita también el filtro de la barra de búsqueda (si quedó «*.png»).
+        if !searchText.isEmpty {
+            searchText = ""
+        }
+        statusMessage = "Saliste de la búsqueda · orden normal de la carpeta"
     }
 
     func openDeepSearchHit(_ hit: SearchHit) {
