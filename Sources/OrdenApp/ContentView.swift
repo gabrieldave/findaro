@@ -6,14 +6,16 @@ import OrdenCore
 struct ContentView: View {
     @EnvironmentObject private var browser: BrowserModel
 
-    /// REGLA: el menú izquierdo NUNCA se colapsa ni desaparece al achicar la ventana.
-    private let sidebarWidth: CGFloat = 212
-    private let detailMinWidth: CGFloat = 400
-    private let assistantWidth: CGFloat = 380
-
     /// Se actualiza en cada resize — fuerza redibujar sidebar + iconos al momento.
     @State private var layoutGeneration: Int = 0
     @State private var windowWidth: CGFloat = 0
+    @State private var windowHeight: CGFloat = 0
+    @State private var metrics: OrdenDisplayMetrics = .resolve(windowSize: .zero)
+
+    /// REGLA: el menú izquierdo NUNCA se colapsa; el ancho sí se adapta a la pantalla.
+    private var sidebarWidth: CGFloat { metrics.sidebarWidth }
+    private var detailMinWidth: CGFloat { metrics.detailMinWidth }
+    private var assistantWidth: CGFloat { metrics.assistantWidth }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -25,7 +27,7 @@ struct ContentView: View {
                 .background(OrdenTheme.windowFill)
                 .accessibilityLabel("Menú lateral")
                 // Al terminar un resize (layoutGeneration++) reaparece si SwiftUI lo había “congelado”
-                .id("sidebar-\(layoutGeneration)")
+                .id("sidebar-\(layoutGeneration)-\(Int(sidebarWidth))")
 
             Divider().opacity(0.35)
 
@@ -49,24 +51,31 @@ struct ContentView: View {
         }
         .frame(
             minWidth: sidebarWidth + detailMinWidth + (browser.showAssistantPanel ? assistantWidth : 0),
-            minHeight: 480
+            minHeight: metrics.windowMinHeight
         )
+        .ordenAdaptiveTypography(metrics)
         .background(OrdenTheme.windowFill)
         // Dependencia explícita: cualquier lectura invalida layout al cambiar el ancho
         .animation(nil, value: layoutGeneration)
         .animation(nil, value: windowWidth)
+        .animation(nil, value: metrics)
         .background(
             WindowLayoutProbe(
-                onChange: { size in applyWindowWidth(size.width) },
+                onChange: { size in applyWindowSize(size) },
                 onLiveResizeEnd: { size in
-                    applyWindowWidth(size.width)
+                    applyWindowSize(size)
                     // Al soltar el resize: mismo “refresco” que cambiar el modo de vista
                     layoutGeneration &+= 1
+                    OrdenWindowFit.applyToOpenWindows()
                 }
             )
         )
         .readLayoutWidth { w in
-            applyWindowWidth(w)
+            applyWindowSize(CGSize(width: w, height: windowHeight))
+        }
+        .onAppear {
+            OrdenWindowFit.applyToOpenWindows()
+            metrics = .resolve(windowSize: CGSize(width: windowWidth, height: windowHeight))
         }
         .searchable(
             text: $browser.searchText,
@@ -118,15 +127,27 @@ struct ContentView: View {
         // Espacio / Esc / ⌥← / ⌥→ también en SelectionCancelMonitor (NSEvent)
     }
 
-    private func applyWindowWidth(_ w: CGFloat) {
+    private func applyWindowSize(_ size: CGSize) {
+        let w = size.width
+        let h = size.height > 1 ? size.height : windowHeight
         guard w > 1 else { return }
-        let prevCols = max(1, Int((max(0, windowWidth - sidebarWidth) + 14) / 132))
-        let nextCols = max(1, Int((max(0, w - sidebarWidth) + 14) / 132))
-        if abs(w - windowWidth) >= 0.5 {
-            windowWidth = w
+        let cell = metrics.iconCell + metrics.iconSpacing
+        let prevCols = max(1, Int((max(0, windowWidth - sidebarWidth) + metrics.iconSpacing) / max(1, cell)))
+        let nextCols = max(1, Int((max(0, w - sidebarWidth) + metrics.iconSpacing) / max(1, cell)))
+        let widthChanged = abs(w - windowWidth) >= 0.5
+        let heightChanged = abs(h - windowHeight) >= 0.5
+        if widthChanged { windowWidth = w }
+        if heightChanged { windowHeight = h }
+
+        let nextMetrics = OrdenDisplayMetrics.resolve(
+            windowSize: CGSize(width: w, height: h > 1 ? h : 640)
+        )
+        let metricsChanged = nextMetrics != metrics
+        if metricsChanged {
+            metrics = nextMetrics
         }
         // Sube generación cuando cambia cuántas columnas de iconos caben (o al primer layout)
-        if nextCols != prevCols || layoutGeneration == 0 {
+        if nextCols != prevCols || layoutGeneration == 0 || metricsChanged {
             layoutGeneration &+= 1
         }
     }
@@ -1030,10 +1051,14 @@ struct SidebarView: View {
 
 struct FileBrowserPane: View {
     @EnvironmentObject private var browser: BrowserModel
+    @Environment(\.ordenMetrics) private var metrics
 
     /// Debe coincidir con la altura fija de cada `FileRowButton`.
     private var rowHeight: CGFloat {
-        PressDragSelectLogic.listRowHeight(showPaths: browser.showRowPaths)
+        let showPaths = browser.showRowPaths && !metrics.isCompact
+        let base = PressDragSelectLogic.listRowHeight(showPaths: showPaths)
+        // En compacto el nombre puede ocupar 2 líneas.
+        return metrics.isCompact ? max(base, 52) : base
     }
 
     @State private var marqueeStart: CGPoint?
@@ -1278,7 +1303,7 @@ struct FileBrowserPane: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: metrics.isCompact ? 8 : 12) {
             Button {
                 browser.toggleSelectAllVisible()
             } label: {
@@ -1291,23 +1316,26 @@ struct FileBrowserPane: View {
 
             Text("Nombre / ruta")
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text("Tipo")
-                .frame(width: 100, alignment: .leading)
-            Text("Agregado")
-                .frame(width: 130, alignment: .trailing)
+            if !metrics.isCompact {
+                Text("Tipo")
+                    .frame(width: 100, alignment: .leading)
+                Text("Agregado")
+                    .frame(width: 130, alignment: .trailing)
+            }
             Text("Tamaño")
-                .frame(width: 84, alignment: .trailing)
+                .frame(width: metrics.isCompact ? 72 : 84, alignment: .trailing)
             Color.clear.frame(width: 28)
         }
         .font(.caption.weight(.semibold))
         .foregroundStyle(.secondary)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.horizontal, metrics.contentPadding)
+        .padding(.vertical, metrics.isCompact ? 6 : 8)
     }
 }
 
 struct FileRowButton: View {
     @EnvironmentObject private var browser: BrowserModel
+    @Environment(\.ordenMetrics) private var metrics
     let entry: FileEntry
     let zebra: Bool
 
@@ -1331,7 +1359,7 @@ struct FileRowButton: View {
             .padding(.leading, 10)
 
             Button(action: selectRow) {
-                HStack(alignment: .center, spacing: 12) {
+                HStack(alignment: .center, spacing: metrics.isCompact ? 8 : 12) {
                     ZStack {
                         FileTypeIcon(category: entry.category, path: entry.path, size: 17)
                         FileDragArmChrome.Overlay(path: entry.path, size: 26)
@@ -1340,11 +1368,12 @@ struct FileRowButton: View {
 
                     VStack(alignment: .leading, spacing: browser.showRowPaths ? 3 : 0) {
                         Text(entry.name)
-                            .font(.body)
-                            .lineLimit(1)
+                            .font(.body.weight(.medium))
+                            .lineLimit(metrics.isCompact ? 2 : 1)
+                            .minimumScaleFactor(0.85)
                             .foregroundStyle(.primary)
                         // Sin textSelection aquí: se come el doble clic para abrir.
-                        if browser.showRowPaths {
+                        if browser.showRowPaths && !metrics.isCompact {
                             Text(entry.path)
                                 .font(.system(.caption2, design: .monospaced))
                                 .foregroundStyle(.secondary)
@@ -1354,20 +1383,22 @@ struct FileRowButton: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Text(entry.category.labelSpanish)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 100, alignment: .leading)
-                    Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .frame(width: 130, alignment: .trailing)
+                    if !metrics.isCompact {
+                        Text(entry.category.labelSpanish)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 100, alignment: .leading)
+                        Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(width: 130, alignment: .trailing)
+                    }
                     Text(sizeLabel)
                         .font(.caption.monospacedDigit().weight(entry.size > 100_000_000 ? .semibold : .regular))
                         .foregroundStyle(entry.size > 500_000_000 ? .orange : .secondary)
-                        .frame(width: 84, alignment: .trailing)
+                        .frame(width: metrics.isCompact ? 72 : 84, alignment: .trailing)
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, metrics.isCompact ? 10 : 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }

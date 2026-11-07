@@ -11,10 +11,14 @@ struct OrdenApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(browser)
-                // Sidebar fijo 212 + detalle mínimo — no permitir achicar hasta perder el menú
-                .frame(minWidth: 612, minHeight: 480) // +300 si el asistente está abierto (ContentView)
+                // Mínimos reales los fija OrdenDisplayMetrics según la pantalla
+                .frame(
+                    minWidth: OrdenDisplayMetrics.resolve(windowSize: .zero).windowMinWidth,
+                    minHeight: OrdenDisplayMetrics.resolve(windowSize: .zero).windowMinHeight
+                )
                 .tint(OrdenTheme.accent)
                 .onAppear {
+                    OrdenWindowFit.applyToOpenWindows()
                     if let pending = OpenFolderBridge.pendingFolderPath {
                         OpenFolderBridge.pendingFolderPath = nil
                         browser.navigate(to: pending, recordHistory: false)
@@ -29,7 +33,10 @@ struct OrdenApp: App {
                     OpenFolderBridge.ingest(urls: [url])
                 }
         }
-        .defaultSize(width: 1180, height: 740)
+        .defaultSize(
+            width: OrdenDisplayMetrics.preferredWindowSize().width,
+            height: OrdenDisplayMetrics.preferredWindowSize().height
+        )
         .windowResizability(.contentMinSize)
         .windowToolbarStyle(.unified)
         .commands {

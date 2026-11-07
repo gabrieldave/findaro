@@ -9,6 +9,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.makeKeyAndOrderFront(nil)
             window.collectionBehavior.insert(.moveToActiveSpace)
         }
+        // Encajar en la pantalla real (Mac chica / menor resolución).
+        DispatchQueue.main.async {
+            OrdenWindowFit.applyToOpenWindows()
+        }
         CloseToHide.install()
         GlobalHotKey.install()
         _ = OpenFolderBridge.setAsDefaultFolderHandler()
@@ -16,6 +20,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Buscar updates en GitHub tras un momento (no bloquea el arranque).
         DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
             AppUpdateChecker.shared.checkOnLaunchIfNeeded()
+        }
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in
+                OrdenWindowFit.applyToOpenWindows()
+            }
         }
     }
 

@@ -71,12 +71,13 @@ struct IconsBrowserView: View {
     @EnvironmentObject private var browser: BrowserModel
     @Environment(\.ordenWindowWidth) private var windowWidth
     @Environment(\.ordenLayoutGeneration) private var layoutGeneration
+    @Environment(\.ordenMetrics) private var metrics
 
-    /// Celda fija — layout y hit-test DEBEN usar el mismo `colCount`.
-    private let cellW: CGFloat = 118
-    private let cellH: CGFloat = 118
-    private let spacing: CGFloat = 14
-    private let gridPadding: CGFloat = 16
+    /// Celda según pantalla — layout y hit-test DEBEN usar el mismo `colCount`.
+    private var cellW: CGFloat { metrics.iconCell }
+    private var cellH: CGFloat { metrics.iconCell }
+    private var spacing: CGFloat { metrics.iconSpacing }
+    private var gridPadding: CGFloat { metrics.contentPadding }
 
     @State private var localWidth: CGFloat = 0
     @State private var marqueeStart: CGPoint?
