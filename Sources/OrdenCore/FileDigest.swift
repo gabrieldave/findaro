@@ -127,7 +127,7 @@ public enum FileDigest {
                 .isDirectoryKey,
                 .fileSizeKey
             ],
-            options: [.skipsHiddenFiles]
+            options: []
         ) else {
             return makeManifest(entries: [])
         }
