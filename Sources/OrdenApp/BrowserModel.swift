@@ -711,16 +711,73 @@ final class BrowserModel: ObservableObject {
 
     func confirmPendingMerge() {
         guard let preview = pendingMergePreview else { return }
+        let asMove = pendingMergeMove
         do {
             let pairs = try FolderMerge.mergeCopy(source: preview.sourcePath, dest: preview.destPath)
-            pushUndo(.copied(created: pairs.map(\.to)))
+            if !pairs.isEmpty {
+                pushUndo(.copied(created: pairs.map(\.to)))
+            }
+            if asMove {
+                let src = URL(fileURLWithPath: preview.sourcePath)
+                if FileManager.default.fileExists(atPath: src.path) {
+                    try FileManager.default.trashItem(at: src, resultingItemURL: nil)
+                }
+                shelf.removeAll {
+                    ($0.path as NSString).standardizingPath == (preview.sourcePath as NSString).standardizingPath
+                }
+            }
             pendingMergePreview = nil
+            pendingMergeMove = false
+            folderDropTargetPath = nil
+            clearArmedFileDrag()
             ignoreWatcherUntil = Date().addingTimeInterval(0.8)
+            noteLocalFileMutation()
             reload()
-            statusMessage = "Fusión: \(pairs.count) ítems · ⌘Z deshace"
+            let name = URL(fileURLWithPath: preview.destPath).lastPathComponent
+            statusMessage = asMove
+                ? "Fusionado y origen a Papelera → \(name) · \(pairs.count) ítems · ⌘Z deshace copias"
+                : "Fusionado → \(name) · \(pairs.count) ítems · ⌘Z deshace"
         } catch {
             statusMessage = error.localizedDescription
         }
+    }
+
+    func cancelPendingMerge() {
+        pendingMergePreview = nil
+        pendingMergeMove = false
+    }
+
+    /// Si al transferir una carpeta ya existe otra con el mismo nombre → Smart Merge.
+    /// Devuelve true si abrió el preview (y no hay que transferir esos paths).
+    @discardableResult
+    private func offerMergeIfNeeded(paths: [String], toDirectory dest: String, move: Bool) -> [String] {
+        var remaining: [String] = []
+        var firstMerge: (source: String, dest: String)?
+        let fm = FileManager.default
+        for path in paths {
+            var srcDir: ObjCBool = false
+            let isSrcFolder = fm.fileExists(atPath: path, isDirectory: &srcDir) && srcDir.boolValue
+            let name = URL(fileURLWithPath: path).lastPathComponent
+            let existing = URL(fileURLWithPath: dest).appendingPathComponent(name).path
+            var dstDir: ObjCBool = false
+            let hasSameFolder = fm.fileExists(atPath: existing, isDirectory: &dstDir) && dstDir.boolValue
+            if isSrcFolder, hasSameFolder,
+               (path as NSString).standardizingPath != (existing as NSString).standardizingPath {
+                if firstMerge == nil {
+                    firstMerge = (path, existing)
+                } else {
+                    remaining.append(path)
+                }
+            } else {
+                remaining.append(path)
+            }
+        }
+        if let merge = firstMerge {
+            pendingMergeMove = move
+            pendingMergePreview = FolderMerge.preview(source: merge.source, dest: merge.dest)
+            statusMessage = "Revisa la fusión antes de tocar el destino"
+        }
+        return remaining
     }
 
     func runAssistant(prompt: String) async {
@@ -1467,12 +1524,11 @@ final class BrowserModel: ObservableObject {
             statusMessage = "Bandeja y portapapeles vacíos"
             return
         }
+        let paths = urls.map(\.path)
+        let rest = offerMergeIfNeeded(paths: paths, toDirectory: currentPath, move: false)
+        guard !rest.isEmpty else { return }
         do {
-            let pairs = try FileOps.transfer(
-                paths: urls.map(\.path),
-                toDirectory: currentPath,
-                move: false
-            )
+            let pairs = try FileOps.transfer(paths: rest, toDirectory: currentPath, move: false)
             pushUndo(.copied(created: pairs.map(\.to)))
             noteLocalFileMutation()
             reload()
@@ -1550,26 +1606,37 @@ final class BrowserModel: ObservableObject {
         var remaining: [FileOps.ShelfItem] = []
         do {
             for item in shelf {
+                let move = item.intent == .move
+                let rest = offerMergeIfNeeded(paths: [item.path], toDirectory: currentPath, move: move)
+                if rest.isEmpty {
+                    // Quedó en preview de fusión; no reponer en bandeja si era move hasta cancelar.
+                    if !move { remaining.append(item) }
+                    continue
+                }
                 let pairs = try FileOps.transfer(
-                    paths: [item.path],
+                    paths: rest,
                     toDirectory: currentPath,
-                    move: item.intent == .move
+                    move: move
                 )
-                if item.intent == .move {
+                if move {
                     movedPairs.append(contentsOf: pairs)
                 } else {
                     copiedPairs.append(contentsOf: pairs)
-                    remaining.append(item) // copias se pueden volver a usar
+                    remaining.append(item)
                 }
             }
             shelf = remaining
             if !movedPairs.isEmpty { pushUndo(.moved(pairs: movedPairs)) }
             if !copiedPairs.isEmpty { pushUndo(.copied(created: copiedPairs.map(\.to))) }
-            reload()
-            var parts: [String] = []
-            if !movedPairs.isEmpty { parts.append("\(movedPairs.count) movido(s)") }
-            if !copiedPairs.isEmpty { parts.append("\(copiedPairs.count) copiado(s)") }
-            statusMessage = parts.isEmpty ? "Nada transferido" : parts.joined(separator: " · ") + " · ⌘Z deshace"
+            if pendingMergePreview == nil {
+                reload()
+                var parts: [String] = []
+                if !movedPairs.isEmpty { parts.append("\(movedPairs.count) movido(s)") }
+                if !copiedPairs.isEmpty { parts.append("\(copiedPairs.count) copiado(s)") }
+                statusMessage = parts.isEmpty ? "Nada transferido" : parts.joined(separator: " · ") + " · ⌘Z deshace"
+            } else if !movedPairs.isEmpty || !copiedPairs.isEmpty {
+                reload()
+            }
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -1581,10 +1648,12 @@ final class BrowserModel: ObservableObject {
             statusMessage = "La bandeja está vacía"
             return
         }
+        let rest = offerMergeIfNeeded(paths: paths, toDirectory: currentPath, move: forceMove)
+        guard !rest.isEmpty else { return }
         do {
-            let pairs = try FileOps.transfer(paths: paths, toDirectory: currentPath, move: forceMove)
+            let pairs = try FileOps.transfer(paths: rest, toDirectory: currentPath, move: forceMove)
             if forceMove {
-                shelf.removeAll { paths.contains($0.path) }
+                shelf.removeAll { rest.contains($0.path) }
                 pushUndo(.moved(pairs: pairs))
             } else {
                 pushUndo(.copied(created: pairs.map(\.to)))
@@ -1765,12 +1834,19 @@ final class BrowserModel: ObservableObject {
             return
         }
 
+        let move = !copy
+        let rest = offerMergeIfNeeded(paths: unique, toDirectory: dest, move: move)
+        guard !rest.isEmpty else {
+            folderDropTargetPath = nil
+            clearArmedFileDrag()
+            return
+        }
         do {
-            let pairs = try FileOps.transfer(paths: unique, toDirectory: dest, move: !copy)
+            let pairs = try FileOps.transfer(paths: rest, toDirectory: dest, move: move)
             if copy {
                 pushUndo(.copied(created: pairs.map(\.to)))
             } else {
-                shelf.removeAll { unique.contains(($0.path as NSString).standardizingPath) }
+                shelf.removeAll { rest.contains(($0.path as NSString).standardizingPath) }
                 selectedIDs = []
                 pushUndo(.moved(pairs: pairs))
             }

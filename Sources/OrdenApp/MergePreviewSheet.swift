@@ -5,6 +5,8 @@ struct MergePreviewSheet: View {
     @EnvironmentObject private var browser: BrowserModel
     let preview: FolderMerge.Preview
 
+    private var asMove: Bool { browser.pendingMergeMove }
+
     var body: some View {
         OrdenDialogShell {
             OrdenDialogHeader(
@@ -21,29 +23,47 @@ struct MergePreviewSheet: View {
                 }
 
                 OrdenDialogHintBox(rows: [
-                    .init(icon: "checkmark.circle.fill", tint: .green, text: "Copia lo que falta y renombra conflictos. No borra el destino."),
-                    .init(icon: "info.circle.fill", tint: OrdenTheme.accent, text: "Revisa la lista antes de confirmar. ⌘Z deshace la copia.")
+                    .init(
+                        icon: "checkmark.circle.fill",
+                        tint: .green,
+                        text: "Se copian los archivos nuevos. Los que chocan se guardan con otro nombre. El destino no se borra."
+                    ),
+                    .init(
+                        icon: asMove ? "trash" : "info.circle.fill",
+                        tint: asMove ? .orange : OrdenTheme.accent,
+                        text: asMove
+                            ? "Al confirmar, la carpeta de origen va a la Papelera (es un movimiento + fusión)."
+                            : "Es una fusión por copia. ⌘Z puede deshacer los archivos nuevos."
+                    )
                 ])
 
-                List(preview.items.prefix(80)) { item in
-                    HStack {
-                        Text(item.relativePath)
-                            .font(.caption.monospaced())
-                        Spacer()
-                        Text(label(for: item.kind))
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(color(for: item.kind))
+                if preview.items.isEmpty {
+                    Text("No hay diferencias que mostrar.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    List(preview.items.prefix(80)) { item in
+                        HStack {
+                            Text(item.relativePath)
+                                .font(.caption.monospaced())
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                            Text(label(for: item.kind))
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(color(for: item.kind))
+                        }
                     }
+                    .frame(minHeight: 200)
                 }
-                .frame(minHeight: 200)
             }
             .padding(20)
         } footer: {
             OrdenDialogFooter(
-                shortcutHint: nil,
+                shortcutHint: asMove ? "Mover + fusionar" : "Solo copiar",
                 cancelTitle: "Cancelar",
-                actionTitle: "Fusionar copia",
-                onCancel: { browser.pendingMergePreview = nil },
+                actionTitle: asMove ? "Fusionar y mover" : "Fusionar copia",
+                onCancel: { browser.cancelPendingMerge() },
                 onAction: { browser.confirmPendingMerge() }
             )
         }
