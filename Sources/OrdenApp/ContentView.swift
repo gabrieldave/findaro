@@ -425,12 +425,12 @@ struct SortBar: View {
 
             if !browser.downloadsTodayMode {
                 Menu {
-                    Section("Cambiar orden (solo esta carpeta)") {
-                        sortButtons(scope: .thisFolder)
+                    Section("Cambiar orden (se guarda)") {
+                        sortButtons(scope: .everywhere)
                     }
                     Divider()
-                    Button("Usar este orden en todas partes") {
-                        browser.saveCurrentAsGlobalDefault()
+                    Section("Solo esta carpeta") {
+                        sortButtons(scope: .thisFolder)
                     }
                     if browser.hasFolderOverride {
                         Button("Quitar orden propio (usar global)") {

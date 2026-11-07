@@ -48,11 +48,13 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
 
     /// Override de carpeta si existe; si no, el global (estilo Descargas por defecto).
     public func rule(for path: String) -> SortRule {
-        folderOverrides[path] ?? globalRule
+        let key = (path as NSString).standardizingPath
+        return folderOverrides[key] ?? folderOverrides[path] ?? globalRule
     }
 
     public func hasOverride(for path: String) -> Bool {
-        folderOverrides[path] != nil
+        let key = (path as NSString).standardizingPath
+        return folderOverrides[key] != nil || folderOverrides[path] != nil
     }
 
     enum CodingKeys: String, CodingKey {

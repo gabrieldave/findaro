@@ -206,7 +206,9 @@ final class BrowserModel: ObservableObject {
             ?? (FileManager.default.homeDirectoryForCurrentUser.path as NSString)
                 .appendingPathComponent("Downloads")
         self.currentPath = start
-        self.rule = store.preferences.rule(for: start)
+        let startRule = store.preferences.rule(for: start)
+        self.rule = startRule
+        self.cleanupMode = (startRule == .heaviestFirst)
         self.viewMode = store.preferences.viewMode
         self.showRowPaths = store.preferences.showRowPaths
         self.explorerKeyboardProfile = store.preferences.explorerKeyboardProfile
@@ -1757,17 +1759,18 @@ final class BrowserModel: ObservableObject {
         downloadsTodayMode = false
         cleanupMode = (newRule == .heaviestFirst)
         rule = newRule
+        let folderKey = (currentPath as NSString).standardizingPath
         store.update { prefs in
             switch scope {
             case .thisFolder:
-                prefs.folderOverrides[currentPath] = newRule
+                prefs.folderOverrides[folderKey] = newRule
             case .everywhere:
                 prefs.globalRule = newRule
                 prefs.folderOverrides = [:]
             }
         }
         statusMessage = scope == .everywhere
-            ? "Orden aplicado en todas las carpetas"
+            ? "Orden guardado en todas las carpetas"
             : "Orden guardado solo en esta carpeta"
         objectWillChange.send()
     }
@@ -1794,22 +1797,19 @@ final class BrowserModel: ObservableObject {
         applyRule(rule, scope: .everywhere)
     }
 
-    /// Orden por peso: lo más pesado arriba (no borra nada).
+    /// Orden por peso: lo más pesado arriba (no borra nada). Se guarda como default.
     func showHeaviestForCleanup() {
         downloadsTodayMode = false
         activeAssistantShortcut = nil
-        cleanupMode = true
-        rule = .heaviestFirst
-        let msg = "Listo: ordené por peso. Arriba está lo que más ocupa. No borré nada."
+        applyRule(.heaviestFirst, scope: .everywhere)
+        let msg = "Listo: ordené por peso y lo dejé guardado. Arriba está lo que más ocupa. No borré nada."
         appendAgentReply(msg)
-        objectWillChange.send()
     }
 
     func exitCleanupMode() {
-        cleanupMode = false
-        rule = store.preferences.rule(for: currentPath)
-        appendAgentReply("Volviste al orden normal de esta carpeta.")
-        objectWillChange.send()
+        // Vuelve al estilo Descargas y lo guarda (si no, al reiniciar seguiría en pesados).
+        applyRule(.downloads, scope: .everywhere)
+        appendAgentReply("Volviste al orden normal (estilo Descargas) y lo guardé.")
     }
 
     /// Modo exclusivo: solo lo agregado/creado hoy en la carpeta actual.
