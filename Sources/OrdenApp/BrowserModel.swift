@@ -163,9 +163,9 @@ final class BrowserModel: ObservableObject {
         case .alreadyDefault:
             statusMessage = "Ordena ya está como app de carpetas"
         case .readyForOpenWith:
-            statusMessage = "Ordena lista en «Abrir con» — falta elegir Siempre (límite de Apple)"
+            statusMessage = "Findaro lista en «Abrir con» — falta elegir Siempre (límite de Apple)"
         case .appMissing:
-            statusMessage = "No encuentro Ordena.app en Aplicaciones"
+            statusMessage = "No encuentro Findaro.app en Aplicaciones"
         }
     }
     @Published var agentLog: [String] = []
