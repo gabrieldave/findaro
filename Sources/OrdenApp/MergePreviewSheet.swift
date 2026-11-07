@@ -83,7 +83,8 @@ struct MergePreviewSheet: View {
                 Button("Conservar ambos") {
                     browser.confirmPendingMerge(overwriteConflicts: false)
                 }
-                .help("Conflictos → nombre 2")
+                .keyboardShortcut(.defaultAction)
+                .help("Conflictos → nombre 2 · Enter")
                 Button(asMove ? "Reemplazar y mover" : "Reemplazar conflictos") {
                     browser.confirmPendingMerge(overwriteConflicts: true)
                 }

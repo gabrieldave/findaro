@@ -31,6 +31,11 @@ enum SelectionCancelMonitor {
                 return nil
             }
 
+            // Enter/Esc en sheets: confirmar o cancelar (SwiftUI .defaultAction falla a menudo).
+            if handleModalDialogKeys(event, browser: browser) {
+                return nil
+            }
+
             if shouldIgnore(event, browser: browser) {
                 return event
             }
@@ -350,16 +355,29 @@ enum SelectionCancelMonitor {
         VoiceCaptureController.shared.endPushToTalk()
     }
 
+    /// Return / keypad Enter / Esc mientras hay un sheet de confirmación.
+    private static func handleModalDialogKeys(_ event: NSEvent, browser: BrowserModel) -> Bool {
+        guard browser.hasModalSheet else { return false }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let key = event.keyCode
+        let bare = !flags.contains(.command) && !flags.contains(.option) && !flags.contains(.control)
+
+        if key == 53, bare || flags.isEmpty {
+            browser.dismissModalSheet()
+            return true
+        }
+        // 36 = Return · 76 = Enter del teclado numérico
+        if bare, key == 36 || key == 76 {
+            browser.confirmPrimaryModalAction()
+            return true
+        }
+        return false
+    }
+
     private static func shouldIgnore(_ event: NSEvent, browser: BrowserModel) -> Bool {
         if isEditingText { return true }
         if NSApp.keyWindow?.attachedSheet != nil { return true }
-        if browser.showNewFolderDialog
-            || browser.showNewFileDialog
-            || browser.showRenameDialog
-            || browser.showGoToFolderDialog
-            || browser.showDeepSearchDialog {
-            return true
-        }
+        if browser.hasModalSheet { return true }
         return false
     }
 

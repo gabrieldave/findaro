@@ -1344,6 +1344,127 @@ final class BrowserModel: ObservableObject {
         }
     }
 
+    // MARK: - Diálogos modales (Enter / Esc)
+
+    /// Sheets de confirmación: Enter no debe abrir/renombrar detrás.
+    var hasModalSheet: Bool {
+        showNewFolderDialog
+            || showNewFileDialog
+            || showRenameDialog
+            || showGoToFolderDialog
+            || showDeepSearchDialog
+            || showSaveTemplateDialog
+            || showOllamaSetupDialog
+            || showFolderHandlerSetupDialog
+            || pendingMergePreview != nil
+    }
+
+    /// Esc cierra el sheet activo (sin acción destructiva).
+    @discardableResult
+    func dismissModalSheet() -> Bool {
+        if showGoToFolderDialog {
+            showGoToFolderDialog = false
+            return true
+        }
+        if showDeepSearchDialog {
+            showDeepSearchDialog = false
+            return true
+        }
+        if showNewFolderDialog {
+            showNewFolderDialog = false
+            return true
+        }
+        if showNewFileDialog {
+            showNewFileDialog = false
+            return true
+        }
+        if showRenameDialog {
+            showRenameDialog = false
+            renameTargetPath = nil
+            return true
+        }
+        if showSaveTemplateDialog {
+            showSaveTemplateDialog = false
+            return true
+        }
+        if showOllamaSetupDialog {
+            showOllamaSetupDialog = false
+            return true
+        }
+        if showFolderHandlerSetupDialog {
+            showFolderHandlerSetupDialog = false
+            return true
+        }
+        if pendingMergePreview != nil {
+            cancelPendingMerge()
+            return true
+        }
+        return false
+    }
+
+    /// Enter = botón principal del sheet (equivalente a «Ir», «Buscar», «Guardar»…).
+    /// Devuelve true si había sheet (aunque el draft esté vacío y no haga nada).
+    @discardableResult
+    func confirmPrimaryModalAction() -> Bool {
+        if showGoToFolderDialog {
+            submitGoToFolder()
+            return true
+        }
+        if showDeepSearchDialog {
+            submitDeepSearchFromDialog()
+            return true
+        }
+        if showNewFolderDialog {
+            let name = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { return true }
+            createFolderFromDraft()
+            showNewFolderDialog = false
+            return true
+        }
+        if showNewFileDialog {
+            let name = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { return true }
+            createFileFromDraft()
+            showNewFileDialog = false
+            return true
+        }
+        if showRenameDialog {
+            let name = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { return true }
+            commitRenameFromDraft()
+            showRenameDialog = false
+            return true
+        }
+        if showSaveTemplateDialog {
+            confirmSaveViewTemplate()
+            return true
+        }
+        if showOllamaSetupDialog {
+            // Misma acción primaria del footer: activar si hay Ollama, o seguir sin IA.
+            if OllamaClient.shared.available {
+                if !OllamaClient.shared.enabled {
+                    setOllamaEnabled(true)
+                    setOllamaModel(OllamaClient.shared.selectedModel)
+                }
+            } else {
+                setOllamaEnabled(false)
+            }
+            showOllamaSetupDialog = false
+            return true
+        }
+        if showFolderHandlerSetupDialog {
+            navigateToDownloads()
+            showFolderHandlerSetupDialog = false
+            return true
+        }
+        if pendingMergePreview != nil {
+            // Enter = opción segura («Conservar ambos»), no reemplazar.
+            confirmPendingMerge(overwriteConflicts: false)
+            return true
+        }
+        return false
+    }
+
     // MARK: - Ir a carpeta (⌘3)
 
     func promptGoToFolder() {

@@ -90,21 +90,26 @@ struct ContentView: View {
         .modifier(BrowserToolbarModifier())
         .modifier(BrowserDialogsModifier(shortPath: shortPath))
         .onKeyPress(.space) {
+            guard !browser.hasModalSheet else { return .ignored }
             browser.quickLookSelection()
             return .handled
         }
         .onKeyPress(keys: [.downArrow], phases: .down) { press in
             guard press.modifiers.contains(.command) else { return .ignored }
+            guard !browser.hasModalSheet else { return .ignored }
             browser.openSelection()
             return .handled
         }
         .onKeyPress(keys: [.delete], phases: .down) { press in
             guard press.modifiers.contains(.command) else { return .ignored }
+            guard !browser.hasModalSheet else { return .ignored }
             browser.moveSelectionToTrash()
             return .handled
         }
         .onKeyPress(keys: [.return], phases: .down) { press in
             guard !press.modifiers.contains(.command) else { return .ignored }
+            // Sheets: Enter lo confirma SelectionCancelMonitor / TextField.onSubmit.
+            if browser.hasModalSheet { return .ignored }
             if browser.explorerKeyboardProfile {
                 browser.openSelection()
             } else {
@@ -114,6 +119,10 @@ struct ContentView: View {
             return .handled
         }
         .onKeyPress(.escape) {
+            if browser.hasModalSheet {
+                browser.dismissModalSheet()
+                return .handled
+            }
             browser.cancelSelection()
             return .handled
         }
