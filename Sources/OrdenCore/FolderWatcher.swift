@@ -1,7 +1,8 @@
 import Foundation
 import CoreServices
 
-/// Observa cambios en una carpeta con FSEvents (más fiable que DispatchSource en macOS).
+/// Observa cambios en una carpeta con FSEvents y agrupa escrituras consecutivas
+/// para refrescar el explorador poco después de que termine una descarga.
 public final class FolderWatcher: @unchecked Sendable {
     public var onChange: (() -> Void)?
 
@@ -9,6 +10,10 @@ public final class FolderWatcher: @unchecked Sendable {
     private var watchedPath: String?
     private var debounceWork: DispatchWorkItem?
     private let queue = DispatchQueue(label: "app.ordena.folder-watcher")
+    private let stateLock = NSLock()
+
+    private let eventLatency: CFTimeInterval = 0.15
+    private let debounceMilliseconds = 220
 
     public init() {}
 
@@ -17,7 +22,11 @@ public final class FolderWatcher: @unchecked Sendable {
     }
 
     public func watch(path: String) {
-        let standardized = (path as NSString).standardizingPath
+        let standardized = URL(fileURLWithPath: path)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .path
+
         if watchedPath == standardized, stream != nil { return }
         stop()
 
@@ -38,7 +47,9 @@ public final class FolderWatcher: @unchecked Sendable {
             kFSEventStreamCreateFlagUseCFTypes
                 | kFSEventStreamCreateFlagFileEvents
                 | kFSEventStreamCreateFlagNoDefer
+                | kFSEventStreamCreateFlagWatchRoot
         )
+
         guard let created = FSEventStreamCreate(
             nil,
             { _, info, _, _, _, _ in
@@ -49,18 +60,30 @@ public final class FolderWatcher: @unchecked Sendable {
             &context,
             paths,
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
-            0.35,
+            eventLatency,
             flags
-        ) else { return }
+        ) else {
+            watchedPath = nil
+            return
+        }
 
         stream = created
         FSEventStreamSetDispatchQueue(created, queue)
-        FSEventStreamStart(created)
+        guard FSEventStreamStart(created) else {
+            stream = nil
+            watchedPath = nil
+            FSEventStreamInvalidate(created)
+            FSEventStreamRelease(created)
+            return
+        }
     }
 
     public func stop() {
+        stateLock.lock()
         debounceWork?.cancel()
         debounceWork = nil
+        stateLock.unlock()
+
         if let stream {
             FSEventStreamStop(stream)
             FSEventStreamInvalidate(stream)
@@ -71,11 +94,17 @@ public final class FolderWatcher: @unchecked Sendable {
     }
 
     private func scheduleNotify() {
+        stateLock.lock()
         debounceWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
             self?.onChange?()
         }
         debounceWork = work
-        queue.asyncAfter(deadline: .now() + .milliseconds(450), execute: work)
+        stateLock.unlock()
+
+        queue.asyncAfter(
+            deadline: .now() + .milliseconds(debounceMilliseconds),
+            execute: work
+        )
     }
 }
