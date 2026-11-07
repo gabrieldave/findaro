@@ -2,7 +2,7 @@
 
 App nativa de macOS (SwiftUI + AppKit) para Descargas y otras carpetas: orden por tipo/fecha, doble panel, bandeja tipo Dropover, Smart Merge y asistente local (Ollama opcional).
 
-**Versión actual:** `0.1.73` · Bundle ID `app.ordena.files` · Apple Silicon
+**Versión actual:** `0.1.74` · Bundle ID `app.ordena.files` · Apple Silicon
 
 ## Instalar (recomendado)
 
@@ -17,7 +17,7 @@ O genera el DMG en local:
 ./scripts/make-dmg.sh
 ```
 
-En el Escritorio queda `Ordena-0.1.73-arm64.dmg`:
+En el Escritorio queda `Ordena-0.1.74-arm64.dmg`:
 
 1. Doble clic → monta el volumen **Ordena …**
 2. Arrastra **Ordena.app** a **Aplicaciones**

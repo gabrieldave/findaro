@@ -1510,22 +1510,23 @@ private struct BrowserToolbarModifier: ViewModifier {
                 }
                 .help("Nuevo archivo vacío (⌘N)")
 
-                Button {
-                    browser.showAssistantPanel.toggle()
-                } label: {
-                    Label("Asistente", systemImage: "sparkles")
-                }
-                .help(
-                    browser.showAssistantPanel
-                        ? "Cerrar el asistente (⌘5)"
-                        : "Asistente: busca, pesados y duplicados con frases en español (⌘5)"
+                ToolbarStateToggle(
+                    isOn: $browser.showAssistantPanel,
+                    title: "Asistente",
+                    onSymbol: "sparkles",
+                    offSymbol: "sparkles",
+                    helpOn: "Asistente ON · clic para cerrar (⌘5)",
+                    helpOff: "Asistente OFF · abrir (⌘5)"
                 )
 
-                Toggle(isOn: $browser.multiSelectMode) {
-                    Label("Varios", systemImage: "checkmark.circle")
-                }
-                .toggleStyle(.button)
-                .help("Modo varios: cada clic suma o quita sin usar ⌘")
+                ToolbarStateToggle(
+                    isOn: $browser.multiSelectMode,
+                    title: "Varios",
+                    onSymbol: "checkmark.circle.fill",
+                    offSymbol: "checkmark.circle",
+                    helpOn: "Modo varios ON · cada clic suma/quita",
+                    helpOff: "Modo varios OFF · clic normal"
+                )
 
                 Button {
                     browser.selectAllVisible()
@@ -1558,19 +1559,29 @@ private struct BrowserToolbarModifier: ViewModifier {
                 .help("Vista rápida (Espacio)")
                 .disabled(browser.selectedIDs.isEmpty)
 
-                Toggle(isOn: Binding(
-                    get: { browser.showRowPaths },
-                    set: { browser.setShowRowPaths($0) }
-                )) {
-                    Label(
-                        browser.showRowPaths ? "Ocultar rutas" : "Mostrar rutas",
-                        systemImage: browser.showRowPaths ? "list.bullet.rectangle" : "list.bullet"
-                    )
-                }
-                .toggleStyle(.button)
-                .help(browser.showRowPaths
-                    ? "Ocultar la ruta bajo el nombre"
-                    : "Mostrar la ruta bajo el nombre")
+                ToolbarStateToggle(
+                    isOn: Binding(
+                        get: { browser.showRowPaths },
+                        set: { browser.setShowRowPaths($0) }
+                    ),
+                    title: browser.showRowPaths ? "Rutas" : "Rutas",
+                    onSymbol: "list.bullet.rectangle.fill",
+                    offSymbol: "list.bullet",
+                    helpOn: "Rutas bajo el nombre ON",
+                    helpOff: "Rutas bajo el nombre OFF"
+                )
+
+                ToolbarStateToggle(
+                    isOn: Binding(
+                        get: { browser.showHiddenFiles },
+                        set: { browser.setShowHiddenFiles($0) }
+                    ),
+                    title: "Ocultos",
+                    onSymbol: "eye.fill",
+                    offSymbol: "eye.slash",
+                    helpOn: "Ocultos visibles ON · ⌘⇧.",
+                    helpOff: "Ocultos escondidos · ⌘⇧."
+                )
 
                 Button {
                     browser.reloadFromUser()
@@ -1580,6 +1591,28 @@ private struct BrowserToolbarModifier: ViewModifier {
                 .help("Actualizar esta carpeta y avisarte en el asistente")
             }
         }
+    }
+}
+
+/// Toggle de toolbar con estado visual claro: ON = acento + símbolo filled; OFF = apagado.
+private struct ToolbarStateToggle: View {
+    @Binding var isOn: Bool
+    let title: String
+    let onSymbol: String
+    let offSymbol: String
+    let helpOn: String
+    let helpOff: String
+
+    var body: some View {
+        Toggle(isOn: $isOn) {
+            Label(title, systemImage: isOn ? onSymbol : offSymbol)
+        }
+        .toggleStyle(.button)
+        .buttonStyle(.bordered)
+        .tint(isOn ? OrdenTheme.accent : .secondary)
+        .foregroundStyle(isOn ? OrdenTheme.accent : Color.secondary.opacity(0.85))
+        .help(isOn ? helpOn : helpOff)
+        .accessibilityAddTraits(isOn ? [.isSelected] : [])
     }
 }
 
