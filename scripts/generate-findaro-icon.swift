@@ -6,10 +6,24 @@ let outputURL = URL(fileURLWithPath: outputDirectory, isDirectory: true)
 try FileManager.default.createDirectory(at: outputURL, withIntermediateDirectories: true)
 
 let size = 1024
-let canvas = NSImage(size: NSSize(width: size, height: size))
-canvas.lockFocus()
-defer { canvas.unlockFocus() }
-NSGraphicsContext.current?.imageInterpolation = .high
+guard let bitmap = NSBitmapImageRep(
+    bitmapDataPlanes: nil,
+    pixelsWide: size,
+    pixelsHigh: size,
+    bitsPerSample: 8,
+    samplesPerPixel: 4,
+    hasAlpha: true,
+    isPlanar: false,
+    colorSpaceName: .deviceRGB,
+    bytesPerRow: 0,
+    bitsPerPixel: 0
+), let context = NSGraphicsContext(bitmapImageRep: bitmap) else {
+    fatalError("Could not create bitmap context for Findaro icon")
+}
+
+NSGraphicsContext.saveGraphicsState()
+NSGraphicsContext.current = context
+context.imageInterpolation = .high
 
 let bounds = NSRect(x: 0, y: 0, width: size, height: size)
 let iconShape = NSBezierPath(roundedRect: bounds.insetBy(dx: 8, dy: 8), xRadius: 225, yRadius: 225)
@@ -22,6 +36,7 @@ let gradient = NSGradient(colors: [
 ])!
 gradient.draw(in: bounds, angle: -35)
 NSGraphicsContext.restoreGraphicsState()
+
 iconShape.lineWidth = 10
 NSColor.white.withAlphaComponent(0.24).setStroke()
 iconShape.stroke()
@@ -43,12 +58,12 @@ for (x, y, width, height) in bars {
     path.fill()
 }
 NSGraphicsContext.restoreGraphicsState()
+context.flushGraphics()
+NSGraphicsContext.restoreGraphicsState()
 
 let pngURL = outputURL.appendingPathComponent("findaro-icon-master.png")
-guard let tiff = canvas.tiffRepresentation,
-      let bitmap = NSBitmapImageRep(data: tiff),
-      let png = bitmap.representation(using: .png, properties: [:]) else {
-    fatalError("Could not render Findaro icon PNG")
+guard let png = bitmap.representation(using: .png, properties: [:]) else {
+    fatalError("Could not encode Findaro icon PNG")
 }
 try png.write(to: pngURL)
 
