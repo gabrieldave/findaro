@@ -847,6 +847,12 @@ private struct EntryContextMenuButtons: View {
             }
             browser.compressSelection()
         }
+        if ArchiveOps.isExtractable(entry.path) {
+            Button("Descomprimir aquí") {
+                browser.selectOnly(entry.id)
+                browser.extractArchive(entry, intoSecondary: false)
+            }
+        }
         Button("A bandeja") {
             if !browser.selectedIDs.contains(entry.id) {
                 browser.selectOnly(entry.id)

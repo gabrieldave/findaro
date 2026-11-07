@@ -508,6 +508,9 @@ final class BrowserModel: ObservableObject {
         if entry.isDirectory {
             navigate(to: entry.path)
             statusMessage = "Abrí carpeta: \(entry.name)"
+        } else if ArchiveOps.isExtractable(entry.path) {
+            // open() pone el estado (descomprimiendo / listo); no pisar con «Abrí:».
+            open(entry)
         } else {
             open(entry)
             statusMessage = "Abrí: \(entry.name)"
@@ -1205,6 +1208,8 @@ final class BrowserModel: ObservableObject {
     func openSecondaryEntry(_ entry: FileEntry) {
         if entry.isDirectory {
             navigateSecondary(to: entry.path)
+        } else if ArchiveOps.isExtractable(entry.path) {
+            extractArchive(entry, intoSecondary: true)
         } else {
             NSWorkspace.shared.open(URL(fileURLWithPath: entry.path))
         }
@@ -2812,9 +2817,62 @@ final class BrowserModel: ObservableObject {
     func open(_ entry: FileEntry) {
         if entry.isDirectory {
             navigate(to: entry.path)
+        } else if ArchiveOps.isExtractable(entry.path) {
+            extractArchive(entry, intoSecondary: false)
         } else {
             NSWorkspace.shared.open(URL(fileURLWithPath: entry.path))
         }
+    }
+
+    /// Descomprime zip/tar en esta carpeta y abre el resultado en Findaro (sin Finder).
+    func extractArchive(_ entry: FileEntry, intoSecondary: Bool? = nil) {
+        let path = entry.path
+        guard ArchiveOps.isExtractable(path) else {
+            statusMessage = "No puedo descomprimir «\(entry.name)» aquí — usa Abrir con"
+            return
+        }
+        let secondary = intoSecondary ?? activeIsSecondary
+        statusMessage = "Descomprimiendo \(entry.name)…"
+        Task.detached {
+            do {
+                let result = try ArchiveOps.extract(archivePath: path)
+                await MainActor.run {
+                    self.finishExtract(resultPath: result, intoSecondary: secondary, archiveName: entry.name)
+                }
+            } catch {
+                await MainActor.run {
+                    self.statusMessage = "No se pudo descomprimir: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func finishExtract(resultPath: String, intoSecondary: Bool, archiveName: String) {
+        var isDir: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: resultPath, isDirectory: &isDir)
+        guard exists else {
+            statusMessage = "Descomprimí \(archiveName), pero no encuentro el resultado"
+            if intoSecondary { reloadSecondary() } else { reload() }
+            return
+        }
+        let name = URL(fileURLWithPath: resultPath).lastPathComponent
+        if intoSecondary {
+            reloadSecondary()
+            if isDir.boolValue {
+                navigateSecondary(to: resultPath)
+            } else {
+                selectSecondaryOnly(resultPath)
+            }
+        } else {
+            reload()
+            if dualPaneEnabled { reloadSecondary() }
+            if isDir.boolValue {
+                navigate(to: resultPath)
+            } else {
+                selectOnly(resultPath)
+            }
+        }
+        statusMessage = "Descomprimido: \(name)"
     }
 
     /// Apps que macOS asocia a este archivo (como Finder → Abrir con).

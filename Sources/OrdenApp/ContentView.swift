@@ -1524,6 +1524,12 @@ struct FileRowButton: View {
                 ensureInSelection()
                 browser.compressSelection()
             }
+            if ArchiveOps.isExtractable(entry.path) {
+                Button("Descomprimir aquí") {
+                    ensureSelectedAlone()
+                    browser.extractArchive(entry, intoSecondary: isSecondary)
+                }
+            }
             Button("A bandeja") {
                 ensureInSelection()
                 browser.addSelectionToShelf()
