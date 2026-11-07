@@ -5,8 +5,10 @@ import OrdenCore
 struct AssistantPanel: View {
     @EnvironmentObject private var browser: BrowserModel
     @StateObject private var ollama = OllamaClient.shared
+    @StateObject private var voice = VoiceCaptureController.shared
     @State private var draft = ""
     @State private var showNewShortcut = false
+    @State private var holdingMic = false
 
     private let quickActions = [
         "busca pdf",
@@ -32,6 +34,13 @@ struct AssistantPanel: View {
                 if let err = browser.addAssistantShortcut(shortcut) {
                     browser.appendAgentReply(err)
                 }
+            }
+        }
+        .onAppear {
+            voice.onFinished = { text in
+                draft = text
+                Task { await browser.runAssistant(prompt: text) }
+                draft = ""
             }
         }
         .task {
@@ -124,7 +133,7 @@ struct AssistantPanel: View {
             Text("Hola")
                 .font(.title2.weight(.semibold))
             Text(
-                "Soy el asistente del explorador. Usa tus atajos o escribe abajo. La IA (Ollama) es opcional: toca el icono del cerebro o Configurar Ollama."
+                "Soy el asistente del explorador. Atajos, texto o mantén el micrófono y habla (español). La IA (Ollama) es opcional."
             )
             .font(.body)
             .foregroundStyle(.secondary)
@@ -282,24 +291,72 @@ struct AssistantPanel: View {
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if voice.phase != .idle || holdingMic {
+                Text(voice.statusLabel)
+                    .font(.subheadline)
+                    .foregroundStyle(holdingMic || voice.isListening ? .orange : .secondary)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .background(
+                        (holdingMic || voice.isListening ? Color.orange : OrdenTheme.accent).opacity(0.12),
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    )
+            }
+
             TextField("Ej: imágenes de hoy…", text: $draft)
                 .font(.body)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit { submit() }
-            Button {
-                submit()
-            } label: {
-                Label("Enviar", systemImage: "arrow.up.circle.fill")
-                    .font(.body.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
+                .disabled(holdingMic || voice.isListening)
+
+            HStack(spacing: 10) {
+                pushToTalkButton
+                Button {
+                    submit()
+                } label: {
+                    Label("Enviar", systemImage: "arrow.up.circle.fill")
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(OrdenTheme.accent)
+                .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || holdingMic)
+                .controlSize(.large)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(OrdenTheme.accent)
-            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            .controlSize(.large)
+
+            Text("Mantén el micrófono, habla, suelta → ejecuta. Local en tu Mac.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
         .padding(16)
+    }
+
+    private var pushToTalkButton: some View {
+        Image(systemName: holdingMic || voice.isListening ? "mic.fill" : "mic.circle.fill")
+            .font(.system(size: 28))
+            .foregroundStyle(holdingMic || voice.isListening ? Color.white : OrdenTheme.accent)
+            .frame(width: 48, height: 40)
+            .background(
+                holdingMic || voice.isListening ? Color.orange : OrdenTheme.panelFill,
+                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            )
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard !holdingMic else { return }
+                        holdingMic = true
+                        voice.beginPushToTalk()
+                    }
+                    .onEnded { _ in
+                        holdingMic = false
+                        voice.endPushToTalk()
+                    }
+            )
+            .help("Mantén para hablar (español)")
+            .accessibilityLabel("Mantener para hablar")
     }
 
     private func submit() {

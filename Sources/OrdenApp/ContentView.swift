@@ -1625,6 +1625,11 @@ struct SettingsView: View {
             }
 
             Section {
+                tipLine(
+                    icon: "mic.circle.fill",
+                    title: "Voz (mantener micrófono)",
+                    detail: "En el asistente: mantén, habla en español, suelta. Local en tu Mac."
+                )
                 Button("Abrir asistente (⌘5)") {
                     browser.showAssistantPanel = true
                 }
@@ -1632,7 +1637,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } header: {
-                Text("Panel")
+                Text("Panel y voz")
             }
         }
         .formStyle(.grouped)

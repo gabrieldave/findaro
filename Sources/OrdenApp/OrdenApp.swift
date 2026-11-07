@@ -81,6 +81,10 @@ struct OrdenApp: App {
                     browser.showAssistantPanel = true
                     browser.showOllamaSetupDialog = true
                 }
+                Button("Ir al asistente (voz)") {
+                    browser.showAssistantPanel = true
+                }
+                .keyboardShortcut("6", modifiers: .command)
             }
 
             CommandMenu("Ir") {
