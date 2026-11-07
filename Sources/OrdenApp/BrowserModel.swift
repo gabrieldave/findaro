@@ -23,6 +23,7 @@ final class BrowserModel: ObservableObject {
     @Published var statusMessage: String?
     @Published var folderTotalBytes: Int64 = 0
     @Published var isMeasuringSizes = false
+    @Published var sizeMeasurementsIncomplete = false
     @Published var cleanupMode = false
     /// Modo exclusivo: solo ítems agregados/creados hoy en esta carpeta (descargas del día).
     @Published var downloadsTodayMode = false
@@ -77,6 +78,13 @@ final class BrowserModel: ObservableObject {
         case moved(pairs: [FileOps.TransferPair])
         /// Copiar: deshacer = tirar los `to` a la Papelera.
         case copied(created: [String])
+        /// Smart Merge: elimina las copias nuevas y restaura respaldos/origen desde la Papelera.
+        case merged(
+            created: [String],
+            sourceOriginalPath: String?,
+            sourceTrashPath: String?,
+            replacements: [FolderMerge.Replacement]
+        )
     }
     /// Clic simple agrega/quita sin ⌘ (ideal para marcar muchos rápido).
     @Published var multiSelectMode = false
@@ -102,6 +110,16 @@ final class BrowserModel: ObservableObject {
     @Published var showRowPaths: Bool
     /// Perfil Explorer: Enter abre, F2 renombra.
     @Published var explorerKeyboardProfile: Bool
+    /// Mostrar ocultos (⌘⇧.).
+    @Published var showHiddenFiles: Bool
+    /// Vista plana de archivos bajo la carpeta.
+    @Published var flattenFolderView: Bool
+    /// Omnibox: editar ruta en la barra de breadcrumbs.
+    @Published var pathOmniboxEditing = false
+    @Published var pathOmniboxDraft = ""
+    /// Progreso de TransferQueue (barra de estado).
+    @Published var transferProgressFraction: Double?
+    @Published var transferProgressLabel: String?
     /// Pilas de rutas para vista Columnas (Miller).
     @Published var columnPaths: [String] = []
 
@@ -178,7 +196,7 @@ final class BrowserModel: ObservableObject {
     let store: PreferencesStore
     private var measureTask: Task<Void, Never>?
     private let folderWatcher = FolderWatcher()
-    private var ignoreWatcherUntil: Date?
+    private let secondaryFolderWatcher = FolderWatcher()
 
     struct PathSegment: Equatable, Identifiable {
         var id: String { path }
@@ -218,6 +236,8 @@ final class BrowserModel: ObservableObject {
         self.viewMode = store.preferences.viewMode
         self.showRowPaths = store.preferences.showRowPaths
         self.explorerKeyboardProfile = store.preferences.explorerKeyboardProfile
+        self.showHiddenFiles = store.preferences.showHiddenFiles
+        self.flattenFolderView = store.preferences.flattenFolderView
         self.assistantShortcuts = store.preferences.assistantShortcuts
         self.viewTemplates = store.preferences.viewTemplates
         self.columnPaths = [start]
@@ -228,6 +248,11 @@ final class BrowserModel: ObservableObject {
         folderWatcher.onChange = { [weak self] in
             Task { @MainActor in
                 self?.handleFolderWatcherEvent()
+            }
+        }
+        secondaryFolderWatcher.onChange = { [weak self] in
+            Task { @MainActor in
+                self?.handleSecondaryFolderWatcherEvent()
             }
         }
         reload()
@@ -267,8 +292,15 @@ final class BrowserModel: ObservableObject {
         objectWillChange.send()
     }
 
+    private func canonicalFolderPath(_ path: String) -> String {
+        URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
+    }
+
+    private func sameFolder(_ lhs: String, _ rhs: String) -> Bool {
+        canonicalFolderPath(lhs) == canonicalFolderPath(rhs)
+    }
+
     private func handleFolderWatcherEvent() {
-        if let until = ignoreWatcherUntil, until > Date() { return }
         let before = Set(entries.map(\.id))
         reload(preserveSelection: true, fromWatcher: true)
         let after = Set(entries.map(\.id))
@@ -277,23 +309,71 @@ final class BrowserModel: ObservableObject {
         }
     }
 
-    private func startWatchingCurrentFolder() {
-        folderWatcher.watch(path: currentPath)
+    private func handleSecondaryFolderWatcherEvent() {
+        guard dualPaneEnabled else { return }
+        // Misma carpeta: el watcher primario ya refresca ambos paneles.
+        guard !sameFolder(currentPath, secondaryPath) else { return }
+        let before = Set(secondaryEntries.map(\.id))
+        reloadSecondary(preserveSelection: true, fromWatcher: true)
+        let after = Set(secondaryEntries.map(\.id))
+        if before != after {
+            statusMessage = "Panel destino actualizado"
+        }
     }
 
-    /// Tras ops locales: ignora el watcher un momento para no recargar dos veces.
-    func noteLocalFileMutation(quietSeconds: TimeInterval = 0.7) {
-        ignoreWatcherUntil = Date().addingTimeInterval(quietSeconds)
+    private func startWatchingCurrentFolder() {
+        folderWatcher.watch(path: currentPath)
+        startWatchingSecondaryFolder()
+    }
+
+    private func startWatchingSecondaryFolder() {
+        guard dualPaneEnabled, !secondaryPath.isEmpty,
+              !sameFolder(currentPath, secondaryPath) else {
+            secondaryFolderWatcher.stop()
+            return
+        }
+        secondaryFolderWatcher.watch(path: secondaryPath)
     }
 
     func reload(preserveSelection: Bool = false, fromWatcher: Bool = false) {
+        // Inicia FSEvents ANTES de leer el directorio para no perder una descarga
+        // que termine justo entre la lectura y el alta del observador.
+        if !fromWatcher {
+            startWatchingCurrentFolder()
+        }
+
         let previous = preserveSelection ? selectedIDs : []
         let prevFocus = selectionFocusID
         let prevAnchor = selectionAnchorID
+        // En refrescos FSEvents reutilizamos tamaños de carpeta ya medidos para
+        // no relanzar walks caros ni provocar parpadeos durante descargas.
+        let previousDirectorySizes = Dictionary(
+            uniqueKeysWithValues: entries.compactMap { entry -> (String, Int64)? in
+                guard entry.isDirectory, entry.size > 0 else { return nil }
+                return (entry.path, entry.size)
+            }
+        )
         measureTask?.cancel()
         do {
-            let loaded = try DirectoryLoader.load(path: currentPath)
-            entries = SortEngine.sort(loaded, by: rule)
+            let loaded = try loadEntries(at: currentPath)
+            var nextEntries = SortEngine.sort(loaded, by: rule)
+            if fromWatcher, !previousDirectorySizes.isEmpty {
+                nextEntries = nextEntries.map { entry in
+                    guard entry.isDirectory,
+                          let known = previousDirectorySizes[entry.path] else { return entry }
+                    return FileEntry(
+                        path: entry.path,
+                        name: entry.name,
+                        isDirectory: entry.isDirectory,
+                        size: known,
+                        dateModified: entry.dateModified,
+                        dateCreated: entry.dateCreated,
+                        dateAdded: entry.dateAdded,
+                        kind: entry.kind
+                    )
+                }
+            }
+            entries = nextEntries
             errorMessage = nil
             if preserveSelection {
                 selectedIDs = previous.intersection(Set(entries.map(\.id)))
@@ -308,15 +388,22 @@ final class BrowserModel: ObservableObject {
                     selectionAnchorID = selectedIDs.first
                 }
             }
-            folderTotalBytes = FolderSizer.sum(entries.filter { !$0.isDirectory })
-            startMeasuringSizes()
+            folderTotalBytes = entries.reduce(Int64(0)) { $0 + $1.size }
+            if !fromWatcher {
+                startMeasuringSizes()
+            } else {
+                isMeasuringSizes = false
+            }
         } catch {
             entries = []
             folderTotalBytes = 0
             errorMessage = error.localizedDescription
         }
-        if !fromWatcher {
-            startWatchingCurrentFolder()
+
+        // Si ambos paneles muestran la misma carpeta, el evento del panel principal
+        // también debe actualizar la lista secundaria (un solo FSEvents, dos listas).
+        if dualPaneEnabled, sameFolder(currentPath, secondaryPath) {
+            reloadSecondary(preserveSelection: true, fromWatcher: true)
         }
     }
 
@@ -535,7 +622,9 @@ final class BrowserModel: ObservableObject {
         if isMeasuringSizes && folderTotalBytes == 0 {
             return "Midiendo peso…"
         }
-        return "Carpeta: \(FolderSizer.format(folderTotalBytes))"
+        return sizeMeasurementsIncomplete
+            ? "Carpeta: ≥ \(FolderSizer.format(folderTotalBytes))"
+            : "Carpeta: \(FolderSizer.format(folderTotalBytes))"
     }
 
     var heaviestPreview: [FileEntry] {
@@ -686,10 +775,22 @@ final class BrowserModel: ObservableObject {
     }
 
     /// Clic en zona vacía: no cancelar si hay ⌘/⇧ (evita apagar el naranja al soltar ⌘+clic).
-    func cancelSelectionFromBackgroundTap() {
+    /// En doble panel también enfoca el panel donde se hizo clic.
+    func cancelSelectionFromBackgroundTap(activating pane: PaneFocus? = nil) {
+        if let pane, dualPaneEnabled {
+            focusPane(pane)
+        }
         let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.command) || flags.contains(.shift) { return }
         cancelSelection()
+    }
+
+    /// ¿Este path está «cortado» (en bandeja con intención mover)?
+    func isCutPending(path: String) -> Bool {
+        let key = (path as NSString).standardizingPath
+        return shelf.contains {
+            $0.intent == .move && ($0.path as NSString).standardizingPath == key
+        }
     }
 
     func toggleSelectAllVisible() {
@@ -735,7 +836,6 @@ final class BrowserModel: ObservableObject {
         statusMessage = nil
         columnPaths = [target]
         store.update { $0.lastPath = target }
-        ignoreWatcherUntil = Date().addingTimeInterval(0.6)
         reload()
         refreshHistoryFlags()
     }
@@ -752,6 +852,7 @@ final class BrowserModel: ObservableObject {
             reloadSecondary()
             statusMessage = "Dos paneles: izquierda origen · derecha destino. Arrastra o «Mover →»"
         } else {
+            secondaryFolderWatcher.stop()
             focusedPane = .primary
             statusMessage = "Un panel"
         }
@@ -804,20 +905,45 @@ final class BrowserModel: ObservableObject {
         statusMessage = "Panel derecho: \((target as NSString).lastPathComponent)"
     }
 
-    func reloadSecondary() {
+    func reloadSecondary(preserveSelection: Bool = false, fromWatcher: Bool = false) {
         guard !secondaryPath.isEmpty else {
             secondaryEntries = []
+            secondarySelectedIDs = []
+            secondaryFolderWatcher.stop()
             return
         }
+        // El observador se activa antes de leer para cerrar la ventana en la que
+        // una descarga o copia podría ocurrir sin generar una actualización visible.
+        if !fromWatcher {
+            startWatchingSecondaryFolder()
+        }
+        let previous = preserveSelection ? secondarySelectedIDs : []
         do {
-            let loaded = try DirectoryLoader.load(path: secondaryPath)
+            let loaded = try loadEntries(at: secondaryPath)
             secondaryEntries = SortEngine.sort(loaded, by: store.preferences.rule(for: secondaryPath))
             secondaryError = nil
+            if preserveSelection {
+                secondarySelectedIDs = previous.intersection(Set(secondaryEntries.map(\.id)))
+            }
         } catch {
             secondaryEntries = []
+            if preserveSelection {
+                secondarySelectedIDs = []
+            }
             secondaryError = error.localizedDescription
         }
         objectWillChange.send()
+    }
+
+    private func loadEntries(at path: String) throws -> [FileEntry] {
+        if flattenFolderView {
+            return try DirectoryFlatten.load(
+                root: path,
+                includeHidden: showHiddenFiles,
+                includeDirectories: false
+            )
+        }
+        return try DirectoryLoader.load(path: path, includeHidden: showHiddenFiles)
     }
 
     func goUpSecondary() {
@@ -883,6 +1009,10 @@ final class BrowserModel: ObservableObject {
         clearSecondary: Bool
     ) -> Bool {
         guard dualPaneEnabled, !paths.isEmpty else { return false }
+        guard pendingMergePreview == nil else {
+            statusMessage = "Primero termina o cancela la fusión pendiente"
+            return false
+        }
         guard AgentPolicy.isPathAllowed(dest) else {
             statusMessage = "Destino no permitido"
             return false
@@ -893,27 +1023,70 @@ final class BrowserModel: ObservableObject {
             statusMessage = "Ya están en esa carpeta"
             return false
         }
-        do {
-            let pairs = try FileOps.transfer(paths: filtered, toDirectory: destStd, move: !copy)
-            if copy {
-                pushUndo(.copied(created: pairs.map(\.to)))
-            } else {
-                pushUndo(.moved(pairs: pairs))
-            }
-            noteLocalFileMutation()
-            if clearPrimary { clearSelection() }
-            if clearSecondary { secondarySelectedIDs = [] }
-            reload()
-            reloadSecondary()
-            let verb = copy ? "Copié" : "Moví"
-            let short = (destStd as NSString).lastPathComponent
-            statusMessage = pairs.count == 1
-                ? "\(verb) 1 ítem → \(short)"
-                : "\(verb) \(pairs.count) ítems → \(short)"
+        let transferPaths = offerMergeIfNeeded(paths: filtered, toDirectory: destStd, move: !copy)
+        if pendingMergePreview != nil {
+            statusMessage = "Revisa Smart Merge antes de continuar con los demás elementos"
             return true
-        } catch {
-            statusMessage = error.localizedDescription
-            return false
+        }
+        guard !transferPaths.isEmpty else { return true }
+        enqueueTransfer(paths: transferPaths, toDirectory: destStd, move: !copy) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let pairs):
+                if copy {
+                    self.pushUndo(.copied(created: pairs.map(\.to)))
+                } else {
+                    self.pushUndo(.moved(pairs: pairs))
+                }
+                if clearPrimary { self.clearSelection() }
+                if clearSecondary { self.secondarySelectedIDs = [] }
+                self.reload()
+                self.reloadSecondary()
+                let verb = copy ? "Copié" : "Moví"
+                let short = (destStd as NSString).lastPathComponent
+                self.statusMessage = pairs.count == 1
+                    ? "\(verb) 1 ítem → \(short)"
+                    : "\(verb) \(pairs.count) ítems → \(short)"
+            case .failure(let error):
+                self.statusMessage = error.localizedDescription
+                self.reload()
+                self.reloadSecondary()
+            }
+        }
+        return true
+    }
+
+    /// Transfiere con TransferQueue (progreso + verify de tamaño).
+    func enqueueTransfer(
+        paths: [String],
+        toDirectory dest: String,
+        move: Bool,
+        completion: @escaping (Result<[FileOps.TransferPair], Error>) -> Void
+    ) {
+        let job = TransferQueue.Job(paths: paths, destinationDir: dest, move: move)
+        transferProgressFraction = 0
+        transferProgressLabel = move ? "Moviendo…" : "Copiando…"
+        statusMessage = transferProgressLabel
+        Task { @MainActor in
+            do {
+                let pairs = try await TransferQueue.shared.run(job) { progress in
+                    Task { @MainActor in
+                        self.transferProgressFraction = progress.fraction
+                        if progress.done {
+                            self.transferProgressFraction = nil
+                            self.transferProgressLabel = nil
+                        } else if !progress.currentName.isEmpty {
+                            self.transferProgressLabel = "\(progress.currentName) · \(progress.completed)/\(progress.total)"
+                            self.statusMessage = self.transferProgressLabel
+                        }
+                    }
+                }
+                completion(.success(pairs))
+            } catch {
+                self.transferProgressFraction = nil
+                self.transferProgressLabel = nil
+                completion(.failure(error))
+            }
         }
     }
 
@@ -1077,44 +1250,73 @@ final class BrowserModel: ObservableObject {
     func confirmPendingMerge(overwriteConflicts: Bool = false) {
         guard let preview = pendingMergePreview else { return }
         let asMove = pendingMergeMove
+
         do {
-            let pairs = try FolderMerge.mergeCopy(
+            let result = try FolderMerge.mergeCopy(
                 source: preview.sourcePath,
                 dest: preview.destPath,
                 overwriteConflicts: overwriteConflicts
             )
-            if !pairs.isEmpty, !overwriteConflicts {
-                pushUndo(.copied(created: pairs.map(\.to)))
-            }
-            // Con reemplazo no deshacemos fácil el archivo pisado; solo avisamos.
+
+            var sourceTrashPath: String?
             if asMove {
-                let src = URL(fileURLWithPath: preview.sourcePath)
-                if FileManager.default.fileExists(atPath: src.path) {
-                    try FileManager.default.trashItem(at: src, resultingItemURL: nil)
+                do {
+                    sourceTrashPath = try FolderMerge.trashSourceAfterVerifiedMerge(result)
+                } catch {
+                    // La copia quedó verificada, pero el origen no se elimina si no se pudo
+                    // comprobar y enviar íntegro a la Papelera.
+                    pushUndo(.merged(
+                        created: result.pairs.map(\.to),
+                        sourceOriginalPath: nil,
+                        sourceTrashPath: nil,
+                        replacements: result.replacements
+                    ))
+                    pendingMergePreview = nil
+                    pendingMergeMove = false
+                    folderDropTargetPath = nil
+                    clearArmedFileDrag()
+                    reload()
+                    statusMessage = "Fusioné los archivos, pero conservé el origen porque no pude enviarlo con seguridad a la Papelera: \(error.localizedDescription)"
+                    return
                 }
+            }
+
+            pushUndo(.merged(
+                created: result.pairs.map(\.to),
+                sourceOriginalPath: asMove ? result.sourcePath : nil,
+                sourceTrashPath: sourceTrashPath,
+                replacements: result.replacements
+            ))
+
+            if asMove {
                 shelf.removeAll {
                     ($0.path as NSString).standardizingPath == (preview.sourcePath as NSString).standardizingPath
                 }
             }
+
             pendingMergePreview = nil
             pendingMergeMove = false
             folderDropTargetPath = nil
             clearArmedFileDrag()
-            ignoreWatcherUntil = Date().addingTimeInterval(0.8)
-            noteLocalFileMutation()
             reload()
+
             let name = URL(fileURLWithPath: preview.destPath).lastPathComponent
             if overwriteConflicts {
                 statusMessage = asMove
-                    ? "Fusionado reemplazando · origen a Papelera → \(name)"
-                    : "Fusionado reemplazando conflictos → \(name) · \(pairs.count) ítems"
+                    ? "Fusionado reemplazando · origen a Papelera → \(name) · ⌘Z puede restaurar"
+                    : "Fusionado reemplazando conflictos → \(name) · ⌘Z puede restaurar"
             } else {
                 statusMessage = asMove
-                    ? "Fusionado y origen a Papelera → \(name) · \(pairs.count) ítems · ⌘Z deshace copias"
-                    : "Fusionado → \(name) · \(pairs.count) ítems · ⌘Z deshace"
+                    ? "Fusionado y origen a Papelera → \(name) · ⌘Z deshace"
+                    : "Fusionado → \(name) · ⌘Z deshace"
+            }
+            if !result.warnings.isEmpty {
+                statusMessage = (statusMessage ?? "") + " · Aviso: " + result.warnings.joined(separator: "; ")
             }
         } catch {
             statusMessage = error.localizedDescription
+            // Actualiza la comparación si el origen o destino cambiaron mientras el diálogo estaba abierto.
+            pendingMergePreview = FolderMerge.preview(source: preview.sourcePath, dest: preview.destPath)
         }
     }
 
@@ -1127,6 +1329,8 @@ final class BrowserModel: ObservableObject {
     /// Devuelve true si abrió el preview (y no hay que transferir esos paths).
     @discardableResult
     private func offerMergeIfNeeded(paths: [String], toDirectory dest: String, move: Bool) -> [String] {
+        // Nunca sustituir una vista previa que el usuario ya está revisando.
+        guard pendingMergePreview == nil else { return paths }
         var remaining: [String] = []
         var firstMerge: (source: String, dest: String)?
         let fm = FileManager.default
@@ -1291,18 +1495,39 @@ final class BrowserModel: ObservableObject {
         for step in plan.steps {
             switch step.name {
             case .moveFiles, .copyFiles:
-                if (step.arguments["destination"] ?? "").isEmpty {
+                let destination = step.arguments["destination"] ?? ""
+                if destination.isEmpty {
                     return "Dime el destino, por ejemplo: «mueve a Facturas» o «copia a Documentos»."
                 }
                 if step.pathsArgument.isEmpty {
                     return "Selecciona primero los archivos en la lista y vuelve a pedirlo."
                 }
-            case .renameFiles:
-                if (step.arguments["newName"] ?? "").isEmpty {
-                    return "Dime el nombre nuevo: «renombra a informe-final.pdf»."
+                guard AgentPolicy.isPathAllowed(destination),
+                      AgentPolicy.isPathWithinScope(destination, root: currentPath),
+                      step.pathsArgument.allSatisfy({
+                          AgentPolicy.isPathAllowed($0) && AgentPolicy.isPathWithinScope($0, root: currentPath)
+                      }) else {
+                    return "El plan incluye una ruta fuera de la carpeta actual o de sus subcarpetas. Navega a esa carpeta y vuelve a intentarlo."
                 }
-                if (step.arguments["path"] ?? step.pathsArgument.first) == nil {
-                    return "Selecciona un archivo o carpeta y di «renombra a …»."
+            case .createDirectory:
+                let name = (step.arguments["name"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                let parent = step.arguments["parent"] ?? currentPath
+                guard !name.isEmpty, name != ".", name != "..", !name.contains("/") else {
+                    return "El nombre de la carpeta debe ser un solo nombre, sin rutas ni «..»."
+                }
+                guard AgentPolicy.isPathAllowed(parent),
+                      AgentPolicy.isPathWithinScope(parent, root: currentPath) else {
+                    return "No puedo crear esa carpeta fuera de la carpeta actual."
+                }
+            case .renameFiles:
+                let newName = step.arguments["newName"] ?? ""
+                let path = step.arguments["path"] ?? step.pathsArgument.first ?? ""
+                if newName.isEmpty || path.isEmpty {
+                    return "Selecciona un archivo o carpeta y di «renombra a nombre-nuevo»."
+                }
+                guard AgentPolicy.isPathAllowed(path),
+                      AgentPolicy.isPathWithinScope(path, root: currentPath) else {
+                    return "No puedo renombrar elementos fuera de la carpeta actual."
                 }
             default:
                 break
@@ -1333,6 +1558,11 @@ final class BrowserModel: ObservableObject {
                 }
                 if step.name == .renameFiles, args["path"] == nil, let first = selectedEntries.first {
                     args["path"] = first.path
+                }
+                if step.name == .moveFiles || step.name == .copyFiles,
+                   let destination = args["destination"],
+                   !destination.hasPrefix("/") && !destination.hasPrefix("~") {
+                    args["destination"] = (currentPath as NSString).appendingPathComponent(destination)
                 }
                 steps.append(AgentToolCall(name: step.name, arguments: args, risk: step.risk))
             default:
@@ -1476,8 +1706,10 @@ final class BrowserModel: ObservableObject {
             appendAgentReply("No me diste nombre para la carpeta.")
             return
         }
-        guard AgentPolicy.isPathAllowed(parent) else {
-            appendAgentReply("Esa ruta no está permitida.")
+        guard AgentPolicy.isPathAllowed(parent),
+              AgentPolicy.isPathWithinScope(parent, root: currentPath),
+              name != ".", name != "..", !name.contains("/") else {
+            appendAgentReply("La ruta o el nombre de la carpeta no están permitidos.")
             return
         }
         // Si ya existe (p. ej. al organizar), reutilízala.
@@ -1511,8 +1743,12 @@ final class BrowserModel: ObservableObject {
             appendAgentReply("Falta el destino. Prueba «mueve a NombreCarpeta».")
             return
         }
-        guard AgentPolicy.isPathAllowed(dest), paths.allSatisfy({ AgentPolicy.isPathAllowed($0) }) else {
-            appendAgentReply("Alguna ruta no está permitida.")
+        guard AgentPolicy.isPathAllowed(dest),
+              AgentPolicy.isPathWithinScope(dest, root: currentPath),
+              paths.allSatisfy({
+                  AgentPolicy.isPathAllowed($0) && AgentPolicy.isPathWithinScope($0, root: currentPath)
+              }) else {
+            appendAgentReply("Alguna ruta está fuera de la carpeta actual o no está permitida.")
             return
         }
         // Crear destino si es carpeta relativa que aún no existe.
@@ -1567,8 +1803,9 @@ final class BrowserModel: ObservableObject {
             appendAgentReply("Selecciona un ítem y di «renombra a nombre-nuevo».")
             return
         }
-        guard AgentPolicy.isPathAllowed(path) else {
-            appendAgentReply("Esa ruta no está permitida.")
+        guard AgentPolicy.isPathAllowed(path),
+              AgentPolicy.isPathWithinScope(path, root: currentPath) else {
+            appendAgentReply("Esa ruta está fuera de la carpeta actual o no está permitida.")
             return
         }
         do {
@@ -1605,6 +1842,49 @@ final class BrowserModel: ObservableObject {
     func setExplorerKeyboardProfile(_ on: Bool) {
         explorerKeyboardProfile = on
         store.update { $0.explorerKeyboardProfile = on }
+    }
+
+    func setShowHiddenFiles(_ on: Bool) {
+        showHiddenFiles = on
+        store.update { $0.showHiddenFiles = on }
+        reload(preserveSelection: true)
+        if dualPaneEnabled { reloadSecondary(preserveSelection: true) }
+        statusMessage = on ? "Mostrando ocultos" : "Ocultos escondidos"
+    }
+
+    func toggleShowHiddenFiles() {
+        setShowHiddenFiles(!showHiddenFiles)
+    }
+
+    func setFlattenFolderView(_ on: Bool) {
+        flattenFolderView = on
+        store.update { $0.flattenFolderView = on }
+        reload(preserveSelection: true)
+        if dualPaneEnabled { reloadSecondary(preserveSelection: true) }
+        statusMessage = on ? "Vista plana (archivos anidados)" : "Vista de carpeta"
+    }
+
+    func toggleFlattenFolderView() {
+        setFlattenFolderView(!flattenFolderView)
+    }
+
+    func beginPathOmnibox() {
+        pathOmniboxDraft = currentPath
+        pathOmniboxEditing = true
+        showGoToFolderDialog = false
+    }
+
+    func cancelPathOmnibox() {
+        pathOmniboxEditing = false
+        pathOmniboxDraft = ""
+    }
+
+    func submitPathOmnibox() {
+        let raw = pathOmniboxDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        pathOmniboxEditing = false
+        guard !raw.isEmpty else { return }
+        goToFolderDraft = raw
+        submitGoToFolder()
     }
 
     /// Como Alt+← en Windows / ⌘[ en Finder.
@@ -2213,7 +2493,6 @@ final class BrowserModel: ObservableObject {
         selectedIDs = []
         selectionAnchorID = nil
         selectionFocusID = nil
-        noteLocalFileMutation()
         reload()
         if moved > 0 {
             statusMessage = moved == 1 ? "1 elemento a la Papelera" : "\(moved) elementos a la Papelera"
@@ -2232,7 +2511,7 @@ final class BrowserModel: ObservableObject {
         guard !name.isEmpty else { return }
         do {
             let path = try FileOps.createFolder(named: name, in: currentPath)
-            noteLocalFileMutation()
+            pushUndo(.copied(created: [path]))
             reload()
             selectOnly(path)
             statusMessage = "Carpeta creada: \(URL(fileURLWithPath: path).lastPathComponent)"
@@ -2255,7 +2534,7 @@ final class BrowserModel: ObservableObject {
         }
         do {
             let path = try FileOps.createFile(named: name, in: currentPath)
-            noteLocalFileMutation()
+            pushUndo(.copied(created: [path]))
             reload()
             selectOnly(path)
             statusMessage = "Archivo creado: \(URL(fileURLWithPath: path).lastPathComponent)"
@@ -2280,7 +2559,7 @@ final class BrowserModel: ObservableObject {
         guard !newName.isEmpty else { return }
         do {
             let newPath = try FileOps.rename(path: path, to: newName)
-            noteLocalFileMutation()
+            pushUndo(.moved(pairs: [.init(from: path, to: newPath)]))
             reload()
             selectOnly(newPath)
             statusMessage = "Renombrado a \(newName)"
@@ -2297,24 +2576,26 @@ final class BrowserModel: ObservableObject {
             return
         }
         var lastPath: String?
-        var count = 0
+        var createdPaths: [String] = []
         for entry in targets {
             do {
                 lastPath = try FileOps.duplicate(path: entry.path)
-                count += 1
+                if let lastPath { createdPaths.append(lastPath) }
             } catch {
-                statusMessage = "No se pudo duplicar \(entry.name): \(error.localizedDescription)"
-                noteLocalFileMutation()
+                if !createdPaths.isEmpty { pushUndo(.copied(created: createdPaths)) }
+                statusMessage = createdPaths.isEmpty
+                    ? "No se pudo duplicar \(entry.name): \(error.localizedDescription)"
+                    : "Duplicación parcial (\(createdPaths.count) elemento(s)); ⌘Z deshace lo creado. \(error.localizedDescription)"
                 reload()
                 return
             }
         }
-        noteLocalFileMutation()
+        if !createdPaths.isEmpty { pushUndo(.copied(created: createdPaths)) }
         reload()
         if let lastPath {
             selectOnly(lastPath)
         }
-        statusMessage = count == 1 ? "Duplicado" : "\(count) duplicados"
+        statusMessage = createdPaths.count == 1 ? "Duplicado · ⌘Z deshace" : "\(createdPaths.count) duplicados · ⌘Z deshace"
     }
 
     /// Paths que se armarían si haces hold sobre `entry` (selección múltiple incluida).
@@ -2432,13 +2713,20 @@ final class BrowserModel: ObservableObject {
             statusMessage = "Bandeja y portapapeles vacíos"
             return
         }
+        guard pendingMergePreview == nil else {
+            statusMessage = "Primero termina o cancela la fusión pendiente"
+            return
+        }
         let paths = urls.map(\.path)
         let rest = offerMergeIfNeeded(paths: paths, toDirectory: currentPath, move: false)
+        if pendingMergePreview != nil {
+            statusMessage = "Revisa Smart Merge; vuelve a pegar para continuar con los demás elementos"
+            return
+        }
         guard !rest.isEmpty else { return }
         do {
             let pairs = try FileOps.transfer(paths: rest, toDirectory: currentPath, move: false)
             pushUndo(.copied(created: pairs.map(\.to)))
-            noteLocalFileMutation()
             reload()
             statusMessage = pairs.count == 1 ? "1 archivo pegado" : "\(pairs.count) archivos pegados"
         } catch {
@@ -2509,44 +2797,66 @@ final class BrowserModel: ObservableObject {
             statusMessage = "La bandeja está vacía"
             return
         }
+        guard pendingMergePreview == nil else {
+            statusMessage = "Primero termina o cancela la fusión pendiente"
+            return
+        }
+
+        let originalItems = shelf
+        var remaining: [FileOps.ShelfItem] = []
         var movedPairs: [FileOps.TransferPair] = []
         var copiedPairs: [FileOps.TransferPair] = []
-        var remaining: [FileOps.ShelfItem] = []
-        do {
-            for item in shelf {
-                let move = item.intent == .move
-                let rest = offerMergeIfNeeded(paths: [item.path], toDirectory: currentPath, move: move)
-                if rest.isEmpty {
-                    // Quedó en preview de fusión; no reponer en bandeja si era move hasta cancelar.
-                    if !move { remaining.append(item) }
-                    continue
-                }
-                let pairs = try FileOps.transfer(
-                    paths: rest,
-                    toDirectory: currentPath,
-                    move: move
-                )
+        var transferError: String?
+
+        for (index, item) in originalItems.enumerated() {
+            if pendingMergePreview != nil {
+                remaining.append(contentsOf: originalItems[index...])
+                break
+            }
+
+            let move = item.intent == .move
+            let paths = offerMergeIfNeeded(paths: [item.path], toDirectory: currentPath, move: move)
+
+            if pendingMergePreview != nil {
+                // Mantén el ítem que está en revisión y los siguientes en la bandeja.
+                remaining.append(contentsOf: originalItems[index...])
+                break
+            }
+
+            do {
+                let pairs = try FileOps.transfer(paths: paths, toDirectory: currentPath, move: move)
                 if move {
                     movedPairs.append(contentsOf: pairs)
                 } else {
                     copiedPairs.append(contentsOf: pairs)
                     remaining.append(item)
                 }
+            } catch {
+                transferError = error.localizedDescription
+                remaining.append(contentsOf: originalItems[index...])
+                break
             }
-            shelf = remaining
-            if !movedPairs.isEmpty { pushUndo(.moved(pairs: movedPairs)) }
-            if !copiedPairs.isEmpty { pushUndo(.copied(created: copiedPairs.map(\.to))) }
-            if pendingMergePreview == nil {
-                reload()
-                var parts: [String] = []
-                if !movedPairs.isEmpty { parts.append("\(movedPairs.count) movido(s)") }
-                if !copiedPairs.isEmpty { parts.append("\(copiedPairs.count) copiado(s)") }
-                statusMessage = parts.isEmpty ? "Nada transferido" : parts.joined(separator: " · ") + " · ⌘Z deshace"
-            } else if !movedPairs.isEmpty || !copiedPairs.isEmpty {
-                reload()
-            }
-        } catch {
-            statusMessage = error.localizedDescription
+        }
+
+        shelf = remaining
+        if !movedPairs.isEmpty { pushUndo(.moved(pairs: movedPairs)) }
+        if !copiedPairs.isEmpty { pushUndo(.copied(created: copiedPairs.map(\.to))) }
+
+        reload()
+        if pendingMergePreview != nil {
+            statusMessage = "Revisa Smart Merge; los demás elementos siguen en la bandeja"
+            return
+        }
+
+        var parts: [String] = []
+        if !movedPairs.isEmpty { parts.append("\(movedPairs.count) movido(s)") }
+        if !copiedPairs.isEmpty { parts.append("\(copiedPairs.count) copiado(s)") }
+        if let transferError {
+            statusMessage = parts.isEmpty
+                ? "No se completó la transferencia: \(transferError)"
+                : "Transferencia parcial: \(parts.joined(separator: " · ")). \(transferError)"
+        } else {
+            statusMessage = parts.isEmpty ? "Nada transferido" : parts.joined(separator: " · ") + " · ⌘Z deshace"
         }
     }
 
@@ -2556,7 +2866,15 @@ final class BrowserModel: ObservableObject {
             statusMessage = "La bandeja está vacía"
             return
         }
+        guard pendingMergePreview == nil else {
+            statusMessage = "Primero termina o cancela la fusión pendiente"
+            return
+        }
         let rest = offerMergeIfNeeded(paths: paths, toDirectory: currentPath, move: forceMove)
+        if pendingMergePreview != nil {
+            statusMessage = "Revisa Smart Merge; los demás elementos siguen en la bandeja"
+            return
+        }
         guard !rest.isEmpty else { return }
         do {
             let pairs = try FileOps.transfer(paths: rest, toDirectory: currentPath, move: forceMove)
@@ -2588,10 +2906,11 @@ final class BrowserModel: ObservableObject {
 
     /// ⌘Z — deshacer último movimiento/copia (como Explorer).
     func undoLastFileOp() {
-        guard let record = undoStack.popLast() else {
+        guard let record = undoStack.last else {
             statusMessage = "Nada que deshacer"
             return
         }
+
         do {
             switch record {
             case .moved(let pairs):
@@ -2600,20 +2919,21 @@ final class BrowserModel: ObservableObject {
                     let current = URL(fileURLWithPath: pair.to)
                     guard FileManager.default.fileExists(atPath: current.path) else { continue }
                     let originalParent = URL(fileURLWithPath: pair.from).deletingLastPathComponent()
-                    var isDir: ObjCBool = false
-                    guard FileManager.default.fileExists(atPath: originalParent.path, isDirectory: &isDir),
-                          isDir.boolValue else { continue }
-                    var dest = URL(fileURLWithPath: pair.from)
-                    if FileManager.default.fileExists(atPath: dest.path) {
-                        dest = FileOps.uniqueURL(dest)
+                    var isDirectory: ObjCBool = false
+                    guard FileManager.default.fileExists(atPath: originalParent.path, isDirectory: &isDirectory),
+                          isDirectory.boolValue else { continue }
+                    var destination = URL(fileURLWithPath: pair.from)
+                    if FileManager.default.fileExists(atPath: destination.path) {
+                        destination = FileOps.uniqueURL(destination)
                     }
-                    try FileManager.default.moveItem(at: current, to: dest)
+                    try FileManager.default.moveItem(at: current, to: destination)
                     restored += 1
                 }
                 reload()
                 statusMessage = restored == 0
                     ? "No se pudo deshacer el movimiento"
                     : "Deshecho: \(restored) movido(s) de vuelta"
+
             case .copied(let created):
                 var trashed = 0
                 for path in created.reversed() {
@@ -2626,9 +2946,52 @@ final class BrowserModel: ObservableObject {
                 statusMessage = trashed == 0
                     ? "No se pudo deshacer la copia"
                     : "Deshecho: \(trashed) copia(s) a la Papelera"
+
+            case .merged(let created, let sourceOriginalPath, let sourceTrashPath, let replacements):
+                let fm = FileManager.default
+                var removedCopies = 0
+                var restoredBackups = 0
+                var restoredSource = false
+
+                // Quita primero los archivos nuevos para dejar libres las rutas originales.
+                for path in created.reversed() {
+                    let url = URL(fileURLWithPath: path)
+                    guard fm.fileExists(atPath: url.path) else { continue }
+                    try fm.trashItem(at: url, resultingItemURL: nil)
+                    removedCopies += 1
+                }
+
+                // Restaura los archivos que fueron reemplazados desde la Papelera o respaldo oculto.
+                for replacement in replacements.reversed() {
+                    let backup = URL(fileURLWithPath: replacement.backupPath)
+                    guard fm.fileExists(atPath: backup.path) else { continue }
+                    let original = URL(fileURLWithPath: replacement.originalPath)
+                    let destination = fm.fileExists(atPath: original.path) ? FileOps.uniqueURL(original) : original
+                    try fm.moveItem(at: backup, to: destination)
+                    restoredBackups += 1
+                }
+
+                // Si el merge fue un movimiento, devuelve también la carpeta de origen.
+                if let sourceOriginalPath, let sourceTrashPath {
+                    let trashedSource = URL(fileURLWithPath: sourceTrashPath)
+                    if fm.fileExists(atPath: trashedSource.path) {
+                        let original = URL(fileURLWithPath: sourceOriginalPath)
+                        let destination = fm.fileExists(atPath: original.path) ? FileOps.uniqueURL(original) : original
+                        try fm.moveItem(at: trashedSource, to: destination)
+                        restoredSource = true
+                    }
+                }
+
+                reload()
+                statusMessage = "Smart Merge deshecho: \(removedCopies) copia(s) retiradas, \(restoredBackups) respaldo(s) restaurado(s)"
+                if sourceOriginalPath != nil && !restoredSource {
+                    statusMessage = (statusMessage ?? "") + " · No encontré el origen en la Papelera"
+                }
             }
+            undoStack.removeLast()
         } catch {
-            statusMessage = "No se pudo deshacer: \(error.localizedDescription)"
+            // Conserva el registro para permitir reintentar lo que no se pudo revertir.
+            statusMessage = "Deshacer quedó incompleto; puedes reintentar: \(error.localizedDescription)"
         }
     }
 
@@ -2760,7 +3123,6 @@ final class BrowserModel: ObservableObject {
             }
             folderDropTargetPath = nil
             clearArmedFileDrag()
-            noteLocalFileMutation()
             reload()
             let name = URL(fileURLWithPath: dest).lastPathComponent
             statusMessage = copy
@@ -2799,18 +3161,22 @@ final class BrowserModel: ObservableObject {
         let snapshot = entries
         let path = currentPath
         isMeasuringSizes = true
+        sizeMeasurementsIncomplete = false
 
         measureTask = Task.detached(priority: .utility) {
             var updated = snapshot
             var total: Int64 = 0
+            var incomplete = false
 
             for index in updated.indices {
                 if Task.isCancelled { return }
                 let entry = updated[index]
-                let bytes = FolderSizer.measure(
+                let measurement = FolderSizer.measureDetailed(
                     path: entry.path,
                     isDirectory: entry.isDirectory
                 )
+                if !measurement.isComplete { incomplete = true }
+                let bytes = measurement.bytes
                 updated[index] = FileEntry(
                     path: entry.path,
                     name: entry.name,
@@ -2825,12 +3191,14 @@ final class BrowserModel: ObservableObject {
             }
 
             if Task.isCancelled { return }
-            let folderTotal = FolderSizer.recursiveDirectorySize(at: path)
+            let folderMeasurement = FolderSizer.measureDirectoryDetailed(at: path)
+            if !folderMeasurement.isComplete { incomplete = true }
 
             await MainActor.run {
                 guard self.currentPath == path else { return }
                 self.entries = updated
-                self.folderTotalBytes = max(folderTotal, total)
+                self.folderTotalBytes = max(folderMeasurement.bytes, total)
+                self.sizeMeasurementsIncomplete = incomplete
                 self.isMeasuringSizes = false
                 self.objectWillChange.send()
             }

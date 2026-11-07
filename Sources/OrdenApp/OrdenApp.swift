@@ -141,9 +141,18 @@ struct OrdenApp: App {
                     .keyboardShortcut(.upArrow, modifiers: .command)
                 Button("Ir a carpeta…") { browser.promptGoToFolder() }
                     .keyboardShortcut("3", modifiers: .command)
+                Button("Editar ruta (omnibox)") { browser.beginPathOmnibox() }
+                    .keyboardShortcut("l", modifiers: .command)
                 Divider()
                 Button("Descargas") { browser.navigateToDownloads() }
                     .keyboardShortcut("l", modifiers: [.command, .shift])
+                Button(browser.showHiddenFiles ? "Ocultar archivos ocultos" : "Mostrar archivos ocultos") {
+                    browser.toggleShowHiddenFiles()
+                }
+                .keyboardShortcut(".", modifiers: [.command, .shift])
+                Button(browser.flattenFolderView ? "Vista de carpeta" : "Vista plana") {
+                    browser.toggleFlattenFolderView()
+                }
                 Button("Escritorio") { browser.navigateToDesktop() }
                 Button("Documentos") { browser.navigateToDocuments() }
                 Divider()
@@ -162,7 +171,6 @@ struct OrdenApp: App {
                 Button("Nueva carpeta") { browser.promptNewFolder() }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button("Renombrar") { browser.promptRename() }
-                    .keyboardShortcut(.return, modifiers: [])
                 Button("Duplicar") { browser.duplicateSelection() }
                     .keyboardShortcut("d", modifiers: .command)
                 Divider()

@@ -287,12 +287,22 @@ struct AssistantPanel: View {
                 .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(plan.steps) { step in
-                    HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: step.risk == .destructive ? "exclamationmark.triangle.fill" : "pencil.circle.fill")
-                            .foregroundStyle(.orange)
-                        Text(step.labelSpanish)
-                            .font(.subheadline)
-                            .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: step.risk == .destructive ? "exclamationmark.triangle.fill" : "pencil.circle.fill")
+                                .foregroundStyle(.orange)
+                            Text(step.labelSpanish)
+                                .font(.subheadline)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        if let details = step.approvalDetailsSpanish {
+                            Text(details)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.leading, 24)
+                        }
                     }
                 }
             }

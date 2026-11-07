@@ -11,10 +11,8 @@ final class FileOpsTests: XCTestCase {
         try fm.createDirectory(at: a, withIntermediateDirectories: true)
         try fm.createDirectory(at: b, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: root) }
-
         let file = a.appendingPathComponent("nota.txt")
         try Data("hola".utf8).write(to: file)
-
         let pairs = try FileOps.transfer(paths: [file.path], toDirectory: b.path, move: true)
         XCTAssertEqual(pairs.count, 1)
         XCTAssertFalse(fm.fileExists(atPath: file.path))
@@ -26,17 +24,52 @@ final class FileOpsTests: XCTestCase {
         let root = fm.temporaryDirectory.appendingPathComponent("orden-crud-\(UUID().uuidString)", isDirectory: true)
         try fm.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: root) }
-
         let folder = try FileOps.createFolder(named: "Nueva", in: root.path)
         XCTAssertTrue(fm.fileExists(atPath: folder))
-
         let renamed = try FileOps.rename(path: folder, to: "Renombrada")
         XCTAssertEqual(URL(fileURLWithPath: renamed).lastPathComponent, "Renombrada")
-
         let file = URL(fileURLWithPath: renamed).appendingPathComponent("a.txt")
         try Data("x".utf8).write(to: file)
         let dup = try FileOps.duplicate(path: file.path)
         XCTAssertTrue(fm.fileExists(atPath: dup))
         XCTAssertNotEqual(dup, file.path)
+    }
+
+    func testTransferPreflightsEverySourceBeforeMovingAnything() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("orden-preflight-\(UUID().uuidString)", isDirectory: true)
+        let source = root.appendingPathComponent("source", isDirectory: true)
+        let dest = root.appendingPathComponent("dest", isDirectory: true)
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        try fm.createDirectory(at: dest, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        let existing = source.appendingPathComponent("present.txt")
+        try Data("keep".utf8).write(to: existing)
+        let missing = source.appendingPathComponent("missing.txt")
+        XCTAssertThrowsError(try FileOps.transfer(paths: [existing.path, missing.path], toDirectory: dest.path, move: true))
+        XCTAssertTrue(fm.fileExists(atPath: existing.path))
+        XCTAssertFalse(fm.fileExists(atPath: dest.appendingPathComponent("present.txt").path))
+    }
+
+    func testTransferRejectsMovingFolderIntoItself() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("orden-self-\(UUID().uuidString)", isDirectory: true)
+        let source = root.appendingPathComponent("source", isDirectory: true)
+        let nested = source.appendingPathComponent("nested", isDirectory: true)
+        try fm.createDirectory(at: nested, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        XCTAssertThrowsError(try FileOps.transfer(paths: [source.path], toDirectory: nested.path, move: true))
+        XCTAssertTrue(fm.fileExists(atPath: source.path))
+    }
+
+    func testCreateFolderRejectsTraversalAndSeparators() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("orden-name-\(UUID().uuidString)", isDirectory: true)
+        let parent = root.appendingPathComponent("parent", isDirectory: true)
+        try fm.createDirectory(at: parent, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        XCTAssertThrowsError(try FileOps.createFolder(named: "../escaped", in: parent.path))
+        XCTAssertThrowsError(try FileOps.createFolder(named: "nested/name", in: parent.path))
+        XCTAssertFalse(fm.fileExists(atPath: root.appendingPathComponent("escaped").path))
     }
 }

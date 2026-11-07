@@ -16,13 +16,17 @@ struct SecondaryBrowserPane: View {
             if let err = browser.secondaryError {
                 ContentUnavailableView("No se pudo abrir", systemImage: "exclamationmark.folder", description: Text(err))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture { browser.focusPane(.secondary) }
             } else if browser.secondaryEntries.isEmpty {
                 ContentUnavailableView(
                     "Vacío",
                     systemImage: "folder",
-                    description: Text("Suelta archivos aquí o usa «Mover →»")
+                    description: Text("Suelta archivos aquí o usa «Mover →» · clic activa el panel")
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .onTapGesture { browser.focusPane(.secondary) }
             } else {
                 list
             }
@@ -34,7 +38,10 @@ struct SecondaryBrowserPane: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(focused ? OrdenTheme.accent : Color.white.opacity(0.06), lineWidth: focused ? 2 : 1)
         )
-        .onTapGesture { browser.focusPane(.secondary) }
+        .contentShape(Rectangle())
+        .simultaneousGesture(TapGesture().onEnded {
+            browser.focusPane(.secondary)
+        })
         .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
             handleDrop(providers)
         }
@@ -65,7 +72,7 @@ struct SecondaryBrowserPane: View {
                     .buttonStyle(.borderedProminent)
                     .tint(OrdenTheme.accent)
                     .controlSize(.small)
-                    .help("Enfoca Destino · Tab · ⌘⇧→")
+                    .help("Enfoca Destino · Tab · ⌘⇧→ · o clic en vacío")
                 }
                 Button {
                     browser.goUpSecondary()
@@ -114,7 +121,7 @@ struct SecondaryBrowserPane: View {
                 .truncationMode(.middle)
                 .help(browser.secondaryPath)
 
-            Text("Arrastra entre paneles · ← Origen / Mover → · Tab cambia panel")
+            Text("Clic en vacío activa · Arrastra · Tab cambia panel")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
@@ -129,18 +136,30 @@ struct SecondaryBrowserPane: View {
                 ForEach(Array(browser.secondaryEntries.enumerated()), id: \.element.id) { index, entry in
                     secondaryRow(entry, zebra: index.isMultiple(of: 2))
                 }
+                // Zona vacía amplia: clic enfoca Destino al instante.
+                Color.clear
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 480)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        browser.focusPane(.secondary)
+                        browser.secondarySelectedIDs = []
+                    }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private func secondaryRow(_ entry: FileEntry, zebra: Bool) -> some View {
         let selected = browser.secondarySelectedIDs.contains(entry.id)
+        let cut = browser.isCutPending(path: entry.path)
         return HStack(spacing: 8) {
             Image(systemName: entry.category.symbolName)
                 .foregroundStyle(Color(hex: entry.category.tintHex))
                 .frame(width: 18)
             Text(entry.name)
                 .lineLimit(1)
+                .strikethrough(cut)
             Spacer(minLength: 0)
             if !entry.isDirectory {
                 Text(FolderSizer.format(entry.size))
@@ -156,8 +175,10 @@ struct SecondaryBrowserPane: View {
                 ? OrdenTheme.accent.opacity(0.28)
                 : (zebra ? Color.white.opacity(0.03) : Color.clear)
         )
+        .opacity(cut ? 0.42 : 1)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
+            browser.focusPane(.secondary)
             browser.openSecondaryEntry(entry)
         }
         .onTapGesture(count: 1) {
@@ -195,6 +216,7 @@ struct SecondaryBrowserPane: View {
 
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
         DualPaneDrop.handle(providers) { paths, copy in
+            browser.focusPane(.secondary)
             if paths.isEmpty {
                 browser.transferPrimarySelectionToSecondary(copy: copy)
             } else {

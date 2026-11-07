@@ -37,7 +37,6 @@ public enum RecursiveSearch {
         public var root: String
         public var maxResults: Int
         public var maxDepth: Int
-        /// Si true, también mira dentro de archivos de texto/código (límite de tamaño).
         public var searchContent: Bool
         public var maxContentBytes: Int
 
@@ -58,21 +57,20 @@ public enum RecursiveSearch {
         }
     }
 
-    /// Extensiones donde tiene sentido buscar texto plano.
     public static let textContentExtensions: Set<String> = [
         "txt", "md", "markdown", "text", "log", "csv", "tsv", "json", "yml", "yaml", "toml", "xml",
         "html", "htm", "css", "scss", "js", "jsx", "ts", "tsx", "swift", "py", "rs", "go", "java",
         "kt", "c", "h", "cpp", "hpp", "m", "mm", "rb", "php", "sh", "zsh", "bash", "sql", "rtf"
     ]
 
-    /// Enumera el árbol buscando en nombre (y opcionalmente contenido). Reporta progreso.
+    /// Busca en la carpeta actual y sus descendientes reales. No sigue enlaces simbólicos
+    /// que apunten fuera del árbol solicitado.
     public static func run(
         query: Query,
         isCancelled: @escaping () -> Bool,
         onProgress: @escaping (SearchProgress) -> Void,
         onHit: @escaping (SearchHit) -> Void
     ) {
-        // Comodines tipo Finder: `*.png` → buscar `.png` (no es glob real).
         let rawNeedle = query.text.trimmingCharacters(in: .whitespacesAndNewlines)
         let needle = rawNeedle
             .replacingOccurrences(of: "*", with: "")
@@ -84,10 +82,14 @@ public enum RecursiveSearch {
             return
         }
 
+        let root = URL(fileURLWithPath: query.root).standardizedFileURL.resolvingSymlinksInPath()
+        let rootPath = root.path
+        let maxResults = max(1, query.maxResults)
+        let maxDepth = max(0, query.maxDepth)
         let fm = FileManager.default
         var visited = 0
         var matched = 0
-        var stack: [(path: String, depth: Int)] = [(query.root, 0)]
+        var stack: [(path: String, depth: Int)] = [(rootPath, 0)]
 
         while let next = stack.popLast() {
             if isCancelled() { break }
@@ -102,35 +104,41 @@ public enum RecursiveSearch {
             guard let items = try? fm.contentsOfDirectory(
                 at: URL(fileURLWithPath: next.path),
                 includingPropertiesForKeys: [
-                    .isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .isHiddenKey
+                    .isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .isHiddenKey, .isSymbolicLinkKey
                 ],
                 options: [.skipsPackageDescendants]
             ) else { continue }
 
             for url in items {
                 if isCancelled() { break }
-                let values = try? url.resourceValues(forKeys: [
-                    .isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .isHiddenKey
-                ])
-                if values?.isHidden == true { continue }
+                guard let values = try? url.resourceValues(forKeys: [
+                    .isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .isHiddenKey, .isSymbolicLinkKey
+                ]) else { continue }
+
+                if values.isHidden == true || values.isSymbolicLink == true { continue }
+
+                let itemPath = url.standardizedFileURL.resolvingSymlinksInPath().path
+                guard isSameOrDescendant(itemPath, of: rootPath) else { continue }
+
                 let name = url.lastPathComponent
-                let isDir = values?.isDirectory == true
-                let size = Int64(values?.fileSize ?? 0)
+                let isDirectory = values.isDirectory == true
+                let size = Int64(values.fileSize ?? 0)
                 let nameHit = name.lowercased().contains(needle)
                 let contentHit: Bool = {
-                    guard query.searchContent, !isDir, !nameHit else { return false }
+                    guard query.searchContent, !isDirectory, !nameHit else { return false }
                     return fileContains(url, needle: needle, maxBytes: query.maxContentBytes)
                 }()
+
                 if nameHit || contentHit {
                     matched += 1
                     onHit(SearchHit(
                         path: url.path,
                         name: name,
-                        isDirectory: isDir,
+                        isDirectory: isDirectory,
                         size: size,
-                        modified: values?.contentModificationDate
+                        modified: values.contentModificationDate
                     ))
-                    if matched >= query.maxResults {
+                    if matched >= maxResults {
                         onProgress(SearchProgress(
                             visitedFolders: visited,
                             matched: matched,
@@ -140,12 +148,9 @@ public enum RecursiveSearch {
                         return
                     }
                 }
-                if isDir, next.depth < query.maxDepth {
-                    // Evitar bucles por symlinks pesados: solo rutas reales bajo root.
-                    let standardized = (url.path as NSString).standardizingPath
-                    if standardized.hasPrefix((query.root as NSString).standardizingPath) {
-                        stack.append((standardized, next.depth + 1))
-                    }
+
+                if isDirectory, next.depth < maxDepth {
+                    stack.append((itemPath, next.depth + 1))
                 }
             }
         }
@@ -153,28 +158,29 @@ public enum RecursiveSearch {
         onProgress(SearchProgress(
             visitedFolders: visited,
             matched: matched,
-            currentFolder: query.root,
+            currentFolder: rootPath,
             done: true
         ))
     }
 
     public static func isTextContentFile(name: String) -> Bool {
-        let ext = (name as NSString).pathExtension.lowercased()
-        return textContentExtensions.contains(ext)
+        textContentExtensions.contains((name as NSString).pathExtension.lowercased())
+    }
+
+    private static func isSameOrDescendant(_ path: String, of root: String) -> Bool {
+        if path == root { return true }
+        let prefix = root == "/" ? "/" : root + "/"
+        return path.hasPrefix(prefix)
     }
 
     private static func fileContains(_ url: URL, needle: String, maxBytes: Int) -> Bool {
-        guard isTextContentFile(name: url.lastPathComponent) else { return false }
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        guard isTextContentFile(name: url.lastPathComponent), maxBytes > 0,
+              let handle = try? FileHandle(forReadingFrom: url) else { return false }
         defer { try? handle.close() }
+
         let data: Data
         do {
-            if #available(macOS 10.15.4, *) {
-                guard let chunk = try handle.read(upToCount: maxBytes) else { return false }
-                data = chunk
-            } else {
-                data = handle.readData(ofLength: maxBytes)
-            }
+            data = try handle.read(upToCount: maxBytes) ?? Data()
         } catch {
             return false
         }

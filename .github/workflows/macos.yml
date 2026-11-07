@@ -1,0 +1,55 @@
+name: macOS build and tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, "fix/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    # Runner real disponible: xcode-27 (macOS 27 + Xcode 27, arm64).
+    # No usar macos-26: no valida el SDK del entorno de desarrollo (macOS 27).
+    # Label macos-27 no existe como imagen GA; GitHub documenta xcode-27.
+    runs-on: xcode-27
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 27.2 when available
+        run: |
+          set -euo pipefail
+          sw_vers
+          echo "Available Xcode apps:"
+          ls /Applications | grep -E '^Xcode' || true
+          if [ -d /Applications/Xcode_27.2.app ]; then
+            sudo xcode-select -s /Applications/Xcode_27.2.app/Contents/Developer
+          elif [ -d /Applications/Xcode_27.2_Release_Candidate.app ]; then
+            sudo xcode-select -s /Applications/Xcode_27.2_Release_Candidate.app/Contents/Developer
+          elif [ -d /Applications/Xcode.app ]; then
+            sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          fi
+          echo "DEVELOPER_DIR=$(xcode-select -p)"
+          xcodebuild -version
+          swift --version
+          xcrun --sdk macosx --show-sdk-version
+          xcrun --sdk macosx --show-sdk-path
+
+      - name: Run unit tests
+        run: |
+          export DEVELOPER_DIR="$(xcode-select -p)"
+          swift test
+
+      - name: Build macOS application
+        run: |
+          export DEVELOPER_DIR="$(xcode-select -p)"
+          swift build --product Orden

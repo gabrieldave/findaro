@@ -36,7 +36,7 @@ struct MergePreviewSheet: View {
                     .init(
                         icon: "exclamationmark.triangle.fill",
                         tint: .orange,
-                        text: "Reemplazar: el archivo que traes pisa al del destino (mismo nombre)."
+                        text: "Reemplazar: el archivo anterior se conserva en la Papelera para intentar restaurarlo con ⌘Z."
                     ),
                     .init(
                         icon: asMove ? "trash" : "info.circle.fill",
@@ -48,7 +48,9 @@ struct MergePreviewSheet: View {
                 ])
 
                 if preview.items.isEmpty {
-                    Text("No hay diferencias que mostrar.")
+                    Text(asMove
+                        ? "Todo coincide. El origen solo se enviará a la Papelera después de verificarlo otra vez."
+                        : "No hay diferencias que fusionar.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -65,6 +67,11 @@ struct MergePreviewSheet: View {
                         }
                     }
                     .frame(minHeight: 180)
+                    if preview.items.count > 80 {
+                        Text("Mostrando 80 de \(preview.items.count) elementos.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .padding(20)

@@ -4,8 +4,7 @@ import Foundation
 
 final class FolderSizerTests: XCTestCase {
     func testFormatNonZero() {
-        let s = FolderSizer.format(1_500_000)
-        XCTAssertFalse(s.isEmpty)
+        XCTAssertFalse(FolderSizer.format(1_500_000).isEmpty)
     }
 
     func testMeasureTempFile() throws {
@@ -15,13 +14,20 @@ final class FolderSizerTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         let file = dir.appendingPathComponent("a.bin")
-        let data = Data(repeating: 7, count: 4096)
-        try data.write(to: file)
+        try Data(repeating: 7, count: 4096).write(to: file)
+        XCTAssertEqual(FolderSizer.measure(path: file.path, isDirectory: false), 4096)
+        XCTAssertGreaterThanOrEqual(FolderSizer.measure(path: dir.path, isDirectory: true), 4096)
+    }
 
-        let size = FolderSizer.measure(path: file.path, isDirectory: false)
-        XCTAssertEqual(size, 4096)
-
-        let folderSize = FolderSizer.measure(path: dir.path, isDirectory: true)
-        XCTAssertGreaterThanOrEqual(folderSize, 4096)
+    func testMeasureIncludesHiddenFilesAndPackageContents() throws {
+        let fm = FileManager.default
+        let dir = fm.temporaryDirectory.appendingPathComponent("orden-size-hidden-\(UUID().uuidString)", isDirectory: true)
+        try fm.createDirectory(at: dir.appendingPathComponent("Sample.app/Contents"), withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: dir) }
+        try Data(repeating: 1, count: 100).write(to: dir.appendingPathComponent(".hidden"))
+        try Data(repeating: 2, count: 200).write(to: dir.appendingPathComponent("Sample.app/Contents/data"))
+        let result = FolderSizer.measureDirectoryDetailed(at: dir.path)
+        XCTAssertTrue(result.isComplete)
+        XCTAssertEqual(result.bytes, 300)
     }
 }

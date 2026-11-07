@@ -139,7 +139,7 @@ struct IconsBrowserView: View {
                         .frame(height: 320)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            browser.cancelSelectionFromBackgroundTap()
+                            browser.cancelSelectionFromBackgroundTap(activating: .primary)
                         }
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -167,7 +167,7 @@ struct IconsBrowserView: View {
                 }
             }
             .onTapGesture {
-                browser.cancelSelectionFromBackgroundTap()
+                browser.cancelSelectionFromBackgroundTap(activating: .primary)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -314,6 +314,10 @@ private struct IconsItemCell: View {
         browser.selectedIDs.contains(entry.id)
     }
 
+    private var isCut: Bool {
+        browser.isCutPending(path: entry.path)
+    }
+
     var body: some View {
         VStack(spacing: 4) {
             HStack {
@@ -336,7 +340,8 @@ private struct IconsItemCell: View {
                         .lineLimit(2)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: 96)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(isCut ? .secondary : .primary)
+                        .strikethrough(isCut)
                 }
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
@@ -345,6 +350,7 @@ private struct IconsItemCell: View {
         }
         .padding(8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .opacity(isCut ? 0.42 : 1)
         .background(
             isSelected ? OrdenTheme.accent.opacity(0.28) : Color.clear,
             in: RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -454,7 +460,7 @@ private struct ColumnPane: View {
                     .frame(height: 320)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        browser.cancelSelectionFromBackgroundTap()
+                        browser.cancelSelectionFromBackgroundTap(activating: .primary)
                     }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -478,7 +484,7 @@ private struct ColumnPane: View {
         .frame(width: 240)
         .frame(maxHeight: .infinity, alignment: .topLeading)
         .onTapGesture {
-            browser.cancelSelectionFromBackgroundTap()
+            browser.cancelSelectionFromBackgroundTap(activating: .primary)
         }
         .onAppear(perform: reload)
         .onChange(of: path) { _, _ in reload() }
