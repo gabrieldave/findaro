@@ -3,11 +3,11 @@ import AVFoundation
 import Speech
 import AppKit
 
-/// Push-to-talk local. Los callbacks de Speech/TCC/AV llegan en hilos de fondo:
-/// las peticiones viven en helpers `nonisolated` y solo el main toca el estado.
-@MainActor
-final class VoiceCaptureController: ObservableObject {
-    static let shared = VoiceCaptureController()
+/// Push-to-talk local.
+/// Sin `@MainActor` en la clase: el tap de audio corre en realtime y no puede
+/// heredar aislamiento MainActor. El estado UI se publica solo en el main.
+final class VoiceCaptureController: ObservableObject, @unchecked Sendable {
+    nonisolated(unsafe) static let shared = VoiceCaptureController()
 
     enum Phase: Equatable {
         case idle
@@ -24,7 +24,7 @@ final class VoiceCaptureController: ObservableObject {
     private var audioEngine: AVAudioEngine?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
-    private var finishTask: Task<Void, Never>?
+    private var finishWorkItem: DispatchWorkItem?
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "es-MX"))
         ?? SFSpeechRecognizer(locale: Locale(identifier: "es-ES"))
         ?? SFSpeechRecognizer()
@@ -45,72 +45,45 @@ final class VoiceCaptureController: ObservableObject {
     }
 
     func beginPushToTalk() {
-        finishTask?.cancel()
+        finishWorkItem?.cancel()
         transcript = ""
         phase = .requestingPermission
-        // OJO: no capturar self en el callback de TCC — ese bloque NO puede ser @MainActor.
-        Self.requestSpeechAuthorizationFromBackground()
+        SFSpeechRecognizer.requestAuthorization { status in
+            DispatchQueue.main.async {
+                VoiceCaptureController.shared.didReceiveSpeechAuthorization(status)
+            }
+        }
     }
 
     func endPushToTalk() {
-        guard phase == .listening || phase == .requestingPermission || phase == .processing else {
-            return
-        }
-        if phase == .requestingPermission {
-            cancel()
-            return
-        }
-        phase = .processing
-        recognitionRequest?.endAudio()
-        audioEngine?.inputNode.removeTap(onBus: 0)
-        audioEngine?.stop()
-
-        finishTask?.cancel()
-        finishTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_200_000_000)
-            guard !Task.isCancelled else { return }
-            finishWithCurrentTranscript()
+        DispatchQueue.main.async {
+            VoiceCaptureController.shared.endPushToTalkOnMain()
         }
     }
 
     func cancel() {
-        finishTask?.cancel()
-        finishTask = nil
-        stopEngine()
-        transcript = ""
-        phase = .idle
-    }
-
-    // MARK: - Background → main (sin closures @MainActor)
-
-    /// Debe ser `nonisolated`: si el closure vive dentro de un método @MainActor,
-    /// Swift 6 lo marca MainActor y TCC lo llama en background → SIGTRAP.
-    nonisolated private static func requestSpeechAuthorizationFromBackground() {
-        SFSpeechRecognizer.requestAuthorization { status in
-            DispatchQueue.main.async {
-                Task { @MainActor in
-                    shared.didReceiveSpeechAuthorization(status)
-                }
-            }
+        DispatchQueue.main.async {
+            let s = VoiceCaptureController.shared
+            s.finishWorkItem?.cancel()
+            s.finishWorkItem = nil
+            s.stopEngine()
+            s.transcript = ""
+            s.phase = .idle
         }
     }
 
-    nonisolated private static func requestMicrophoneFromBackground() {
-        AVCaptureDevice.requestAccess(for: .audio) { granted in
-            DispatchQueue.main.async {
-                Task { @MainActor in
-                    shared.didReceiveMicrophoneAccess(granted)
-                }
-            }
-        }
-    }
+    // MARK: - Auth / mic
 
     private func didReceiveSpeechAuthorization(_ status: SFSpeechRecognizerAuthorizationStatus) {
         guard status == .authorized else {
             phase = .error("Activa Reconocimiento de voz en Ajustes del sistema")
             return
         }
-        Self.requestMicrophoneFromBackground()
+        AVCaptureDevice.requestAccess(for: .audio) { granted in
+            DispatchQueue.main.async {
+                VoiceCaptureController.shared.didReceiveMicrophoneAccess(granted)
+            }
+        }
     }
 
     private func didReceiveMicrophoneAccess(_ granted: Bool) {
@@ -119,6 +92,32 @@ final class VoiceCaptureController: ObservableObject {
             return
         }
         startEngine()
+    }
+
+    private func endPushToTalkOnMain() {
+        guard phase == .listening || phase == .requestingPermission || phase == .processing else {
+            return
+        }
+        if phase == .requestingPermission {
+            finishWorkItem?.cancel()
+            stopEngine()
+            transcript = ""
+            phase = .idle
+            return
+        }
+        phase = .processing
+        recognitionRequest?.endAudio()
+        if let engine = audioEngine {
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+        }
+
+        finishWorkItem?.cancel()
+        let work = DispatchWorkItem {
+            VoiceCaptureController.shared.finishWithCurrentTranscript()
+        }
+        finishWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
     }
 
     // MARK: - Engine
@@ -143,6 +142,8 @@ final class VoiceCaptureController: ObservableObject {
             phase = .error("No hay micrófono disponible")
             return
         }
+
+        // Solo append — sin self. Corre en realtime audio thread.
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
             request.append(buffer)
         }
@@ -160,26 +161,29 @@ final class VoiceCaptureController: ObservableObject {
         phase = .listening
 
         recognitionTask = recognizer.recognitionTask(with: request) { result, error in
-            // recognitionTask también llama fuera del main.
+            let text = result?.bestTranscription.formattedString
+            let isFinal = result?.isFinal ?? false
+            let nsError = error as NSError?
             DispatchQueue.main.async {
-                Task { @MainActor in
-                    VoiceCaptureController.shared.didReceiveRecognition(result: result, error: error)
-                }
+                VoiceCaptureController.shared.didReceiveRecognition(
+                    text: text,
+                    isFinal: isFinal,
+                    error: nsError
+                )
             }
         }
     }
 
-    private func didReceiveRecognition(result: SFSpeechRecognitionResult?, error: Error?) {
-        if let result {
-            transcript = result.bestTranscription.formattedString
-            if result.isFinal, case .processing = phase {
-                finishTask?.cancel()
+    private func didReceiveRecognition(text: String?, isFinal: Bool, error: NSError?) {
+        if let text {
+            transcript = text
+            if isFinal, case .processing = phase {
+                finishWorkItem?.cancel()
                 finishWithCurrentTranscript()
             }
         }
         if let error {
-            let ns = error as NSError
-            if ns.domain == "kAFAssistantErrorDomain", ns.code == 1110 || ns.code == 216 {
+            if error.domain == "kAFAssistantErrorDomain", error.code == 1110 || error.code == 216 {
                 return
             }
             if transcript.isEmpty, case .listening = phase {
