@@ -110,7 +110,25 @@ final class BrowserModel: ObservableObject {
     @Published var showAssistantPanel = false
     @Published var agentPlan: AgentPlan?
     @Published var agentLog: [String] = []
+    /// Conversación legible (no terminal en miniatura).
+    @Published var agentMessages: [AgentChatMessage] = []
     @Published var pendingAgentApproval: AgentPlan?
+
+    struct AgentChatMessage: Identifiable, Equatable {
+        enum Role: Equatable {
+            case user
+            case assistant
+        }
+        let id: UUID
+        let role: Role
+        let text: String
+
+        init(id: UUID = UUID(), role: Role, text: String) {
+            self.id = id
+            self.role = role
+            self.text = text
+        }
+    }
 
     let store: PreferencesStore
     private var measureTask: Task<Void, Never>?
@@ -791,14 +809,52 @@ final class BrowserModel: ObservableObject {
         return remaining
     }
 
+    func appendAgentUser(_ text: String) {
+        agentMessages.append(AgentChatMessage(role: .user, text: text))
+        trimAgentChat()
+    }
+
+    /// Respuesta visible en el panel + franja grande abajo.
+    func appendAgentReply(_ text: String, alsoStatus: Bool = true) {
+        agentMessages.append(AgentChatMessage(role: .assistant, text: text))
+        agentLog.append(text)
+        trimAgentChat()
+        if alsoStatus {
+            statusMessage = text
+        }
+    }
+
+    func clearAgentChat() {
+        agentMessages = []
+        agentLog = []
+    }
+
+    private func trimAgentChat() {
+        if agentMessages.count > 60 {
+            agentMessages = Array(agentMessages.suffix(40))
+        }
+        if agentLog.count > 80 {
+            agentLog = Array(agentLog.suffix(60))
+        }
+    }
+
+    /// Botón Actualizar / refrescar a mano: avisa en grande.
+    func reloadFromUser() {
+        reload()
+        let n = visibleEntries.count
+        let msg = n == 1
+            ? "Listo: actualicé esta carpeta. Hay 1 elemento."
+            : "Listo: actualicé esta carpeta. Hay \(n) elementos."
+        appendAgentReply(msg)
+        showAssistantPanel = true
+    }
+
     func runAssistant(prompt: String) async {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         showAssistantPanel = true
+        appendAgentUser(trimmed)
         agentLog.append("> \(trimmed)")
-        if agentLog.count > 80 {
-            agentLog = Array(agentLog.suffix(60))
-        }
         if let llm = await OllamaClient.shared.proposePlan(prompt: trimmed, currentPath: currentPath) {
             agentPlan = llm
             agentLog.append("Plan (Ollama): \(llm.summary)")
@@ -810,6 +866,12 @@ final class BrowserModel: ObservableObject {
         // Fase 2: solo lectura se ejecuta solo. Escritura espera aprobación (fase 5).
         if let plan = agentPlan, !plan.needsApproval {
             executeAgentPlan(approved: true)
+        } else if let plan = agentPlan, plan.needsApproval {
+            pendingAgentApproval = plan
+            appendAgentReply(
+                "Esto va a modificar archivos. Revisa el plan y dale a Aprobar si estás de acuerdo.",
+                alsoStatus: true
+            )
         }
     }
 
@@ -817,7 +879,7 @@ final class BrowserModel: ObservableObject {
         guard let plan = agentPlan else { return }
         if plan.needsApproval, !approved {
             pendingAgentApproval = plan
-            agentLog.append("Esperando aprobación")
+            appendAgentReply("Esperando tu aprobación para seguir.", alsoStatus: true)
             return
         }
         for step in plan.steps {
@@ -825,46 +887,69 @@ final class BrowserModel: ObservableObject {
             case .searchFiles:
                 let q = step.arguments["query"] ?? plan.prompt
                 startDeepSearch(query: q)
-                agentLog.append("✓ buscar «\(q)»")
-                statusMessage = "Asistente: buscando «\(q)»"
+                appendAgentReply(
+                    "Busco archivos cuyo nombre coincida con «\(q)» en esta carpeta y subcarpetas. Mira la lista o el filtro de búsqueda."
+                )
             case .searchContent:
                 let q = step.arguments["query"] ?? plan.prompt
                 startDeepSearch(query: q)
-                agentLog.append("✓ buscar «\(q)» (nombre; contenido con IA en fase 3)")
-                statusMessage = "Asistente: búsqueda por nombre «\(q)»"
+                appendAgentReply(
+                    "Por ahora busco por nombre «\(q)» (aún no leo el contenido con IA; eso es fase 3)."
+                )
             case .listDirectory:
                 reload()
-                agentLog.append("✓ listar \(visibleEntries.count) ítems")
-                statusMessage = "Asistente: \(visibleEntries.count) ítems aquí"
+                let n = visibleEntries.count
+                appendAgentReply(
+                    n == 0
+                        ? "Esta carpeta está vacía (o no pude listar nada)."
+                        : "Aquí hay \(n) elementos. La lista del centro está al día."
+                )
             case .getStorageUsage:
                 showHeaviestForCleanup()
-                agentLog.append("✓ mostrar pesados")
-                statusMessage = "Asistente: ordenado por peso"
+                appendAgentReply(
+                    "Ordené por peso: lo más pesado arriba. Arriba del todo verás el Top peso con los que más ocupan."
+                )
             case .findDuplicates:
                 let dups = findDuplicateCandidates()
-                agentLog.append("✓ duplicados: \(dups) grupos")
+                if dups == 0 {
+                    appendAgentReply(
+                        "No encontré duplicados obvios aquí (mismo nombre y mismo tamaño). Si hay copias con otro nombre, aún no las detecto."
+                    )
+                } else {
+                    appendAgentReply(
+                        dups == 1
+                            ? "Encontré 1 grupo posible de duplicados y lo marqué en la lista."
+                            : "Encontré \(dups) grupos posibles de duplicados. Marqué el primero en la lista."
+                    )
+                }
             case .organizeFiles:
-                agentLog.append("· organizar: aún manual (fase 5)")
-                statusMessage = "Organizar con escritura llega en la fase 5"
+                appendAgentReply(
+                    "Organizar archivos (mover/crear carpetas) llega en la fase 5, con tu visto bueno antes de tocar nada."
+                )
             case .openFile:
                 if let p = step.arguments["path"], let entry = entries.first(where: { $0.path == p }) {
                     open(entry)
-                    agentLog.append("✓ abrir \(entry.name)")
+                    appendAgentReply("Abrí «\(entry.name)».")
+                } else {
+                    appendAgentReply("No pude abrir ese archivo: no está en la carpeta actual.")
                 }
             case .previewFile:
                 quickLookSelection()
-                agentLog.append("✓ vista rápida")
+                appendAgentReply("Abrí Vista rápida de la selección.")
             case .getFileMetadata:
                 if let p = step.arguments["path"], let entry = entries.first(where: { $0.path == p }) {
                     showInfo(entry)
-                    agentLog.append("✓ info \(entry.name)")
+                    appendAgentReply("Mostré la info de «\(entry.name)».")
                 } else if let entry = selectedEntries.first {
                     showInfo(entry)
-                    agentLog.append("✓ info selección")
+                    appendAgentReply("Mostré la info de la selección.")
+                } else {
+                    appendAgentReply("No hay nada seleccionado para mostrar info.")
                 }
             case .createDirectory, .copyFiles, .moveFiles, .renameFiles:
-                agentLog.append("· \(step.name.rawValue): escritura en fase 5")
-                statusMessage = "Esa acción escribe archivos — fase 5 con aprobación"
+                appendAgentReply(
+                    "Esa acción escribe o mueve archivos. Todavía no la ejecuto sola: llega en la fase 5 con aprobación."
+                )
             }
         }
         if !plan.needsApproval || approved {

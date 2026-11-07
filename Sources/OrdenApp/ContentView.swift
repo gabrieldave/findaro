@@ -9,7 +9,7 @@ struct ContentView: View {
     /// REGLA: el menú izquierdo NUNCA se colapsa ni desaparece al achicar la ventana.
     private let sidebarWidth: CGFloat = 212
     private let detailMinWidth: CGFloat = 400
-    private let assistantWidth: CGFloat = 300
+    private let assistantWidth: CGFloat = 380
 
     /// Se actualiza en cada resize — fuerza redibujar sidebar + iconos al momento.
     @State private var layoutGeneration: Int = 0
@@ -186,11 +186,32 @@ struct ContentView: View {
                 .padding(.bottom, 6)
 
             if let status = browser.statusMessage {
-                Text(status)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 6)
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                        .font(.title3)
+                        .foregroundStyle(OrdenTheme.accent)
+                    Text(status)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button {
+                        browser.statusMessage = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Cerrar aviso")
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    OrdenTheme.accent.opacity(0.18),
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                )
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -1393,11 +1414,11 @@ private struct BrowserToolbarModifier: ViewModifier {
                     : "Mostrar la ruta bajo el nombre")
 
                 Button {
-                    browser.reload()
+                    browser.reloadFromUser()
                 } label: {
                     Label("Actualizar", systemImage: "arrow.clockwise")
                 }
-                .help("Actualizar esta carpeta")
+                .help("Actualizar esta carpeta y avisarte en el asistente")
             }
         }
     }
