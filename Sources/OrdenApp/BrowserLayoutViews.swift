@@ -636,18 +636,11 @@ private struct ColumnRow: View {
     }
 
     private func handleClick() {
-        // Doble clic → monitor. ⌘+clic suma multi + naranja (monitor); no abras columna.
-        let flags = NSEvent.modifierFlags
-        if flags.contains(.command) {
-            browser.armFileDrag(for: entry)
-            return
-        }
-        if flags.contains(.shift) || browser.multiSelectMode {
-            browser.clickSelect(entry.id)
-            return
-        }
+        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let keepingMulti = flags.contains(.command) || flags.contains(.shift) || browser.multiSelectMode
         browser.clickSelect(entry.id)
-        if entry.isDirectory {
+        // En columnas, clic simple en carpeta también abre; ⌘/⇧/Varios solo seleccionan.
+        if !keepingMulti, entry.isDirectory {
             browser.openInColumns(entry, columnIndex: columnIndex)
         }
     }

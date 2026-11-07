@@ -230,20 +230,22 @@ final class BrowserModel: ObservableObject {
         objectWillChange.send()
     }
 
-    /// Clic con ⇧ rango · modo Varios toggle · ⌘ suma (arma naranja en el monitor) · normal = solo ese.
+    /// Clic: ⇧ rango · Varios/casilla toggle · ⌘ suma/quita (naranja) · normal = solo ese y sale del naranja.
     func clickSelect(_ id: String) {
-        let flags = NSEvent.modifierFlags
+        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.shift) {
             selectRange(to: id)
+            if hasArmedFileDrag { syncArmedWithSelection() }
         } else if multiSelectMode {
             toggleSelection(id)
+            if hasArmedFileDrag { syncArmedWithSelection() }
         } else if flags.contains(.command) {
-            // Fallback si el monitor no tragó el clic (p. ej. sin frame de fila).
-            addToSelection(id)
+            // Fallback si el monitor no tragó el ⌘+clic.
             if let entry = visibleEntries.first(where: { $0.id == id }) {
                 armFileDrag(for: entry)
             }
         } else {
+            if hasArmedFileDrag { clearArmedFileDrag() }
             selectOnly(id)
         }
     }
@@ -417,7 +419,12 @@ final class BrowserModel: ObservableObject {
         let range = a <= b ? a...b : b...a
         selectedIDs = Set(ids[range])
         selectionFocusID = id
-        syncArmedWithSelection()
+        // Si estás en naranja, el rango también queda listo para mover.
+        if hasArmedFileDrag || NSEvent.modifierFlags.contains(.command) {
+            fileDragArmedPaths = selectedEntries.map(\.path)
+        } else {
+            syncArmedWithSelection()
+        }
         refreshSelectionStatus()
     }
 
@@ -1363,10 +1370,8 @@ final class BrowserModel: ObservableObject {
         }
     }
 
-    /// ⌘+clic sticky:
-    /// - ítem nuevo → lo suma (solo ese; no vecinos)
-    /// - ítem ya en el grupo naranja → lo quita (toggle)
-    /// - primer encendido sobre una selección multi ya hecha (⇧/checkbox) → arma ese grupo
+    /// ⌘+clic = multi como en Finder (suma/quita UNO), y deja el grupo en naranja para arrastrar.
+    /// Igual de preciso que ⇧ (rango): nunca arma vecinos; solo el path del clic.
     func armFileDrag(for entry: FileEntry) {
         armingProgressTask?.cancel()
         armingProgressTask = nil
@@ -1374,8 +1379,8 @@ final class BrowserModel: ObservableObject {
         fileDragArmingPrimaryPath = nil
         fileDragArmProgress = 1
 
-        // Toggle OFF: segundo ⌘+clic sobre el mismo ítem armado (solo ese path).
-        if hasArmedFileDrag, fileDragArmedPaths.contains(entry.path) {
+        if selectedIDs.contains(entry.id) {
+            // Quitar solo este (como ⌘+clic en Finder).
             selectedIDs.remove(entry.id)
             if selectionFocusID == entry.id {
                 selectionFocusID = selectedIDs.first
@@ -1383,25 +1388,8 @@ final class BrowserModel: ObservableObject {
             if selectionAnchorID == entry.id {
                 selectionAnchorID = selectedIDs.first
             }
-            syncArmedWithSelection()
-            NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
-            if hasArmedFileDrag {
-                statusMessage = "\(fileDragArmedPaths.count) listos — ⌘+clic quita · Esc cancela"
-            } else {
-                statusMessage = "Modo mover OFF"
-            }
-            objectWillChange.send()
-            return
-        }
-
-        if !hasArmedFileDrag {
-            // Primer ⌘+clic: SIEMPRE solo este ítem (no heredar vecinos ni marquee).
-            // Para varios: ⌘+clic en cada uno después.
-            selectedIDs = [entry.id]
-            selectionAnchorID = entry.id
-            selectionFocusID = entry.id
         } else {
-            // Ya en naranja: suma SOLO el clicado (nunca vecinos).
+            // Sumar solo este; conserva los que ya estaban.
             selectedIDs.insert(entry.id)
             selectionFocusID = entry.id
             if selectionAnchorID == nil {
@@ -1409,10 +1397,15 @@ final class BrowserModel: ObservableObject {
             }
         }
 
-        fileDragArmedPaths = selectedEntries.map(\.path)
-        statusMessage = fileDragArmedPaths.count == 1
-            ? "Modo mover ON — ⌘+clic suma/quita · Esc cancela"
-            : "\(fileDragArmedPaths.count) listos — ⌘+clic suma/quita · Esc cancela"
+        if selectedIDs.isEmpty {
+            clearArmedFileDrag()
+            statusMessage = "Modo mover OFF"
+        } else {
+            fileDragArmedPaths = selectedEntries.map(\.path)
+            statusMessage = fileDragArmedPaths.count == 1
+                ? "Listo para mover — ⌘+clic suma/quita · arrastra · Esc cancela"
+                : "\(fileDragArmedPaths.count) listos — ⌘+clic suma/quita (como ⇧, de uno en uno)"
+        }
 
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
         objectWillChange.send()

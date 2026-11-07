@@ -1249,18 +1249,8 @@ struct FileRowButton: View {
     }
 
     private func selectRow() {
-        // Doble clic → FileDragArmMonitor. ⌘+clic → suma multi + naranja sticky.
-        // Clic normal: SIEMPRE un solo ítem (reemplaza selección). Casilla = toggle.
-        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if flags.contains(.shift) {
-            browser.selectRange(to: entry.id)
-        } else if browser.multiSelectMode {
-            browser.toggleSelection(entry.id)
-        } else if flags.contains(.command) {
-            browser.armFileDrag(for: entry)
-        } else {
-            browser.selectOnly(entry.id)
-        }
+        // ⇧ rango · ⌘ suma/quita + naranja · Varios toggle · clic = uno y sale del naranja.
+        browser.clickSelect(entry.id)
     }
 }
 
