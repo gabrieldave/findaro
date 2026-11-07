@@ -495,7 +495,11 @@ struct FileActionsBar: View {
             .buttonStyle(.borderedProminent)
             .tint(browser.showAssistantPanel ? .orange : OrdenTheme.accent)
             .controlSize(.regular)
-            .help("Panel del asistente · ⌘5")
+            .help(
+                browser.showAssistantPanel
+                    ? "Cerrar el asistente (⌘5)"
+                    : "Asistente: busca, pesados y duplicados con frases en español (⌘5)"
+            )
 
             Button {
                 browser.promptRename()
@@ -1317,40 +1321,45 @@ private struct BrowserToolbarModifier: ViewModifier {
                 } label: {
                     Label("Nueva carpeta", systemImage: "folder.badge.plus")
                 }
-                .help("Crear carpeta aquí (⇧⌘N)")
+                .help("Nueva carpeta en este sitio (⇧⌘N)")
 
                 Button {
                     browser.promptNewFile()
                 } label: {
                     Label("Nuevo archivo", systemImage: "doc.badge.plus")
                 }
-                .help("Crear archivo vacío aquí (⌘N)")
+                .help("Nuevo archivo vacío (⌘N)")
 
                 Button {
                     browser.showAssistantPanel.toggle()
                 } label: {
                     Label("Asistente", systemImage: "sparkles")
                 }
-                .help("Asistente local · ⌘5")
+                .help(
+                    browser.showAssistantPanel
+                        ? "Cerrar el asistente (⌘5)"
+                        : "Asistente: busca, pesados y duplicados con frases en español (⌘5)"
+                )
 
                 Toggle(isOn: $browser.multiSelectMode) {
                     Label("Varios", systemImage: "checkmark.circle")
                 }
                 .toggleStyle(.button)
-                .help("Clic = agregar/quitar sin ⌘")
+                .help("Modo varios: cada clic suma o quita sin usar ⌘")
 
                 Button {
                     browser.selectAllVisible()
                 } label: {
                     Label("Todos", systemImage: "checklist")
                 }
+                .help("Seleccionar todo lo visible (⌘A)")
 
                 Button {
                     browser.cancelSelection()
                 } label: {
                     Label("Ninguno", systemImage: "xmark.circle")
                 }
-                .help("Esc — cancelar selección")
+                .help("Quitar selección (Esc)")
                 .disabled(browser.selectedIDs.isEmpty)
 
                 Button {
@@ -1358,6 +1367,7 @@ private struct BrowserToolbarModifier: ViewModifier {
                 } label: {
                     Label("Abrir", systemImage: "arrow.up.forward.app")
                 }
+                .help("Abrir lo seleccionado (⌘↓)")
                 .disabled(browser.selectedIDs.isEmpty)
 
                 Button {
@@ -1365,6 +1375,7 @@ private struct BrowserToolbarModifier: ViewModifier {
                 } label: {
                     Label("Vista rápida", systemImage: "eye")
                 }
+                .help("Vista rápida (Espacio)")
                 .disabled(browser.selectedIDs.isEmpty)
 
                 Toggle(isOn: Binding(
@@ -1386,6 +1397,7 @@ private struct BrowserToolbarModifier: ViewModifier {
                 } label: {
                     Label("Actualizar", systemImage: "arrow.clockwise")
                 }
+                .help("Actualizar esta carpeta")
             }
         }
     }
