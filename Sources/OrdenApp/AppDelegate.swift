@@ -34,6 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         GlobalHotKey.uninstall()
+        // Si pospuso una actualización y el DMG ya está listo, instala al salir.
+        AppUpdateChecker.shared.installPendingOnTerminateIfNeeded()
     }
 
     /// Clic en el icono del Dock con la ventana oculta → la vuelve a mostrar.
