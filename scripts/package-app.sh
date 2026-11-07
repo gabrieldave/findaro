@@ -6,8 +6,8 @@ cd "$ROOT"
 
 PRODUCT_NAME="Ordena"
 BUNDLE_ID="app.ordena.files"
-VERSION="0.1.41"
-BUILD="44"
+VERSION="0.1.42"
+BUILD="45"
 
 swift build -c release --product Orden
 BIN="$(swift build -c release --show-bin-path)/Orden"

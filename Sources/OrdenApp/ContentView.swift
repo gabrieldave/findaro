@@ -484,6 +484,20 @@ struct FileActionsBar: View {
             .help("⌘N — texto u otro con extensión (.txt, .md, .json…)")
 
             Button {
+                browser.showAssistantPanel.toggle()
+            } label: {
+                Label(
+                    browser.showAssistantPanel ? "Cerrar asistente" : "Asistente",
+                    systemImage: "sparkles"
+                )
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(browser.showAssistantPanel ? .orange : OrdenTheme.accent)
+            .controlSize(.regular)
+            .help("Panel del asistente · ⌘5")
+
+            Button {
                 browser.promptRename()
             } label: {
                 Label("Renombrar", systemImage: "pencil")
