@@ -136,10 +136,7 @@ struct OrdenApp: App {
                     .keyboardShortcut(.delete, modifiers: .command)
                 Divider()
                 Button("Usar Ordena para abrir carpetas…") {
-                    let ok = OpenFolderBridge.setAsDefaultFolderHandler()
-                    browser.statusMessage = ok
-                        ? "Listo. Clic derecho → Abrir con → Ordena → Siempre. Atajo rápido: ⌃⌥O"
-                        : "No se pudo registrar como app de carpetas"
+                    browser.runFolderHandlerSetup()
                 }
                 Button("Abrir Descargas (⌃⌥O)") {
                     GlobalHotKey.activateOrdena()

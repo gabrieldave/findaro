@@ -1472,6 +1472,10 @@ private struct BrowserDialogsModifier: ViewModifier {
                 OllamaSetupSheet()
                     .environmentObject(browser)
             }
+            .sheet(isPresented: $browser.showFolderHandlerSetupDialog) {
+                FolderHandlerSetupSheet(result: browser.folderHandlerSetupResult)
+                    .environmentObject(browser)
+            }
             .sheet(item: $browser.pendingMergePreview) { preview in
                 MergePreviewSheet(preview: preview)
                     .environmentObject(browser)
@@ -1499,6 +1503,10 @@ struct SettingsView: View {
         .frame(width: 520, height: 420)
         .sheet(isPresented: $browser.showOllamaSetupDialog) {
             OllamaSetupSheet()
+                .environmentObject(browser)
+        }
+        .sheet(isPresented: $browser.showFolderHandlerSetupDialog) {
+            FolderHandlerSetupSheet(result: browser.folderHandlerSetupResult)
                 .environmentObject(browser)
         }
         .task {
@@ -1531,20 +1539,16 @@ struct SettingsView: View {
                     title: "Abrir carpetas con Ordena",
                     subtitle: OpenFolderBridge.isDefaultFolderHandler()
                         ? "Ordena es la app por defecto"
-                        : "Ahora abre Finder u otra app"
+                        : "macOS obliga un paso manual (Abrir con → Siempre)"
                 ) {
-                    Button(OpenFolderBridge.isDefaultFolderHandler() ? "Ya está" : "Usar Ordena") {
-                        let ok = OpenFolderBridge.setAsDefaultFolderHandler()
-                        browser.statusMessage = ok
-                            ? "Listo. Clic derecho en carpeta → Abrir con → Ordena → Siempre"
-                            : "No se pudo registrar"
+                    Button(OpenFolderBridge.isDefaultFolderHandler() ? "Ver cómo" : "Preparar…") {
+                        browser.runFolderHandlerSetup()
                     }
-                    .disabled(OpenFolderBridge.isDefaultFolderHandler())
                 }
             } header: {
                 Text("Inicio rápido")
             } footer: {
-                Text("El Finder de Apple no se puede quitar. Fija Ordena en el Dock y usa ⌃⌥O.")
+                Text("Apple no deja cambiar el default de carpetas con un solo clic. Usamos «Abrir con → Siempre» + atajo ⌃⌥O.")
             }
 
             Section {

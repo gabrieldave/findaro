@@ -112,7 +112,23 @@ final class BrowserModel: ObservableObject {
     // MARK: Asistente
     @Published var showAssistantPanel = false
     @Published var showOllamaSetupDialog = false
+    @Published var showFolderHandlerSetupDialog = false
+    @Published var folderHandlerSetupResult: FolderHandlerSetupResult = .readyForOpenWith(appPath: "")
     @Published var agentPlan: AgentPlan?
+
+    func runFolderHandlerSetup() {
+        let result = OpenFolderBridge.prepareFolderOpener()
+        folderHandlerSetupResult = result
+        showFolderHandlerSetupDialog = true
+        switch result {
+        case .alreadyDefault:
+            statusMessage = "Ordena ya está como app de carpetas"
+        case .readyForOpenWith:
+            statusMessage = "Ordena lista en «Abrir con» — falta elegir Siempre (límite de Apple)"
+        case .appMissing:
+            statusMessage = "No encuentro Ordena.app en Aplicaciones"
+        }
+    }
     @Published var agentLog: [String] = []
     /// Conversación legible (no terminal en miniatura).
     @Published var agentMessages: [AgentChatMessage] = []
