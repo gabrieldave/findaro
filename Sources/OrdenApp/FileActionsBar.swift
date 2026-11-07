@@ -142,7 +142,9 @@ struct FileActionsBar: View {
         }
         .padding(.horizontal, metrics.isCompact ? 6 : 8)
         .padding(.vertical, metrics.isCompact ? 4 : 5)
-        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(OrdenTheme.panelFill.opacity(0.96), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(OrdenTheme.hairline, lineWidth: 1))
+        .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
     }
 
     private var pipe: some View {
@@ -174,14 +176,14 @@ struct FileActionsBar: View {
         Group {
             if prominent {
                 Button(role: role, action: action) { chipLabel(title: title, systemImage: systemImage) }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(FindaroToolbarButtonStyle(prominent: true, destructive: role == .destructive))
                     .tint(tint)
             } else if role == .destructive {
                 Button(role: .destructive, action: action) { chipLabel(title: title, systemImage: systemImage) }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(FindaroToolbarButtonStyle(destructive: role == .destructive))
             } else {
                 Button(action: action) { chipLabel(title: title, systemImage: systemImage) }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(FindaroToolbarButtonStyle(destructive: role == .destructive))
                     .tint(tint)
             }
         }

@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-/// Revisa el feed público (ordena.iareal.net) y ofrece instalar el .dmg más reciente.
+/// Revisa el feed de distribución y ofrece instalar la versión más reciente.
 /// El repo de GitHub es privado: no sirve para descargas anónimas.
 @MainActor
 final class AppUpdateChecker: ObservableObject {
@@ -88,7 +88,7 @@ final class AppUpdateChecker: ObservableObject {
                 if interactive {
                     await showInfo(
                         title: "Ya estás al día",
-                        message: "Tienes la \(current). No hay nada más nuevo en ordena.iareal.net."
+                        message: "Tienes la \(current). No hay nada más nuevo en el canal de Findaro."
                     )
                 }
                 statusMessage = "Ya tienes la última versión (\(current))"
@@ -114,7 +114,7 @@ final class AppUpdateChecker: ObservableObject {
 
     private func fetchLatestRelease() async throws -> ReleaseInfo? {
         var req = URLRequest(url: Self.feedURL)
-        req.setValue("Ordena-UpdateChecker", forHTTPHeaderField: "User-Agent")
+        req.setValue("Findaro-UpdateChecker", forHTTPHeaderField: "User-Agent")
         req.cachePolicy = .reloadIgnoringLocalCacheData
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse, (200 ... 299).contains(http.statusCode) else {
@@ -163,7 +163,7 @@ final class AppUpdateChecker: ObservableObject {
         do {
             let (tempURL, _) = try await URLSession.shared.download(from: release.dmgURL)
             let dmg = FileManager.default.temporaryDirectory
-                .appendingPathComponent("Ordena-\(release.version).dmg")
+                .appendingPathComponent("Findaro-\(release.version).dmg")
             try? FileManager.default.removeItem(at: dmg)
             try FileManager.default.moveItem(at: tempURL, to: dmg)
 
@@ -184,19 +184,19 @@ final class AppUpdateChecker: ObservableObject {
         }
     }
 
-    /// Lanza un script en background: espera a que Ordena cierre, instala y reabre.
+    /// Lanza un script en background: espera a que Findaro cierre, instala y reabre.
     private static func scheduleInstallAndRelaunch(dmgPath: String) throws {
         let script = """
         set -euo pipefail
         sleep 2
         DMG=\(shellEscape(dmgPath))
-        MNT=$(mktemp -d /tmp/ordena-update.XXXXXX)
+        MNT=$(mktemp -d /tmp/findaro-update.XXXXXX)
         cleanup() { hdiutil detach "$MNT" -quiet 2>/dev/null || true; rm -rf "$MNT" 2>/dev/null || true; rm -f "$DMG" 2>/dev/null || true; }
         trap cleanup EXIT
         hdiutil attach "$DMG" -nobrowse -quiet -mountpoint "$MNT"
-        APP=$(find "$MNT" -maxdepth 2 -name 'Ordena.app' -type d | head -1)
+        APP=$(find "$MNT" -maxdepth 2 -name 'Findaro.app' -type d | head -1)
         test -n "$APP"
-        ditto "$APP" /Applications/Ordena.app
+        ditto "$APP" /Applications/Findaro.app
         open /Applications/Ordena.app
         """
         let process = Process()

@@ -68,7 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         let titled = NSApp.windows.filter { $0.styleMask.contains(.titled) }
         if titled.isEmpty {
-            NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/Ordena.app"))
+            NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/Findaro.app"))
             return
         }
         for window in titled {

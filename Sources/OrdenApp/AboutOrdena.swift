@@ -1,6 +1,6 @@
 import AppKit
 
-/// Acerca de Ordena: versión + si ya estás al día (o si hay update).
+/// Findaro about panel; internal type name retained for compatibility.
 @MainActor
 enum AboutOrdena {
     static func show() {
@@ -9,10 +9,10 @@ enum AboutOrdena {
             let status = await AppUpdateChecker.shared.aboutStatus(current: version)
 
             let alert = NSAlert()
-            alert.messageText = "Ordena"
+            alert.messageText = "Findaro"
             alert.informativeText = """
             Versión \(version)
-            Por David DRC
+            Tu espacio de archivos, más inteligente.
             \(status.line)
             """
             alert.alertStyle = .informational

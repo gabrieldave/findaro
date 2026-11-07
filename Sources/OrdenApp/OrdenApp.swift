@@ -41,7 +41,7 @@ struct OrdenApp: App {
         .windowToolbarStyle(.unified)
         .commands {
             CommandGroup(replacing: .appInfo) {
-                Button("Acerca de Ordena") {
+                Button("Acerca de Findaro") {
                     AboutOrdena.show()
                 }
                 Button("Buscar actualizaciones…") {
@@ -187,7 +187,7 @@ struct OrdenApp: App {
                 Button("Mover a la Papelera") { browser.moveSelectionToTrash() }
                     .keyboardShortcut(.delete, modifiers: .command)
                 Divider()
-                Button("Usar Ordena para abrir carpetas…") {
+                Button("Usar Findaro para abrir carpetas…") {
                     browser.runFolderHandlerSetup()
                 }
                 Button("Abrir Descargas (⌃⌥O)") {

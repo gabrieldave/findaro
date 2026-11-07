@@ -10,6 +10,7 @@ VERSION="0.1.74"
 BUILD="77"
 
 swift build -c release --product Orden
+swift "$ROOT/scripts/generate-findaro-icon.swift" "$ROOT/Resources"
 BIN="$(swift build -c release --show-bin-path)/Orden"
 
 APP_DIR="$ROOT/dist/${PRODUCT_NAME}.app"

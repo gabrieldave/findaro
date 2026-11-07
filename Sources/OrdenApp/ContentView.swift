@@ -1716,7 +1716,7 @@ struct SettingsView: View {
                     icon: "keyboard",
                     tint: OrdenTheme.accent,
                     title: "Atajo global",
-                    subtitle: "Abre Ordena en Descargas"
+                    subtitle: "Abre Findaro en Descargas"
                 ) {
                     Text("⌃⌥O")
                         .font(.body.monospaced().weight(.semibold))
@@ -1728,9 +1728,9 @@ struct SettingsView: View {
                 settingsRow(
                     icon: "folder.badge.gearshape",
                     tint: .orange,
-                    title: "Abrir carpetas con Ordena",
+                    title: "Abrir carpetas con Findaro",
                     subtitle: OpenFolderBridge.isDefaultFolderHandler()
-                        ? "Ordena es la app por defecto"
+                        ? "Findaro es la app por defecto"
                         : "macOS obliga un paso manual (Abrir con → Siempre)"
                 ) {
                     Button(OpenFolderBridge.isDefaultFolderHandler() ? "Ver cómo" : "Preparar…") {
@@ -2000,7 +2000,7 @@ struct SettingsView: View {
                 tipLine(icon: "checkmark.circle.fill", title: "Coincide por parte del nombre", detail: "vibe encuentra vibesystems…")
                 tipLine(icon: "xmark.circle.fill", title: "No lee el contenido", detail: "Eso es del asistente / Ollama")
             } header: {
-                Text("Cómo busca Ordena")
+                Text("Cómo busca Findaro")
             } footer: {
                 Text("Sin comodines (* ?) y sin Spotlight. El asistente (⌘5) es aparte.")
             }

@@ -1,8 +1,8 @@
 import AppKit
 import Carbon
 
-/// Atajo global ⌃⌥O → trae Ordena al frente en Descargas.
-/// Funciona mientras Ordena esté abierta (ponla en «Abrir al iniciar sesión»).
+/// Atajo global ⌃⌥O → trae Findaro al frente en Descargas.
+/// Funciona mientras Findaro esté abierta (ponla en «Abrir al iniciar sesión»).
 @MainActor
 enum GlobalHotKey {
     private static var hotKeyRef: EventHotKeyRef?

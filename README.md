@@ -1,50 +1,51 @@
-# Ordena — organiza tus carpetas mejor que el Finder
+# Findaro — el espacio de trabajo de archivos para Mac
 
-App nativa de macOS (SwiftUI + AppKit) para Descargas y otras carpetas: orden por tipo/fecha, doble panel, bandeja tipo Dropover, Smart Merge y asistente local (Ollama opcional).
+**Findaro** es un explorador avanzado de archivos para macOS, diseñado para quienes necesitan más control y velocidad que un navegador de archivos convencional.
 
-**Versión actual:** `0.1.74` · Bundle ID `app.ordena.files` · Apple Silicon
+Doble panel, organización visual, bandeja de transferencias, Smart Merge con verificación SHA-256 y asistente local opcional con Ollama.
 
-## Instalar (recomendado)
+> Marca comercial provisional. El bundle identifier heredado se conserva durante esta fase para no romper la continuidad de instalación y actualización.
 
-Descarga pública (actualizaciones automáticas):
+**Versión de código:** `0.1.74` · **Apple Silicon** · **Deployment target:** macOS 15+
 
-- https://ordena.iareal.net/
+## La idea de Findaro
+
+Menos ventanas. Más contexto. Más control sobre tus archivos.
+
+- **Dos paneles:** trabaja con origen y destino al mismo tiempo.
+- **Organización inteligente:** orden por tipo, fecha, tamaño y reglas guardadas.
+- **Smart Merge:** compara contenido mediante SHA-256 y permite revisar antes de completar una fusión.
+- **Bandeja de archivos:** reúne elementos para moverlos o copiarlos en otro momento.
+- **Asistente local:** integración opcional con Ollama; tus archivos permanecen en tu Mac.
+- **Actualización automática:** los paneles observan cambios del sistema de archivos.
+
+## Instalar y actualizar
+
+Durante la transición de marca se conserva el canal de actualización existente:
+
+- Sitio temporal: https://ordena.iareal.net/
 - Feed: https://ordena.iareal.net/downloads/latest.json
 
-O genera el DMG en local:
+Para generar el instalador local:
 
 ```bash
 ./scripts/make-dmg.sh
 ```
 
-En el Escritorio queda `Ordena-0.1.74-arm64.dmg`:
+El DMG se genera en `dist/Findaro-0.1.74-arm64.dmg` y también se copia al Escritorio.
 
-1. Doble clic → monta el volumen **Ordena …**
-2. Arrastra **Ordena.app** a **Aplicaciones**
-3. Abre desde Launchpad / Spotlight (`⌘Espacio`)
-
-Solo empaquetar e instalar:
-
-```bash
-./scripts/package-app.sh
-open /Applications/Ordena.app
-```
-
-Publicar update al VPS:
-
-```bash
-./scripts/publish-update.sh
-```
+1. Abre el DMG.
+2. Arrastra `Findaro.app` a Aplicaciones.
+3. Abre Findaro desde Launchpad, Spotlight o el Dock.
 
 ## Requisitos
 
-- macOS 15+ (deployment target; no bajar sin acuerdo)
-- Apple Silicon (`arm64`)
-- Desarrollo validado: **macOS 27** + **Xcode 27.2** + **Swift 6.4**
+- macOS 15 o posterior.
+- Apple Silicon (arm64).
+- Para compilar y probar: Xcode completo y Swift 6.4 o compatible.
+- Entorno CI previsto: runner `xcode-27`.
 
 ## Desarrollo
-
-Usa el Xcode.app completo (no solo Command Line Tools):
 
 ```bash
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
@@ -53,25 +54,29 @@ swift build --product Orden
 ./scripts/package-app.sh
 ```
 
-CI (GitHub Actions): runner `xcode-27` (macOS 27 + Xcode 27).
+El producto Swift Package y el ejecutable de compilación conservan internamente el nombre `Orden` durante la transición. La aplicación empaquetada y su nombre visible son `Findaro`.
 
-## Qué incluye (0.1.73)
+## Funciones incluidas
 
-- **Refresco automático** de paneles con FSEvents (descargas, renombres, borrados externos)
-- **Doble panel** Origen | Destino; clic en vacío activa el panel
-- **Omnibox** de ruta (`⌘L`)
-- Perfil **Explorer**: Enter abre / F2 renombra (Ajustes)
-- **Cut visual** (`⌘X` atenúa hasta pegar)
-- **Ocultos** (`⌘⇧.`) y **vista plana**
-- **Smart Merge** con SHA-256, rollback y aprobación
-- **TransferQueue** con progreso y verify de tamaño (transfers entre paneles)
-- Atajo global **⌃⌥O** · ✕ oculta la app (no cierra)
+- Exploración en lista e iconos.
+- Doble panel Origen | Destino.
+- Actualización automática mediante FSEvents.
+- Omnibox de rutas (`⌘L`).
+- Perfil de teclado Explorer (Enter abre / F2 renombra).
+- Archivos ocultos (`⌘⇧.`) y vista plana.
+- Smart Merge con SHA-256, rollback y aprobación.
+- Bandeja de archivos y operaciones de transferencia.
+- Atajo global configurable para abrir Descargas.
+- Asistente local opcional con Ollama.
 
-## Documentación
+## Identidad visual
 
-- `docs/PANEL-AUTO-REFRESH.md` — FSEvents y paneles
-- `docs/PARA-CLAUDE.md` — briefing de producto
+El sistema visual usa una base grafito/azul noche, superficies de profundidad sutil, acento azul eléctrico y violeta, y un símbolo geométrico propio. Se prioriza contraste, legibilidad y densidad de información sobre adornos.
 
-## Licencia / contacto
+## Estado del producto
 
-Producto VibeSystems / IAreal · WhatsApp: https://wa.me/525645674407
+Esta rama contiene el primer pase de identidad y experiencia visual Findaro. Antes de distribuir una versión comercial deben completarse pruebas funcionales en macOS, revisión de licencias y disponibilidad de marca, firma Developer ID y notarización.
+
+## Contacto
+
+VibeSystems / IAreal.

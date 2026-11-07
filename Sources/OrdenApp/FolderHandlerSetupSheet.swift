@@ -1,7 +1,7 @@
 import SwiftUI
 import OrdenCore
 
-/// Explica el límite de macOS y los pasos reales para abrir carpetas con Ordena.
+/// Explica el límite de macOS y los pasos reales para abrir carpetas con Findaro.
 struct FolderHandlerSetupSheet: View {
     @EnvironmentObject private var browser: BrowserModel
     let result: FolderHandlerSetupResult
@@ -20,7 +20,7 @@ struct FolderHandlerSetupSheet: View {
                 OrdenDialogSection(title: "Cómo dejarlo fijo") {
                     VStack(alignment: .leading, spacing: 8) {
                         step(1, "Clic derecho en cualquier carpeta")
-                        step(2, "Abrir con → Ordena")
+                        step(2, "Abrir con → Findaro")
                         step(3, "Vuelve a clic derecho → Abrir con → Siempre")
                     }
                 }
@@ -29,7 +29,7 @@ struct FolderHandlerSetupSheet: View {
                     .init(
                         icon: "checkmark.circle.fill",
                         tint: .green,
-                        text: "Después, al hacer doble clic en una carpeta, puede abrir Ordena."
+                        text: "Después, al hacer doble clic en una carpeta, puede abrir Findaro."
                     ),
                     .init(
                         icon: "xmark.circle.fill",
@@ -39,7 +39,7 @@ struct FolderHandlerSetupSheet: View {
                     .init(
                         icon: "dock.rectangle",
                         tint: OrdenTheme.accent,
-                        text: "Truco: arrastra una carpeta al icono de Ordena en el Dock."
+                        text: "Truco: arrastra una carpeta al icono de Findaro en el Dock."
                     )
                 ])
             }
@@ -60,9 +60,9 @@ struct FolderHandlerSetupSheet: View {
 
     private var title: String {
         switch result {
-        case .alreadyDefault: return "Ordena ya abre carpetas"
+        case .alreadyDefault: return "Findaro ya abre carpetas"
         case .readyForOpenWith: return "Un paso más (límite de Apple)"
-        case .appMissing: return "No encuentro Ordena.app"
+        case .appMissing: return "No encuentro Findaro.app"
         }
     }
 
@@ -71,9 +71,9 @@ struct FolderHandlerSetupSheet: View {
         case .alreadyDefault:
             return "macOS ya te tiene como app de carpetas."
         case .readyForOpenWith:
-            return "Registré Ordena. macOS no deja cambiar el default solo con un botón."
+            return "Registré Findaro. macOS no deja cambiar el default solo con un botón."
         case .appMissing:
-            return "Instala Ordena en Aplicaciones y vuelve a intentar."
+            return "Instala Findaro en Aplicaciones y vuelve a intentar."
         }
     }
 
@@ -103,7 +103,7 @@ struct FolderHandlerSetupSheet: View {
     private var statusHeadline: String {
         switch result {
         case .alreadyDefault: return "Listo"
-        case .readyForOpenWith: return "Ordena ya aparece en «Abrir con»"
+        case .readyForOpenWith: return "Findaro ya aparece en «Abrir con»"
         case .appMissing: return "Falta el .app"
         }
     }
@@ -115,7 +115,7 @@ struct FolderHandlerSetupSheet: View {
         case .readyForOpenWith(let path):
             return "App: \(OrdenPathDisplay.short(path)). Elige «Siempre» una vez y listo."
         case .appMissing:
-            return "Corre el instalador o copia Ordena a /Aplicaciones."
+            return "Corre el instalador o copia Findaro a /Aplicaciones."
         }
     }
 
