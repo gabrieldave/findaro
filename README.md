@@ -1,77 +1,50 @@
-# Ordena — organiza tus carpetas mejor que el Finder
+# Findaro — explorador de archivos para Mac
 
-App nativa de macOS (SwiftUI + AppKit) para Descargas y otras carpetas: orden por tipo/fecha, doble panel, bandeja tipo Dropover, Smart Merge y asistente local (Ollama opcional).
+**Findaro** es un explorador avanzado para macOS: doble panel, bandeja, Smart Merge con verificación SHA-256, FSEvents y asistente local opcional (Ollama).
 
-**Versión actual:** `0.1.74` · Bundle ID `app.ordena.files` · Apple Silicon
+**Versión:** `0.1.80` (build `86`) · **Bundle ID:** `app.findaro.files` · **Apple Silicon** · **macOS 15+**
 
-## Instalar (recomendado)
+## Instalar (beta privada)
 
-Descarga pública (actualizaciones automáticas):
+```bash
+./scripts/package-beta.sh
+```
 
-- https://ordena.iareal.net/
+Genera `dist/beta/Findaro-0.1.80-arm64-beta.dmg` + SHA-256 + instrucciones.  
+No publica al servidor ni sustituye tu instalación local.
+
+Instrucciones para testers: `docs/BETA_PRIVADA.md`.
+
+## Canal público (solo con autorización)
+
+- Sitio: https://ordena.iareal.net/
 - Feed: https://ordena.iareal.net/downloads/latest.json
 
-O genera el DMG en local:
-
-```bash
-./scripts/make-dmg.sh
-```
-
-En el Escritorio queda `Ordena-0.1.74-arm64.dmg`:
-
-1. Doble clic → monta el volumen **Ordena …**
-2. Arrastra **Ordena.app** a **Aplicaciones**
-3. Abre desde Launchpad / Spotlight (`⌘Espacio`)
-
-Solo empaquetar e instalar:
-
-```bash
-./scripts/package-app.sh
-open /Applications/Ordena.app
-```
-
-Publicar update al VPS:
-
-```bash
-./scripts/publish-update.sh
-```
-
-## Requisitos
-
-- macOS 15+ (deployment target; no bajar sin acuerdo)
-- Apple Silicon (`arm64`)
-- Desarrollo validado: **macOS 27** + **Xcode 27.2** + **Swift 6.4**
+`scripts/publish-update.sh` exige **Developer ID Application** y notarización. Sin certificado válido **aborta** (no publica ad hoc).
 
 ## Desarrollo
-
-Usa el Xcode.app completo (no solo Command Line Tools):
 
 ```bash
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 swift test
-swift build --product Orden
-./scripts/package-app.sh
+swift build -c release --product Orden
+FINDARO_SKIP_INSTALL=1 ./scripts/package-app.sh
 ```
 
-CI (GitHub Actions): runner `xcode-27` (macOS 27 + Xcode 27).
+El producto SPM se llama `Orden` internamente; el bundle comercial es `Findaro`.
 
-## Qué incluye (0.1.73)
+## Funciones
 
-- **Refresco automático** de paneles con FSEvents (descargas, renombres, borrados externos)
-- **Doble panel** Origen | Destino; clic en vacío activa el panel
-- **Omnibox** de ruta (`⌘L`)
-- Perfil **Explorer**: Enter abre / F2 renombra (Ajustes)
-- **Cut visual** (`⌘X` atenúa hasta pegar)
-- **Ocultos** (`⌘⇧.`) y **vista plana**
-- **Smart Merge** con SHA-256, rollback y aprobación
-- **TransferQueue** con progreso y verify de tamaño (transfers entre paneles)
-- Atajo global **⌃⌥O** · ✕ oculta la app (no cierra)
+- Lista / iconos, doble panel, FSEvents
+- Omnibox (`⌘L`), Explorer keys, ocultos, vista plana
+- Smart Merge SHA-256 + rollback
+- Bandeja y TransferQueue con manifiesto de integridad
+- Actualizador por canal (Findaro ≠ Ordena)
 
-## Documentación
+## Icono
 
-- `docs/PANEL-AUTO-REFRESH.md` — FSEvents y paneles
-- `docs/PARA-CLAUDE.md` — briefing de producto
+Arte aprobado: `Resources/AppIcon.icns`. No inventar marcas en código; `FindaroMark` carga ese asset.
 
-## Licencia / contacto
+## Contacto
 
-Producto VibeSystems / IAreal · WhatsApp: https://wa.me/525645674407
+WhatsApp: [+52 56 4567 4407](https://wa.me/525645674407)

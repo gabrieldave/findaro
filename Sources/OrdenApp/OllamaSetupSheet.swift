@@ -126,14 +126,14 @@ struct OllamaSetupSheet: View {
         if ollama.available {
             return [
                 .init(icon: "checkmark.circle.fill", tint: .green, text: "Activar = el asistente usa el modelo cuando hace falta."),
-                .init(icon: "checkmark.circle.fill", tint: .green, text: "Si Ollama se apaga, Ordena cae solo a reglas (no se rompe)."),
+                .init(icon: "checkmark.circle.fill", tint: .green, text: "Si Ollama se apaga, Findaro cae solo a reglas (no se rompe)."),
                 .init(icon: "xmark.circle.fill", tint: .secondary, text: "No es obligatorio. Sin IA también funcionan atajos y búsquedas.")
             ]
         }
         return [
             .init(icon: "checkmark.circle.fill", tint: .green, text: "Sin Ollama: atajos (imágenes de hoy…) y frases sencillas siguen."),
             .init(icon: "arrow.down.circle.fill", tint: OrdenTheme.accent, text: "Si quieres IA: instala Ollama, ábrelo, y dale a Detectar otra vez."),
-            .init(icon: "lock.fill", tint: .secondary, text: "Todo es local en tu Mac. Ordena no sube tus archivos.")
+            .init(icon: "lock.fill", tint: .secondary, text: "Todo es local en tu Mac. Findaro no sube tus archivos.")
         ]
     }
 

@@ -7,7 +7,7 @@ import AppKit
 /// Sin `@MainActor` en la clase: el tap de audio corre en realtime y no puede
 /// heredar aislamiento MainActor. El estado UI se publica solo en el main.
 final class VoiceCaptureController: ObservableObject, @unchecked Sendable {
-    nonisolated(unsafe) static let shared = VoiceCaptureController()
+    static let shared = VoiceCaptureController()
 
     enum Phase: Equatable {
         case idle
@@ -129,12 +129,18 @@ final class VoiceCaptureController: ObservableObject, @unchecked Sendable {
             return
         }
 
+        // Privacidad: solo reconocimiento on-device. Sin soporte local → no iniciar.
+        guard recognizer.supportsOnDeviceRecognition else {
+            phase = .error(
+                "Este Mac no admite reconocimiento de voz local. No inicio el dictado para proteger tu privacidad."
+            )
+            return
+        }
+
         let engine = AVAudioEngine()
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
-        if recognizer.supportsOnDeviceRecognition {
-            request.requiresOnDeviceRecognition = true
-        }
+        request.requiresOnDeviceRecognition = true
 
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)

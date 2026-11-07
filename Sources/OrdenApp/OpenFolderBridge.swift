@@ -18,7 +18,7 @@ enum FolderHandlerSetupResult: Equatable {
 /// Puente AppKit ↔ SwiftUI para abrir rutas que llegan desde el Dock / Finder / `open`.
 @MainActor
 enum OpenFolderBridge {
-    static let bundleID = "app.ordena.files"
+    static let bundleID = "app.findaro.files"
 
     /// Última carpeta pedida antes de que exista el BrowserModel.
     static var pendingFolderPath: String?
@@ -44,6 +44,10 @@ enum OpenFolderBridge {
     static func installedAppURL() -> URL? {
         let candidates = [
             Bundle.main.bundleURL,
+            URL(fileURLWithPath: "/Applications/Findaro.app"),
+            FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Applications/Findaro.app"),
+            // Compat: instalación previa durante la migración de marca.
             URL(fileURLWithPath: "/Applications/Ordena.app"),
             FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent("Applications/Ordena.app")

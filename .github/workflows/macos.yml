@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, "fix/**"]
+    branches: [main, "fix/**", "feature/**"]
   workflow_dispatch:
 
 permissions:
@@ -49,7 +49,27 @@ jobs:
           export DEVELOPER_DIR="$(xcode-select -p)"
           swift test
 
+      - name: Validate approved Findaro app icon
+        run: |
+          set -euo pipefail
+          # No regenerar ni retocar arte en CI. Solo validar el ICNS aprobado en el repo.
+          test -s Resources/AppIcon.icns
+          file Resources/AppIcon.icns | grep -qi 'icon\|Mac OS\|icns'
+          # No regenerar arte en CI (Pillow/PEP 668 / política creativa).
+          echo "AppIcon.icns OK (approved asset; not regenerated)"
+
+      - name: Validate packaging scripts
+        run: |
+          bash -n scripts/package-app.sh scripts/make-dmg.sh scripts/publish-update.sh scripts/notarize-dmg.sh
+
       - name: Build macOS application
         run: |
           export DEVELOPER_DIR="$(xcode-select -p)"
           swift build --product Orden
+
+      - name: Package app bundle (no install, no notarize)
+        run: |
+          set -euo pipefail
+          export DEVELOPER_DIR="$(xcode-select -p)"
+          # Empaqueta en dist/ sin instalar ni notarizar (runner).
+          bash scripts/ci-package-app.sh

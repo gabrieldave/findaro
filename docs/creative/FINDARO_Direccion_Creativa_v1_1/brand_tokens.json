@@ -1,0 +1,67 @@
+{
+  "brand": {
+    "name": "FINDARO",
+    "status": "provisional; no usar para registro ni campañas pagadas hasta completar búsqueda legal",
+    "tagline": "Tus archivos, bajo control.",
+    "secondary_tagline": "Encuentra. Organiza. Avanza.",
+    "positioning": "Explorador avanzado de archivos para macOS para personas que necesitan más contexto y control al gestionar archivos."
+  },
+  "palette": {
+    "background": "#0B1220",
+    "surface": "#141F32",
+    "surface_elevated": "#1E2D46",
+    "border": "#2B3D59",
+    "text_primary": "#F5F7FC",
+    "text_secondary": "#AEBBD0",
+    "text_muted": "#7F8DA5",
+    "blue_primary": "#2563EB",
+    "blue_hover": "#3B82F6",
+    "violet_secondary": "#7C3AED",
+    "cyan_accent": "#22D3EE",
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "danger": "#EF4444",
+    "selection": "#1E3A8A"
+  },
+  "typography": {
+    "family": "SF Pro (native macOS system font)",
+    "display": "SF Pro Display Semibold/Bold",
+    "body": "SF Pro Text Regular/Medium",
+    "technical": "SF Mono",
+    "sizes_pt": {
+      "hero": 30,
+      "title": 20,
+      "section": 14,
+      "body": 13,
+      "secondary": 11,
+      "micro": 10
+    }
+  },
+  "spacing_pt": [
+    4,
+    8,
+    12,
+    16,
+    20,
+    24,
+    32
+  ],
+  "corner_radius_pt": {
+    "window": 14,
+    "panel": 10,
+    "control": 7,
+    "chip": 6
+  },
+  "motion_ms": {
+    "micro": 100,
+    "standard": 160,
+    "emphasis": 220
+  },
+  "rules": [
+    "Dark-first but fully compatible with macOS Light/Dark appearance.",
+    "Blue is the primary action color; violet is reserved for AI/smart features; cyan is a restrained information accent.",
+    "Do not use glow on every control. Glow is limited to hero/brand moments and focus.",
+    "Prioritize scanability, information density and keyboard use over decorative effects.",
+    "Do not remove existing functionality, shortcuts or workflows."
+  ]
+}

@@ -24,12 +24,12 @@ struct ContentView: View {
                 .frame(minWidth: sidebarWidth, idealWidth: sidebarWidth, maxWidth: sidebarWidth)
                 .frame(maxHeight: .infinity, alignment: .top)
                 .layoutPriority(1)
-                .background(OrdenTheme.windowFill)
+                .background(OrdenTheme.sidebarFill)
                 .accessibilityLabel("Menú lateral")
                 // Al terminar un resize (layoutGeneration++) reaparece si SwiftUI lo había “congelado”
                 .id("sidebar-\(layoutGeneration)-\(Int(sidebarWidth))")
 
-            Divider().opacity(0.35)
+            Divider().opacity(0.45)
 
             detailColumn
                 // minWidth 0: comprime el detalle, NUNCA el sidebar
@@ -80,7 +80,7 @@ struct ContentView: View {
         .searchable(
             text: $browser.searchText,
             placement: .toolbar,
-            prompt: "Filtrar nombres aquí"
+            prompt: "Buscar en Findaro…"
         )
         .onSubmit(of: .search) {
             browser.startDeepSearch()
@@ -212,13 +212,9 @@ struct ContentView: View {
                         VStack(spacing: 0) {
                             HStack(spacing: 8) {
                                 Text("Origen")
-                                    .font(.caption.weight(.semibold))
+                                    .font(.system(size: 12, weight: .semibold))
                                 if browser.focusedPane == .primary {
-                                    Text("activo")
-                                        .font(.caption2.weight(.bold))
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(OrdenTheme.accent.opacity(0.3), in: Capsule())
+                                    FindaroStatusPill(title: "activo", kind: .processing)
                                 }
                                 Spacer(minLength: 4)
                                 if browser.focusedPane != .primary {
@@ -240,7 +236,7 @@ struct ContentView: View {
                                         .font(.caption.weight(.semibold))
                                 }
                                 .buttonStyle(.borderedProminent)
-                                .tint(.orange)
+                                .tint(OrdenTheme.warning)
                                 .controlSize(.small)
                                 .disabled(browser.secondarySelectedIDs.isEmpty)
                                 .help("Mueve la selección del Destino (derecha) a este panel")
@@ -281,11 +277,14 @@ struct ContentView: View {
                         .simultaneousGesture(TapGesture().onEnded {
                             browser.focusOriginPane()
                         })
+                        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: OrdenTheme.radiusWindow, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            RoundedRectangle(cornerRadius: OrdenTheme.radiusWindow, style: .continuous)
                                 .strokeBorder(
-                                    browser.focusedPane == .primary ? OrdenTheme.accent : Color.clear,
-                                    lineWidth: 2
+                                    browser.focusedPane == .primary
+                                        ? OrdenTheme.accent.opacity(0.85)
+                                        : OrdenTheme.hairline,
+                                    lineWidth: browser.focusedPane == .primary ? 2 : 1
                                 )
                         )
 
@@ -310,33 +309,34 @@ struct ContentView: View {
                 .padding(.bottom, 6)
 
             if let fraction = browser.transferProgressFraction {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
                         Image(systemName: "arrow.left.arrow.right.circle.fill")
                             .foregroundStyle(OrdenTheme.accent)
                         Text(browser.transferProgressLabel ?? "Transferiendo…")
                             .font(.caption.weight(.semibold))
                             .lineLimit(1)
+                        FindaroStatusPill(title: "En curso", kind: .processing)
                         Spacer(minLength: 0)
                         Text("\(Int((fraction * 100).rounded()))%")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .font(.system(.caption, design: .monospaced).weight(.semibold))
+                            .foregroundStyle(OrdenTheme.textSecondary)
                     }
                     ProgressView(value: fraction)
                         .tint(OrdenTheme.accent)
                 }
                 .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(.vertical, 10)
+                .findaroSurface(cornerRadius: OrdenTheme.radiusPanel)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 6)
             }
 
             if let status = browser.statusMessage {
                 HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                    Image(systemName: "info.circle.fill")
                         .font(.title3)
-                        .foregroundStyle(OrdenTheme.accent)
+                        .foregroundStyle(OrdenTheme.cyan)
                     Text(status)
                         .font(.body.weight(.medium))
                         .foregroundStyle(.primary)
@@ -346,7 +346,7 @@ struct ContentView: View {
                         browser.statusMessage = nil
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(OrdenTheme.textMuted)
                     }
                     .buttonStyle(.plain)
                     .help("Cerrar aviso")
@@ -354,8 +354,12 @@ struct ContentView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(
-                    OrdenTheme.accent.opacity(0.18),
-                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    OrdenTheme.elevatedFill,
+                    in: RoundedRectangle(cornerRadius: OrdenTheme.radiusPanel, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: OrdenTheme.radiusPanel, style: .continuous)
+                        .strokeBorder(OrdenTheme.cyan.opacity(0.35), lineWidth: 1)
                 )
                 .padding(.horizontal, 16)
                 .padding(.bottom, 10)
@@ -390,11 +394,11 @@ struct SortBar: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(browser.ruleSummary)
-                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .font(.system(.subheadline).weight(.semibold))
                     .lineLimit(1)
                 Text(browser.scopeBadge)
                     .font(.caption2.weight(.medium))
-                    .foregroundStyle(browser.hasFolderOverride ? .orange : .secondary)
+                    .foregroundStyle(browser.hasFolderOverride ? OrdenTheme.warning : OrdenTheme.textSecondary)
             }
 
             Spacer(minLength: 8)
@@ -771,6 +775,11 @@ struct SidebarView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 2) {
+                FindaroMark(size: 30, showWordmark: true, wordmarkSize: 14, compact: false)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 14)
+                    .padding(.bottom, 10)
+
                 favoritesDropZone
 
                 sectionHeader("Ubicaciones")
@@ -784,7 +793,7 @@ struct SidebarView: View {
             .id(volumesTick)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(OrdenTheme.windowFill)
+        .background(OrdenTheme.sidebarFill)
         .onReceive(
             NotificationCenter.Publisher(
                 center: NSWorkspace.shared.notificationCenter,
@@ -862,9 +871,10 @@ struct SidebarView: View {
     private var favoritesDropZone: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
-                Text("Favoritos")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                Text("FAVORITOS")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(0.6)
+                    .foregroundStyle(OrdenTheme.textMuted)
                 Spacer(minLength: 4)
                 Button {
                     browser.addCurrentFolderToFavorites()
@@ -921,25 +931,27 @@ struct SidebarView: View {
     }
 
     private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
+        Text(title.uppercased())
+            .font(.system(size: 10, weight: .bold))
+            .tracking(0.6)
+            .foregroundStyle(OrdenTheme.textMuted)
             .padding(.horizontal, 14)
             .padding(.top, 14)
             .padding(.bottom, 6)
     }
 
     private func sidebarButton(_ item: SidebarItem, isFavoriteSlot: Bool) -> some View {
-        Button {
+        let active = isActive(item.path)
+        return Button {
             browser.navigate(to: item.path)
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: item.systemImage)
-                    .font(.body)
-                    .foregroundStyle(OrdenTheme.accent)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(active ? OrdenTheme.accentHover : OrdenTheme.accent)
                     .frame(width: 22, alignment: .center)
                 Text(item.title)
-                    .font(.system(.body, design: .rounded))
+                    .font(.system(size: 13, weight: active ? .semibold : .medium))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 Spacer(minLength: 0)
@@ -948,16 +960,19 @@ struct SidebarView: View {
             .padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                isActive(item.path)
-                    ? OrdenTheme.accent.opacity(0.22)
-                    : Color.clear,
-                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                active ? OrdenTheme.sidebarActiveFill : Color.clear,
+                in: RoundedRectangle(cornerRadius: OrdenTheme.radiusControl, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: OrdenTheme.radiusControl, style: .continuous)
+                    .strokeBorder(active ? OrdenTheme.accent.opacity(0.35) : Color.clear, lineWidth: 1)
             )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 8)
         .help(item.path)
+        .accessibilityAddTraits(active ? [.isSelected] : [])
         .contextMenu {
             if isFavoriteSlot {
                 Button("Quitar de Favoritos", role: .destructive) {
@@ -1087,9 +1102,16 @@ struct FileBrowserPane: View {
                         }
                     }
                     .contentShape(Rectangle())
-                    .highPriorityGesture(marqueeGesture)
+                    .gesture(marqueeGesture)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .onScrollGeometryChange(for: CGFloat.self) { geo in
+                    geo.contentOffset.y
+                } action: { oldY, newY in
+                    if abs(oldY - newY) > 0.5 {
+                        FileDragArmMonitor.shared.invalidateFrames()
+                    }
+                }
                 .onTapGesture {
                     browser.cancelSelectionFromBackgroundTap(activating: .primary)
                 }
@@ -1101,15 +1123,18 @@ struct FileBrowserPane: View {
                         }
                     }
                 }
+                .onChange(of: browser.visibleEntries.map(\.id)) { _, _ in
+                    FileDragArmMonitor.shared.invalidateFrames()
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: OrdenTheme.radiusWindow, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(.white.opacity(0.06), lineWidth: 1)
+            RoundedRectangle(cornerRadius: OrdenTheme.radiusWindow, style: .continuous)
+                .strokeBorder(OrdenTheme.hairline, lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: OrdenTheme.radiusWindow, style: .continuous))
     }
 
     private func resetMarquee() {
@@ -1139,9 +1164,9 @@ struct FileBrowserPane: View {
 
     private func entryAtY(_ y: CGFloat) -> FileEntry? {
         let entries = browser.visibleEntries
-        guard !entries.isEmpty else { return nil }
-        if y < 0 || y >= listContentHeight { return nil }
-        let idx = min(entries.count - 1, max(0, Int(floor(y / rowHeight))))
+        guard let idx = RowHitTestLogic.indexAtY(y, rowHeight: rowHeight, count: entries.count) else {
+            return nil
+        }
         return entries[idx]
     }
 
@@ -1304,52 +1329,56 @@ struct FileRowButton: View {
             .help("Marcar / desmarcar")
             .padding(.leading, 10)
 
-            Button(action: selectRow) {
-                HStack(alignment: .center, spacing: metrics.isCompact ? 8 : 12) {
-                    ZStack {
-                        FileTypeIcon(category: entry.category, path: entry.path, size: 17)
-                        FileDragArmChrome.Overlay(path: entry.path, size: 26)
-                    }
-                    .frame(width: 28, height: 28)
-
-                    VStack(alignment: .leading, spacing: browser.showRowPaths ? 3 : 0) {
-                        Text(entry.name)
-                            .font(.body.weight(.medium))
-                            .lineLimit(metrics.isCompact ? 2 : 1)
-                            .minimumScaleFactor(0.85)
-                            .foregroundStyle(isCut ? .secondary : .primary)
-                            .strikethrough(isCut)
-                        // Sin textSelection aquí: se come el doble clic para abrir.
-                        if browser.showRowPaths && !metrics.isCompact {
-                            Text(entry.path)
-                                .font(.system(.caption2, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if !metrics.isCompact {
-                        Text(entry.category.labelSpanish)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .frame(width: 100, alignment: .leading)
-                    }
-                    Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .frame(width: metrics.isCompact ? 108 : 130, alignment: .trailing)
-                    Text(sizeLabel)
-                        .font(.caption.monospacedDigit().weight(entry.size > 100_000_000 ? .semibold : .regular))
-                        .foregroundStyle(entry.size > 500_000_000 ? .orange : .secondary)
-                        .frame(width: metrics.isCompact ? 72 : 84, alignment: .trailing)
+            // Clic/doble clic en la fila (no Button): evita pelear con TapGesture y con el monitor AppKit.
+            HStack(alignment: .center, spacing: metrics.isCompact ? 8 : 12) {
+                ZStack {
+                    FileTypeIcon(category: entry.category, path: entry.path, size: 17)
+                    FileDragArmChrome.Overlay(path: entry.path, size: 26)
                 }
-                .padding(.vertical, metrics.isCompact ? 10 : 8)
+                .frame(width: 28, height: 28)
+
+                VStack(alignment: .leading, spacing: browser.showRowPaths ? 3 : 0) {
+                    Text(entry.name)
+                        .font(.body.weight(.medium))
+                        .lineLimit(metrics.isCompact ? 2 : 1)
+                        .minimumScaleFactor(0.85)
+                        .foregroundStyle(isCut ? .secondary : .primary)
+                        .strikethrough(isCut)
+                    if browser.showRowPaths && !metrics.isCompact {
+                        Text(entry.path)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+
+                if !metrics.isCompact {
+                    Text(entry.category.labelSpanish)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 100, alignment: .leading)
+                }
+                Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: metrics.isCompact ? 108 : 130, alignment: .trailing)
+                Text(sizeLabel)
+                    .font(.caption.monospacedDigit().weight(entry.size > 100_000_000 ? .semibold : .regular))
+                    .foregroundStyle(entry.size > 500_000_000 ? .orange : .secondary)
+                    .frame(width: metrics.isCompact ? 72 : 84, alignment: .trailing)
             }
-            .buttonStyle(.plain)
+            .padding(.vertical, metrics.isCompact ? 10 : 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) {
+                browser.selectOnly(entry.id)
+                browser.activateEntry(entry)
+            }
+            .onTapGesture(count: 1) {
+                selectRow()
+            }
 
             Button {
                 browser.copyPath(entry)
@@ -1369,7 +1398,6 @@ struct FileRowButton: View {
         .fileDragArmHighlight(path: entry.path)
         .reportFileDragArmFrame(path: entry.path)
         .folderDropTarget(entry: entry)
-        .fileOpenOnDoubleClick(entry: entry, browser: browser)
         .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu {
             Button("Abrir") {
@@ -1443,9 +1471,9 @@ struct FileRowButton: View {
 
     private var rowBackground: Color {
         if isSelected {
-            return OrdenTheme.accent.opacity(0.28)
+            return OrdenTheme.rowSelectionFill
         }
-        return zebra ? Color.primary.opacity(0.04) : Color.clear
+        return zebra ? Color.primary.opacity(0.035) : Color.clear
     }
 
     private var sizeLabel: String {
@@ -1716,7 +1744,7 @@ struct SettingsView: View {
                     icon: "keyboard",
                     tint: OrdenTheme.accent,
                     title: "Atajo global",
-                    subtitle: "Abre Ordena en Descargas"
+                    subtitle: "Abre Findaro en Descargas"
                 ) {
                     Text("⌃⌥O")
                         .font(.body.monospaced().weight(.semibold))
@@ -1728,9 +1756,9 @@ struct SettingsView: View {
                 settingsRow(
                     icon: "folder.badge.gearshape",
                     tint: .orange,
-                    title: "Abrir carpetas con Ordena",
+                    title: "Abrir carpetas con Findaro",
                     subtitle: OpenFolderBridge.isDefaultFolderHandler()
-                        ? "Ordena es la app por defecto"
+                        ? "Findaro es la app por defecto"
                         : "macOS obliga un paso manual (Abrir con → Siempre)"
                 ) {
                     Button(OpenFolderBridge.isDefaultFolderHandler() ? "Ver cómo" : "Preparar…") {
@@ -2000,7 +2028,7 @@ struct SettingsView: View {
                 tipLine(icon: "checkmark.circle.fill", title: "Coincide por parte del nombre", detail: "vibe encuentra vibesystems…")
                 tipLine(icon: "xmark.circle.fill", title: "No lee el contenido", detail: "Eso es del asistente / Ollama")
             } header: {
-                Text("Cómo busca Ordena")
+                Text("Cómo busca Findaro")
             } footer: {
                 Text("Sin comodines (* ?) y sin Spotlight. El asistente (⌘5) es aparte.")
             }

@@ -33,11 +33,7 @@ struct SecondaryBrowserPane: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .layoutPriority(1)
-        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(focused ? OrdenTheme.accent : Color.white.opacity(0.06), lineWidth: focused ? 2 : 1)
-        )
+        .findaroPanelChrome(focused: focused, cornerRadius: OrdenTheme.radiusWindow)
         .contentShape(Rectangle())
         .simultaneousGesture(TapGesture().onEnded {
             browser.focusPane(.secondary)
@@ -55,11 +51,7 @@ struct SecondaryBrowserPane: View {
                 Text("Destino")
                     .font(.subheadline.weight(.semibold))
                 if focused {
-                    Text("activo")
-                        .font(.caption2.weight(.bold))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(OrdenTheme.accent.opacity(0.25), in: Capsule())
+                    FindaroStatusPill(title: "activo", kind: .processing)
                 }
                 Spacer(minLength: 0)
                 if !focused {

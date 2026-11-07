@@ -1,7 +1,7 @@
 import Foundation
 
-/// Cola de transferencias con progreso y verificación de tamaño tras copia
-/// (antes de borrar el origen en moves entre volúmenes / copy+delete).
+/// Cola de transferencias con preflight, manifiesto SHA-256 (archivos + `.app`),
+/// verificación de MOVE y rollback del lote si falla un elemento posterior.
 public actor TransferQueue {
     public struct Job: Equatable, Sendable, Identifiable {
         public let id: UUID
@@ -47,6 +47,12 @@ public actor TransferQueue {
         }
     }
 
+    private struct PreflightItem: Sendable {
+        var path: String
+        var isDirectory: Bool
+        var manifest: FileDigest.TreeManifest
+    }
+
     public static let shared = TransferQueue()
 
     private var running = false
@@ -57,16 +63,23 @@ public actor TransferQueue {
     ) async throws -> [FileOps.TransferPair] {
         while running {
             try await Task.sleep(nanoseconds: 40_000_000)
+            try Task.checkCancellation()
         }
         running = true
         defer { running = false }
 
         let total = max(job.paths.count, 1)
-        var pairs: [FileOps.TransferPair] = []
+        var completedPairs: [FileOps.TransferPair] = []
 
         do {
-            for (index, path) in job.paths.enumerated() {
-                let name = URL(fileURLWithPath: path).lastPathComponent
+            let preflight = try Self.preflight(paths: job.paths, destinationDir: job.destinationDir)
+            guard !preflight.isEmpty else {
+                throw FileOpsError.failed("Nada que transferir")
+            }
+
+            for (index, item) in preflight.enumerated() {
+                try Task.checkCancellation()
+                let name = URL(fileURLWithPath: item.path).lastPathComponent
                 onProgress(Progress(
                     jobID: job.id,
                     completed: index,
@@ -76,14 +89,15 @@ public actor TransferQueue {
                 ))
 
                 let batch = try FileOps.transfer(
-                    paths: [path],
+                    paths: [item.path],
                     toDirectory: job.destinationDir,
                     move: job.move
                 )
-                for pair in batch {
-                    try Self.verifyPair(pair, expectingMove: job.move)
+                guard let pair = batch.first else {
+                    throw FileOpsError.failed("Transferencia vacía: \(name)")
                 }
-                pairs.append(contentsOf: batch)
+                try Self.verify(pair: pair, expected: item, expectingMove: job.move)
+                completedPairs.append(pair)
             }
 
             onProgress(Progress(
@@ -93,48 +107,104 @@ public actor TransferQueue {
                 currentName: "",
                 done: true
             ))
-            return pairs
+            return completedPairs
         } catch {
+            let rollbackErrors = Self.rollback(completedPairs, wasMove: job.move)
+            var message = error.localizedDescription
+            if !rollbackErrors.isEmpty {
+                message += " · Rollback parcial: " + rollbackErrors.joined(separator: "; ")
+            } else if !completedPairs.isEmpty {
+                message += " · Se revirtieron \(completedPairs.count) elemento(s) del lote"
+            }
             onProgress(Progress(
                 jobID: job.id,
-                completed: pairs.count,
+                completed: completedPairs.count,
                 total: total,
                 currentName: "",
                 done: true,
-                errorMessage: error.localizedDescription
+                errorMessage: message
             ))
-            throw error
+            throw FileOpsError.failed(message)
         }
     }
 
-    /// Comprueba que el destino existe y, si es archivo, que el tamaño coincide
-    /// con el origen (si el origen aún existe — caso copia) o es > 0 (caso move).
-    private static func verifyPair(_ pair: FileOps.TransferPair, expectingMove: Bool) throws {
+    private static func preflight(paths: [String], destinationDir: String) throws -> [PreflightItem] {
+        let fm = FileManager.default
+        var destIsDir: ObjCBool = false
+        guard fm.fileExists(atPath: destinationDir, isDirectory: &destIsDir), destIsDir.boolValue else {
+            throw FileOpsError.failed("Destino no es una carpeta")
+        }
+
+        var items: [PreflightItem] = []
+        for path in paths {
+            var isDir: ObjCBool = false
+            guard fm.fileExists(atPath: path, isDirectory: &isDir) else {
+                throw FileOpsError.failed("No existe \(URL(fileURLWithPath: path).lastPathComponent)")
+            }
+            let manifest = try FileDigest.treeManifest(at: path)
+            items.append(PreflightItem(
+                path: path,
+                isDirectory: isDir.boolValue,
+                manifest: manifest
+            ))
+        }
+        return items
+    }
+
+    private static func verify(pair: FileOps.TransferPair, expected: PreflightItem, expectingMove: Bool) throws {
         let fm = FileManager.default
         var destIsDir: ObjCBool = false
         guard fm.fileExists(atPath: pair.to, isDirectory: &destIsDir) else {
-            throw FileOpsError.failed("Verificación falló: no aparece \(URL(fileURLWithPath: pair.to).lastPathComponent)")
-        }
-        if destIsDir.boolValue { return }
-
-        let destAttrs = try fm.attributesOfItem(atPath: pair.to)
-        let destSize = (destAttrs[.size] as? NSNumber)?.int64Value ?? -1
-        if destSize < 0 {
-            throw FileOpsError.failed("Verificación falló: tamaño inválido en destino")
+            throw FileOpsError.failed(
+                "Verificación falló: no aparece \(URL(fileURLWithPath: pair.to).lastPathComponent)"
+            )
         }
 
-        if fm.fileExists(atPath: pair.from) {
-            let srcAttrs = try fm.attributesOfItem(atPath: pair.from)
-            let srcSize = (srcAttrs[.size] as? NSNumber)?.int64Value ?? -1
-            if srcSize >= 0, srcSize != destSize {
+        if expected.isDirectory {
+            guard destIsDir.boolValue else {
+                throw FileOpsError.failed("Verificación falló: se esperaba carpeta en destino")
+            }
+        } else {
+            guard !destIsDir.boolValue else {
+                throw FileOpsError.failed("Verificación falló: se esperaba archivo en destino")
+            }
+        }
+
+        try FileDigest.verifyManifest(expected.manifest, at: pair.to)
+
+        if expectingMove {
+            if fm.fileExists(atPath: pair.from) {
                 throw FileOpsError.failed(
-                    "Verificación falló: tamaño distinto (\(srcSize) ≠ \(destSize)) en \(URL(fileURLWithPath: pair.to).lastPathComponent)"
+                    "MOVE incompleto: el origen sigue existiendo (\(URL(fileURLWithPath: pair.from).lastPathComponent))"
                 )
             }
-            if expectingMove {
-                // Move same-volume debería haber quitado el origen; si sigue,
-                // FileOps ya lo dejó a propósito o falló a medias — no borramos aquí.
+        }
+    }
+
+    /// Revierte pares completados en orden inverso. Devuelve errores que no se pudieron deshacer.
+    private static func rollback(_ pairs: [FileOps.TransferPair], wasMove: Bool) -> [String] {
+        let fm = FileManager.default
+        var errors: [String] = []
+        for pair in pairs.reversed() {
+            let name = URL(fileURLWithPath: pair.to).lastPathComponent
+            do {
+                if wasMove {
+                    if fm.fileExists(atPath: pair.to) {
+                        let parent = (pair.from as NSString).deletingLastPathComponent
+                        try fm.createDirectory(atPath: parent, withIntermediateDirectories: true)
+                        if fm.fileExists(atPath: pair.from) {
+                            try fm.removeItem(atPath: pair.to)
+                        } else {
+                            try fm.moveItem(atPath: pair.to, toPath: pair.from)
+                        }
+                    }
+                } else if fm.fileExists(atPath: pair.to) {
+                    try fm.removeItem(atPath: pair.to)
+                }
+            } catch {
+                errors.append("\(name): \(error.localizedDescription)")
             }
         }
+        return errors
     }
 }

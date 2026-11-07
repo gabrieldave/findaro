@@ -161,11 +161,11 @@ final class BrowserModel: ObservableObject {
         showFolderHandlerSetupDialog = true
         switch result {
         case .alreadyDefault:
-            statusMessage = "Ordena ya está como app de carpetas"
+            statusMessage = "Findaro ya está como app de carpetas"
         case .readyForOpenWith:
-            statusMessage = "Ordena lista en «Abrir con» — falta elegir Siempre (límite de Apple)"
+            statusMessage = "Findaro lista en «Abrir con» — falta elegir Siempre (límite de Apple)"
         case .appMissing:
-            statusMessage = "No encuentro Ordena.app en Aplicaciones"
+            statusMessage = "No encuentro Findaro.app en Aplicaciones"
         }
     }
     @Published var agentLog: [String] = []
@@ -389,11 +389,9 @@ final class BrowserModel: ObservableObject {
                 }
             }
             folderTotalBytes = entries.reduce(Int64(0)) { $0 + $1.size }
-            if !fromWatcher {
-                startMeasuringSizes()
-            } else {
-                isMeasuringSizes = false
-            }
+            // FSEvents: reutilizar tamaños conocidos evita parpadeo, pero siempre
+            // recalculamos en background para no dejar carpetas obsoletas.
+            startMeasuringSizes()
         } catch {
             entries = []
             folderTotalBytes = 0
@@ -1250,73 +1248,94 @@ final class BrowserModel: ObservableObject {
     func confirmPendingMerge(overwriteConflicts: Bool = false) {
         guard let preview = pendingMergePreview else { return }
         let asMove = pendingMergeMove
+        let sourcePath = preview.sourcePath
+        let destPath = preview.destPath
+        statusMessage = "Fusionando…"
+        transferProgressFraction = 0
+        transferProgressLabel = "Smart Merge…"
 
-        do {
-            let result = try FolderMerge.mergeCopy(
-                source: preview.sourcePath,
-                dest: preview.destPath,
-                overwriteConflicts: overwriteConflicts
-            )
+        Task {
+            do {
+                let result = try await Task.detached(priority: .userInitiated) {
+                    try FolderMerge.mergeCopy(
+                        source: sourcePath,
+                        dest: destPath,
+                        overwriteConflicts: overwriteConflicts
+                    )
+                }.value
 
-            var sourceTrashPath: String?
-            if asMove {
-                do {
-                    sourceTrashPath = try FolderMerge.trashSourceAfterVerifiedMerge(result)
-                } catch {
-                    // La copia quedó verificada, pero el origen no se elimina si no se pudo
-                    // comprobar y enviar íntegro a la Papelera.
-                    pushUndo(.merged(
+                var sourceTrashPath: String?
+                if asMove {
+                    do {
+                        sourceTrashPath = try await Task.detached(priority: .userInitiated) {
+                            try FolderMerge.trashSourceAfterVerifiedMerge(result)
+                        }.value
+                    } catch {
+                        await MainActor.run {
+                            self.pushUndo(.merged(
+                                created: result.pairs.map(\.to),
+                                sourceOriginalPath: nil,
+                                sourceTrashPath: nil,
+                                replacements: result.replacements
+                            ))
+                            self.pendingMergePreview = nil
+                            self.pendingMergeMove = false
+                            self.folderDropTargetPath = nil
+                            self.clearArmedFileDrag()
+                            self.transferProgressFraction = nil
+                            self.transferProgressLabel = nil
+                            self.reload()
+                            self.statusMessage = "Fusioné los archivos, pero conservé el origen porque no pude enviarlo con seguridad a la Papelera: \(error.localizedDescription)"
+                        }
+                        return
+                    }
+                }
+
+                await MainActor.run {
+                    self.pushUndo(.merged(
                         created: result.pairs.map(\.to),
-                        sourceOriginalPath: nil,
-                        sourceTrashPath: nil,
+                        sourceOriginalPath: asMove ? result.sourcePath : nil,
+                        sourceTrashPath: sourceTrashPath,
                         replacements: result.replacements
                     ))
-                    pendingMergePreview = nil
-                    pendingMergeMove = false
-                    folderDropTargetPath = nil
-                    clearArmedFileDrag()
-                    reload()
-                    statusMessage = "Fusioné los archivos, pero conservé el origen porque no pude enviarlo con seguridad a la Papelera: \(error.localizedDescription)"
-                    return
+                    if asMove {
+                        self.shelf.removeAll {
+                            ($0.path as NSString).standardizingPath == (sourcePath as NSString).standardizingPath
+                        }
+                    }
+                    self.pendingMergePreview = nil
+                    self.pendingMergeMove = false
+                    self.folderDropTargetPath = nil
+                    self.clearArmedFileDrag()
+                    self.transferProgressFraction = nil
+                    self.transferProgressLabel = nil
+                    self.reload()
+
+                    let name = URL(fileURLWithPath: destPath).lastPathComponent
+                    if overwriteConflicts {
+                        self.statusMessage = asMove
+                            ? "Fusionado reemplazando · origen a Papelera → \(name) · ⌘Z puede restaurar"
+                            : "Fusionado reemplazando conflictos → \(name) · ⌘Z puede restaurar"
+                    } else {
+                        self.statusMessage = asMove
+                            ? "Fusionado y origen a Papelera → \(name) · ⌘Z deshace"
+                            : "Fusionado → \(name) · ⌘Z deshace"
+                    }
+                    if !result.warnings.isEmpty {
+                        self.statusMessage = (self.statusMessage ?? "") + " · Aviso: " + result.warnings.joined(separator: "; ")
+                    }
+                }
+            } catch {
+                let refreshed = await Task.detached(priority: .utility) {
+                    FolderMerge.preview(source: sourcePath, dest: destPath)
+                }.value
+                await MainActor.run {
+                    self.transferProgressFraction = nil
+                    self.transferProgressLabel = nil
+                    self.statusMessage = error.localizedDescription
+                    self.pendingMergePreview = refreshed
                 }
             }
-
-            pushUndo(.merged(
-                created: result.pairs.map(\.to),
-                sourceOriginalPath: asMove ? result.sourcePath : nil,
-                sourceTrashPath: sourceTrashPath,
-                replacements: result.replacements
-            ))
-
-            if asMove {
-                shelf.removeAll {
-                    ($0.path as NSString).standardizingPath == (preview.sourcePath as NSString).standardizingPath
-                }
-            }
-
-            pendingMergePreview = nil
-            pendingMergeMove = false
-            folderDropTargetPath = nil
-            clearArmedFileDrag()
-            reload()
-
-            let name = URL(fileURLWithPath: preview.destPath).lastPathComponent
-            if overwriteConflicts {
-                statusMessage = asMove
-                    ? "Fusionado reemplazando · origen a Papelera → \(name) · ⌘Z puede restaurar"
-                    : "Fusionado reemplazando conflictos → \(name) · ⌘Z puede restaurar"
-            } else {
-                statusMessage = asMove
-                    ? "Fusionado y origen a Papelera → \(name) · ⌘Z deshace"
-                    : "Fusionado → \(name) · ⌘Z deshace"
-            }
-            if !result.warnings.isEmpty {
-                statusMessage = (statusMessage ?? "") + " · Aviso: " + result.warnings.joined(separator: "; ")
-            }
-        } catch {
-            statusMessage = error.localizedDescription
-            // Actualiza la comparación si el origen o destino cambiaron mientras el diálogo estaba abierto.
-            pendingMergePreview = FolderMerge.preview(source: preview.sourcePath, dest: preview.destPath)
         }
     }
 
@@ -1354,8 +1373,18 @@ final class BrowserModel: ObservableObject {
         }
         if let merge = firstMerge {
             pendingMergeMove = move
-            pendingMergePreview = FolderMerge.preview(source: merge.source, dest: merge.dest)
-            statusMessage = "Revisa la fusión antes de tocar el destino"
+            statusMessage = "Comparando carpetas (Smart Merge)…"
+            let source = merge.source
+            let destFolder = merge.dest
+            Task {
+                let preview = await Task.detached(priority: .userInitiated) {
+                    FolderMerge.preview(source: source, dest: destFolder)
+                }.value
+                await MainActor.run {
+                    self.pendingMergePreview = preview
+                    self.statusMessage = "Revisa la fusión antes de tocar el destino"
+                }
+            }
         }
         return remaining
     }
@@ -1777,22 +1806,24 @@ final class BrowserModel: ObservableObject {
             appendAgentReply("El destino tiene que ser una carpeta.")
             return
         }
-        do {
-            let pairs = try FileOps.transfer(paths: paths, toDirectory: dest, move: move)
-            if move {
-                pushUndo(.moved(pairs: pairs))
-            } else {
-                pushUndo(.copied(created: pairs.map(\.to)))
+        enqueueTransfer(paths: paths, toDirectory: dest, move: move) { result in
+            switch result {
+            case .success(let pairs):
+                if move {
+                    self.pushUndo(.moved(pairs: pairs))
+                } else {
+                    self.pushUndo(.copied(created: pairs.map(\.to)))
+                }
+                self.reload()
+                let verb = move ? "Moví" : "Copié"
+                self.appendAgentReply(
+                    pairs.count == 1
+                        ? "\(verb) 1 ítem a «\((dest as NSString).lastPathComponent)»."
+                        : "\(verb) \(pairs.count) ítems a «\((dest as NSString).lastPathComponent)»."
+                )
+            case .failure(let error):
+                self.appendAgentReply("No pude \(move ? "mover" : "copiar"): \(error.localizedDescription)")
             }
-            reload()
-            let verb = move ? "Moví" : "Copié"
-            appendAgentReply(
-                pairs.count == 1
-                    ? "\(verb) 1 ítem a «\((dest as NSString).lastPathComponent)»."
-                    : "\(verb) \(pairs.count) ítems a «\((dest as NSString).lastPathComponent)»."
-            )
-        } catch {
-            appendAgentReply("No pude \(move ? "mover" : "copiar"): \(error.localizedDescription)")
         }
     }
 
@@ -2044,22 +2075,7 @@ final class BrowserModel: ObservableObject {
     /// Soltar carpetas desde Finder sobre Favoritos (opcional).
     @discardableResult
     func importFavoritesFromProviders(_ providers: [NSItemProvider]) -> Bool {
-        var paths: [String] = []
-        let group = DispatchGroup()
-        for provider in providers {
-            group.enter()
-            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                defer { group.leave() }
-                if let data = item as? Data,
-                   let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    paths.append(url.path)
-                } else if let url = item as? URL {
-                    paths.append(url.path)
-                }
-            }
-        }
-        group.notify(queue: .main) { [weak self] in
-            guard let self else { return }
+        DropPathCollector.collect(providers) { paths in
             var added = 0
             for path in paths {
                 var isDir: ObjCBool = false
@@ -2480,22 +2496,39 @@ final class BrowserModel: ObservableObject {
     func moveSelectionToTrash() {
         let targets = selectedEntries
         guard !targets.isEmpty else { return }
-        var moved = 0
-        for entry in targets {
-            let url = URL(fileURLWithPath: entry.path)
-            do {
-                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
-                moved += 1
-            } catch {
-                statusMessage = "No se pudo tirar \(entry.name): \(error.localizedDescription)"
-            }
-        }
+        statusMessage = "Enviando a la Papelera…"
+        let snapshot = targets.map { (path: $0.path, name: $0.name) }
         selectedIDs = []
         selectionAnchorID = nil
         selectionFocusID = nil
-        reload()
-        if moved > 0 {
-            statusMessage = moved == 1 ? "1 elemento a la Papelera" : "\(moved) elementos a la Papelera"
+
+        Task {
+            var moved = 0
+            var failures: [String] = []
+            for item in snapshot {
+                do {
+                    try await Task.detached(priority: .userInitiated) {
+                        try FileManager.default.trashItem(
+                            at: URL(fileURLWithPath: item.path),
+                            resultingItemURL: nil
+                        )
+                    }.value
+                    moved += 1
+                } catch {
+                    failures.append("\(item.name): \(error.localizedDescription)")
+                }
+            }
+            await MainActor.run {
+                self.reload()
+                var parts: [String] = []
+                if moved > 0 {
+                    parts.append(moved == 1 ? "1 elemento a la Papelera" : "\(moved) elementos a la Papelera")
+                }
+                if !failures.isEmpty {
+                    parts.append("Fallaron \(failures.count): " + failures.prefix(3).joined(separator: "; "))
+                }
+                self.statusMessage = parts.isEmpty ? "Nada enviado a la Papelera" : parts.joined(separator: " · ")
+            }
         }
     }
 
@@ -2575,27 +2608,44 @@ final class BrowserModel: ObservableObject {
             statusMessage = "Selecciona algo para duplicar"
             return
         }
-        var lastPath: String?
-        var createdPaths: [String] = []
-        for entry in targets {
-            do {
-                lastPath = try FileOps.duplicate(path: entry.path)
-                if let lastPath { createdPaths.append(lastPath) }
-            } catch {
-                if !createdPaths.isEmpty { pushUndo(.copied(created: createdPaths)) }
-                statusMessage = createdPaths.isEmpty
-                    ? "No se pudo duplicar \(entry.name): \(error.localizedDescription)"
-                    : "Duplicación parcial (\(createdPaths.count) elemento(s)); ⌘Z deshace lo creado. \(error.localizedDescription)"
-                reload()
-                return
+        statusMessage = "Duplicando…"
+        let paths = targets.map(\.path)
+        let names = Dictionary(uniqueKeysWithValues: targets.map { ($0.path, $0.name) })
+
+        Task {
+            var lastPath: String?
+            var createdPaths: [String] = []
+            var failure: String?
+            for path in paths {
+                do {
+                    let created = try await Task.detached(priority: .userInitiated) {
+                        try FileOps.duplicate(path: path)
+                    }.value
+                    lastPath = created
+                    createdPaths.append(created)
+                } catch {
+                    let name = names[path] ?? URL(fileURLWithPath: path).lastPathComponent
+                    failure = createdPaths.isEmpty
+                        ? "No se pudo duplicar \(name): \(error.localizedDescription)"
+                        : "Duplicación parcial (\(createdPaths.count) elemento(s)); ⌘Z deshace lo creado. \(error.localizedDescription)"
+                    break
+                }
+            }
+            await MainActor.run {
+                if !createdPaths.isEmpty { self.pushUndo(.copied(created: createdPaths)) }
+                self.reload()
+                if let lastPath, failure == nil {
+                    self.selectOnly(lastPath)
+                }
+                if let failure {
+                    self.statusMessage = failure
+                } else {
+                    self.statusMessage = createdPaths.count == 1
+                        ? "Duplicado · ⌘Z deshace"
+                        : "\(createdPaths.count) duplicados · ⌘Z deshace"
+                }
             }
         }
-        if !createdPaths.isEmpty { pushUndo(.copied(created: createdPaths)) }
-        reload()
-        if let lastPath {
-            selectOnly(lastPath)
-        }
-        statusMessage = createdPaths.count == 1 ? "Duplicado · ⌘Z deshace" : "\(createdPaths.count) duplicados · ⌘Z deshace"
     }
 
     /// Paths que se armarían si haces hold sobre `entry` (selección múltiple incluida).
@@ -2724,13 +2774,15 @@ final class BrowserModel: ObservableObject {
             return
         }
         guard !rest.isEmpty else { return }
-        do {
-            let pairs = try FileOps.transfer(paths: rest, toDirectory: currentPath, move: false)
-            pushUndo(.copied(created: pairs.map(\.to)))
-            reload()
-            statusMessage = pairs.count == 1 ? "1 archivo pegado" : "\(pairs.count) archivos pegados"
-        } catch {
-            statusMessage = "No se pudo pegar: \(error.localizedDescription)"
+        enqueueTransfer(paths: rest, toDirectory: currentPath, move: false) { result in
+            switch result {
+            case .success(let pairs):
+                self.pushUndo(.copied(created: pairs.map(\.to)))
+                self.reload()
+                self.statusMessage = pairs.count == 1 ? "1 archivo pegado" : "\(pairs.count) archivos pegados"
+            case .failure(let error):
+                self.statusMessage = "No se pudo pegar: \(error.localizedDescription)"
+            }
         }
     }
 
@@ -2804,59 +2856,110 @@ final class BrowserModel: ObservableObject {
 
         let originalItems = shelf
         var remaining: [FileOps.ShelfItem] = []
-        var movedPairs: [FileOps.TransferPair] = []
-        var copiedPairs: [FileOps.TransferPair] = []
-        var transferError: String?
+        var toMove: [String] = []
+        var toCopy: [String] = []
+        var copyKeepOnShelf: [FileOps.ShelfItem] = []
 
         for (index, item) in originalItems.enumerated() {
-            if pendingMergePreview != nil {
-                remaining.append(contentsOf: originalItems[index...])
-                break
-            }
-
             let move = item.intent == .move
             let paths = offerMergeIfNeeded(paths: [item.path], toDirectory: currentPath, move: move)
-
             if pendingMergePreview != nil {
-                // Mantén el ítem que está en revisión y los siguientes en la bandeja.
                 remaining.append(contentsOf: originalItems[index...])
                 break
             }
-
-            do {
-                let pairs = try FileOps.transfer(paths: paths, toDirectory: currentPath, move: move)
-                if move {
-                    movedPairs.append(contentsOf: pairs)
-                } else {
-                    copiedPairs.append(contentsOf: pairs)
-                    remaining.append(item)
-                }
-            } catch {
-                transferError = error.localizedDescription
-                remaining.append(contentsOf: originalItems[index...])
-                break
+            if move {
+                toMove.append(contentsOf: paths)
+            } else {
+                toCopy.append(contentsOf: paths)
+                copyKeepOnShelf.append(item)
             }
         }
 
-        shelf = remaining
-        if !movedPairs.isEmpty { pushUndo(.moved(pairs: movedPairs)) }
-        if !copiedPairs.isEmpty { pushUndo(.copied(created: copiedPairs.map(\.to))) }
-
-        reload()
         if pendingMergePreview != nil {
+            shelf = remaining
             statusMessage = "Revisa Smart Merge; los demás elementos siguen en la bandeja"
             return
         }
 
-        var parts: [String] = []
-        if !movedPairs.isEmpty { parts.append("\(movedPairs.count) movido(s)") }
-        if !copiedPairs.isEmpty { parts.append("\(copiedPairs.count) copiado(s)") }
-        if let transferError {
-            statusMessage = parts.isEmpty
-                ? "No se completó la transferencia: \(transferError)"
-                : "Transferencia parcial: \(parts.joined(separator: " · ")). \(transferError)"
+        // Primero moves, luego copies — ambos por TransferQueue.
+        func finish(
+            moved: [FileOps.TransferPair],
+            copied: [FileOps.TransferPair],
+            error: String?,
+            restoreShelf: [FileOps.ShelfItem]?
+        ) {
+            if let restoreShelf {
+                shelf = restoreShelf
+            } else {
+                // Moves salen de la bandeja; copias pueden permanecer.
+                shelf = remaining + copyKeepOnShelf
+            }
+            if !moved.isEmpty { pushUndo(.moved(pairs: moved)) }
+            if !copied.isEmpty { pushUndo(.copied(created: copied.map(\.to))) }
+            reload()
+            var parts: [String] = []
+            if !moved.isEmpty { parts.append("\(moved.count) movido(s)") }
+            if !copied.isEmpty { parts.append("\(copied.count) copiado(s)") }
+            if let error {
+                statusMessage = parts.isEmpty
+                    ? "No se completó la transferencia: \(error)"
+                    : "Transferencia parcial: \(parts.joined(separator: " · ")). \(error)"
+            } else {
+                statusMessage = parts.isEmpty ? "Nada transferido" : parts.joined(separator: " · ") + " · ⌘Z deshace"
+            }
+        }
+
+        if toMove.isEmpty && toCopy.isEmpty {
+            shelf = remaining
+            reload()
+            statusMessage = "Nada transferido"
+            return
+        }
+
+        if !toMove.isEmpty {
+            enqueueTransfer(paths: toMove, toDirectory: currentPath, move: true) { moveResult in
+                switch moveResult {
+                case .success(let movedPairs):
+                    if toCopy.isEmpty {
+                        finish(moved: movedPairs, copied: [], error: nil, restoreShelf: nil)
+                    } else {
+                        self.enqueueTransfer(paths: toCopy, toDirectory: self.currentPath, move: false) { copyResult in
+                            switch copyResult {
+                            case .success(let copiedPairs):
+                                finish(moved: movedPairs, copied: copiedPairs, error: nil, restoreShelf: nil)
+                            case .failure(let error):
+                                finish(
+                                    moved: movedPairs,
+                                    copied: [],
+                                    error: error.localizedDescription,
+                                    restoreShelf: remaining + copyKeepOnShelf
+                                )
+                            }
+                        }
+                    }
+                case .failure(let error):
+                    finish(
+                        moved: [],
+                        copied: [],
+                        error: error.localizedDescription,
+                        restoreShelf: originalItems
+                    )
+                }
+            }
         } else {
-            statusMessage = parts.isEmpty ? "Nada transferido" : parts.joined(separator: " · ") + " · ⌘Z deshace"
+            enqueueTransfer(paths: toCopy, toDirectory: currentPath, move: false) { copyResult in
+                switch copyResult {
+                case .success(let copiedPairs):
+                    finish(moved: [], copied: copiedPairs, error: nil, restoreShelf: nil)
+                case .failure(let error):
+                    finish(
+                        moved: [],
+                        copied: [],
+                        error: error.localizedDescription,
+                        restoreShelf: originalItems
+                    )
+                }
+            }
         }
     }
 
@@ -2876,20 +2979,41 @@ final class BrowserModel: ObservableObject {
             return
         }
         guard !rest.isEmpty else { return }
-        do {
-            let pairs = try FileOps.transfer(paths: rest, toDirectory: currentPath, move: forceMove)
-            if forceMove {
-                shelf.removeAll { rest.contains($0.path) }
-                pushUndo(.moved(pairs: pairs))
-            } else {
-                pushUndo(.copied(created: pairs.map(\.to)))
+        let dest = currentPath
+        let job = TransferQueue.Job(paths: rest, destinationDir: dest, move: forceMove)
+        transferProgressFraction = 0
+        transferProgressLabel = forceMove ? "Moviendo bandeja…" : "Copiando bandeja…"
+        statusMessage = transferProgressLabel
+        Task { @MainActor in
+            do {
+                let pairs = try await TransferQueue.shared.run(job) { progress in
+                    Task { @MainActor in
+                        self.transferProgressFraction = progress.done ? nil : progress.fraction
+                        if progress.done {
+                            self.transferProgressLabel = nil
+                        } else {
+                            self.transferProgressLabel = "\(progress.currentName) · \(progress.completed)/\(progress.total)"
+                            self.statusMessage = self.transferProgressLabel
+                        }
+                    }
+                }
+                self.transferProgressFraction = nil
+                self.transferProgressLabel = nil
+                if forceMove {
+                    self.shelf.removeAll { rest.contains($0.path) }
+                    self.pushUndo(.moved(pairs: pairs))
+                } else {
+                    self.pushUndo(.copied(created: pairs.map(\.to)))
+                }
+                self.reload()
+                self.statusMessage = forceMove
+                    ? "Movidos \(pairs.count) a esta carpeta · ⌘Z deshace"
+                    : "Copiados \(pairs.count) a esta carpeta · ⌘Z deshace"
+            } catch {
+                self.transferProgressFraction = nil
+                self.transferProgressLabel = nil
+                self.statusMessage = error.localizedDescription
             }
-            reload()
-            statusMessage = forceMove
-                ? "Movidos \(pairs.count) a esta carpeta · ⌘Z deshace"
-                : "Copiados \(pairs.count) a esta carpeta · ⌘Z deshace"
-        } catch {
-            statusMessage = error.localizedDescription
         }
     }
 
@@ -3112,24 +3236,26 @@ final class BrowserModel: ObservableObject {
             clearArmedFileDrag()
             return
         }
-        do {
-            let pairs = try FileOps.transfer(paths: rest, toDirectory: dest, move: move)
-            if copy {
-                pushUndo(.copied(created: pairs.map(\.to)))
-            } else {
-                shelf.removeAll { rest.contains(($0.path as NSString).standardizingPath) }
-                selectedIDs = []
-                pushUndo(.moved(pairs: pairs))
+        enqueueTransfer(paths: rest, toDirectory: dest, move: move) { result in
+            switch result {
+            case .success(let pairs):
+                if copy {
+                    self.pushUndo(.copied(created: pairs.map(\.to)))
+                } else {
+                    self.shelf.removeAll { rest.contains(($0.path as NSString).standardizingPath) }
+                    self.selectedIDs = []
+                    self.pushUndo(.moved(pairs: pairs))
+                }
+                self.folderDropTargetPath = nil
+                self.clearArmedFileDrag()
+                self.reload()
+                let name = URL(fileURLWithPath: dest).lastPathComponent
+                self.statusMessage = copy
+                    ? "Copiados \(pairs.count) → \(name) · ⌘Z deshace"
+                    : "Movidos \(pairs.count) → \(name) · ⌘Z deshace"
+            case .failure(let error):
+                self.statusMessage = error.localizedDescription
             }
-            folderDropTargetPath = nil
-            clearArmedFileDrag()
-            reload()
-            let name = URL(fileURLWithPath: dest).lastPathComponent
-            statusMessage = copy
-                ? "Copiados \(pairs.count) → \(name) · ⌘Z deshace"
-                : "Movidos \(pairs.count) → \(name) · ⌘Z deshace"
-        } catch {
-            statusMessage = error.localizedDescription
         }
     }
 
@@ -3137,21 +3263,7 @@ final class BrowserModel: ObservableObject {
         _ providers: [NSItemProvider],
         then: @escaping @MainActor ([String]) -> Void
     ) {
-        var collected: [String] = []
-        let group = DispatchGroup()
-        for provider in providers {
-            group.enter()
-            provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
-                defer { group.leave() }
-                if let data = item as? Data,
-                   let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    collected.append(url.path)
-                } else if let url = item as? URL {
-                    collected.append(url.path)
-                }
-            }
-        }
-        group.notify(queue: .main) {
+        DropPathCollector.collect(providers, typeIdentifier: "public.file-url") { collected in
             guard !collected.isEmpty else { return }
             then(collected)
         }
