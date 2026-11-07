@@ -1102,9 +1102,16 @@ struct FileBrowserPane: View {
                         }
                     }
                     .contentShape(Rectangle())
-                    .highPriorityGesture(marqueeGesture)
+                    .gesture(marqueeGesture)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .onScrollGeometryChange(for: CGFloat.self) { geo in
+                    geo.contentOffset.y
+                } action: { oldY, newY in
+                    if abs(oldY - newY) > 0.5 {
+                        FileDragArmMonitor.shared.invalidateFrames()
+                    }
+                }
                 .onTapGesture {
                     browser.cancelSelectionFromBackgroundTap(activating: .primary)
                 }
@@ -1115,6 +1122,9 @@ struct FileBrowserPane: View {
                             proxy.scrollTo(id, anchor: .center)
                         }
                     }
+                }
+                .onChange(of: browser.visibleEntries.map(\.id)) { _, _ in
+                    FileDragArmMonitor.shared.invalidateFrames()
                 }
             }
         }
@@ -1154,9 +1164,9 @@ struct FileBrowserPane: View {
 
     private func entryAtY(_ y: CGFloat) -> FileEntry? {
         let entries = browser.visibleEntries
-        guard !entries.isEmpty else { return nil }
-        if y < 0 || y >= listContentHeight { return nil }
-        let idx = min(entries.count - 1, max(0, Int(floor(y / rowHeight))))
+        guard let idx = RowHitTestLogic.indexAtY(y, rowHeight: rowHeight, count: entries.count) else {
+            return nil
+        }
         return entries[idx]
     }
 
@@ -1319,52 +1329,56 @@ struct FileRowButton: View {
             .help("Marcar / desmarcar")
             .padding(.leading, 10)
 
-            Button(action: selectRow) {
-                HStack(alignment: .center, spacing: metrics.isCompact ? 8 : 12) {
-                    ZStack {
-                        FileTypeIcon(category: entry.category, path: entry.path, size: 17)
-                        FileDragArmChrome.Overlay(path: entry.path, size: 26)
-                    }
-                    .frame(width: 28, height: 28)
-
-                    VStack(alignment: .leading, spacing: browser.showRowPaths ? 3 : 0) {
-                        Text(entry.name)
-                            .font(.body.weight(.medium))
-                            .lineLimit(metrics.isCompact ? 2 : 1)
-                            .minimumScaleFactor(0.85)
-                            .foregroundStyle(isCut ? .secondary : .primary)
-                            .strikethrough(isCut)
-                        // Sin textSelection aquí: se come el doble clic para abrir.
-                        if browser.showRowPaths && !metrics.isCompact {
-                            Text(entry.path)
-                                .font(.system(.caption2, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if !metrics.isCompact {
-                        Text(entry.category.labelSpanish)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .frame(width: 100, alignment: .leading)
-                    }
-                    Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .frame(width: metrics.isCompact ? 108 : 130, alignment: .trailing)
-                    Text(sizeLabel)
-                        .font(.caption.monospacedDigit().weight(entry.size > 100_000_000 ? .semibold : .regular))
-                        .foregroundStyle(entry.size > 500_000_000 ? .orange : .secondary)
-                        .frame(width: metrics.isCompact ? 72 : 84, alignment: .trailing)
+            // Clic/doble clic en la fila (no Button): evita pelear con TapGesture y con el monitor AppKit.
+            HStack(alignment: .center, spacing: metrics.isCompact ? 8 : 12) {
+                ZStack {
+                    FileTypeIcon(category: entry.category, path: entry.path, size: 17)
+                    FileDragArmChrome.Overlay(path: entry.path, size: 26)
                 }
-                .padding(.vertical, metrics.isCompact ? 10 : 8)
+                .frame(width: 28, height: 28)
+
+                VStack(alignment: .leading, spacing: browser.showRowPaths ? 3 : 0) {
+                    Text(entry.name)
+                        .font(.body.weight(.medium))
+                        .lineLimit(metrics.isCompact ? 2 : 1)
+                        .minimumScaleFactor(0.85)
+                        .foregroundStyle(isCut ? .secondary : .primary)
+                        .strikethrough(isCut)
+                    if browser.showRowPaths && !metrics.isCompact {
+                        Text(entry.path)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+
+                if !metrics.isCompact {
+                    Text(entry.category.labelSpanish)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 100, alignment: .leading)
+                }
+                Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: metrics.isCompact ? 108 : 130, alignment: .trailing)
+                Text(sizeLabel)
+                    .font(.caption.monospacedDigit().weight(entry.size > 100_000_000 ? .semibold : .regular))
+                    .foregroundStyle(entry.size > 500_000_000 ? .orange : .secondary)
+                    .frame(width: metrics.isCompact ? 72 : 84, alignment: .trailing)
             }
-            .buttonStyle(.plain)
+            .padding(.vertical, metrics.isCompact ? 10 : 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) {
+                browser.selectOnly(entry.id)
+                browser.activateEntry(entry)
+            }
+            .onTapGesture(count: 1) {
+                selectRow()
+            }
 
             Button {
                 browser.copyPath(entry)
@@ -1384,7 +1398,6 @@ struct FileRowButton: View {
         .fileDragArmHighlight(path: entry.path)
         .reportFileDragArmFrame(path: entry.path)
         .folderDropTarget(entry: entry)
-        .fileOpenOnDoubleClick(entry: entry, browser: browser)
         .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu {
             Button("Abrir") {

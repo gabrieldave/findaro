@@ -58,7 +58,7 @@ struct SelectionCheckButton: View {
 }
 
 /// Misma lógica que `FileRowButton.selectRow`.
-/// El doble clic para abrir lo maneja `FileDragArmMonitor` (clickCount real de AppKit).
+/// El doble clic para abrir lo maneja el gesto SwiftUI de cada fila (no frames AppKit).
 @MainActor
 func browserSelectEntry(_ browser: BrowserModel, entry: FileEntry, openOnDoubleClick: Bool = true) {
     _ = openOnDoubleClick

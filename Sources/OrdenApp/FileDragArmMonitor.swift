@@ -2,7 +2,9 @@ import AppKit
 import SwiftUI
 import OrdenCore
 
-/// Monitor AppKit: ⌘+clic enciende modo naranja sticky; doble clic abre.
+/// Monitor AppKit solo para ⌘+clic (modo naranja).
+/// El doble clic para abrir lo maneja SwiftUI en cada fila (`fileOpenOnDoubleClick`):
+/// los frames AppKit del LazyVStack se quedan stale tras scroll y abrían la fila equivocada.
 @MainActor
 final class FileDragArmMonitor {
     static let shared = FileDragArmMonitor()
@@ -10,12 +12,9 @@ final class FileDragArmMonitor {
     private var monitor: Any?
     private weak var browser: BrowserModel?
 
-    /// Frames de filas en coordenadas de la key window (path → rect).
-    private var rowFrames: [String: CGRect] = [:]
-
-    /// Fallback si `clickCount` no llega bien (SwiftUI / eventos sintéticos).
-    private var lastClickPath: String?
-    private var lastClickAt: Date?
+    private var rowFrames: [String: RowHitTestLogic.RowFrame] = [:]
+    /// Sube en cada scroll / cambio de lista — invalida frames viejos del LazyVStack.
+    private(set) var frameGeneration: UInt64 = 1
 
     func attach(browser: BrowserModel) {
         self.browser = browser
@@ -23,14 +22,23 @@ final class FileDragArmMonitor {
         monitor = NSEvent.addLocalMonitorForEvents(
             matching: [.leftMouseDown]
         ) { [weak self] event in
-            // nil = tragar el evento (evita que un onTapGesture de fondo apague el naranja).
             self?.handle(event) ?? event
         }
     }
 
+    /// Llamar al hacer scroll o al cambiar `visibleEntries`.
+    func invalidateFrames() {
+        frameGeneration &+= 1
+        rowFrames.removeAll(keepingCapacity: true)
+    }
+
     func updateRowFrame(path: String, frameInWindow: CGRect) {
         guard !path.isEmpty, frameInWindow.width > 2, frameInWindow.height > 2 else { return }
-        rowFrames[path] = frameInWindow
+        rowFrames[path] = RowHitTestLogic.RowFrame(
+            path: path,
+            frame: frameInWindow,
+            generation: frameGeneration
+        )
     }
 
     func removeRowFrame(path: String) {
@@ -38,89 +46,52 @@ final class FileDragArmMonitor {
         rowFrames.removeValue(forKey: path)
     }
 
-    /// `nil` = consumir el evento; si no, dejarlo pasar.
+    /// Solo ⌘+clic. Doble clic NO se maneja aquí (ver comentario de clase).
     private func handle(_ event: NSEvent) -> NSEvent? {
         guard let browser, event.type == .leftMouseDown else { return event }
+
+        // Dejar el doble clic a SwiftUI (entry ligado a la fila, no a frames).
+        if event.clickCount >= 2 {
+            return event
+        }
+
         pruneStaleFrames()
-        let path = pathAt(event.locationInWindow)
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let cmd = flags.contains(.command)
         let shift = flags.contains(.shift)
         let opt = flags.contains(.option)
 
-        let isDouble: Bool = {
-            if event.clickCount >= 2 { return true }
-            guard let path,
-                  lastClickPath == path,
-                  let last = lastClickAt,
-                  Date().timeIntervalSince(last) < 0.5 else { return false }
-            return true
-        }()
+        guard cmd, !shift, !opt else { return event }
 
-        if isDouble, let path,
-           let entry = browser.visibleEntries.first(where: { $0.path == path }) {
-            lastClickPath = nil
-            lastClickAt = nil
-            browser.clearArmedFileDrag()
-            browser.selectOnly(entry.id)
-            browser.activateEntry(entry)
-            return nil
+        let path = pathAt(event.locationInWindow)
+        guard let path,
+              let entry = browser.visibleEntries.first(where: { $0.path == path })
+        else {
+            // Sin hit fiable: pasar a SwiftUI (`clickSelect` ya entiende ⌘).
+            return event
         }
 
-        lastClickPath = path
-        lastClickAt = Date()
-
-        // ⌘+clic (sin Shift/⌥): naranja sticky + multi (suma/quita 1).
-        // Tragamos el clic: si pasa a SwiftUI, el tap del fondo llama cancelSelection().
-        guard cmd, !shift, !opt,
-              let path,
-              let entry = browser.visibleEntries.first(where: { $0.path == path })
-        else { return event }
-
-        // Rango como ⇧, en naranja; el monitor traga el evento para que SwiftUI no haga clic pelado.
         browser.commandRangeSelectForMove(to: entry.id)
         browser.noteCommandClickHandled()
         return nil
     }
 
-    /// Quita frames de paths que ya no están en la lista visible (LazyVStack recicla mal).
     private func pruneStaleFrames() {
         guard let browser else {
             rowFrames.removeAll()
             return
         }
         let live = Set(browser.visibleEntries.map(\.path))
-        if rowFrames.keys.contains(where: { !live.contains($0) }) {
-            rowFrames = rowFrames.filter { live.contains($0.key) }
-        }
+        let gen = frameGeneration
+        rowFrames = rowFrames.filter { live.contains($0.key) && $0.value.generation == gen }
     }
 
-    /// Elige la fila cuyo centro está más cerca del clic (no el frame “más chico”).
-    /// Así no arma el vecino cuando hay frames viejos o solapados.
     private func pathAt(_ pointInWindow: CGPoint) -> String? {
-        var bestInside: (path: String, score: CGFloat)?
-        for (path, frame) in rowFrames where frame.insetBy(dx: 0, dy: 1).contains(pointInWindow) {
-            let dy = abs(frame.midY - pointInWindow.y)
-            let dx = abs(frame.midX - pointInWindow.x)
-            let score = dy * 10_000 + dx
-            if bestInside == nil || score < bestInside!.score {
-                bestInside = (path, score)
-            }
-        }
-        if let bestInside { return bestInside.path }
-
-        // Casi en la fila (borde): misma métrica, con tolerancia vertical corta.
-        var bestNear: (path: String, score: CGFloat)?
-        for (path, frame) in rowFrames {
-            guard pointInWindow.x >= frame.minX - 4, pointInWindow.x <= frame.maxX + 4 else { continue }
-            let dy = abs(frame.midY - pointInWindow.y)
-            guard dy <= max(14, frame.height * 0.5) else { continue }
-            let score = dy * 10_000 + abs(frame.midX - pointInWindow.x)
-            if bestNear == nil || score < bestNear!.score {
-                bestNear = (path, score)
-            }
-        }
-        return bestNear?.path
+        RowHitTestLogic.pathAt(
+            point: pointInWindow,
+            frames: Array(rowFrames.values),
+            generation: frameGeneration
+        )
     }
 }
 
@@ -233,9 +204,9 @@ extension View {
         onAppear { FileDragArmMonitor.shared.attach(browser: browser) }
     }
 
-    /// Doble clic por fila (carpetas y archivos) — no depende de frames AppKit.
+    /// Doble clic ligado a la fila SwiftUI (no a frames AppKit).
     func fileOpenOnDoubleClick(entry: FileEntry, browser: BrowserModel) -> some View {
-        simultaneousGesture(
+        highPriorityGesture(
             TapGesture(count: 2).onEnded {
                 browser.selectOnly(entry.id)
                 browser.activateEntry(entry)
