@@ -2340,6 +2340,53 @@ final class BrowserModel: ObservableObject {
         objectWillChange.send()
     }
 
+    var globalHotkeyFolderPath: String {
+        if let custom = store.preferences.globalHotkeyFolderPath,
+           !custom.isEmpty,
+           FileManager.default.fileExists(atPath: custom) {
+            return (custom as NSString).standardizingPath
+        }
+        return GlobalHotKey.defaultDownloadsPath()
+    }
+
+    var globalHotkeyFolderDisplayName: String {
+        URL(fileURLWithPath: globalHotkeyFolderPath).lastPathComponent
+    }
+
+    var usesCustomGlobalHotkeyFolder: Bool {
+        store.preferences.globalHotkeyFolderPath != nil
+    }
+
+    func setGlobalHotkeyFolder(_ path: String?) {
+        store.update { prefs in
+            if let path, !path.isEmpty {
+                prefs.globalHotkeyFolderPath = (path as NSString).standardizingPath
+            } else {
+                prefs.globalHotkeyFolderPath = nil
+            }
+        }
+        objectWillChange.send()
+        let name = globalHotkeyFolderDisplayName
+        statusMessage = "Atajo ⌃⌥O abre «\(name)»"
+    }
+
+    func pickGlobalHotkeyFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.message = "Carpeta que abrirá Findaro con ⌃⌥O"
+        panel.prompt = "Usar esta carpeta"
+        panel.directoryURL = URL(fileURLWithPath: globalHotkeyFolderPath)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        setGlobalHotkeyFolder(url.path)
+    }
+
+    func resetGlobalHotkeyFolder() {
+        setGlobalHotkeyFolder(nil)
+    }
+
     func setOllamaEnabled(_ on: Bool) {
         store.update { $0.ollamaEnabled = on }
         OllamaClient.shared.applyPreferences(store.preferences)

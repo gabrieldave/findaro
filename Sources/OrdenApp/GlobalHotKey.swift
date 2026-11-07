@@ -1,7 +1,8 @@
 import AppKit
 import Carbon
+import OrdenCore
 
-/// Atajo global ⌃⌥O → trae Findaro al frente en Descargas.
+/// Atajo global ⌃⌥O → trae Findaro al frente en la carpeta configurada (por defecto Descargas).
 /// Funciona mientras Findaro esté abierta (ponla en «Abrir al iniciar sesión»).
 @MainActor
 enum GlobalHotKey {
@@ -71,8 +72,23 @@ enum GlobalHotKey {
 
     static func activateOrdena() {
         AppDelegate.showMainWindows()
-        let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path
+        NotificationCenter.default.post(name: .ordenaOpenFolder, object: resolvedFolderPath())
+    }
+
+    /// Carpeta del atajo global: preferencia del usuario o Descargas.
+    static func resolvedFolderPath() -> String {
+        let store = PreferencesStore()
+        if let custom = store.preferences.globalHotkeyFolderPath,
+           !custom.isEmpty,
+           FileManager.default.fileExists(atPath: custom) {
+            return (custom as NSString).standardizingPath
+        }
+        return FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path
             ?? NSString(string: "~/Downloads").expandingTildeInPath
-        NotificationCenter.default.post(name: .ordenaOpenFolder, object: downloads)
+    }
+
+    static func defaultDownloadsPath() -> String {
+        FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path
+            ?? NSString(string: "~/Downloads").expandingTildeInPath
     }
 }

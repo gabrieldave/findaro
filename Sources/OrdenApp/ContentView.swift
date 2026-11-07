@@ -1751,14 +1751,36 @@ struct SettingsView: View {
                 settingsRow(
                     icon: "keyboard",
                     tint: OrdenTheme.accent,
-                    title: "Atajo global",
-                    subtitle: "Abre Findaro en Descargas"
+                    title: "Atajo global ⌃⌥O",
+                    subtitle: "Abre Findaro en «\(browser.globalHotkeyFolderDisplayName)»"
                 ) {
-                    Text("⌃⌥O")
-                        .font(.body.monospaced().weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(OrdenTheme.panelFill, in: Capsule())
+                    HStack(spacing: 8) {
+                        Text("⌃⌥O")
+                            .font(.body.monospaced().weight(.semibold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(OrdenTheme.panelFill, in: Capsule())
+                        Button {
+                            browser.pickGlobalHotkeyFolder()
+                        } label: {
+                            Image(systemName: "pencil.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(OrdenTheme.accent)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Elegir carpeta del atajo global")
+                        if browser.usesCustomGlobalHotkeyFolder {
+                            Button {
+                                browser.resetGlobalHotkeyFolder()
+                            } label: {
+                                Image(systemName: "arrow.counterclockwise.circle.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Volver a Descargas")
+                        }
+                    }
                 }
 
                 settingsRow(
@@ -1776,7 +1798,7 @@ struct SettingsView: View {
             } header: {
                 Text("Inicio rápido")
             } footer: {
-                Text("Apple no deja cambiar el default de carpetas con un solo clic. Usamos «Abrir con → Siempre» + atajo ⌃⌥O.")
+                Text("El lapicito elige qué carpeta abre ⌃⌥O. «Abrir con → Siempre» es aparte (Apple no deja un solo clic).")
             }
 
             Section {
@@ -2073,7 +2095,7 @@ struct SettingsView: View {
         Form {
             Section {
                 tipLine(icon: "doc.text.magnifyingglass", title: "Filtro de arriba", detail: "Solo nombres en esta carpeta")
-                tipLine(icon: "folder.badge.magnifyingglass", title: "Subcarpetas · ⌘4", detail: "Esta carpeta y todo lo de adentro")
+                tipLine(icon: "magnifyingglass.circle.fill", title: "Subcarpetas · ⌘4", detail: "Esta carpeta y todo lo de adentro")
                 tipLine(icon: "checkmark.circle.fill", title: "Coincide por parte del nombre", detail: "vibe encuentra vibesystems…")
                 tipLine(icon: "xmark.circle.fill", title: "No lee el contenido", detail: "Eso es del asistente / Ollama")
             } header: {
@@ -2168,8 +2190,10 @@ struct SettingsView: View {
     private func tipLine(icon: String, title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
+                .font(.body.weight(.semibold))
                 .foregroundStyle(OrdenTheme.accent)
-                .frame(width: 20)
+                .frame(width: 28, height: 28)
+                .background(OrdenTheme.accent.opacity(0.15), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.body.weight(.medium))
