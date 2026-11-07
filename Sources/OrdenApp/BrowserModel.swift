@@ -138,6 +138,8 @@ final class BrowserModel: ObservableObject {
     @Published var pendingAgentApproval: AgentPlan?
     /// true mientras el asistente espera a Ollama / ejecuta.
     @Published var agentBusy = false
+    /// Texto fijo de progreso (banner), no se pierde en el chat.
+    @Published var agentProgressLabel: String = ""
 
     struct AgentChatMessage: Identifiable, Equatable {
         enum Role: Equatable {
@@ -941,6 +943,18 @@ final class BrowserModel: ObservableObject {
             return
         }
         showAssistantPanel = true
+        agentBusy = true
+        agentProgressLabel = OllamaClient.shared.isReady
+            ? "Consultando Ollama («\(OllamaClient.shared.selectedModel)»)"
+            : "Interpretando con reglas"
+        statusMessage = agentProgressLabel + "…"
+        defer {
+            agentBusy = false
+            agentProgressLabel = ""
+        }
+        // Pinta banner + puntitos antes de cualquier trabajo pesado.
+        await Task.yield()
+
         appendAgentUser(trimmed)
         agentLog.append("> \(trimmed)")
 
@@ -949,34 +963,26 @@ final class BrowserModel: ObservableObject {
             return
         }
 
-        agentBusy = true
-        defer { agentBusy = false }
-
         let ollama = OllamaClient.shared
         if ollama.isReady {
-            appendAgentReply(
-                "Consultando Ollama («\(ollama.selectedModel)»)… Si el modelo está frío puede tardar unos segundos.",
-                alsoStatus: true
-            )
+            agentProgressLabel = "Consultando Ollama («\(ollama.selectedModel)»)"
+            statusMessage = agentProgressLabel + "…"
+            await Task.yield()
             switch await ollama.proposePlan(prompt: trimmed, currentPath: currentPath) {
             case .plan(let llm):
-                // Quita el mensaje de “consultando…” y deja el resultado real.
-                if agentMessages.last?.text.contains("Consultando Ollama") == true {
-                    agentMessages.removeLast()
-                }
+                agentProgressLabel = "Aplicando plan de Ollama"
+                await Task.yield()
                 agentPlan = enrichAgentPlan(llm)
                 agentLog.append("Plan (Ollama): \(llm.summary)")
             case .unavailable:
-                if agentMessages.last?.text.contains("Consultando Ollama") == true {
-                    agentMessages.removeLast()
-                }
+                agentProgressLabel = "Ollama no disponible · reglas"
+                await Task.yield()
                 let plan = AgentIntentParser.plan(from: trimmed, currentPath: currentPath)
                 agentPlan = enrichAgentPlan(plan)
                 agentLog.append("Plan (reglas): \(plan.summary)")
             case .failed(let reason):
-                if agentMessages.last?.text.contains("Consultando Ollama") == true {
-                    agentMessages.removeLast()
-                }
+                agentProgressLabel = "Ollama falló · usando reglas"
+                await Task.yield()
                 appendAgentReply(
                     "Ollama no contestó a tiempo (\(reason)). Sigo con reglas locales.",
                     alsoStatus: true
@@ -986,6 +992,9 @@ final class BrowserModel: ObservableObject {
                 agentLog.append("Plan (reglas tras fallo Ollama): \(plan.summary)")
             }
         } else {
+            agentProgressLabel = "Interpretando con reglas"
+            statusMessage = agentProgressLabel + "…"
+            await Task.yield()
             let plan = AgentIntentParser.plan(from: trimmed, currentPath: currentPath)
             agentPlan = enrichAgentPlan(plan)
             agentLog.append("Plan (reglas): \(plan.summary)")

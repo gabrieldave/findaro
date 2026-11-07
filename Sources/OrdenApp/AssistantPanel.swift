@@ -9,6 +9,7 @@ struct AssistantPanel: View {
     @State private var draft = ""
     @State private var showNewShortcut = false
     @State private var holdingMic = false
+    @State private var busyDotCount = 1
 
     private let quickActions = [
         "busca pdf",
@@ -51,6 +52,43 @@ struct AssistantPanel: View {
             ollama.applyPreferences(browser.store.preferences)
             await ollama.refresh()
         }
+        .task(id: browser.agentBusy) {
+            guard browser.agentBusy else {
+                busyDotCount = 1
+                return
+            }
+            while !Task.isCancelled, browser.agentBusy {
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                busyDotCount = busyDotCount >= 3 ? 1 : busyDotCount + 1
+            }
+        }
+    }
+
+    private var agentBusyBanner: some View {
+        HStack(spacing: 12) {
+            ProgressView()
+                .controlSize(.regular)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(busyTitle)
+                    .font(.subheadline.weight(.semibold))
+                Text("Espera un momento — no cierres el panel")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OrdenTheme.accent.opacity(0.16), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(OrdenTheme.accent.opacity(0.35), lineWidth: 1)
+        )
+    }
+
+    private var busyTitle: String {
+        let base = browser.agentProgressLabel.isEmpty ? "Trabajando" : browser.agentProgressLabel
+        return base + String(repeating: ".", count: busyDotCount)
     }
 
     private var header: some View {
@@ -95,6 +133,10 @@ struct AssistantPanel: View {
     }
 
     private var headerSubtitle: String {
+        if browser.agentBusy {
+            let base = browser.agentProgressLabel.isEmpty ? "Trabajando" : browser.agentProgressLabel
+            return base + String(repeating: ".", count: busyDotCount)
+        }
         if ollama.isReady {
             return "Ollama · \(ollama.selectedModel) · ⌘5"
         }
@@ -116,14 +158,8 @@ struct AssistantPanel: View {
                             .id(msg.id)
                     }
                     if browser.agentBusy {
-                        HStack(spacing: 10) {
-                            ProgressView()
-                                .controlSize(.small)
-                            Text("Trabajando…")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .id("agent-busy")
+                        agentBusyBanner
+                            .id("agent-busy")
                     }
                     if let plan = browser.agentPlan, plan.needsApproval {
                         approvalCard(plan)
@@ -324,6 +360,10 @@ struct AssistantPanel: View {
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if browser.agentBusy {
+                agentBusyBanner
+            }
+
             if voice.phase != .idle || holdingMic {
                 Text(voice.statusLabel)
                     .font(.subheadline)
@@ -341,7 +381,7 @@ struct AssistantPanel: View {
                 .font(.body)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit { submit() }
-                .disabled(holdingMic || voice.isListening)
+                .disabled(holdingMic || voice.isListening || browser.agentBusy)
 
             HStack(spacing: 10) {
                 pushToTalkButton
