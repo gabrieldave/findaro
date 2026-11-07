@@ -10,7 +10,7 @@ App nativa de macOS (SwiftUI) para ordenar Descargas y otras carpetas por tipo +
 
 Eso genera en el Escritorio:
 
-`Ordena-0.1.0-arm64.dmg`
+`Ordena-0.1.73-arm64.dmg`
 
 1. Doble clic al `.dmg` → monta el volumen **Ordena …** (aparece en Finder → Ubicaciones, como DICloak).
 2. Arrastra **Ordena.app** a **Aplicaciones**.
