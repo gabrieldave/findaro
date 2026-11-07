@@ -389,11 +389,9 @@ final class BrowserModel: ObservableObject {
                 }
             }
             folderTotalBytes = entries.reduce(Int64(0)) { $0 + $1.size }
-            if !fromWatcher {
-                startMeasuringSizes()
-            } else {
-                isMeasuringSizes = false
-            }
+            // FSEvents: reutilizar tamaños conocidos evita parpadeo, pero siempre
+            // recalculamos en background para no dejar carpetas obsoletas.
+            startMeasuringSizes()
         } catch {
             entries = []
             folderTotalBytes = 0
@@ -2044,22 +2042,7 @@ final class BrowserModel: ObservableObject {
     /// Soltar carpetas desde Finder sobre Favoritos (opcional).
     @discardableResult
     func importFavoritesFromProviders(_ providers: [NSItemProvider]) -> Bool {
-        var paths: [String] = []
-        let group = DispatchGroup()
-        for provider in providers {
-            group.enter()
-            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                defer { group.leave() }
-                if let data = item as? Data,
-                   let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    paths.append(url.path)
-                } else if let url = item as? URL {
-                    paths.append(url.path)
-                }
-            }
-        }
-        group.notify(queue: .main) { [weak self] in
-            guard let self else { return }
+        DropPathCollector.collect(providers) { paths in
             var added = 0
             for path in paths {
                 var isDir: ObjCBool = false
@@ -2876,20 +2859,41 @@ final class BrowserModel: ObservableObject {
             return
         }
         guard !rest.isEmpty else { return }
-        do {
-            let pairs = try FileOps.transfer(paths: rest, toDirectory: currentPath, move: forceMove)
-            if forceMove {
-                shelf.removeAll { rest.contains($0.path) }
-                pushUndo(.moved(pairs: pairs))
-            } else {
-                pushUndo(.copied(created: pairs.map(\.to)))
+        let dest = currentPath
+        let job = TransferQueue.Job(paths: rest, destinationDir: dest, move: forceMove)
+        transferProgressFraction = 0
+        transferProgressLabel = forceMove ? "Moviendo bandeja…" : "Copiando bandeja…"
+        statusMessage = transferProgressLabel
+        Task { @MainActor in
+            do {
+                let pairs = try await TransferQueue.shared.run(job) { [weak self] progress in
+                    Task { @MainActor in
+                        self?.transferProgressFraction = progress.done ? nil : progress.fraction
+                        if progress.done {
+                            self?.transferProgressLabel = nil
+                        } else {
+                            self?.transferProgressLabel = "\(progress.currentName) · \(progress.completed)/\(progress.total)"
+                            self?.statusMessage = self?.transferProgressLabel
+                        }
+                    }
+                }
+                self.transferProgressFraction = nil
+                self.transferProgressLabel = nil
+                if forceMove {
+                    self.shelf.removeAll { rest.contains($0.path) }
+                    self.pushUndo(.moved(pairs: pairs))
+                } else {
+                    self.pushUndo(.copied(created: pairs.map(\.to)))
+                }
+                self.reload()
+                self.statusMessage = forceMove
+                    ? "Movidos \(pairs.count) a esta carpeta · ⌘Z deshace"
+                    : "Copiados \(pairs.count) a esta carpeta · ⌘Z deshace"
+            } catch {
+                self.transferProgressFraction = nil
+                self.transferProgressLabel = nil
+                self.statusMessage = error.localizedDescription
             }
-            reload()
-            statusMessage = forceMove
-                ? "Movidos \(pairs.count) a esta carpeta · ⌘Z deshace"
-                : "Copiados \(pairs.count) a esta carpeta · ⌘Z deshace"
-        } catch {
-            statusMessage = error.localizedDescription
         }
     }
 
@@ -3137,21 +3141,7 @@ final class BrowserModel: ObservableObject {
         _ providers: [NSItemProvider],
         then: @escaping @MainActor ([String]) -> Void
     ) {
-        var collected: [String] = []
-        let group = DispatchGroup()
-        for provider in providers {
-            group.enter()
-            provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
-                defer { group.leave() }
-                if let data = item as? Data,
-                   let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    collected.append(url.path)
-                } else if let url = item as? URL {
-                    collected.append(url.path)
-                }
-            }
-        }
-        group.notify(queue: .main) {
+        DropPathCollector.collect(providers, typeIdentifier: "public.file-url") { collected in
             guard !collected.isEmpty else { return }
             then(collected)
         }

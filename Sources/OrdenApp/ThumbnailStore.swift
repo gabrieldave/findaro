@@ -34,10 +34,13 @@ final class ThumbnailStore {
 
     func thumbnail(for path: String, pointSize: CGFloat) async -> NSImage? {
         let pixel = max(24, Int(pointSize * (NSScreen.main?.backingScaleFactor ?? 2) * 1.5))
-        let key = "\(path)#\(pixel)" as NSString
+        guard FileManager.default.fileExists(atPath: path) else { return nil }
+        let attrs = (try? FileManager.default.attributesOfItem(atPath: path)) ?? [:]
+        let sizeStamp = (attrs[.size] as? NSNumber)?.int64Value ?? 0
+        let mtimeStamp = Int((attrs[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0)
+        let key = "\(path)#\(pixel)#\(sizeStamp)#\(mtimeStamp)" as NSString
         if let hit = cache.object(forKey: key) { return hit }
 
-        guard FileManager.default.fileExists(atPath: path) else { return nil }
         let url = URL(fileURLWithPath: path)
         let name = url.lastPathComponent
         let category = FileCategory.classify(fileName: name, isDirectory: false)

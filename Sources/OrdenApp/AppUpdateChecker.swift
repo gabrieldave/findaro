@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import CryptoKit
 
 /// Revisa el feed de distribución y ofrece instalar la versión más reciente.
 /// El repo de GitHub es privado: no sirve para descargas anónimas.
@@ -8,9 +9,10 @@ final class AppUpdateChecker: ObservableObject {
     static let shared = AppUpdateChecker()
 
     static let feedURL = URL(string: "https://ordena.iareal.net/downloads/latest.json")!
+    private static let allowedHosts: Set<String> = ["ordena.iareal.net"]
     private static let lastCheckKey = "ordena.lastUpdateCheck"
-    /// Mientras iteramos builds: cada arranque. Luego volver a 6 h.
-    private static let checkInterval: TimeInterval = 0
+    /// Intervalo de producción: 6 horas.
+    private static let checkInterval: TimeInterval = 6 * 60 * 60
 
     @Published var statusMessage: String?
     @Published var isChecking = false
@@ -21,6 +23,7 @@ final class AppUpdateChecker: ObservableObject {
         let version: String
         let dmgURL: URL
         let notesURL: URL
+        let sha256: String?
     }
 
     enum AboutStatus {
@@ -40,7 +43,6 @@ final class AppUpdateChecker: ObservableObject {
         }
     }
 
-    /// Estado corto para el panel Acerca de (sin diálogos propios).
     func aboutStatus(current: String) async -> AboutStatus {
         do {
             guard let release = try await fetchLatestRelease() else {
@@ -124,9 +126,25 @@ final class AppUpdateChecker: ObservableObject {
         guard let dmg = URL(string: decoded.dmg_url),
               let notes = URL(string: decoded.notes_url)
         else { return nil }
+        try Self.validateHTTPSHost(dmg)
+        try Self.validateHTTPSHost(notes)
         let version = decoded.version
         let tag = decoded.tag ?? "v\(version)"
-        return ReleaseInfo(tag: tag, version: version, dmgURL: dmg, notesURL: notes)
+        return ReleaseInfo(
+            tag: tag,
+            version: version,
+            dmgURL: dmg,
+            notesURL: notes,
+            sha256: decoded.sha256
+        )
+    }
+
+    private static func validateHTTPSHost(_ url: URL) throws {
+        guard url.scheme?.lowercased() == "https",
+              let host = url.host?.lowercased(),
+              allowedHosts.contains(host) else {
+            throw URLError(.unsupportedURL)
+        }
     }
 
     private func confirmUpdate(from current: String, to latest: String) async -> Bool {
@@ -167,9 +185,18 @@ final class AppUpdateChecker: ObservableObject {
             try? FileManager.default.removeItem(at: dmg)
             try FileManager.default.moveItem(at: tempURL, to: dmg)
 
+            if let expected = release.sha256?.lowercased(), !expected.isEmpty {
+                statusMessage = "Verificando integridad…"
+                let digest = try Self.sha256File(at: dmg)
+                guard digest == expected else {
+                    try? FileManager.default.removeItem(at: dmg)
+                    throw URLError(.cannotParseResponse)
+                }
+            }
+
+            let installRoot = Self.preferredInstallRoot()
             statusMessage = "Preparando instalación…"
-            // Sale la app y un script instala el .app (el binario en uso no se puede sobrescribir bien).
-            try Self.scheduleInstallAndRelaunch(dmgPath: dmg.path)
+            try Self.scheduleInstallAndRelaunch(dmgPath: dmg.path, installRoot: installRoot)
             NSApp.terminate(nil)
         } catch {
             statusMessage = "Falló la instalación automática"
@@ -184,27 +211,72 @@ final class AppUpdateChecker: ObservableObject {
         }
     }
 
-    /// Lanza un script en background: espera a que Findaro cierre, instala y reabre.
-    private static func scheduleInstallAndRelaunch(dmgPath: String) throws {
+    /// Ruta real: `/Applications` si hay permisos / ya instalado ahí; si no, `~/Applications`.
+    static func preferredInstallRoot() -> String {
+        let bundlePath = Bundle.main.bundleURL.path
+        if bundlePath.hasPrefix(NSHomeDirectory() + "/Applications/") {
+            return (NSHomeDirectory() as NSString).appendingPathComponent("Applications")
+        }
+        if FileManager.default.isWritableFile(atPath: "/Applications")
+            || FileManager.default.fileExists(atPath: "/Applications/Findaro.app") {
+            return "/Applications"
+        }
+        let homeApps = (NSHomeDirectory() as NSString).appendingPathComponent("Applications")
+        try? FileManager.default.createDirectory(atPath: homeApps, withIntermediateDirectories: true)
+        return homeApps
+    }
+
+    /// Staging + backup + swap atómico (best-effort via bash).
+    private static func scheduleInstallAndRelaunch(dmgPath: String, installRoot: String) throws {
+        let logPath = (NSHomeDirectory() as NSString).appendingPathComponent("Library/Logs/Findaro-update.log")
         let script = """
         set -euo pipefail
+        exec >> \(shellEscape(logPath)) 2>&1
+        echo "==== $(date) update start ===="
         sleep 2
         DMG=\(shellEscape(dmgPath))
+        ROOT=\(shellEscape(installRoot))
+        DEST="$ROOT/Findaro.app"
+        BACKUP="$ROOT/Findaro.app.bak-$$"
+        STAGE="$ROOT/Findaro.app.staging-$$"
         MNT=$(mktemp -d /tmp/findaro-update.XXXXXX)
-        cleanup() { hdiutil detach "$MNT" -quiet 2>/dev/null || true; rm -rf "$MNT" 2>/dev/null || true; rm -f "$DMG" 2>/dev/null || true; }
+        cleanup() {
+          hdiutil detach "$MNT" -quiet 2>/dev/null || true
+          rm -rf "$MNT" 2>/dev/null || true
+          rm -rf "$STAGE" 2>/dev/null || true
+          rm -f "$DMG" 2>/dev/null || true
+        }
         trap cleanup EXIT
         hdiutil attach "$DMG" -nobrowse -quiet -mountpoint "$MNT"
         APP=$(find "$MNT" -maxdepth 2 -name 'Findaro.app' -type d | head -1)
         test -n "$APP"
-        ditto "$APP" /Applications/Findaro.app
-        open /Applications/Findaro.app
+        rm -rf "$STAGE"
+        ditto "$APP" "$STAGE"
+        if [ -d "$DEST" ]; then
+          rm -rf "$BACKUP"
+          mv "$DEST" "$BACKUP"
+        fi
+        mv "$STAGE" "$DEST"
+        rm -rf "$BACKUP"
+        open "$DEST"
+        echo "==== $(date) update ok ===="
         """
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/bash")
         process.arguments = ["-c", script]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
         try process.run()
+    }
+
+    private static func sha256File(at url: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while true {
+            let chunk = try handle.read(upToCount: 1_048_576) ?? Data()
+            if chunk.isEmpty { break }
+            hasher.update(data: chunk)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     private static func shellEscape(_ s: String) -> String {
@@ -215,7 +287,6 @@ final class AppUpdateChecker: ObservableObject {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
     }
 
-    /// Comparación semver simple: "0.1.2" > "0.1.1"
     static func isVersion(_ a: String, newerThan b: String) -> Bool {
         let pa = a.split(separator: ".").map { Int($0) ?? 0 }
         let pb = b.split(separator: ".").map { Int($0) ?? 0 }
@@ -234,4 +305,5 @@ private struct PublicFeed: Decodable {
     let tag: String?
     let dmg_url: String
     let notes_url: String
+    let sha256: String?
 }

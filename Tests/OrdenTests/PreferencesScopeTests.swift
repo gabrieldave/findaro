@@ -3,7 +3,7 @@ import OrdenCore
 
 final class PreferencesScopeTests: XCTestCase {
     func testFolderOverrideBeatsGlobal() {
-        var prefs = OrdenPreferences(
+        let prefs = OrdenPreferences(
             schemaVersion: 8,
             globalRule: .downloads,
             folderOverrides: [

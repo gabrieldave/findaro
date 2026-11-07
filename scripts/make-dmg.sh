@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 PRODUCT_NAME="Findaro"
-VERSION="0.1.74"
+VERSION="$(grep -E '^VERSION=' scripts/package-app.sh | head -1 | cut -d= -f2 | tr -d '"')"
 ARCH="$(uname -m)"
 # Nombre del volumen al montar (aparece en Finder → Ubicaciones)
 VOL_NAME="${PRODUCT_NAME} ${VERSION}-${ARCH}"

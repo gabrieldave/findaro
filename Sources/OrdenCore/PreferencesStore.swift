@@ -127,14 +127,32 @@ public final class PreferencesStore: @unchecked Sendable {
         }
     }
 
+    /// Último error de persistencia (nil = OK). La UI puede mostrar `lastSaveError`.
+    public private(set) var lastSaveError: String?
+
     public func update(_ mutate: (inout OrdenPreferences) -> Void) {
         mutate(&preferences)
-        save()
+        do {
+            try saveThrowing()
+            lastSaveError = nil
+        } catch {
+            lastSaveError = error.localizedDescription
+        }
+    }
+
+    /// Guarda y propaga el error (tests / callers que deben fallar cerrado).
+    public func saveThrowing() throws {
+        let data = try encoder.encode(preferences)
+        try data.write(to: url, options: .atomic)
     }
 
     private func save() {
-        guard let data = try? encoder.encode(preferences) else { return }
-        try? data.write(to: url, options: .atomic)
+        do {
+            try saveThrowing()
+            lastSaveError = nil
+        } catch {
+            lastSaveError = error.localizedDescription
+        }
     }
 
     private static func freshDefaults() -> OrdenPreferences {
