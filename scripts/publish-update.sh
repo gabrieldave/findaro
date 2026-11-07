@@ -7,7 +7,8 @@ cd "$ROOT"
 VERSION="$(grep -E '^VERSION=' scripts/package-app.sh | head -1 | cut -d= -f2 | tr -d '"')"
 ARCH="$(uname -m)"
 DMG_NAME="Ordena-${VERSION}-${ARCH}.dmg"
-HOST="${ORDENA_SSH_HOST:-vps}"
+# Default: VPS ecosistema (Host «vps» a veces no resuelve en DNS local).
+HOST="${ORDENA_SSH_HOST:-root@147.93.181.3}"
 REMOTE_DIR="${ORDENA_REMOTE_DIR:-/var/www/ordena}"
 
 "$ROOT/scripts/make-dmg.sh"
