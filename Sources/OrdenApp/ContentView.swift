@@ -59,7 +59,7 @@ struct ContentView: View {
         .searchable(
             text: $browser.searchText,
             placement: .toolbar,
-            prompt: "Filtrar aquí · Return = subcarpetas"
+            prompt: "Filtrar nombres aquí"
         )
         .onSubmit(of: .search) {
             browser.startDeepSearch()
@@ -291,7 +291,7 @@ struct SortBar: View {
             .tint(browser.showDeepSearchPanel ? .orange : OrdenTheme.accent)
             .controlSize(.regular)
             .disabled(browser.deepSearchRunning)
-            .help("Busca en esta carpeta y abajo · ⌘4")
+            .help("Por nombre, desde esta carpeta hacia abajo · ⌘4")
 
             if !browser.downloadsTodayMode {
                 Menu {
@@ -1373,11 +1373,18 @@ private struct BrowserDialogsModifier: ViewModifier {
                 Text("Pega una ruta absoluta o empieza con ~/ … Atajo ⌘3")
             }
             .alert("Buscar en subcarpetas", isPresented: $browser.showDeepSearchDialog) {
-                TextField("Qué buscar (nombre)", text: $browser.deepSearchDraft)
+                TextField("Parte del nombre (ej. vibe o .pdf)", text: $browser.deepSearchDraft)
                 Button("Buscar") { browser.submitDeepSearchFromDialog() }
                 Button("Cancelar", role: .cancel) {}
             } message: {
-                Text("Mira dentro de \(shortPath(browser.currentPath)) y carpetas abajo · ⌘4")
+                Text(
+                    """
+                    Dónde: \(shortPath(browser.currentPath)) y carpetas dentro (no arriba).
+                    Qué: solo el nombre del archivo (la extensión cuenta).
+                    Cómo: con que coincida una parte basta · mayúsculas da igual.
+                    No busca: contenido dentro del archivo · ni * ni ?.
+                    """
+                )
             }
             .sheet(item: $browser.pendingMergePreview) { preview in
                 MergePreviewSheet(preview: preview)
@@ -1395,6 +1402,13 @@ struct SettingsView: View {
         Form {
             Section("Selección y bandeja") {
                 Text("Clic = uno · Arrastrar = rectángulo · ⌘+clic = listo para mover (naranja) · casillas o «Varios» = multi · ⌘C/⌘X bandeja · ⌘V suelta · ⌘Z deshace")
+            }
+            Section("Búsqueda (⌘4)") {
+                Text("Filtro de arriba: solo nombres de esta carpeta.")
+                Text("Subcarpetas / ⌘4: misma carpeta + todo lo de dentro.")
+                Text("Reglas: por nombre (extensión incluida) · parte del nombre basta (vibe → vibesystems) · mayúsculas da igual · no lee el contenido · sin comodines * ?")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section("Usar Ordena siempre (rápido)") {
                 Text("macOS no deja borrar Finder. Ordena se usa como tu explorador con estos trucos:")

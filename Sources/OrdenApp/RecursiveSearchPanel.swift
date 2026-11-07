@@ -27,6 +27,10 @@ struct RecursiveSearchPanel: View {
                 }
             }
 
+            Text("Por nombre · parcial · desde aquí hacia abajo · no contenido · sin * ?")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+
             if let p = browser.deepSearchProgress {
                 Text(
                     p.done
@@ -35,6 +39,13 @@ struct RecursiveSearchPanel: View {
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                if !browser.deepSearchRoot.isEmpty {
+                    Text("Ámbito: \(shortPath(browser.deepSearchRoot)) ↓")
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
                 if !p.currentFolder.isEmpty, !p.done {
                     Text(shortPath(p.currentFolder))
                         .font(.caption2.monospaced())
@@ -45,7 +56,7 @@ struct RecursiveSearchPanel: View {
             }
 
             if browser.deepSearchHits.isEmpty, browser.deepSearchProgress?.done == true {
-                Text("Sin coincidencias")
+                Text("Sin coincidencias de nombre bajo esta carpeta")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
