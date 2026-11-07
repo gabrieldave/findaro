@@ -4,6 +4,7 @@ import Speech
 import AppKit
 
 /// Push-to-talk local con Speech (solo mientras mantienes el botón).
+/// Los callbacks de Speech/TCC/AVFoundation llegan fuera del main thread → siempre saltamos al main.
 @MainActor
 final class VoiceCaptureController: ObservableObject {
     static let shared = VoiceCaptureController()
@@ -50,22 +51,10 @@ final class VoiceCaptureController: ObservableObject {
         transcript = ""
         phase = .requestingPermission
 
-        SFSpeechRecognizer.requestAuthorization { [weak self] status in
-            Task { @MainActor in
-                guard let self else { return }
-                guard status == .authorized else {
-                    self.phase = .error("Activa Reconocimiento de voz en Ajustes del sistema")
-                    return
-                }
-                AVCaptureDevice.requestAccess(for: .audio) { granted in
-                    Task { @MainActor in
-                        guard granted else {
-                            self.phase = .error("Activa el micrófono para Ordena en Ajustes del sistema")
-                            return
-                        }
-                        self.startEngine()
-                    }
-                }
+        // Callback de TCC NO es MainActor — no tocar self aquí.
+        SFSpeechRecognizer.requestAuthorization { status in
+            DispatchQueue.main.async {
+                VoiceCaptureController.shared.didReceiveSpeechAuthorization(status)
             }
         }
     }
@@ -85,15 +74,9 @@ final class VoiceCaptureController: ObservableObject {
 
         finishTask?.cancel()
         finishTask = Task { @MainActor in
-            // Espera resultado final; si no llega, usa el parcial.
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             guard !Task.isCancelled else { return }
-            let text = self.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-            self.stopEngine()
-            self.phase = .idle
-            if !text.isEmpty {
-                self.onFinished?(text)
-            }
+            finishWithCurrentTranscript()
         }
     }
 
@@ -105,6 +88,30 @@ final class VoiceCaptureController: ObservableObject {
         phase = .idle
     }
 
+    // MARK: - Auth hops (siempre en main)
+
+    private func didReceiveSpeechAuthorization(_ status: SFSpeechRecognizerAuthorizationStatus) {
+        guard status == .authorized else {
+            phase = .error("Activa Reconocimiento de voz en Ajustes del sistema")
+            return
+        }
+        AVCaptureDevice.requestAccess(for: .audio) { granted in
+            DispatchQueue.main.async {
+                VoiceCaptureController.shared.didReceiveMicrophoneAccess(granted)
+            }
+        }
+    }
+
+    private func didReceiveMicrophoneAccess(_ granted: Bool) {
+        guard granted else {
+            phase = .error("Activa el micrófono para Ordena en Ajustes del sistema")
+            return
+        }
+        startEngine()
+    }
+
+    // MARK: - Engine
+
     private func startEngine() {
         stopEngine()
         guard let recognizer = speechRecognizer, recognizer.isAvailable else {
@@ -115,7 +122,6 @@ final class VoiceCaptureController: ObservableObject {
         let engine = AVAudioEngine()
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
-        // Preferir on-device; si el locale no lo soporta, Speech falla y avisamos.
         if recognizer.supportsOnDeviceRecognition {
             request.requiresOnDeviceRecognition = true
         }
@@ -142,33 +148,40 @@ final class VoiceCaptureController: ObservableObject {
         recognitionRequest = request
         phase = .listening
 
-        recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            Task { @MainActor in
-                guard let self else { return }
-                if let result {
-                    self.transcript = result.bestTranscription.formattedString
-                    if result.isFinal, case .processing = self.phase {
-                        self.finishTask?.cancel()
-                        let text = self.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-                        self.stopEngine()
-                        self.phase = .idle
-                        if !text.isEmpty {
-                            self.onFinished?(text)
-                        }
-                    }
-                }
-                if let error {
-                    // Cancelación al soltar no es error fatal si ya hay texto.
-                    let ns = error as NSError
-                    if ns.domain == "kAFAssistantErrorDomain", ns.code == 1110 {
-                        return
-                    }
-                    if self.transcript.isEmpty, case .listening = self.phase {
-                        self.phase = .error(error.localizedDescription)
-                        self.stopEngine()
-                    }
-                }
+        recognitionTask = recognizer.recognitionTask(with: request) { result, error in
+            DispatchQueue.main.async {
+                VoiceCaptureController.shared.didReceiveRecognition(result: result, error: error)
             }
+        }
+    }
+
+    private func didReceiveRecognition(result: SFSpeechRecognitionResult?, error: Error?) {
+        if let result {
+            transcript = result.bestTranscription.formattedString
+            if result.isFinal, case .processing = phase {
+                finishTask?.cancel()
+                finishWithCurrentTranscript()
+            }
+        }
+        if let error {
+            let ns = error as NSError
+            // Cancelación / fin de audio no es fallo si ya hay texto.
+            if ns.domain == "kAFAssistantErrorDomain", ns.code == 1110 || ns.code == 216 {
+                return
+            }
+            if transcript.isEmpty, case .listening = phase {
+                phase = .error(error.localizedDescription)
+                stopEngine()
+            }
+        }
+    }
+
+    private func finishWithCurrentTranscript() {
+        let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        stopEngine()
+        phase = .idle
+        if !text.isEmpty {
+            onFinished?(text)
         }
     }
 
