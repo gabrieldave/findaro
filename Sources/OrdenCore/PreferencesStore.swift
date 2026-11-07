@@ -19,9 +19,11 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     /// Fase 3: usar Ollama si está corriendo (opt-in).
     public var ollamaEnabled: Bool
     public var ollamaModel: String
+    /// Plantillas de vista (orden + modo + filtro) para reaplicar cuando quieras.
+    public var viewTemplates: [ViewTemplate]
 
     public init(
-        schemaVersion: Int = 12,
+        schemaVersion: Int = 13,
         globalRule: SortRule = .downloads,
         folderOverrides: [String: SortRule] = [:],
         favorites: [String] = [],
@@ -31,7 +33,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         explorerKeyboardProfile: Bool = false,
         assistantShortcuts: [AssistantShortcut] = AssistantShortcut.factoryDefaults(),
         ollamaEnabled: Bool = false,
-        ollamaModel: String = "qwen2.5:3b"
+        ollamaModel: String = "qwen2.5:3b",
+        viewTemplates: [ViewTemplate] = ViewTemplate.factoryDefaults()
     ) {
         self.schemaVersion = schemaVersion
         self.globalRule = globalRule
@@ -44,6 +47,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         self.assistantShortcuts = assistantShortcuts
         self.ollamaEnabled = ollamaEnabled
         self.ollamaModel = ollamaModel
+        self.viewTemplates = viewTemplates
     }
 
     /// Override de carpeta si existe; si no, el global (estilo Descargas por defecto).
@@ -59,7 +63,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode, showRowPaths,
-             explorerKeyboardProfile, assistantShortcuts, ollamaEnabled, ollamaModel
+             explorerKeyboardProfile, assistantShortcuts, ollamaEnabled, ollamaModel, viewTemplates
     }
 
     public init(from decoder: Decoder) throws {
@@ -76,6 +80,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
             ?? AssistantShortcut.factoryDefaults()
         ollamaEnabled = try c.decodeIfPresent(Bool.self, forKey: .ollamaEnabled) ?? false
         ollamaModel = try c.decodeIfPresent(String.self, forKey: .ollamaModel) ?? "qwen2.5:3b"
+        viewTemplates = try c.decodeIfPresent([ViewTemplate].self, forKey: .viewTemplates)
+            ?? ViewTemplate.factoryDefaults()
     }
 }
 
@@ -123,7 +129,7 @@ public final class PreferencesStore: @unchecked Sendable {
     private static func freshDefaults() -> OrdenPreferences {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return OrdenPreferences(
-            schemaVersion: 12,
+            schemaVersion: 13,
             globalRule: .downloads,
             folderOverrides: [:],
             favorites: [
@@ -134,7 +140,8 @@ public final class PreferencesStore: @unchecked Sendable {
             ],
             lastPath: (home as NSString).appendingPathComponent("Downloads"),
             showRowPaths: true,
-            explorerKeyboardProfile: false
+            explorerKeyboardProfile: false,
+            viewTemplates: ViewTemplate.factoryDefaults()
         )
     }
 
@@ -177,9 +184,18 @@ public final class PreferencesStore: @unchecked Sendable {
             }
             next.schemaVersion = 12
         }
+        if next.schemaVersion < 13 {
+            if next.viewTemplates.isEmpty {
+                next.viewTemplates = ViewTemplate.factoryDefaults()
+            }
+            next.schemaVersion = 13
+        }
         // Tope duro: gente crea muchos; no dejamos crecer sin límite.
         if next.assistantShortcuts.count > AssistantShortcut.maxCount {
             next.assistantShortcuts = Array(next.assistantShortcuts.prefix(AssistantShortcut.maxCount))
+        }
+        if next.viewTemplates.count > ViewTemplate.maxCount {
+            next.viewTemplates = Array(next.viewTemplates.prefix(ViewTemplate.maxCount))
         }
         return next
     }

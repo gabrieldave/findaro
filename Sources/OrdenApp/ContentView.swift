@@ -443,22 +443,63 @@ struct SortBar: View {
                 .menuStyle(.borderedButton)
 
                 Menu {
-                    Button("Solo esta carpeta") {
-                        browser.applyRule(browser.rule, scope: .thisFolder)
+                    if browser.viewTemplates.isEmpty {
+                        Text("Sin plantillas todavía")
+                    } else {
+                        Section("Aplicar plantilla") {
+                            ForEach(browser.viewTemplates) { template in
+                                Button {
+                                    browser.applyViewTemplate(template)
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(template.name)
+                                        Text(template.summarySpanish)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
                     }
-                    Button("Default en todas") {
-                        browser.applyRule(browser.rule, scope: .everywhere)
+                    Divider()
+                    Button("Guardar vista actual como plantilla…") {
+                        browser.promptSaveViewTemplate()
+                    }
+                    if !browser.viewTemplates.isEmpty {
+                        Menu("Eliminar plantilla") {
+                            ForEach(browser.viewTemplates) { template in
+                                Button(role: .destructive) {
+                                    browser.deleteViewTemplate(template)
+                                } label: {
+                                    Text(template.name)
+                                }
+                            }
+                        }
                     }
                 } label: {
-                    Label("Guardar", systemImage: "square.and.arrow.down")
+                    Label("Plantillas", systemImage: "rectangle.stack")
                 }
                 .menuStyle(.borderedButton)
+                .help(Self.plantillasHelp)
+
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.secondary)
+                    .help(Self.plantillasHelp)
+                    .accessibilityLabel("Qué son las plantillas")
             }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
+
+    private static let plantillasHelp = """
+    Plantillas = formas guardadas de ver tus archivos.
+
+    Ejemplo: ordenas por «Más pesados», eliges lista o iconos, y lo guardas como plantilla «Pesados». Después la vuelves a aplicar con un clic, o dejas esa vista puesta.
+
+    También puedes combinar (tipo + orden) y guardar tu propia mezcla. El menú Ordenar cambia el orden al momento; Plantillas guarda y recarga esas combinaciones.
+    """
 
     @ViewBuilder
     private func sortButtons(scope: SortSaveScope) -> some View {
@@ -1667,6 +1708,10 @@ private struct BrowserDialogsModifier: ViewModifier {
             }
             .sheet(isPresented: $browser.showFolderHandlerSetupDialog) {
                 FolderHandlerSetupSheet(result: browser.folderHandlerSetupResult)
+                    .environmentObject(browser)
+            }
+            .sheet(isPresented: $browser.showSaveTemplateDialog) {
+                SaveTemplateSheet()
                     .environmentObject(browser)
             }
             .sheet(item: $browser.pendingMergePreview) { preview in

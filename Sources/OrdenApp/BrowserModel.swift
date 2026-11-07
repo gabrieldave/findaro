@@ -131,6 +131,12 @@ final class BrowserModel: ObservableObject {
     @Published var folderHandlerSetupResult: FolderHandlerSetupResult = .readyForOpenWith(appPath: "")
     @Published var agentPlan: AgentPlan?
 
+    // MARK: Plantillas de vista
+    @Published var viewTemplates: [ViewTemplate] = []
+    @Published var showSaveTemplateDialog = false
+    @Published var templateNameDraft = ""
+    @Published var activeViewTemplateID: UUID?
+
     func runFolderHandlerSetup() {
         let result = OpenFolderBridge.prepareFolderOpener()
         folderHandlerSetupResult = result
@@ -213,6 +219,7 @@ final class BrowserModel: ObservableObject {
         self.showRowPaths = store.preferences.showRowPaths
         self.explorerKeyboardProfile = store.preferences.explorerKeyboardProfile
         self.assistantShortcuts = store.preferences.assistantShortcuts
+        self.viewTemplates = store.preferences.viewTemplates
         self.columnPaths = [start]
         let desktop = (FileManager.default.homeDirectoryForCurrentUser.path as NSString)
             .appendingPathComponent("Desktop")
@@ -1795,6 +1802,53 @@ final class BrowserModel: ObservableObject {
 
     func saveCurrentAsGlobalDefault() {
         applyRule(rule, scope: .everywhere)
+    }
+
+    /// Aplica una plantilla guardada (orden + vista + filtro) y la deja como default.
+    func applyViewTemplate(_ template: ViewTemplate) {
+        downloadsTodayMode = false
+        activeAssistantShortcut = nil
+        applyRule(template.rule, scope: .everywhere)
+        setViewMode(template.viewMode)
+        categoryFilter = template.categoryFilter
+        activeViewTemplateID = template.id
+        statusMessage = "Plantilla «\(template.name)» aplicada"
+        objectWillChange.send()
+    }
+
+    func promptSaveViewTemplate() {
+        templateNameDraft = ""
+        showSaveTemplateDialog = true
+    }
+
+    func confirmSaveViewTemplate() {
+        let name = templateNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        if viewTemplates.count >= ViewTemplate.maxCount {
+            statusMessage = "Máximo \(ViewTemplate.maxCount) plantillas"
+            showSaveTemplateDialog = false
+            return
+        }
+        let template = ViewTemplate(
+            name: name,
+            rule: rule,
+            viewMode: viewMode,
+            categoryFilter: categoryFilter
+        )
+        viewTemplates.append(template)
+        store.update { $0.viewTemplates = viewTemplates }
+        activeViewTemplateID = template.id
+        showSaveTemplateDialog = false
+        statusMessage = "Plantilla «\(name)» guardada"
+    }
+
+    func deleteViewTemplate(_ template: ViewTemplate) {
+        viewTemplates.removeAll { $0.id == template.id }
+        if activeViewTemplateID == template.id {
+            activeViewTemplateID = nil
+        }
+        store.update { $0.viewTemplates = viewTemplates }
+        statusMessage = "Plantilla «\(template.name)» eliminada"
     }
 
     /// Orden por peso: lo más pesado arriba (no borra nada). Se guarda como default.
