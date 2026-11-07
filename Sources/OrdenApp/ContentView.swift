@@ -227,17 +227,46 @@ struct ContentView: View {
                                 .tint(OrdenTheme.accent)
                                 .controlSize(.small)
                                 .help("Enfoca el panel izquierdo · Tab · ⌘⇧←")
+                                Button {
+                                    browser.transferSecondarySelectionToPrimary(copy: false)
+                                } label: {
+                                    Label("← Mover", systemImage: "arrow.left.circle.fill")
+                                        .font(.caption.weight(.semibold))
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.orange)
+                                .controlSize(.small)
+                                .disabled(browser.secondarySelectedIDs.isEmpty)
+                                .help("Mueve la selección del Destino (derecha) a este panel")
+                                Button {
+                                    browser.transferPrimarySelectionToSecondary(copy: false)
+                                } label: {
+                                    Label("Mover →", systemImage: "arrow.right.circle.fill")
+                                        .font(.caption.weight(.semibold))
+                                }
+                                .controlSize(.small)
+                                .disabled(browser.selectedIDs.isEmpty)
+                                .help("Mueve la selección de aquí al Destino")
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .contentShape(Rectangle())
                             .onTapGesture { browser.focusOriginPane() }
-                            Text("Clic aquí o Tab · Favoritos van a este panel si está activo")
+                            Text("Arrastra archivos al otro panel · o usa ← Mover / Mover →")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                                 .padding(.horizontal, 10)
                                 .padding(.bottom, 4)
                             FileBrowserPane()
+                                .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
+                                    DualPaneDrop.handle(providers) { paths, copy in
+                                        if paths.isEmpty {
+                                            browser.transferSecondarySelectionToPrimary(copy: copy)
+                                        } else {
+                                            _ = browser.dropPathsOnPrimary(paths, copy: copy)
+                                        }
+                                    }
+                                }
                         }
                         .frame(minWidth: 220)
                         .layoutPriority(1)

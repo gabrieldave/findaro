@@ -845,50 +845,71 @@ final class BrowserModel: ObservableObject {
         guard dualPaneEnabled else { return }
         let paths = selectedEntries.map(\.path)
         guard !paths.isEmpty else {
-            statusMessage = "Selecciona archivos a la izquierda primero"
+            statusMessage = "Selecciona archivos a la izquierda (Origen) primero"
             return
         }
-        guard AgentPolicy.isPathAllowed(secondaryPath) else {
-            statusMessage = "Destino no permitido"
+        _ = transferPaths(paths, toDirectory: secondaryPath, copy: copy, clearPrimary: true, clearSecondary: false)
+    }
+
+    /// Mueve (o copia) la selección del panel derecho al izquierdo (Origen).
+    func transferSecondarySelectionToPrimary(copy: Bool = false) {
+        guard dualPaneEnabled else { return }
+        let paths = secondaryEntries.filter { secondarySelectedIDs.contains($0.id) }.map(\.path)
+        guard !paths.isEmpty else {
+            statusMessage = "Selecciona archivos a la derecha (Destino) primero"
             return
         }
-        do {
-            let pairs = try FileOps.transfer(paths: paths, toDirectory: secondaryPath, move: !copy)
-            if copy {
-                pushUndo(.copied(created: pairs.map(\.to)))
-            } else {
-                pushUndo(.moved(pairs: pairs))
-            }
-            noteLocalFileMutation()
-            reload()
-            reloadSecondary()
-            clearSelection()
-            let verb = copy ? "Copié" : "Moví"
-            statusMessage = pairs.count == 1
-                ? "\(verb) 1 ítem → panel derecho"
-                : "\(verb) \(pairs.count) ítems → panel derecho"
-        } catch {
-            statusMessage = error.localizedDescription
-        }
+        _ = transferPaths(paths, toDirectory: currentPath, copy: copy, clearPrimary: false, clearSecondary: true)
     }
 
     /// Suelta rutas (Finder / drag interno) en el panel derecho.
     @discardableResult
     func dropPathsOnSecondary(_ paths: [String], copy: Bool) -> Bool {
+        transferPaths(paths, toDirectory: secondaryPath, copy: copy, clearPrimary: false, clearSecondary: false)
+    }
+
+    /// Suelta rutas en el panel izquierdo (Origen) — p. ej. arrastrando desde Destino.
+    @discardableResult
+    func dropPathsOnPrimary(_ paths: [String], copy: Bool) -> Bool {
+        transferPaths(paths, toDirectory: currentPath, copy: copy, clearPrimary: false, clearSecondary: false)
+    }
+
+    @discardableResult
+    private func transferPaths(
+        _ paths: [String],
+        toDirectory dest: String,
+        copy: Bool,
+        clearPrimary: Bool,
+        clearSecondary: Bool
+    ) -> Bool {
         guard dualPaneEnabled, !paths.isEmpty else { return false }
+        guard AgentPolicy.isPathAllowed(dest) else {
+            statusMessage = "Destino no permitido"
+            return false
+        }
+        let destStd = (dest as NSString).standardizingPath
+        let filtered = paths.filter { ($0 as NSString).deletingLastPathComponent != destStd }
+        guard !filtered.isEmpty else {
+            statusMessage = "Ya están en esa carpeta"
+            return false
+        }
         do {
-            let pairs = try FileOps.transfer(paths: paths, toDirectory: secondaryPath, move: !copy)
+            let pairs = try FileOps.transfer(paths: filtered, toDirectory: destStd, move: !copy)
             if copy {
                 pushUndo(.copied(created: pairs.map(\.to)))
             } else {
                 pushUndo(.moved(pairs: pairs))
             }
             noteLocalFileMutation()
+            if clearPrimary { clearSelection() }
+            if clearSecondary { secondarySelectedIDs = [] }
             reload()
             reloadSecondary()
-            statusMessage = copy
-                ? "Copiado al panel derecho"
-                : "Movido al panel derecho"
+            let verb = copy ? "Copié" : "Moví"
+            let short = (destStd as NSString).lastPathComponent
+            statusMessage = pairs.count == 1
+                ? "\(verb) 1 ítem → \(short)"
+                : "\(verb) \(pairs.count) ítems → \(short)"
             return true
         } catch {
             statusMessage = error.localizedDescription

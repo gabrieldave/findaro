@@ -83,7 +83,7 @@ struct SecondaryBrowserPane: View {
                 .tint(.orange)
                 .controlSize(.small)
                 .disabled(browser.selectedIDs.isEmpty)
-                .help("Mueve la selección de la izquierda · ⌘⇧M")
+                .help("Mueve la selección de Origen (izquierda) aquí · ⌘⇧M")
                 Button {
                     browser.transferPrimarySelectionToSecondary(copy: true)
                 } label: {
@@ -92,7 +92,18 @@ struct SecondaryBrowserPane: View {
                 }
                 .controlSize(.small)
                 .disabled(browser.selectedIDs.isEmpty)
-                .help("Copia la selección de la izquierda aquí")
+                .help("Copia la selección de Origen aquí")
+                Button {
+                    browser.transferSecondarySelectionToPrimary(copy: false)
+                } label: {
+                    Label("← Origen", systemImage: "arrow.left.circle.fill")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.purple)
+                .controlSize(.small)
+                .disabled(browser.secondarySelectedIDs.isEmpty)
+                .help("Mueve lo seleccionado aquí hacia Origen (izquierda). También puedes arrastrar.")
             }
 
             Text(shortPath(browser.secondaryPath))
@@ -102,7 +113,7 @@ struct SecondaryBrowserPane: View {
                 .truncationMode(.middle)
                 .help(browser.secondaryPath)
 
-            Text("Tab = cambiar panel · ⌘⇧← Origen · ⌘⇧→ aquí · ⌘⇧M mover selección")
+            Text("Arrastra entre paneles · ← Origen / Mover → · Tab cambia panel")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
@@ -151,7 +162,22 @@ struct SecondaryBrowserPane: View {
         .onTapGesture(count: 1) {
             browser.selectSecondaryOnly(entry.id)
         }
+        .onDrag {
+            if !browser.secondarySelectedIDs.contains(entry.id) {
+                browser.selectSecondaryOnly(entry.id)
+            }
+            return NSItemProvider(contentsOf: URL(fileURLWithPath: entry.path)) ?? NSItemProvider()
+        }
         .contextMenu {
+            Button("Mover a Origen") {
+                browser.selectSecondaryOnly(entry.id)
+                browser.transferSecondarySelectionToPrimary(copy: false)
+            }
+            Button("Copiar a Origen") {
+                browser.selectSecondaryOnly(entry.id)
+                browser.transferSecondarySelectionToPrimary(copy: true)
+            }
+            Divider()
             if entry.isDirectory {
                 Button("Abrir aquí") { browser.openSecondaryEntry(entry) }
             } else {
@@ -167,30 +193,13 @@ struct SecondaryBrowserPane: View {
     }
 
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
-        var paths: [String] = []
-        let group = DispatchGroup()
-        for provider in providers {
-            group.enter()
-            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                defer { group.leave() }
-                if let data = item as? Data,
-                   let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    paths.append(url.path)
-                } else if let url = item as? URL {
-                    paths.append(url.path)
-                }
-            }
-        }
-        group.notify(queue: .main) {
-            let copy = NSEvent.modifierFlags.contains(.option)
-            // Si no hay paths externos, mueve la selección primaria.
+        DualPaneDrop.handle(providers) { paths, copy in
             if paths.isEmpty {
                 browser.transferPrimarySelectionToSecondary(copy: copy)
             } else {
                 _ = browser.dropPathsOnSecondary(paths, copy: copy)
             }
         }
-        return true
     }
 
     private func shortPath(_ path: String) -> String {

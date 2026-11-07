@@ -101,6 +101,11 @@ struct OrdenApp: App {
                 }
                 .keyboardShortcut("m", modifiers: [.command, .shift])
                 .disabled(!browser.dualPaneEnabled || browser.selectedIDs.isEmpty)
+                Button("Mover selección → Origen") {
+                    browser.transferSecondarySelectionToPrimary(copy: false)
+                }
+                .keyboardShortcut("m", modifiers: [.command, .shift, .option])
+                .disabled(!browser.dualPaneEnabled || browser.secondarySelectedIDs.isEmpty)
             }
 
             CommandMenu("Asistente") {
