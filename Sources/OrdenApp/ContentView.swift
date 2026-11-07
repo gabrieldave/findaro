@@ -185,7 +185,7 @@ struct ContentView: View {
                 if browser.dualPaneEnabled {
                     HSplitView {
                         VStack(spacing: 0) {
-                            HStack {
+                            HStack(spacing: 8) {
                                 Text("Origen")
                                     .font(.caption.weight(.semibold))
                                 if browser.focusedPane == .primary {
@@ -195,21 +195,38 @@ struct ContentView: View {
                                         .padding(.vertical, 2)
                                         .background(OrdenTheme.accent.opacity(0.3), in: Capsule())
                                 }
-                                Spacer()
-                                Button("Usar favoritos aquí") {
-                                    browser.focusPane(.primary)
+                                Spacer(minLength: 4)
+                                Button {
+                                    browser.focusOriginPane()
+                                } label: {
+                                    Label("Activar", systemImage: "arrow.left.circle.fill")
+                                        .font(.caption.weight(.semibold))
                                 }
-                                .font(.caption2)
-                                .buttonStyle(.borderless)
+                                .buttonStyle(.borderedProminent)
+                                .tint(OrdenTheme.accent)
+                                .controlSize(.small)
+                                .help("Enfoca el panel izquierdo · Tab · ⌘⇧←")
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .contentShape(Rectangle())
-                            .onTapGesture { browser.focusPane(.primary) }
+                            .onTapGesture { browser.focusOriginPane() }
+                            Text("Clic aquí o Tab · Favoritos van a este panel si está activo")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .padding(.horizontal, 10)
+                                .padding(.bottom, 4)
                             FileBrowserPane()
                         }
                         .frame(minWidth: 220)
                         .layoutPriority(1)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(
+                                    browser.focusedPane == .primary ? OrdenTheme.accent : Color.clear,
+                                    lineWidth: 2
+                                )
+                        )
                         SecondaryBrowserPane()
                             .frame(minWidth: 220)
                     }

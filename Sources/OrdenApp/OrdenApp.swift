@@ -76,8 +76,24 @@ struct OrdenApp: App {
                     }
                 }
                 .disabled(!browser.hasActiveViewFilters)
-                Button("Dos paneles") { browser.toggleDualPane() }
-                    .keyboardShortcut("d", modifiers: [.command, .shift])
+                Button(browser.dualPaneEnabled ? "Un panel" : "Dos paneles") {
+                    browser.toggleDualPane()
+                }
+                .keyboardShortcut("d", modifiers: [.command, .shift])
+                Divider()
+                Button("Panel Origen") { browser.focusOriginPane() }
+                    .keyboardShortcut(.leftArrow, modifiers: [.command, .shift])
+                    .disabled(!browser.dualPaneEnabled)
+                Button("Panel Destino") { browser.focusDestinationPane() }
+                    .keyboardShortcut(.rightArrow, modifiers: [.command, .shift])
+                    .disabled(!browser.dualPaneEnabled)
+                Button("Cambiar de panel (Tab)") { browser.toggleFocusedPane() }
+                    .disabled(!browser.dualPaneEnabled)
+                Button("Mover selección → Destino") {
+                    browser.transferPrimarySelectionToSecondary(copy: false)
+                }
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+                .disabled(!browser.dualPaneEnabled || browser.selectedIDs.isEmpty)
             }
 
             CommandMenu("Asistente") {

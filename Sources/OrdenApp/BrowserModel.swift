@@ -328,6 +328,9 @@ final class BrowserModel: ObservableObject {
 
     /// Clic: ⇧ rango · ⌘ = **el mismo** `selectRange` + naranja · Varios/casilla · normal = uno.
     func clickSelect(_ id: String) {
+        if dualPaneEnabled {
+            focusedPane = .primary
+        }
         let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.shift) {
             selectRange(to: id)
@@ -731,8 +734,31 @@ final class BrowserModel: ObservableObject {
     }
 
     func focusPane(_ pane: PaneFocus) {
+        guard dualPaneEnabled else {
+            focusedPane = .primary
+            return
+        }
         focusedPane = pane
+        statusMessage = pane == .primary
+            ? "Panel Origen activo · Tab cambia · ⌘⇧→ Destino"
+            : "Panel Destino activo · Tab cambia · ⌘⇧← Origen"
         objectWillChange.send()
+    }
+
+    /// Alterna Origen ↔ Destino (Tab / menú).
+    func toggleFocusedPane() {
+        guard dualPaneEnabled else { return }
+        focusPane(focusedPane == .primary ? .secondary : .primary)
+    }
+
+    func focusOriginPane() {
+        guard dualPaneEnabled else { return }
+        focusPane(.primary)
+    }
+
+    func focusDestinationPane() {
+        guard dualPaneEnabled else { return }
+        focusPane(.secondary)
     }
 
     func navigateSecondary(to path: String) {

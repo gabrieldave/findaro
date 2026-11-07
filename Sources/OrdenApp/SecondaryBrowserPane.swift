@@ -54,6 +54,18 @@ struct SecondaryBrowserPane: View {
                         .background(OrdenTheme.accent.opacity(0.25), in: Capsule())
                 }
                 Spacer(minLength: 0)
+                if !focused {
+                    Button {
+                        browser.focusDestinationPane()
+                    } label: {
+                        Label("Activar", systemImage: "arrow.right.circle.fill")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(OrdenTheme.accent)
+                    .controlSize(.small)
+                    .help("Enfoca Destino · Tab · ⌘⇧→")
+                }
                 Button {
                     browser.goUpSecondary()
                 } label: {
@@ -71,7 +83,7 @@ struct SecondaryBrowserPane: View {
                 .tint(.orange)
                 .controlSize(.small)
                 .disabled(browser.selectedIDs.isEmpty)
-                .help("Mueve la selección de la izquierda a esta carpeta")
+                .help("Mueve la selección de la izquierda · ⌘⇧M")
                 Button {
                     browser.transferPrimarySelectionToSecondary(copy: true)
                 } label: {
@@ -90,7 +102,7 @@ struct SecondaryBrowserPane: View {
                 .truncationMode(.middle)
                 .help(browser.secondaryPath)
 
-            Text("Favoritos / Ir → van aquí si el panel está activo. Bandeja abajo sigue disponible.")
+            Text("Tab = cambiar panel · ⌘⇧← Origen · ⌘⇧→ aquí · ⌘⇧M mover selección")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }

@@ -58,6 +58,32 @@ enum SelectionCancelMonitor {
                 return nil
             }
 
+            // Tab → alternar Origen ↔ Destino (solo dual pane)
+            // keyCode 48 = Tab
+            if browser.dualPaneEnabled, key == 48, !opt, !cmd, !ctrl {
+                browser.toggleFocusedPane()
+                return nil
+            }
+
+            // ⌘⇧← Origen · ⌘⇧→ Destino
+            if browser.dualPaneEnabled, cmd, shift, !opt, !ctrl {
+                if key == 123 { // left
+                    browser.focusOriginPane()
+                    return nil
+                }
+                if key == 124 { // right
+                    browser.focusDestinationPane()
+                    return nil
+                }
+            }
+
+            // ⌘⇧M → mover selección del Origen al Destino
+            if browser.dualPaneEnabled, cmd, shift, !opt, !ctrl,
+               chars.lowercased() == "m" || key == 46 {
+                browser.transferPrimarySelectionToSecondary(copy: false)
+                return nil
+            }
+
             // Espacio → Vista rápida (Quick Look). onKeyPress de SwiftUI no llega
             // con el foco en la lista/scroll; el monitor AppKit sí.
             // ⌃Espacio es voz (arriba); aquí solo Espacio solo.
