@@ -6,8 +6,8 @@ cd "$ROOT"
 
 PRODUCT_NAME="Ordena"
 BUNDLE_ID="app.ordena.files"
-VERSION="0.1.62"
-BUILD="65"
+VERSION="0.1.63"
+BUILD="66"
 
 swift build -c release --product Orden
 BIN="$(swift build -c release --show-bin-path)/Orden"
@@ -96,7 +96,22 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-codesign --force --deep --sign - "$APP_DIR" >/dev/null 2>&1 || true
+ENTITLEMENTS="$ROOT/Resources/Ordena.entitlements"
+SIGN_ID="${ORDENA_SIGN_IDENTITY:-}"
+if [[ -z "$SIGN_ID" ]]; then
+  SIGN_ID="$(security find-identity -v -p codesigning 2>/dev/null \
+    | awk -F'"' '/Developer ID Application/ {print $2; exit}')"
+fi
+if [[ -n "$SIGN_ID" ]]; then
+  echo "==> Firmando con: $SIGN_ID"
+  codesign --force --deep --options runtime --timestamp \
+    --entitlements "$ENTITLEMENTS" \
+    --sign "$SIGN_ID" "$APP_DIR"
+  codesign --verify --deep --strict --verbose=2 "$APP_DIR"
+else
+  echo "==> Sin Developer ID — firma adhoc (Gatekeeper pedirá clic derecho → Abrir)"
+  codesign --force --deep --sign - "$APP_DIR" >/dev/null 2>&1 || true
+fi
 
 # Limpia nombres viejos y Escritorio
 rm -rf "$HOME/Desktop/Orden.app" "$HOME/Desktop/Ordena.app" \
