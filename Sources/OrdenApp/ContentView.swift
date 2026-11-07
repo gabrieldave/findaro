@@ -1468,6 +1468,10 @@ private struct BrowserDialogsModifier: ViewModifier {
                 DeepSearchSheet()
                     .environmentObject(browser)
             }
+            .sheet(isPresented: $browser.showOllamaSetupDialog) {
+                OllamaSetupSheet()
+                    .environmentObject(browser)
+            }
             .sheet(item: $browser.pendingMergePreview) { preview in
                 MergePreviewSheet(preview: preview)
                     .environmentObject(browser)
@@ -1482,105 +1486,260 @@ struct SettingsView: View {
     @StateObject private var ollama = OllamaClient.shared
 
     var body: some View {
+        TabView {
+            settingsGeneral
+                .tabItem { Label("General", systemImage: "slider.horizontal.3") }
+            settingsAssistant
+                .tabItem { Label("Asistente", systemImage: "sparkles") }
+            settingsSearch
+                .tabItem { Label("Búsqueda", systemImage: "magnifyingglass") }
+            settingsMaintenance
+                .tabItem { Label("Mantenimiento", systemImage: "wrench.and.screwdriver") }
+        }
+        .frame(width: 520, height: 420)
+        .sheet(isPresented: $browser.showOllamaSetupDialog) {
+            OllamaSetupSheet()
+                .environmentObject(browser)
+        }
+        .task {
+            ollama.applyPreferences(browser.store.preferences)
+            await ollama.probe()
+        }
+    }
+
+    // MARK: General
+
+    private var settingsGeneral: some View {
         Form {
-            Section("Selección y bandeja") {
-                Text("Clic = uno · Arrastrar = rectángulo · ⌘+clic = listo para mover (naranja) · casillas o «Varios» = multi · ⌘C/⌘X bandeja · ⌘V suelta · ⌘Z deshace")
-            }
-            Section("Asistente e IA (Ollama)") {
-                Toggle("Usar Ollama si está corriendo", isOn: Binding(
-                    get: { browser.store.preferences.ollamaEnabled },
-                    set: { browser.setOllamaEnabled($0) }
-                ))
-                Text("Apagado por defecto. Con Ollama en este Mac, el asistente puede planear búsquedas con frases. Sin Ollama sigue con reglas y atajos.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if ollama.enabled {
-                    if ollama.available {
-                        Picker("Modelo", selection: Binding(
-                            get: { ollama.selectedModel },
-                            set: { browser.setOllamaModel($0) }
-                        )) {
-                            ForEach(ollama.models, id: \.self) { model in
-                                Text(model).tag(model)
-                            }
-                        }
-                        Text("Listo · \(ollama.models.count) modelo(s) en :11434")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text(ollama.lastError ?? "No encuentro Ollama en http://127.0.0.1:11434")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
+            Section {
+                settingsRow(
+                    icon: "keyboard",
+                    tint: OrdenTheme.accent,
+                    title: "Atajo global",
+                    subtitle: "Abre Ordena en Descargas"
+                ) {
+                    Text("⌃⌥O")
+                        .font(.body.monospaced().weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(OrdenTheme.panelFill, in: Capsule())
+                }
+
+                settingsRow(
+                    icon: "folder.badge.gearshape",
+                    tint: .orange,
+                    title: "Abrir carpetas con Ordena",
+                    subtitle: OpenFolderBridge.isDefaultFolderHandler()
+                        ? "Ordena es la app por defecto"
+                        : "Ahora abre Finder u otra app"
+                ) {
+                    Button(OpenFolderBridge.isDefaultFolderHandler() ? "Ya está" : "Usar Ordena") {
+                        let ok = OpenFolderBridge.setAsDefaultFolderHandler()
+                        browser.statusMessage = ok
+                            ? "Listo. Clic derecho en carpeta → Abrir con → Ordena → Siempre"
+                            : "No se pudo registrar"
                     }
-                    Button("Probar conexión Ollama") {
-                        Task { await ollama.refresh() }
-                    }
+                    .disabled(OpenFolderBridge.isDefaultFolderHandler())
                 }
-                Text("Atajos del asistente: hasta \(AssistantShortcut.maxCount). Créalos en el panel (⌘5) → Nuevo.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Inicio rápido")
+            } footer: {
+                Text("El Finder de Apple no se puede quitar. Fija Ordena en el Dock y usa ⌃⌥O.")
             }
-            Section("Búsqueda (⌘4)") {
-                Text("Filtro de arriba: solo nombres de esta carpeta.")
-                Text("Subcarpetas / ⌘4: misma carpeta + todo lo de dentro.")
-                Text("Reglas: por nombre (extensión incluida) · parte del nombre basta (vibe → vibesystems) · mayúsculas da igual · no lee el contenido · sin comodines * ?")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("Asistente: atajos (tipo+fecha) ya; con Ollama, frases y contenido de texto.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Section("Usar Ordena siempre (rápido)") {
-                Text("macOS no deja borrar Finder. Ordena se usa como tu explorador con estos trucos:")
-                LabeledContent("Atajo global", value: "⌃⌥O")
-                Text("Control+Option+O abre Ordena en Descargas. El ✕ rojo solo oculta la ventana (sigue en segundo plano); ⌘Q sale de verdad.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button("Usar Ordena para abrir carpetas") {
-                    let ok = OpenFolderBridge.setAsDefaultFolderHandler()
-                    browser.statusMessage = ok
-                        ? "Listo. Clic derecho en carpeta → Abrir con → Ordena → Siempre"
-                        : "No se pudo registrar"
+
+            Section {
+                settingsRow(
+                    icon: "arrow.up.arrow.down",
+                    tint: OrdenTheme.accent,
+                    title: "Orden de esta sesión",
+                    subtitle: browser.rule.summarySpanish
+                ) {
+                    Text(browser.scopeBadge)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
                 }
-                LabeledContent("¿Handler carpetas?") {
-                    Text(OpenFolderBridge.isDefaultFolderHandler() ? "Ordena" : "Finder / otra")
-                }
-                Text("Dock: fija Ordena a la izquierda. Arrastra cualquier carpeta encima del icono. El ▼ de Descargas del Dock sigue siendo Finder (límite de Apple).")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("Spotlight: ⌘Espacio → escribe Ordena → Intro.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Section("Actualizaciones") {
-                LabeledContent("Versión", value: AppUpdateChecker.currentVersion())
-                Button("Buscar actualizaciones…") {
-                    Task { await AppUpdateChecker.shared.check(interactive: true) }
-                }
-                Text("Al abrir (y desde Ordena → Buscar actualizaciones…) revisa ordena.iareal.net. Si hay una nueva, pregunta si la instalas.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Section("Caché e iconos") {
-                Button("Limpiar caché de miniaturas") {
-                    ThumbnailStore.shared.clearAll()
-                    browser.reload()
-                    browser.statusMessage = "Caché de miniaturas limpia"
-                }
-                Text("Ordena genera sus propias previas de vídeo/imagen. Si un icono se queda raro, limpia aquí; al actualizar la app se limpia sola.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Section("Ordena") {
-                LabeledContent("Ámbito", value: browser.scopeBadge)
-                Text(browser.rule.summarySpanish)
+            } header: {
+                Text("Lista de archivos")
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 520)
-        .task {
-            ollama.applyPreferences(browser.store.preferences)
-            await ollama.refresh()
+        .padding(8)
+    }
+
+    // MARK: Asistente
+
+    private var settingsAssistant: some View {
+        Form {
+            Section {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill((ollama.isReady ? Color.green : OrdenTheme.accent).opacity(0.18))
+                            .frame(width: 52, height: 52)
+                        Image(systemName: "brain.head.profile")
+                            .font(.title2)
+                            .foregroundStyle(ollama.isReady ? .green : OrdenTheme.accent)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Inteligencia local")
+                            .font(.headline)
+                        Text(ollamaStatusLabel)
+                            .font(.subheadline)
+                            .foregroundStyle(ollama.isReady ? .green : .secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 4)
+
+                Button {
+                    browser.showOllamaSetupDialog = true
+                } label: {
+                    Label("Configurar / detectar Ollama…", systemImage: "waveform.badge.magnifyingglass")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(OrdenTheme.accent)
+                .controlSize(.large)
+            } header: {
+                Text("Ollama (opcional)")
+            } footer: {
+                Text("Si no quieres IA, no pasa nada: el asistente sigue con atajos y reglas. Nada se sube a internet.")
+            }
+
+            Section {
+                settingsRow(
+                    icon: "bookmark.fill",
+                    tint: .orange,
+                    title: "Atajos guardados",
+                    subtitle: "Tipo + fecha · p. ej. imágenes de hoy"
+                ) {
+                    Text("\(browser.assistantShortcuts.count)/\(AssistantShortcut.maxCount)")
+                        .font(.subheadline.monospacedDigit().weight(.semibold))
+                }
+                Button("Abrir asistente (⌘5)") {
+                    browser.showAssistantPanel = true
+                }
+            } header: {
+                Text("Atajos")
+            } footer: {
+                Text("Créalos en el panel del asistente → Nuevo. La lista hace scroll si tienes muchos.")
+            }
         }
+        .formStyle(.grouped)
+        .padding(8)
+    }
+
+    // MARK: Búsqueda
+
+    private var settingsSearch: some View {
+        Form {
+            Section {
+                tipLine(icon: "doc.text.magnifyingglass", title: "Filtro de arriba", detail: "Solo nombres en esta carpeta")
+                tipLine(icon: "folder.badge.magnifyingglass", title: "Subcarpetas · ⌘4", detail: "Esta carpeta y todo lo de adentro")
+                tipLine(icon: "checkmark.circle.fill", title: "Coincide por parte del nombre", detail: "vibe encuentra vibesystems…")
+                tipLine(icon: "xmark.circle.fill", title: "No lee el contenido", detail: "Eso es del asistente / Ollama")
+            } header: {
+                Text("Cómo busca Ordena")
+            } footer: {
+                Text("Sin comodines (* ?) y sin Spotlight. El asistente (⌘5) es aparte.")
+            }
+        }
+        .formStyle(.grouped)
+        .padding(8)
+    }
+
+    // MARK: Mantenimiento
+
+    private var settingsMaintenance: some View {
+        Form {
+            Section {
+                settingsRow(
+                    icon: "app.badge",
+                    tint: OrdenTheme.accent,
+                    title: "Versión",
+                    subtitle: "ordena.iareal.net"
+                ) {
+                    Text(AppUpdateChecker.currentVersion())
+                        .font(.body.monospaced().weight(.semibold))
+                }
+                Button {
+                    Task { await AppUpdateChecker.shared.check(interactive: true) }
+                } label: {
+                    Label("Buscar actualizaciones…", systemImage: "arrow.triangle.2.circlepath")
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
+            } header: {
+                Text("Actualizaciones")
+            }
+
+            Section {
+                Button(role: .none) {
+                    ThumbnailStore.shared.clearAll()
+                    browser.reload()
+                    browser.statusMessage = "Caché de miniaturas limpia"
+                } label: {
+                    Label("Limpiar miniaturas", systemImage: "photo.on.rectangle.angled")
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
+            } header: {
+                Text("Caché")
+            } footer: {
+                Text("Si un icono de vídeo o imagen se ve raro, limpia aquí. Al actualizar la app también se limpia.")
+            }
+        }
+        .formStyle(.grouped)
+        .padding(8)
+    }
+
+    private var ollamaStatusLabel: String {
+        if ollama.isReady { return "Activo · \(ollama.selectedModel)" }
+        if ollama.enabled && !ollama.available { return "Activado, pero Ollama no responde" }
+        if ollama.available { return "Detectado — aún no activado" }
+        return "Apagado · solo reglas y atajos"
+    }
+
+    private func settingsRow<Trailing: View>(
+        icon: String,
+        tint: Color,
+        title: String,
+        subtitle: String,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(tint)
+                .frame(width: 28, height: 28)
+                .background(tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body.weight(.medium))
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 8)
+            trailing()
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func tipLine(icon: String, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(OrdenTheme.accent)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body.weight(.medium))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
     }
 }

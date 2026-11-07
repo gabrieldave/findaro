@@ -77,6 +77,10 @@ struct OrdenApp: App {
                     browser.showAssistantPanel.toggle()
                 }
                 .keyboardShortcut("5", modifiers: .command)
+                Button("Configurar Ollama…") {
+                    browser.showAssistantPanel = true
+                    browser.showOllamaSetupDialog = true
+                }
             }
 
             CommandMenu("Ir") {

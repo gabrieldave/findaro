@@ -21,20 +21,13 @@ final class OllamaClient: ObservableObject {
         selectedModel = prefs.ollamaModel.isEmpty ? "qwen2.5:3b" : prefs.ollamaModel
     }
 
-    func refresh() async {
-        guard enabled else {
-            available = false
-            models = []
-            lastError = nil
-            return
-        }
+    /// Detecta si Ollama responde (sirve aunque esté desactivado en preferencias).
+    func probe() async {
         do {
             let url = baseURL.appending(path: "api/tags")
             let (data, response) = try await URLSession.shared.data(from: url)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                available = false
-                models = []
-                lastError = "Ollama no responde en :11434. Ábrelo o apaga la opción en Ajustes."
+                markUnavailable(message: "Ollama no responde en :11434")
                 return
             }
             struct Tags: Decodable {
@@ -42,17 +35,29 @@ final class OllamaClient: ObservableObject {
                 let models: [Model]
             }
             let decoded = try JSONDecoder().decode(Tags.self, from: data)
-            models = decoded.models.map(\.name)
-            available = true
-            lastError = nil
-            if let first = models.first, !models.contains(selectedModel) {
-                selectedModel = first
-            }
+            markAvailable(models: decoded.models.map(\.name))
         } catch {
-            available = false
-            models = []
-            lastError = error.localizedDescription
+            markUnavailable(message: error.localizedDescription)
         }
+    }
+
+    func refresh() async {
+        await probe()
+    }
+
+    func markAvailable(models: [String]) {
+        self.models = models
+        available = true
+        lastError = nil
+        if let first = models.first, !models.contains(selectedModel) {
+            selectedModel = first
+        }
+    }
+
+    func markUnavailable(message: String) {
+        available = false
+        models = []
+        lastError = message
     }
 
     /// Pide un plan JSON; si falla o está off, nil (caller usa reglas).

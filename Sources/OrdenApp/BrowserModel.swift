@@ -111,6 +111,7 @@ final class BrowserModel: ObservableObject {
 
     // MARK: Asistente
     @Published var showAssistantPanel = false
+    @Published var showOllamaSetupDialog = false
     @Published var agentPlan: AgentPlan?
     @Published var agentLog: [String] = []
     /// Conversación legible (no terminal en miniatura).

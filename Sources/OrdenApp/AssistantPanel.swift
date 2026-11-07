@@ -54,6 +54,15 @@ struct AssistantPanel: View {
                     .lineLimit(2)
             }
             Spacer(minLength: 0)
+            Button {
+                browser.showOllamaSetupDialog = true
+            } label: {
+                Image(systemName: "brain.head.profile")
+                    .font(.title3)
+                    .foregroundStyle(ollama.isReady ? .green : OrdenTheme.accent)
+            }
+            .buttonStyle(.plain)
+            .help("Configurar o detectar Ollama")
             if !browser.agentMessages.isEmpty {
                 Button("Limpiar") { browser.clearAgentChat() }
                     .font(.subheadline)
@@ -79,7 +88,7 @@ struct AssistantPanel: View {
         if ollama.enabled {
             return "Ollama activado pero no responde · reglas · ⌘5"
         }
-        return "Atajos + reglas · IA en Ajustes · ⌘5"
+        return "Atajos + reglas · toca el cerebro para IA · ⌘5"
     }
 
     private var chatArea: some View {
@@ -115,11 +124,19 @@ struct AssistantPanel: View {
             Text("Hola")
                 .font(.title2.weight(.semibold))
             Text(
-                "Soy el asistente del explorador. Usa tus atajos (imágenes de hoy, docs de ayer…) o escribe abajo. La IA con Ollama es opcional en Ajustes."
+                "Soy el asistente del explorador. Usa tus atajos o escribe abajo. La IA (Ollama) es opcional: toca el icono del cerebro o Configurar Ollama."
             )
             .font(.body)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
+            Button {
+                browser.showOllamaSetupDialog = true
+            } label: {
+                Label("Configurar Ollama…", systemImage: "brain.head.profile")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
