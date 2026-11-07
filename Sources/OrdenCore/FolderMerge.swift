@@ -117,24 +117,42 @@ public enum FolderMerge {
         }
     }
 
+    public struct VerifiedDestination: Equatable, Sendable {
+        public let path: String
+        public let isDirectory: Bool
+        public let digest: String?
+
+        public init(path: String, isDirectory: Bool, digest: String?) {
+            self.path = path
+            self.isDirectory = isDirectory
+            self.digest = digest
+        }
+    }
+
     public struct MergeResult: Equatable, Sendable {
         public let sourcePath: String
         public let sourceFingerprint: String
+        public let maxItems: Int
         public let pairs: [FileOps.TransferPair]
         public let replacements: [Replacement]
+        public let verifiedDestinations: [VerifiedDestination]
         public let warnings: [String]
 
         public init(
             sourcePath: String,
             sourceFingerprint: String,
+            maxItems: Int,
             pairs: [FileOps.TransferPair],
             replacements: [Replacement],
+            verifiedDestinations: [VerifiedDestination],
             warnings: [String]
         ) {
             self.sourcePath = sourcePath
             self.sourceFingerprint = sourceFingerprint
+            self.maxItems = maxItems
             self.pairs = pairs
             self.replacements = replacements
+            self.verifiedDestinations = verifiedDestinations
             self.warnings = warnings
         }
     }
@@ -174,6 +192,21 @@ public enum FolderMerge {
     /// Incluye archivos ocultos, paquetes y carpetas vacías. Si el recorrido no es completo,
     /// la vista previa queda bloqueada y no permite mover el origen a la Papelera.
     public static func preview(source: String, dest: String, maxItems: Int = defaultMaxItems) -> Preview {
+        guard !isSymbolicLink(source), !isSymbolicLink(dest) else {
+            let sourcePath = URL(fileURLWithPath: source).standardizedFileURL.path
+            let destPath = URL(fileURLWithPath: dest).standardizedFileURL.path
+            return Preview(
+                sourcePath: sourcePath,
+                destPath: destPath,
+                items: [],
+                isComplete: false,
+                hasTypeConflicts: false,
+                warnings: ["No se puede fusionar usando un enlace simbólico como carpeta raíz. Abre la carpeta real y vuelve a intentarlo."],
+                sourceFingerprint: nil,
+                destFingerprint: nil
+            )
+        }
+
         let sourcePath = canonicalPath(source)
         let destPath = canonicalPath(dest)
 
@@ -285,6 +318,7 @@ public enum FolderMerge {
         var installedFiles: [URL] = []
         var createdDirectories: [URL] = []
         var stagedBackups: [Replacement] = []
+        var verifiedDestinations: [VerifiedDestination] = []
 
         do {
             for item in diff.items where item.kind == .onlySource || item.kind == .different {
@@ -297,6 +331,7 @@ public enum FolderMerge {
 
                 if item.sourceIsDirectory {
                     try ensureDirectory(at: requestedURL, createdDirectories: &createdDirectories)
+                    verifiedDestinations.append(VerifiedDestination(path: requestedURL.path, isDirectory: true, digest: nil))
                     continue
                 }
 
@@ -322,6 +357,10 @@ public enum FolderMerge {
                         let backupURL = requestedURL.deletingLastPathComponent()
                             .appendingPathComponent(".\(requestedURL.lastPathComponent).ordena-backup-\(UUID().uuidString)")
                         try fm.moveItem(at: requestedURL, to: backupURL)
+                        guard try digestFile(backupURL) == expectedDestinationDigest else {
+                            try? fm.moveItem(at: backupURL, to: requestedURL)
+                            throw MergeError.destinationChanged(item.relativePath)
+                        }
                         stagedBackups.append(Replacement(originalPath: requestedURL.path, backupPath: backupURL.path))
                     }
                 } else if fm.fileExists(atPath: requestedURL.path) {
@@ -341,6 +380,7 @@ public enum FolderMerge {
                     try fm.moveItem(at: temporaryURL, to: targetURL)
                     installedFiles.append(targetURL)
                     pairs.append(FileOps.TransferPair(from: sourceURL.path, to: targetURL.path))
+                    verifiedDestinations.append(VerifiedDestination(path: targetURL.path, isDirectory: false, digest: sourceDigest))
                 } catch {
                     if fm.fileExists(atPath: temporaryURL.path) {
                         try? fm.removeItem(at: temporaryURL)
@@ -349,10 +389,32 @@ public enum FolderMerge {
                 }
             }
 
+            // Los elementos idénticos también deben seguir intactos en destino:
+            // si alguien cambia o elimina uno durante la copia, no se puede retirar el origen.
+            for item in diff.items where item.kind == .identical {
+                let destinationURL = destRoot.appendingPathComponent(item.relativePath)
+                if item.sourceIsDirectory {
+                    var isDirectory: ObjCBool = false
+                    guard fm.fileExists(atPath: destinationURL.path, isDirectory: &isDirectory),
+                          isDirectory.boolValue else {
+                        throw MergeError.destinationChanged(item.relativePath)
+                    }
+                    verifiedDestinations.append(VerifiedDestination(path: destinationURL.path, isDirectory: true, digest: nil))
+                } else {
+                    guard let expectedDigest = item.sourceDigest,
+                          fm.fileExists(atPath: destinationURL.path),
+                          try digestFile(destinationURL) == expectedDigest else {
+                        throw MergeError.destinationChanged(item.relativePath)
+                    }
+                    verifiedDestinations.append(VerifiedDestination(path: destinationURL.path, isDirectory: false, digest: expectedDigest))
+                }
+            }
+
             let sourceAfterCopy = enumerate(root: sourceRoot, maxItems: maxItems)
             guard sourceAfterCopy.complete, sourceAfterCopy.fingerprint == expectedFingerprint else {
                 throw MergeError.sourceChanged(diff.sourcePath)
             }
+            try verifyDestinations(verifiedDestinations)
 
             for pair in pairs {
                 let originalDigest = try digestFile(URL(fileURLWithPath: pair.from))
@@ -384,8 +446,10 @@ public enum FolderMerge {
             return MergeResult(
                 sourcePath: diff.sourcePath,
                 sourceFingerprint: expectedFingerprint,
+                maxItems: maxItems,
                 pairs: pairs,
                 replacements: replacements,
+                verifiedDestinations: verifiedDestinations,
                 warnings: warnings
             )
         } catch {
@@ -434,20 +498,23 @@ public enum FolderMerge {
     public static func trashSourceAfterVerifiedMerge(_ result: MergeResult) throws -> String? {
         let fm = FileManager.default
         let sourceURL = URL(fileURLWithPath: result.sourcePath, isDirectory: true)
-        let current = enumerate(root: sourceURL, maxItems: defaultMaxItems)
+        let current = enumerate(root: sourceURL, maxItems: result.maxItems)
         guard current.complete, current.fingerprint == result.sourceFingerprint else {
             throw MergeError.sourceChanged(result.sourcePath)
         }
+        try verifyDestinations(result.verifiedDestinations)
 
         let stagingURL = sourceURL.deletingLastPathComponent()
             .appendingPathComponent(".\(sourceURL.lastPathComponent).ordena-trash-\(UUID().uuidString)")
         try fm.moveItem(at: sourceURL, to: stagingURL)
 
         do {
-            let staged = enumerate(root: stagingURL, maxItems: defaultMaxItems)
+            let staged = enumerate(root: stagingURL, maxItems: result.maxItems)
             guard staged.complete, staged.fingerprint == result.sourceFingerprint else {
                 throw MergeError.sourceChanged(result.sourcePath)
             }
+            // Vuelve a verificar destino después de mover el origen a staging y justo antes de Papelera.
+            try verifyDestinations(result.verifiedDestinations)
 
             var trashedURL: NSURL?
             try fm.trashItem(at: stagingURL, resultingItemURL: &trashedURL)
@@ -464,6 +531,30 @@ public enum FolderMerge {
             }
             throw error
         }
+    }
+
+    private static func verifyDestinations(_ checks: [VerifiedDestination]) throws {
+        let fm = FileManager.default
+        for check in checks {
+            if check.isDirectory {
+                var isDirectory: ObjCBool = false
+                guard fm.fileExists(atPath: check.path, isDirectory: &isDirectory),
+                      isDirectory.boolValue else {
+                    throw MergeError.destinationChanged(URL(fileURLWithPath: check.path).lastPathComponent)
+                }
+            } else {
+                guard let expected = check.digest,
+                      fm.fileExists(atPath: check.path),
+                      try digestFile(URL(fileURLWithPath: check.path)) == expected else {
+                    throw MergeError.destinationChanged(URL(fileURLWithPath: check.path).lastPathComponent)
+                }
+            }
+        }
+    }
+
+    private static func isSymbolicLink(_ path: String) -> Bool {
+        let values = try? URL(fileURLWithPath: path).resourceValues(forKeys: [.isSymbolicLinkKey])
+        return values?.isSymbolicLink == true
     }
 
     private static func ensureDirectory(at url: URL, createdDirectories: inout [URL]) throws {
