@@ -49,6 +49,16 @@ jobs:
           export DEVELOPER_DIR="$(xcode-select -p)"
           swift test
 
+      - name: Generate and validate Findaro macOS icon
+        run: |
+          export DEVELOPER_DIR="$(xcode-select -p)"
+          swift scripts/generate-findaro-icon.swift Resources
+          test -s Resources/AppIcon.icns
+          sips -g pixelWidth -g pixelHeight Resources/findaro-icon-master.png
+
+      - name: Validate packaging scripts
+        run: bash -n scripts/package-app.sh scripts/make-dmg.sh
+
       - name: Build macOS application
         run: |
           export DEVELOPER_DIR="$(xcode-select -p)"
