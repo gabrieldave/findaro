@@ -92,44 +92,80 @@ struct AssistantPanel: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "sparkles")
-                .font(.title2)
-                .foregroundStyle(OrdenTheme.accent)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Asistente")
-                    .font(.title3.weight(.semibold))
-                Text(headerSubtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "sparkles")
+                    .font(.title2)
+                    .foregroundStyle(OrdenTheme.accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(ollama.isReady ? "Asistente + Ollama" : "Asistente")
+                        .font(.title3.weight(.semibold))
+                    Text(headerSubtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 0)
+                Button {
+                    browser.showOllamaSetupDialog = true
+                } label: {
+                    Image(systemName: "brain.head.profile")
+                        .font(.title3)
+                        .foregroundStyle(ollama.isReady ? .green : OrdenTheme.accent)
+                }
+                .buttonStyle(.plain)
+                .help("Configurar o detectar Ollama")
+                if !browser.agentMessages.isEmpty {
+                    Button("Limpiar") { browser.clearAgentChat() }
+                        .font(.subheadline)
+                }
+                Button {
+                    browser.showAssistantPanel = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Cerrar")
             }
-            Spacer(minLength: 0)
-            Button {
-                browser.showOllamaSetupDialog = true
-            } label: {
-                Image(systemName: "brain.head.profile")
-                    .font(.title3)
-                    .foregroundStyle(ollama.isReady ? .green : OrdenTheme.accent)
-            }
-            .buttonStyle(.plain)
-            .help("Configurar o detectar Ollama")
-            if !browser.agentMessages.isEmpty {
-                Button("Limpiar") { browser.clearAgentChat() }
-                    .font(.subheadline)
-            }
-            Button {
-                browser.showAssistantPanel = false
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Cerrar")
+
+            // Instrucciones fijas: este panel ES el chat con Ollama.
+            ollamaHowToBanner
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
+    }
+
+    private var ollamaHowToBanner: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if ollama.isReady {
+                Text("Aquí hablas con Ollama («\(ollama.selectedModel)»)")
+                    .font(.subheadline.weight(.semibold))
+                Text("Escribe abajo o mantén el micrófono / ⌃Espacio → Enviar. Todo es local en tu Mac.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if ollama.enabled {
+                Text("Ollama no responde ahora")
+                    .font(.subheadline.weight(.semibold))
+                Text("Los atajos y reglas siguen. Toca el cerebro verde/azul para detectar otra vez.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Sin Ollama: atajos y reglas (calidad básica)")
+                    .font(.subheadline.weight(.semibold))
+                Text("Para frases libres con IA: toca el cerebro → Detectar / Activar Ollama.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            (ollama.isReady ? Color.green : OrdenTheme.accent).opacity(0.12),
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+        )
     }
 
     private var headerSubtitle: String {
@@ -138,12 +174,12 @@ struct AssistantPanel: View {
             return base + String(repeating: ".", count: busyDotCount)
         }
         if ollama.isReady {
-            return "Ollama · \(ollama.selectedModel) · ⌘5"
+            return "Chat local · \(ollama.selectedModel) · ⌘5"
         }
         if ollama.enabled {
             return "Ollama activado pero no responde · reglas · ⌘5"
         }
-        return "Atajos + reglas · toca el cerebro para IA · ⌘5"
+        return "Atajos + reglas · cerebro = Ollama · ⌘5"
     }
 
     private var chatArea: some View {
@@ -187,22 +223,32 @@ struct AssistantPanel: View {
 
     private var welcomeCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Hola")
+            Text(ollama.isReady ? "Listo para chatear" : "Hola")
                 .font(.title2.weight(.semibold))
-            Text(
-                "Atajos, texto o ⌃Espacio para hablar. Puedo buscar (también dentro de archivos) y, con tu visto bueno, crear/mover/organizar. Ollama es opcional."
-            )
-            .font(.body)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-            Button {
-                browser.showOllamaSetupDialog = true
-            } label: {
-                Label("Configurar Ollama…", systemImage: "brain.head.profile")
-                    .frame(maxWidth: .infinity)
+            if ollama.isReady {
+                Text(
+                    "Este panel es tu chat con Ollama. Prueba: «qué pesa más y si hay pdfs», «organiza por tipo», «crea carpeta Facturas»."
+                )
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text(
+                    "Atajos, texto o voz. Sin Ollama: reglas básicas. Con Ollama (cerebro arriba): frases libres con más calidad."
+                )
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                Button {
+                    browser.showOllamaSetupDialog = true
+                } label: {
+                    Label("Activar Ollama…", systemImage: "brain.head.profile")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(OrdenTheme.accent)
+                .controlSize(.large)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -377,7 +423,12 @@ struct AssistantPanel: View {
                     )
             }
 
-            TextField("Ej: imágenes de hoy…", text: $draft)
+            TextField(
+                ollama.isReady
+                    ? "Habla con Ollama… ej: qué pesa más y si hay pdfs"
+                    : "Ej: imágenes de hoy… (sin Ollama = reglas)",
+                text: $draft
+            )
                 .font(.body)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit { submit() }
@@ -388,7 +439,10 @@ struct AssistantPanel: View {
                 Button {
                     submit()
                 } label: {
-                    Label("Enviar", systemImage: "arrow.up.circle.fill")
+                    Label(
+                        ollama.isReady ? "Enviar a Ollama" : "Enviar",
+                        systemImage: "arrow.up.circle.fill"
+                    )
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)
@@ -403,7 +457,11 @@ struct AssistantPanel: View {
                 .controlSize(.large)
             }
 
-            Text("Mantén el micrófono o ⌃Espacio, habla, suelta → ejecuta. Local en tu Mac.")
+            Text(
+                ollama.isReady
+                    ? "Micrófono o ⌃Espacio = dictar. Enviar = Ollama interpreta y actúa en esta carpeta."
+                    : "Micrófono o ⌃Espacio = dictar. Sin Ollama solo atajos/reglas."
+            )
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }

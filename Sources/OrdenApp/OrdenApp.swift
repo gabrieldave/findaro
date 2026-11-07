@@ -68,9 +68,16 @@ struct OrdenApp: App {
             CommandMenu("Buscar") {
                 Button("Buscar en subcarpetas…") { browser.promptDeepSearch() }
                     .keyboardShortcut("4", modifiers: .command)
-                Button("Salir de búsqueda (Esc)") { browser.clearDeepSearch() }
-                    .keyboardShortcut(.escape, modifiers: [])
-                    .disabled(!browser.showDeepSearchPanel)
+                Button("Orden normal / salir filtros (Esc)") {
+                    if browser.hasActiveViewFilters {
+                        browser.resetToNormalView()
+                    } else {
+                        browser.clearDeepSearch()
+                    }
+                }
+                .disabled(!browser.hasActiveViewFilters)
+                Button("Dos paneles") { browser.toggleDualPane() }
+                    .keyboardShortcut("d", modifiers: [.command, .shift])
             }
 
             CommandMenu("Asistente") {

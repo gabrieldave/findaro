@@ -29,6 +29,18 @@ final class BrowserModel: ObservableObject {
     /// Atajo del asistente activo (tipo + fechas).
     @Published var activeAssistantShortcut: AssistantShortcut? = nil
     @Published var assistantShortcuts: [AssistantShortcut] = []
+
+    // MARK: Dual pane (dos carpetas lado a lado para mover)
+    enum PaneFocus: String, Equatable {
+        case primary
+        case secondary
+    }
+    @Published var dualPaneEnabled = false
+    @Published var focusedPane: PaneFocus = .primary
+    @Published var secondaryPath: String = ""
+    @Published var secondaryEntries: [FileEntry] = []
+    @Published var secondarySelectedIDs: Set<String> = []
+    @Published var secondaryError: String?
     /// Historial tipo Explorer/Finder: atrás / adelante.
     @Published private(set) var canGoBack = false
     @Published private(set) var canGoForward = false
@@ -200,6 +212,9 @@ final class BrowserModel: ObservableObject {
         self.explorerKeyboardProfile = store.preferences.explorerKeyboardProfile
         self.assistantShortcuts = store.preferences.assistantShortcuts
         self.columnPaths = [start]
+        let desktop = (FileManager.default.homeDirectoryForCurrentUser.path as NSString)
+            .appendingPathComponent("Desktop")
+        self.secondaryPath = FileManager.default.fileExists(atPath: desktop) ? desktop : start
         OllamaClient.shared.applyPreferences(store.preferences)
         folderWatcher.onChange = { [weak self] in
             Task { @MainActor in
@@ -207,8 +222,40 @@ final class BrowserModel: ObservableObject {
             }
         }
         reload()
+        reloadSecondary()
         refreshHistoryFlags()
         startWatchingCurrentFolder()
+    }
+
+    /// Hay algún filtro / modo que oculta o reordena distinto al “normal”.
+    var hasActiveViewFilters: Bool {
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || categoryFilter != nil
+            || downloadsTodayMode
+            || cleanupMode
+            || activeAssistantShortcut != nil
+            || showDeepSearchPanel
+    }
+
+    /// Vuelve al listado completo con el orden de la carpeta (sin chips ni búsqueda).
+    func resetToNormalView() {
+        if showDeepSearchPanel || deepSearchRunning {
+            clearDeepSearch()
+        }
+        searchText = ""
+        categoryFilter = nil
+        if downloadsTodayMode {
+            downloadsTodayMode = false
+        }
+        if cleanupMode {
+            exitCleanupMode()
+            return
+        }
+        if activeAssistantShortcut != nil {
+            activeAssistantShortcut = nil
+        }
+        statusMessage = "Orden normal de la carpeta"
+        objectWillChange.send()
     }
 
     private func handleFolderWatcherEvent() {
@@ -637,6 +684,10 @@ final class BrowserModel: ObservableObject {
     }
 
     func navigate(to path: String, recordHistory: Bool = true) {
+        if dualPaneEnabled, focusedPane == .secondary {
+            navigateSecondary(to: path)
+            return
+        }
         let target = (path as NSString).standardizingPath
         let current = (currentPath as NSString).standardizingPath
         guard target != current else { return }
@@ -659,6 +710,139 @@ final class BrowserModel: ObservableObject {
         ignoreWatcherUntil = Date().addingTimeInterval(0.6)
         reload()
         refreshHistoryFlags()
+    }
+
+    // MARK: Dual pane
+
+    func toggleDualPane() {
+        dualPaneEnabled.toggle()
+        if dualPaneEnabled {
+            if secondaryPath.isEmpty {
+                secondaryPath = currentPath
+            }
+            focusedPane = .secondary
+            reloadSecondary()
+            statusMessage = "Dos paneles: izquierda origen · derecha destino. Arrastra o «Mover →»"
+        } else {
+            focusedPane = .primary
+            statusMessage = "Un panel"
+        }
+        objectWillChange.send()
+    }
+
+    func focusPane(_ pane: PaneFocus) {
+        focusedPane = pane
+        objectWillChange.send()
+    }
+
+    func navigateSecondary(to path: String) {
+        let target = (path as NSString).standardizingPath
+        guard target != (secondaryPath as NSString).standardizingPath else {
+            focusedPane = .secondary
+            return
+        }
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: target, isDirectory: &isDir), isDir.boolValue else {
+            secondaryError = "No es una carpeta"
+            return
+        }
+        secondaryPath = target
+        secondarySelectedIDs = []
+        focusedPane = .secondary
+        reloadSecondary()
+        statusMessage = "Panel derecho: \((target as NSString).lastPathComponent)"
+    }
+
+    func reloadSecondary() {
+        guard !secondaryPath.isEmpty else {
+            secondaryEntries = []
+            return
+        }
+        do {
+            let loaded = try DirectoryLoader.load(path: secondaryPath)
+            secondaryEntries = SortEngine.sort(loaded, by: store.preferences.rule(for: secondaryPath))
+            secondaryError = nil
+        } catch {
+            secondaryEntries = []
+            secondaryError = error.localizedDescription
+        }
+        objectWillChange.send()
+    }
+
+    func goUpSecondary() {
+        let parent = (secondaryPath as NSString).deletingLastPathComponent
+        guard parent != secondaryPath, !parent.isEmpty else { return }
+        navigateSecondary(to: parent)
+    }
+
+    func selectSecondaryOnly(_ id: String) {
+        secondarySelectedIDs = [id]
+        focusedPane = .secondary
+        objectWillChange.send()
+    }
+
+    func openSecondaryEntry(_ entry: FileEntry) {
+        if entry.isDirectory {
+            navigateSecondary(to: entry.path)
+        } else {
+            NSWorkspace.shared.open(URL(fileURLWithPath: entry.path))
+        }
+    }
+
+    /// Mueve (o copia con ⌥) la selección del panel izquierdo al derecho.
+    func transferPrimarySelectionToSecondary(copy: Bool = false) {
+        guard dualPaneEnabled else { return }
+        let paths = selectedEntries.map(\.path)
+        guard !paths.isEmpty else {
+            statusMessage = "Selecciona archivos a la izquierda primero"
+            return
+        }
+        guard AgentPolicy.isPathAllowed(secondaryPath) else {
+            statusMessage = "Destino no permitido"
+            return
+        }
+        do {
+            let pairs = try FileOps.transfer(paths: paths, toDirectory: secondaryPath, move: !copy)
+            if copy {
+                pushUndo(.copied(created: pairs.map(\.to)))
+            } else {
+                pushUndo(.moved(pairs: pairs))
+            }
+            noteLocalFileMutation()
+            reload()
+            reloadSecondary()
+            clearSelection()
+            let verb = copy ? "Copié" : "Moví"
+            statusMessage = pairs.count == 1
+                ? "\(verb) 1 ítem → panel derecho"
+                : "\(verb) \(pairs.count) ítems → panel derecho"
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    /// Suelta rutas (Finder / drag interno) en el panel derecho.
+    @discardableResult
+    func dropPathsOnSecondary(_ paths: [String], copy: Bool) -> Bool {
+        guard dualPaneEnabled, !paths.isEmpty else { return false }
+        do {
+            let pairs = try FileOps.transfer(paths: paths, toDirectory: secondaryPath, move: !copy)
+            if copy {
+                pushUndo(.copied(created: pairs.map(\.to)))
+            } else {
+                pushUndo(.moved(pairs: pairs))
+            }
+            noteLocalFileMutation()
+            reload()
+            reloadSecondary()
+            statusMessage = copy
+                ? "Copiado al panel derecho"
+                : "Movido al panel derecho"
+            return true
+        } catch {
+            statusMessage = error.localizedDescription
+            return false
+        }
     }
 
     // MARK: - Ir a carpeta (⌘3)

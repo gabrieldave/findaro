@@ -44,10 +44,14 @@ enum SelectionCancelMonitor {
             let ctrl = flags.contains(.control)
             // Las flechas suelen traer `.function` — no exigir igualdad exacta de flags.
 
-            // Esc → primero cierra búsqueda ⌘4; si no, quita selección / modo naranja
+            // Esc → búsqueda → otros filtros → selección / modo naranja
             if key == 53, !opt, !cmd, !shift, !ctrl {
                 if browser.showDeepSearchPanel {
                     browser.clearDeepSearch()
+                    return nil
+                }
+                if browser.hasActiveViewFilters {
+                    browser.resetToNormalView()
                     return nil
                 }
                 browser.cancelSelection()

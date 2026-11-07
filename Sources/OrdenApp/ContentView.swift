@@ -154,6 +154,12 @@ struct ContentView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            if browser.hasActiveViewFilters {
+                ActiveFiltersBar()
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 16)
+            }
+
             if let dest = browser.folderDropTargetPath {
                 HStack(spacing: 8) {
                     Image(systemName: "folder.badge.plus")
@@ -175,10 +181,48 @@ struct ContentView: View {
                 .animation(nil, value: dest)
             }
 
-            FileBrowserPane()
-                .padding(.horizontal, 16)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .enableFileDragArmMonitor(browser: browser)
+            Group {
+                if browser.dualPaneEnabled {
+                    HSplitView {
+                        VStack(spacing: 0) {
+                            HStack {
+                                Text("Origen")
+                                    .font(.caption.weight(.semibold))
+                                if browser.focusedPane == .primary {
+                                    Text("activo")
+                                        .font(.caption2.weight(.bold))
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(OrdenTheme.accent.opacity(0.3), in: Capsule())
+                                }
+                                Spacer()
+                                Button("Usar favoritos aquí") {
+                                    browser.focusPane(.primary)
+                                }
+                                .font(.caption2)
+                                .buttonStyle(.borderless)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .contentShape(Rectangle())
+                            .onTapGesture { browser.focusPane(.primary) }
+                            FileBrowserPane()
+                        }
+                        .frame(minWidth: 220)
+                        .layoutPriority(1)
+                        SecondaryBrowserPane()
+                            .frame(minWidth: 220)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .enableFileDragArmMonitor(browser: browser)
+                } else {
+                    FileBrowserPane()
+                        .padding(.horizontal, 16)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .enableFileDragArmMonitor(browser: browser)
+                }
+            }
 
             DropShelfView()
                 .fixedSize(horizontal: false, vertical: true)
@@ -412,6 +456,66 @@ struct SortBar: View {
     }
 }
 
+// MARK: - Filtros activos → siempre «Orden normal»
+
+struct ActiveFiltersBar: View {
+    @EnvironmentObject private var browser: BrowserModel
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "line.3.horizontal.decrease.circle.fill")
+                .foregroundStyle(.orange)
+            Text(filterSummary)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            Spacer(minLength: 8)
+            Button {
+                browser.resetToNormalView()
+            } label: {
+                Label("Orden normal", systemImage: "xmark.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+            .controlSize(.regular)
+            .help("Quita búsqueda, tipo, descargados, pesados y atajos · Esc")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.orange.opacity(0.35), lineWidth: 1)
+        )
+    }
+
+    private var filterSummary: String {
+        var parts: [String] = []
+        if browser.showDeepSearchPanel {
+            parts.append("búsqueda subcarpetas")
+        }
+        if !browser.searchText.isEmpty {
+            parts.append("filtro «\(browser.searchText)»")
+        }
+        if browser.categoryFilter != nil {
+            parts.append("tipo")
+        }
+        if browser.downloadsTodayMode {
+            parts.append("descargados hoy")
+        }
+        if browser.cleanupMode {
+            parts.append("más pesados")
+        }
+        if browser.activeAssistantShortcut != nil {
+            parts.append("atajo")
+        }
+        if parts.isEmpty { return "Filtros activos" }
+        return "Activo: " + parts.joined(separator: " · ")
+    }
+}
+
 // MARK: - Stats / cleanup
 
 struct FolderStatsBar: View {
@@ -550,6 +654,24 @@ struct FileActionsBar: View {
                 browser.showAssistantPanel
                     ? "Cerrar el asistente (⌘5)"
                     : "Asistente: busca, pesados y duplicados con frases en español (⌘5)"
+            )
+
+            Button {
+                browser.toggleDualPane()
+            } label: {
+                Label(
+                    browser.dualPaneEnabled ? "Un panel" : "Dos paneles",
+                    systemImage: "rectangle.split.2x1"
+                )
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(browser.dualPaneEnabled ? .orange : OrdenTheme.accent)
+            .controlSize(.regular)
+            .help(
+                browser.dualPaneEnabled
+                    ? "Cerrar el panel derecho"
+                    : "Dos carpetas: mueve de izquierda a derecha (o usa la bandeja abajo)"
             )
 
             Button {
