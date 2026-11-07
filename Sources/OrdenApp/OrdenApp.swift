@@ -106,6 +106,10 @@ struct OrdenApp: App {
                 }
                 .keyboardShortcut("m", modifiers: [.command, .shift, .option])
                 .disabled(!browser.dualPaneEnabled || browser.secondarySelectedIDs.isEmpty)
+                Button("Intercambiar paneles") {
+                    browser.swapPaneFolders()
+                }
+                .disabled(!browser.dualPaneEnabled)
             }
 
             CommandMenu("Asistente") {

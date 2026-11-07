@@ -64,14 +64,23 @@ final class FileDragArmMonitor {
         guard cmd, !shift, !opt else { return event }
 
         let path = pathAt(event.locationInWindow)
-        guard let path,
-              let entry = browser.visibleEntries.first(where: { $0.path == path })
-        else {
+        guard let path else {
             // Sin hit fiable: pasar a SwiftUI (`clickSelect` ya entiende ⌘).
             return event
         }
+        let pane = browser.paneForPath(path)
+        let entry: FileEntry?
+        switch pane {
+        case .secondary:
+            entry = browser.secondaryEntries.first(where: { $0.path == path })
+                ?? browser.visibleEntries.first(where: { $0.path == path })
+        case .primary:
+            entry = browser.visibleEntries.first(where: { $0.path == path })
+                ?? browser.secondaryEntries.first(where: { $0.path == path })
+        }
+        guard let entry else { return event }
 
-        browser.commandRangeSelectForMove(to: entry.id)
+        browser.commandRangeSelectForMove(to: entry.id, pane: pane)
         browser.noteCommandClickHandled()
         return nil
     }
@@ -81,7 +90,10 @@ final class FileDragArmMonitor {
             rowFrames.removeAll()
             return
         }
-        let live = Set(browser.visibleEntries.map(\.path))
+        var live = Set(browser.visibleEntries.map(\.path))
+        if browser.dualPaneEnabled {
+            live.formUnion(browser.secondaryEntries.map(\.path))
+        }
         let gen = frameGeneration
         rowFrames = rowFrames.filter { live.contains($0.key) && $0.value.generation == gen }
     }

@@ -230,6 +230,13 @@ struct ContentView: View {
                                     .help("Enfoca el panel izquierdo · Tab · ⌘⇧← · o clic en vacío")
                                 }
                                 Button {
+                                    browser.swapPaneFolders()
+                                } label: {
+                                    Image(systemName: "arrow.left.arrow.right")
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Intercambiar carpetas Origen ↔ Destino")
+                                Button {
                                     browser.transferSecondarySelectionToPrimary(copy: false)
                                 } label: {
                                     Label("← Mover", systemImage: "arrow.left.circle.fill")
@@ -254,7 +261,7 @@ struct ContentView: View {
                             .padding(.vertical, 6)
                             .contentShape(Rectangle())
                             .onTapGesture { browser.focusOriginPane() }
-                            Text("Clic en vacío activa · Arrastra · ← Mover / Mover →")
+                            Text("Misma lista · naranja · Arrastra ↔ · Swap intercambia carpetas")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                                 .padding(.horizontal, 10)
@@ -1008,6 +1015,22 @@ struct SidebarView: View {
 struct FileBrowserPane: View {
     @EnvironmentObject private var browser: BrowserModel
     @Environment(\.ordenMetrics) private var metrics
+    /// Origen (primary) o Destino (secondary) — misma UI y gestos.
+    var pane: BrowserModel.PaneFocus = .primary
+
+    private var isSecondary: Bool { pane == .secondary }
+
+    private var paneEntries: [FileEntry] {
+        isSecondary ? browser.secondaryEntries : browser.visibleEntries
+    }
+
+    private var paneError: String? {
+        isSecondary ? browser.secondaryError : browser.errorMessage
+    }
+
+    private var paneAllSelected: Bool {
+        isSecondary ? browser.allSecondarySelected : browser.allVisibleSelected
+    }
 
     /// Debe coincidir con la altura fija de cada `FileRowButton`.
     private var rowHeight: CGFloat {
@@ -1028,7 +1051,7 @@ struct FileBrowserPane: View {
 
     var body: some View {
         Group {
-            if let error = browser.errorMessage {
+            if let error = paneError {
                 ContentUnavailableView(
                     "No se pudo abrir",
                     systemImage: "exclamationmark.folder",
@@ -1036,14 +1059,23 @@ struct FileBrowserPane: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            } else if browser.visibleEntries.isEmpty && browser.viewMode != .columns {
+            } else if paneEntries.isEmpty && (isSecondary || browser.viewMode != .columns) {
                 ContentUnavailableView(
                     "Vacío",
                     systemImage: "folder",
-                    description: Text("No hay elementos con este filtro.")
+                    description: Text(isSecondary
+                        ? "Suelta archivos aquí o usa «Mover →»"
+                        : "No hay elementos con este filtro.")
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    browser.cancelSelectionFromBackgroundTap(activating: pane)
+                }
+            } else if isSecondary {
+                // Destino: misma lista que Origen (naranja, casillas, menú…).
+                listBrowser
             } else {
                 switch browser.viewMode {
                 case .list:
@@ -1073,8 +1105,8 @@ struct FileBrowserPane: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(Array(browser.visibleEntries.enumerated()), id: \.element.id) { index, entry in
-                            FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
+                        ForEach(Array(paneEntries.enumerated()), id: \.element.id) { index, entry in
+                            FileRowButton(entry: entry, zebra: index.isMultiple(of: 2), pane: pane)
                                 .frame(height: rowHeight)
                                 .id(entry.id)
                         }
@@ -1083,11 +1115,11 @@ struct FileBrowserPane: View {
                             .frame(minHeight: 480)
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                browser.cancelSelectionFromBackgroundTap(activating: .primary)
+                                browser.cancelSelectionFromBackgroundTap(activating: pane)
                             }
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .coordinateSpace(name: "fileList")
+                    .coordinateSpace(name: isSecondary ? "fileListSecondary" : "fileList")
                     .overlay(alignment: .topLeading) {
                         if let rect = marqueeRect {
                             RoundedRectangle(cornerRadius: 3, style: .continuous)
@@ -1113,17 +1145,17 @@ struct FileBrowserPane: View {
                     }
                 }
                 .onTapGesture {
-                    browser.cancelSelectionFromBackgroundTap(activating: .primary)
+                    browser.cancelSelectionFromBackgroundTap(activating: pane)
                 }
                 .onChange(of: browser.revealToken) { _, _ in
-                    guard let id = browser.revealEntryID else { return }
+                    guard !isSecondary, let id = browser.revealEntryID else { return }
                     DispatchQueue.main.async {
                         withAnimation(.easeInOut(duration: 0.25)) {
                             proxy.scrollTo(id, anchor: .center)
                         }
                     }
                 }
-                .onChange(of: browser.visibleEntries.map(\.id)) { _, _ in
+                .onChange(of: paneEntries.map(\.id)) { _, _ in
                     FileDragArmMonitor.shared.invalidateFrames()
                 }
             }
@@ -1159,11 +1191,15 @@ struct FileBrowserPane: View {
     }
 
     private var listContentHeight: CGFloat {
-        CGFloat(browser.visibleEntries.count) * rowHeight
+        CGFloat(paneEntries.count) * rowHeight
+    }
+
+    private var listCoordinateSpace: String {
+        isSecondary ? "fileListSecondary" : "fileList"
     }
 
     private func entryAtY(_ y: CGFloat) -> FileEntry? {
-        let entries = browser.visibleEntries
+        let entries = paneEntries
         guard let idx = RowHitTestLogic.indexAtY(y, rowHeight: rowHeight, count: entries.count) else {
             return nil
         }
@@ -1173,7 +1209,7 @@ struct FileBrowserPane: View {
     private var marqueeGesture: some Gesture {
         // minimumDistance > 0: el clic limpio llega al botón (1 archivo).
         // Marquee solo tras rectángulo intencional (marqueeCommitSize).
-        DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named("fileList"))
+        DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named(listCoordinateSpace))
             .onChanged { value in
                 if marqueeStart == nil {
                     let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
@@ -1199,7 +1235,9 @@ struct FileBrowserPane: View {
                     marqueeCommitted = false
                     marqueeStartEntryID = entryAtY(value.startLocation.y)?.id
                     marqueeAdditive = flags.contains(.shift)
-                    marqueeBase = marqueeAdditive ? browser.selectedIDs : []
+                    marqueeBase = marqueeAdditive
+                        ? (isSecondary ? browser.secondarySelectedIDs : browser.selectedIDs)
+                        : []
                     // No limpiar selección hasta confirmar marquee (si no, un temblor deja multi raro).
                 }
 
@@ -1217,7 +1255,11 @@ struct FileBrowserPane: View {
                     if !marqueeCommitted {
                         marqueeCommitted = true
                         if !marqueeAdditive {
-                            browser.clearSelection()
+                            if isSecondary {
+                                browser.clearSecondarySelection()
+                            } else {
+                                browser.clearSelection()
+                            }
                         }
                     }
                     applyMarquee()
@@ -1230,7 +1272,15 @@ struct FileBrowserPane: View {
                     } else if let id = marqueeStartEntryID {
                         // Arrastre corto / temblor: 1 solo ítem (el del clic).
                         let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
-                        if flags.contains(.shift) {
+                        if isSecondary {
+                            if flags.contains(.shift) {
+                                browser.selectSecondaryRange(to: id)
+                            } else if browser.multiSelectMode {
+                                browser.toggleSecondarySelection(id)
+                            } else {
+                                browser.selectSecondaryOnly(id)
+                            }
+                        } else if flags.contains(.shift) {
                             browser.selectRange(to: id)
                         } else if browser.multiSelectMode {
                             browser.toggleSelection(id)
@@ -1245,7 +1295,7 @@ struct FileBrowserPane: View {
 
     private func applyMarquee() {
         guard let start = marqueeStart, let current = marqueeCurrent else { return }
-        let entries = browser.visibleEntries
+        let entries = paneEntries
         guard !entries.isEmpty else { return }
 
         let y0 = min(start.y, current.y)
@@ -1254,26 +1304,42 @@ struct FileBrowserPane: View {
 
         // Rectángulo solo en el vacío debajo de los archivos → nada
         if y0 >= contentH {
-            browser.applyMarqueeSelection(hitIDs: [], base: marqueeBase, additive: marqueeAdditive)
+            if isSecondary {
+                browser.applySecondaryMarqueeSelection(hitIDs: [], base: marqueeBase, additive: marqueeAdditive)
+            } else {
+                browser.applyMarqueeSelection(hitIDs: [], base: marqueeBase, additive: marqueeAdditive)
+            }
             return
         }
 
         let first = max(0, Int(floor(y0 / rowHeight)))
         let last = min(entries.count - 1, Int(floor((min(y1, contentH) - 0.001) / rowHeight)))
         guard first <= last else {
-            browser.applyMarqueeSelection(hitIDs: [], base: marqueeBase, additive: marqueeAdditive)
+            if isSecondary {
+                browser.applySecondaryMarqueeSelection(hitIDs: [], base: marqueeBase, additive: marqueeAdditive)
+            } else {
+                browser.applyMarqueeSelection(hitIDs: [], base: marqueeBase, additive: marqueeAdditive)
+            }
             return
         }
         let hits = Set(entries[first...last].map(\.id))
-        browser.applyMarqueeSelection(hitIDs: hits, base: marqueeBase, additive: marqueeAdditive)
+        if isSecondary {
+            browser.applySecondaryMarqueeSelection(hitIDs: hits, base: marqueeBase, additive: marqueeAdditive)
+        } else {
+            browser.applyMarqueeSelection(hitIDs: hits, base: marqueeBase, additive: marqueeAdditive)
+        }
     }
 
     private var header: some View {
         HStack(spacing: metrics.isCompact ? 8 : 12) {
             Button {
-                browser.toggleSelectAllVisible()
+                if isSecondary {
+                    browser.toggleSelectAllSecondary()
+                } else {
+                    browser.toggleSelectAllVisible()
+                }
             } label: {
-                Image(systemName: browser.allVisibleSelected ? "checkmark.square.fill" : "square")
+                Image(systemName: paneAllSelected ? "checkmark.square.fill" : "square")
                     .foregroundStyle(OrdenTheme.accent)
                     .frame(width: 22)
             }
@@ -1305,9 +1371,14 @@ struct FileRowButton: View {
     @Environment(\.ordenMetrics) private var metrics
     let entry: FileEntry
     let zebra: Bool
+    var pane: BrowserModel.PaneFocus = .primary
+
+    private var isSecondary: Bool { pane == .secondary }
 
     private var isSelected: Bool {
-        browser.selectedIDs.contains(entry.id)
+        isSecondary
+            ? browser.secondarySelectedIDs.contains(entry.id)
+            : browser.selectedIDs.contains(entry.id)
     }
 
     private var isCut: Bool {
@@ -1317,7 +1388,11 @@ struct FileRowButton: View {
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             Button {
-                browser.toggleSelection(entry.id)
+                if isSecondary {
+                    browser.toggleSecondarySelection(entry.id)
+                } else {
+                    browser.toggleSelection(entry.id)
+                }
             } label: {
                 Image(systemName: isSelected ? "checkmark.square.fill" : "square")
                     .font(.body)
@@ -1373,8 +1448,12 @@ struct FileRowButton: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .onTapGesture(count: 2) {
-                browser.selectOnly(entry.id)
-                browser.activateEntry(entry)
+                ensureSelectedAlone()
+                if isSecondary {
+                    browser.openSecondaryEntry(entry)
+                } else {
+                    browser.activateEntry(entry)
+                }
             }
             .onTapGesture(count: 1) {
                 selectRow()
@@ -1401,12 +1480,16 @@ struct FileRowButton: View {
         .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu {
             Button("Abrir") {
-                browser.selectOnly(entry.id)
-                browser.open(entry)
+                ensureSelectedAlone()
+                if isSecondary {
+                    browser.openSecondaryEntry(entry)
+                } else {
+                    browser.open(entry)
+                }
             }
             OpenWithMenu(entry: entry)
             Button("Obtener información") {
-                browser.selectOnly(entry.id)
+                ensureSelectedAlone()
                 browser.showInfo(entry)
             }
             if entry.isDirectory {
@@ -1421,51 +1504,101 @@ struct FileRowButton: View {
                 }
             }
             Button("Renombrar") {
-                browser.selectOnly(entry.id)
+                ensureSelectedAlone()
                 browser.promptRename()
             }
             Button("Duplicar") {
-                if !browser.selectedIDs.contains(entry.id) {
-                    browser.selectOnly(entry.id)
-                }
+                ensureInSelection()
                 browser.duplicateSelection()
             }
             Button("Comprimir") {
-                if !browser.selectedIDs.contains(entry.id) {
-                    browser.selectOnly(entry.id)
-                }
+                ensureInSelection()
                 browser.compressSelection()
             }
             Button("A bandeja") {
-                if !browser.selectedIDs.contains(entry.id) {
-                    browser.selectOnly(entry.id)
-                }
+                ensureInSelection()
                 browser.addSelectionToShelf()
             }
             Button("Vista rápida") {
-                browser.selectOnly(entry.id)
+                ensureSelectedAlone()
                 browser.quickLookSelection()
             }
             Button("Mostrar en Finder") { browser.revealInFinder(entry) }
             Button("Copiar") {
-                if !browser.selectedIDs.contains(entry.id) {
-                    browser.selectOnly(entry.id)
-                }
+                ensureInSelection()
                 browser.copySelectionToPasteboard()
             }
             Button("Copiar ruta completa") { browser.copyPath(entry) }
+            if browser.dualPaneEnabled {
+                Divider()
+                if isSecondary {
+                    Button("Mover a Origen") {
+                        ensureInSelection()
+                        browser.transferSecondarySelectionToPrimary(copy: false)
+                    }
+                    Button("Copiar a Origen") {
+                        ensureInSelection()
+                        browser.transferSecondarySelectionToPrimary(copy: true)
+                    }
+                } else {
+                    Button("Mover a Destino") {
+                        ensureInSelection()
+                        browser.transferPrimarySelectionToSecondary(copy: false)
+                    }
+                    Button("Copiar a Destino") {
+                        ensureInSelection()
+                        browser.transferPrimarySelectionToSecondary(copy: true)
+                    }
+                }
+            }
             Divider()
-            Button("Nueva carpeta aquí") { browser.promptNewFolder() }
-            Button("Nuevo archivo aquí") { browser.promptNewFile() }
-            Button("Seleccionar todos") { browser.selectAllVisible() }
-            Button("Quitar selección") { browser.clearSelection() }
+            Button("Nueva carpeta aquí") {
+                browser.focusPane(pane)
+                browser.promptNewFolder()
+            }
+            Button("Nuevo archivo aquí") {
+                browser.focusPane(pane)
+                browser.promptNewFile()
+            }
+            Button("Seleccionar todos") {
+                if isSecondary {
+                    browser.selectAllSecondaryVisible()
+                } else {
+                    browser.selectAllVisible()
+                }
+            }
+            Button("Quitar selección") {
+                if isSecondary {
+                    browser.clearSecondarySelection()
+                } else {
+                    browser.clearSelection()
+                }
+            }
             Divider()
             Button("Mover a la Papelera", role: .destructive) {
-                if !browser.selectedIDs.contains(entry.id) {
-                    browser.selectOnly(entry.id)
-                }
+                ensureInSelection()
                 browser.moveSelectionToTrash()
             }
+        }
+    }
+
+    private func ensureSelectedAlone() {
+        if isSecondary {
+            browser.selectSecondaryOnly(entry.id)
+        } else {
+            browser.selectOnly(entry.id)
+        }
+    }
+
+    private func ensureInSelection() {
+        if isSecondary {
+            if !browser.secondarySelectedIDs.contains(entry.id) {
+                browser.selectSecondaryOnly(entry.id)
+            } else {
+                browser.focusPane(.secondary)
+            }
+        } else if !browser.selectedIDs.contains(entry.id) {
+            browser.selectOnly(entry.id)
         }
     }
 
@@ -1488,7 +1621,11 @@ struct FileRowButton: View {
 
     private func selectRow() {
         // ⇧ rango · ⌘ suma/quita + naranja · Varios toggle · clic = uno y sale del naranja.
-        browser.clickSelect(entry.id)
+        if isSecondary {
+            browser.clickSelectSecondary(entry.id)
+        } else {
+            browser.clickSelect(entry.id)
+        }
     }
 }
 

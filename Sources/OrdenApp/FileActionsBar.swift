@@ -84,25 +84,28 @@ struct FileActionsBar: View {
                     chip("← Origen", "← Orig", "arrow.left.circle.fill", smart: true, help: "A Origen", enabled: !browser.secondarySelectedIDs.isEmpty) {
                         browser.transferSecondarySelectionToPrimary(copy: false)
                     }
+                    chip("Swap", "Swap", "arrow.left.arrow.right", help: "Intercambiar carpetas Origen ↔ Destino", enabled: true) {
+                        browser.swapPaneFolders()
+                    }
                 }
             }
 
             pipe
 
             group {
-                chip("Renombrar", "Nombre", "pencil", help: "Renombrar", enabled: browser.selectedIDs.count == 1) {
+                chip("Renombrar", "Nombre", "pencil", help: "Renombrar (panel activo)", enabled: browser.activeSelectedEntries.count == 1) {
                     browser.promptRename()
                 }
-                chip("Duplicar", "Dup", "plus.square.on.square", help: "Duplicar · ⌘D", enabled: !browser.selectedIDs.isEmpty) {
+                chip("Duplicar", "Dup", "plus.square.on.square", help: "Duplicar · ⌘D", enabled: browser.activeHasSelection) {
                     browser.duplicateSelection()
                 }
-                chip("Copiar", "Copiar", "doc.on.doc", help: "Copiar a bandeja · ⌘C", enabled: !browser.selectedIDs.isEmpty) {
+                chip("Copiar", "Copiar", "doc.on.doc", help: "Copiar a bandeja · ⌘C", enabled: browser.activeHasSelection) {
                     browser.addSelectionToShelf(intent: .copy)
                 }
-                chip("Cortar", "Cortar", "scissors", help: "Cortar a bandeja · ⌘X", enabled: !browser.selectedIDs.isEmpty) {
+                chip("Cortar", "Cortar", "scissors", help: "Cortar a bandeja · ⌘X", enabled: browser.activeHasSelection) {
                     browser.addSelectionToShelf(intent: .move)
                 }
-                chip("Pegar", "Pegar", "doc.on.clipboard", help: "Pegar · ⌘V", enabled: !browser.shelf.isEmpty || browser.canPasteFiles) {
+                chip("Pegar", "Pegar", "doc.on.clipboard", help: "Pegar en panel activo · ⌘V", enabled: !browser.shelf.isEmpty || browser.canPasteFiles) {
                     browser.depositShelfHere()
                 }
             }
@@ -115,7 +118,7 @@ struct FileActionsBar: View {
                     browser.shelf.isEmpty ? "Bandeja" : "Ban (\(browser.shelf.count))",
                     "tray.and.arrow.down.fill",
                     help: "Meter en bandeja",
-                    enabled: !browser.selectedIDs.isEmpty
+                    enabled: browser.activeHasSelection
                 ) { browser.addSelectionToShelf(intent: .move) }
                 chip("Dropover", "Drop", "circle.dashed", help: "Abrir en Dropover", enabled: !browser.outboundPaths.isEmpty) {
                     browser.sendOutboundToDropover()
@@ -131,7 +134,7 @@ struct FileActionsBar: View {
                 chip("A Favoritos", "Favorito", "star.fill", help: "A Favoritos", enabled: true) {
                     browser.addFoldersToFavoritesFromUI()
                 }
-                chip("Papelera", "Basura", "trash", role: .destructive, help: "Papelera · ⌘⌫", enabled: !browser.selectedIDs.isEmpty) {
+                chip("Papelera", "Basura", "trash", role: .destructive, help: "Papelera · ⌘⌫", enabled: browser.activeHasSelection) {
                     browser.moveSelectionToTrash()
                 }
             }

@@ -41,6 +41,9 @@ final class BrowserModel: ObservableObject {
     @Published var secondaryPath: String = ""
     @Published var secondaryEntries: [FileEntry] = []
     @Published var secondarySelectedIDs: Set<String> = []
+    /// Ancla / cursor de selección del panel Destino (⇧ / flechas).
+    @Published var secondarySelectionAnchorID: String?
+    @Published var secondarySelectionFocusID: String?
     @Published var secondaryError: String?
     /// Historial tipo Explorer/Finder: atrás / adelante.
     @Published private(set) var canGoBack = false
@@ -448,8 +451,29 @@ final class BrowserModel: ObservableObject {
 
     /// ⌘+clic = idéntico a ⇧+clic (`selectRange` desde el ancla), y deja el grupo en naranja.
     /// Clic a clic con ⌘ sostenido: 1, luego 2, luego 3 → va creciendo el bloque, igual que ⇧.
-    func commandRangeSelectForMove(to id: String) {
+    func commandRangeSelectForMove(to id: String, pane: PaneFocus? = nil) {
         noteCommandClickHandled()
+        let target = pane ?? (dualPaneEnabled ? focusedPane : .primary)
+        if dualPaneEnabled, target == .secondary {
+            focusedPane = .secondary
+            if secondarySelectionAnchorID == nil {
+                secondarySelectionAnchorID = secondarySelectedIDs.first ?? id
+            }
+            selectSecondaryRange(to: id)
+            armingProgressTask?.cancel()
+            armingProgressTask = nil
+            fileDragArmingPaths = []
+            fileDragArmingPrimaryPath = nil
+            fileDragArmProgress = 1
+            fileDragArmedPaths = secondarySelectedEntries.map(\.path)
+            statusMessage = fileDragArmedPaths.count <= 1
+                ? "Destino listo para mover — ⌘+clic / arrastra a Origen · Esc cancela"
+                : "Destino · \(fileDragArmedPaths.count) listos — arrastra a Origen · Esc"
+            NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+            objectWillChange.send()
+            return
+        }
+        if dualPaneEnabled { focusedPane = .primary }
         // Misma ancla que ⇧: si ya hay un solo seleccionado, ese es el origen del rango.
         if selectionAnchorID == nil {
             selectionAnchorID = selectedIDs.first ?? id
@@ -468,6 +492,15 @@ final class BrowserModel: ObservableObject {
             : "\(fileDragArmedPaths.count) listos — ⌘+clic = igual que ⇧ · arrastra · Esc"
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
         objectWillChange.send()
+    }
+
+    func paneForPath(_ path: String) -> PaneFocus {
+        let inPrimary = visibleEntries.contains { $0.path == path }
+        let inSecondary = secondaryEntries.contains { $0.path == path }
+        if dualPaneEnabled, focusedPane == .secondary, inSecondary { return .secondary }
+        if inPrimary { return .primary }
+        if inSecondary { return .secondary }
+        return focusedPane
     }
 
     func activateEntry(_ entry: FileEntry) {
@@ -595,6 +628,34 @@ final class BrowserModel: ObservableObject {
         visibleEntries.filter { selectedIDs.contains($0.id) }
     }
 
+    /// Panel Destino enfocado (acciones de teclado / barra van ahí).
+    var activeIsSecondary: Bool {
+        dualPaneEnabled && focusedPane == .secondary
+    }
+
+    /// Carpeta del panel activo (Origen o Destino).
+    var activeWorkingPath: String {
+        activeIsSecondary ? secondaryPath : currentPath
+    }
+
+    var secondarySelectedEntries: [FileEntry] {
+        secondaryEntries.filter { secondarySelectedIDs.contains($0.id) }
+    }
+
+    /// Selección del panel enfocado.
+    var activeSelectedEntries: [FileEntry] {
+        activeIsSecondary ? secondarySelectedEntries : selectedEntries
+    }
+
+    var activeHasSelection: Bool {
+        !activeSelectedEntries.isEmpty
+    }
+
+    var allSecondarySelected: Bool {
+        let ids = secondaryEntries.map(\.id)
+        return !ids.isEmpty && ids.allSatisfy { secondarySelectedIDs.contains($0) }
+    }
+
     var ruleSummary: String {
         if let shortcut = activeAssistantShortcut {
             return "Atajo · \(shortcut.title) · \(visibleEntries.count)"
@@ -690,6 +751,10 @@ final class BrowserModel: ObservableObject {
     /// Flechas ↑↓ (y ←→ en lista): mueve el cursor. Con ⇧ extiende el rango
     /// desde el ancla, como en el Explorador de Windows (solo selección).
     func moveSelectionByKeyboard(delta: Int, extending: Bool) {
+        if activeIsSecondary {
+            moveSecondarySelectionByKeyboard(delta: delta, extending: extending)
+            return
+        }
         let ids = visibleEntries.map(\.id)
         guard !ids.isEmpty else { return }
 
@@ -733,6 +798,10 @@ final class BrowserModel: ObservableObject {
     }
 
     func selectAllVisible() {
+        if activeIsSecondary {
+            selectAllSecondaryVisible()
+            return
+        }
         selectedIDs = Set(visibleEntries.map(\.id))
         selectionAnchorID = visibleEntries.first?.id
         selectionFocusID = visibleEntries.last?.id ?? visibleEntries.first?.id
@@ -750,10 +819,34 @@ final class BrowserModel: ObservableObject {
         statusMessage = "Nada seleccionado"
     }
 
-    /// Si el naranja está ON, el grupo armado sigue la selección múltiple.
+    func clearSecondarySelection() {
+        secondarySelectedIDs = []
+        secondarySelectionAnchorID = nil
+        secondarySelectionFocusID = nil
+        statusMessage = "Nada seleccionado (Destino)"
+        objectWillChange.send()
+    }
+
+    func clearActiveSelection() {
+        if activeIsSecondary {
+            clearSecondarySelection()
+        } else {
+            clearSelection()
+        }
+    }
+
+    func selectActiveOnly(_ id: String) {
+        if activeIsSecondary {
+            selectSecondaryOnly(id)
+        } else {
+            selectOnly(id)
+        }
+    }
+
+    /// Si el naranja está ON, el grupo armado sigue la selección múltiple del panel activo.
     func syncArmedWithSelection() {
         guard hasArmedFileDrag else { return }
-        let paths = selectedEntries.map(\.path)
+        let paths = activeSelectedEntries.map(\.path)
         if paths.isEmpty {
             clearArmedFileDrag()
             return
@@ -768,6 +861,7 @@ final class BrowserModel: ObservableObject {
         folderDropTargetPath = nil
         multiSelectMode = false
         clearSelection()
+        clearSecondarySelection()
         selectionCancelToken &+= 1
         statusMessage = "Selección cancelada"
     }
@@ -780,6 +874,11 @@ final class BrowserModel: ObservableObject {
         }
         let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.command) || flags.contains(.shift) { return }
+        if dualPaneEnabled, focusedPane == .secondary {
+            clearSecondarySelection()
+            selectionCancelToken &+= 1
+            return
+        }
         cancelSelection()
     }
 
@@ -898,6 +997,8 @@ final class BrowserModel: ObservableObject {
         }
         secondaryPath = target
         secondarySelectedIDs = []
+        secondarySelectionAnchorID = nil
+        secondarySelectionFocusID = nil
         focusedPane = .secondary
         reloadSecondary()
         statusMessage = "Panel derecho: \((target as NSString).lastPathComponent)"
@@ -907,6 +1008,8 @@ final class BrowserModel: ObservableObject {
         guard !secondaryPath.isEmpty else {
             secondaryEntries = []
             secondarySelectedIDs = []
+            secondarySelectionAnchorID = nil
+            secondarySelectionFocusID = nil
             secondaryFolderWatcher.stop()
             return
         }
@@ -950,10 +1053,153 @@ final class BrowserModel: ObservableObject {
         navigateSecondary(to: parent)
     }
 
+    /// Intercambia las carpetas de Origen ↔ Destino.
+    func swapPaneFolders() {
+        guard dualPaneEnabled else { return }
+        let left = currentPath
+        let right = secondaryPath
+        guard !right.isEmpty, left != right else {
+            statusMessage = "No hay carpetas distintas para intercambiar"
+            return
+        }
+        currentPath = right
+        secondaryPath = left
+        selectedIDs = []
+        selectionAnchorID = nil
+        selectionFocusID = nil
+        secondarySelectedIDs = []
+        secondarySelectionAnchorID = nil
+        secondarySelectionFocusID = nil
+        store.update { $0.lastPath = right }
+        reload()
+        reloadSecondary()
+        statusMessage = "Paneles intercambiados"
+    }
+
     func selectSecondaryOnly(_ id: String) {
         secondarySelectedIDs = [id]
+        secondarySelectionAnchorID = id
+        secondarySelectionFocusID = id
         focusedPane = .secondary
+        refreshSecondarySelectionStatus()
         objectWillChange.send()
+    }
+
+    func toggleSecondarySelection(_ id: String) {
+        if secondarySelectedIDs.contains(id) {
+            secondarySelectedIDs.remove(id)
+        } else {
+            secondarySelectedIDs.insert(id)
+        }
+        secondarySelectionAnchorID = id
+        secondarySelectionFocusID = id
+        focusedPane = .secondary
+        refreshSecondarySelectionStatus()
+        objectWillChange.send()
+    }
+
+    func selectSecondaryRange(to id: String) {
+        let ids = secondaryEntries.map(\.id)
+        let anchor = secondarySelectionAnchorID ?? secondarySelectedIDs.first ?? id
+        if secondarySelectionAnchorID == nil {
+            secondarySelectionAnchorID = anchor
+        }
+        guard let a = ids.firstIndex(of: anchor), let b = ids.firstIndex(of: id) else {
+            selectSecondaryOnly(id)
+            return
+        }
+        let range = a <= b ? a...b : b...a
+        secondarySelectedIDs = Set(ids[range])
+        secondarySelectionFocusID = id
+        focusedPane = .secondary
+        refreshSecondarySelectionStatus()
+        objectWillChange.send()
+    }
+
+    /// Clic en Destino: ⇧ rango · ⌘ naranja · Varios toggle · normal = uno.
+    func clickSelectSecondary(_ id: String) {
+        focusedPane = .secondary
+        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags.contains(.shift) {
+            selectSecondaryRange(to: id)
+            if hasArmedFileDrag { syncArmedWithSelection() }
+        } else if flags.contains(.command) {
+            commandRangeSelectForMove(to: id, pane: .secondary)
+        } else if multiSelectMode {
+            toggleSecondarySelection(id)
+            if hasArmedFileDrag { syncArmedWithSelection() }
+        } else {
+            if hasArmedFileDrag { clearArmedFileDrag() }
+            selectSecondaryOnly(id)
+        }
+    }
+
+    func applySecondaryMarqueeSelection(hitIDs: Set<String>, base: Set<String>, additive: Bool) {
+        focusedPane = .secondary
+        if additive {
+            secondarySelectedIDs = base.union(hitIDs)
+        } else {
+            secondarySelectedIDs = hitIDs
+        }
+        if let last = hitIDs.first {
+            secondarySelectionAnchorID = last
+            secondarySelectionFocusID = last
+        }
+        if hasArmedFileDrag { syncArmedWithSelection() }
+        refreshSecondarySelectionStatus()
+        objectWillChange.send()
+    }
+
+    func selectAllSecondaryVisible() {
+        secondarySelectedIDs = Set(secondaryEntries.map(\.id))
+        secondarySelectionAnchorID = secondaryEntries.first?.id
+        secondarySelectionFocusID = secondaryEntries.last?.id ?? secondaryEntries.first?.id
+        focusedPane = .secondary
+        refreshSecondarySelectionStatus()
+        objectWillChange.send()
+    }
+
+    func toggleSelectAllSecondary() {
+        if allSecondarySelected {
+            clearSecondarySelection()
+        } else {
+            selectAllSecondaryVisible()
+        }
+    }
+
+    func moveSecondarySelectionByKeyboard(delta: Int, extending: Bool) {
+        let ids = secondaryEntries.map(\.id)
+        guard !ids.isEmpty else { return }
+        if secondarySelectedIDs.isEmpty, secondarySelectionFocusID == nil {
+            selectSecondaryOnly(delta >= 0 ? ids[0] : ids[ids.count - 1])
+            return
+        }
+        let cursor = secondarySelectionFocusID
+            ?? secondarySelectionAnchorID
+            ?? secondarySelectedIDs.first
+            ?? ids[0]
+        let idx = ids.firstIndex(of: cursor) ?? 0
+        let next = min(max(0, idx + delta), ids.count - 1)
+        let nextID = ids[next]
+        if extending {
+            if secondarySelectionAnchorID == nil {
+                secondarySelectionAnchorID = cursor
+            }
+            selectSecondaryRange(to: nextID)
+        } else {
+            selectSecondaryOnly(nextID)
+        }
+    }
+
+    private func refreshSecondarySelectionStatus() {
+        let n = secondarySelectedIDs.count
+        if n == 0 {
+            statusMessage = "Nada seleccionado (Destino)"
+        } else if n == 1, let name = secondarySelectedEntries.first?.name {
+            statusMessage = "Destino · 1 seleccionado — \(name)"
+        } else {
+            statusMessage = "Destino · \(n) seleccionados"
+        }
     }
 
     func openSecondaryEntry(_ entry: FileEntry) {
@@ -978,12 +1224,22 @@ final class BrowserModel: ObservableObject {
     /// Mueve (o copia) la selección del panel derecho al izquierdo (Origen).
     func transferSecondarySelectionToPrimary(copy: Bool = false) {
         guard dualPaneEnabled else { return }
-        let paths = secondaryEntries.filter { secondarySelectedIDs.contains($0.id) }.map(\.path)
+        let paths = secondarySelectedEntries.map(\.path)
         guard !paths.isEmpty else {
             statusMessage = "Selecciona archivos a la derecha (Destino) primero"
             return
         }
         _ = transferPaths(paths, toDirectory: currentPath, copy: copy, clearPrimary: false, clearSecondary: true)
+    }
+
+    /// Transfiere la selección del panel activo al otro (bidireccional).
+    func transferFocusedSelectionToOther(copy: Bool = false) {
+        guard dualPaneEnabled else { return }
+        if activeIsSecondary {
+            transferSecondarySelectionToPrimary(copy: copy)
+        } else {
+            transferPrimarySelectionToSecondary(copy: copy)
+        }
     }
 
     /// Suelta rutas (Finder / drag interno) en el panel derecho.
@@ -1037,7 +1293,7 @@ final class BrowserModel: ObservableObject {
                     self.pushUndo(.moved(pairs: pairs))
                 }
                 if clearPrimary { self.clearSelection() }
-                if clearSecondary { self.secondarySelectedIDs = [] }
+                if clearSecondary { self.clearSecondarySelection() }
                 self.reload()
                 self.reloadSecondary()
                 let verb = copy ? "Copié" : "Moví"
@@ -1951,6 +2207,10 @@ final class BrowserModel: ObservableObject {
     }
 
     func goUp() {
+        if dualPaneEnabled, focusedPane == .secondary {
+            goUpSecondary()
+            return
+        }
         guard let parent = parentPath(of: currentPath) else { return }
         navigate(to: parent)
     }
@@ -2490,12 +2750,14 @@ final class BrowserModel: ObservableObject {
     }
 
     func compressSelection() {
-        let targets = selectedEntries.isEmpty ? [] : selectedEntries
+        let targets = activeSelectedEntries
         let paths = targets.map(\.path)
         guard !paths.isEmpty else {
             statusMessage = "Selecciona algo para comprimir"
             return
         }
+        let folder = activeWorkingPath
+        let intoSecondary = activeIsSecondary
         let destName: String = {
             if paths.count == 1 {
                 let base = URL(fileURLWithPath: paths[0]).deletingPathExtension().lastPathComponent
@@ -2503,15 +2765,14 @@ final class BrowserModel: ObservableObject {
             }
             return "Archivo.zip"
         }()
-        var dest = (currentPath as NSString).appendingPathComponent(destName)
+        var dest = (folder as NSString).appendingPathComponent(destName)
         var n = 2
         while FileManager.default.fileExists(atPath: dest) {
             let stem = URL(fileURLWithPath: destName).deletingPathExtension().lastPathComponent
-            dest = (currentPath as NSString).appendingPathComponent("\(stem) \(n).zip")
+            dest = (folder as NSString).appendingPathComponent("\(stem) \(n).zip")
             n += 1
         }
         statusMessage = "Comprimiendo…"
-        let folder = currentPath
         let names = paths.map { URL(fileURLWithPath: $0).lastPathComponent }
         Task.detached {
             let process = Process()
@@ -2525,7 +2786,11 @@ final class BrowserModel: ObservableObject {
                 await MainActor.run {
                     if ok {
                         self.statusMessage = "Comprimido: \(URL(fileURLWithPath: dest).lastPathComponent)"
-                        self.reload()
+                        if intoSecondary {
+                            self.reloadSecondary()
+                        } else {
+                            self.reload()
+                        }
                     } else {
                         self.statusMessage = "No se pudo comprimir"
                     }
@@ -2539,8 +2804,12 @@ final class BrowserModel: ObservableObject {
     }
 
     func openSelection() {
-        guard let first = selectedEntries.first else { return }
-        open(first)
+        guard let first = activeSelectedEntries.first else { return }
+        if activeIsSecondary {
+            openSecondaryEntry(first)
+        } else {
+            open(first)
+        }
     }
 
     func revealInFinder(_ entry: FileEntry) {
@@ -2574,19 +2843,18 @@ final class BrowserModel: ObservableObject {
     }
 
     func quickLookSelection() {
-        let paths = selectedEntries.map(\.path)
+        let paths = activeSelectedEntries.map(\.path)
         guard !paths.isEmpty else { return }
         QuickLookController.shared.toggle(browser: self, focusing: paths)
     }
 
     func moveSelectionToTrash() {
-        let targets = selectedEntries
+        let targets = activeSelectedEntries
         guard !targets.isEmpty else { return }
         statusMessage = "Enviando a la Papelera…"
         let snapshot = targets.map { (path: $0.path, name: $0.name) }
-        selectedIDs = []
-        selectionAnchorID = nil
-        selectionFocusID = nil
+        let trashedSecondary = activeIsSecondary
+        clearActiveSelection()
 
         Task {
             var moved = 0
@@ -2606,9 +2874,15 @@ final class BrowserModel: ObservableObject {
             }
             await MainActor.run {
                 self.reload()
+                if self.dualPaneEnabled {
+                    self.reloadSecondary()
+                }
                 var parts: [String] = []
                 if moved > 0 {
-                    parts.append(moved == 1 ? "1 elemento a la Papelera" : "\(moved) elementos a la Papelera")
+                    let whereLabel = trashedSecondary ? " (Destino)" : ""
+                    parts.append(moved == 1
+                        ? "1 elemento a la Papelera\(whereLabel)"
+                        : "\(moved) elementos a la Papelera\(whereLabel)")
                 }
                 if !failures.isEmpty {
                     parts.append("Fallaron \(failures.count): " + failures.prefix(3).joined(separator: "; "))
@@ -2628,11 +2902,18 @@ final class BrowserModel: ObservableObject {
     func createFolderFromDraft() {
         let name = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
+        let folder = activeWorkingPath
+        let intoSecondary = activeIsSecondary
         do {
-            let path = try FileOps.createFolder(named: name, in: currentPath)
+            let path = try FileOps.createFolder(named: name, in: folder)
             pushUndo(.copied(created: [path]))
-            reload()
-            selectOnly(path)
+            if intoSecondary {
+                reloadSecondary()
+                selectSecondaryOnly(path)
+            } else {
+                reload()
+                selectOnly(path)
+            }
             statusMessage = "Carpeta creada: \(URL(fileURLWithPath: path).lastPathComponent)"
         } catch {
             statusMessage = "No se pudo crear: \(error.localizedDescription)"
@@ -2651,11 +2932,18 @@ final class BrowserModel: ObservableObject {
         if !name.contains(".") {
             name += ".txt"
         }
+        let folder = activeWorkingPath
+        let intoSecondary = activeIsSecondary
         do {
-            let path = try FileOps.createFile(named: name, in: currentPath)
+            let path = try FileOps.createFile(named: name, in: folder)
             pushUndo(.copied(created: [path]))
-            reload()
-            selectOnly(path)
+            if intoSecondary {
+                reloadSecondary()
+                selectSecondaryOnly(path)
+            } else {
+                reload()
+                selectOnly(path)
+            }
             statusMessage = "Archivo creado: \(URL(fileURLWithPath: path).lastPathComponent)"
         } catch {
             statusMessage = "No se pudo crear: \(error.localizedDescription)"
@@ -2663,7 +2951,7 @@ final class BrowserModel: ObservableObject {
     }
 
     func promptRename() {
-        guard let entry = selectedEntries.first else {
+        guard let entry = activeSelectedEntries.first else {
             statusMessage = "Selecciona un ítem para renombrar"
             return
         }
@@ -2676,11 +2964,19 @@ final class BrowserModel: ObservableObject {
         guard let path = renameTargetPath else { return }
         let newName = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !newName.isEmpty else { return }
+        let intoSecondary = dualPaneEnabled && paneForPath(path) == .secondary
         do {
             let newPath = try FileOps.rename(path: path, to: newName)
             pushUndo(.moved(pairs: [.init(from: path, to: newPath)]))
-            reload()
-            selectOnly(newPath)
+            if intoSecondary {
+                reloadSecondary()
+                if dualPaneEnabled { reload() }
+                selectSecondaryOnly(newPath)
+            } else {
+                reload()
+                if dualPaneEnabled { reloadSecondary() }
+                selectOnly(newPath)
+            }
             statusMessage = "Renombrado a \(newName)"
         } catch {
             statusMessage = "No se pudo renombrar: \(error.localizedDescription)"
@@ -2689,7 +2985,7 @@ final class BrowserModel: ObservableObject {
     }
 
     func duplicateSelection() {
-        let targets = selectedEntries
+        let targets = activeSelectedEntries
         guard !targets.isEmpty else {
             statusMessage = "Selecciona algo para duplicar"
             return
@@ -2697,6 +2993,7 @@ final class BrowserModel: ObservableObject {
         statusMessage = "Duplicando…"
         let paths = targets.map(\.path)
         let names = Dictionary(uniqueKeysWithValues: targets.map { ($0.path, $0.name) })
+        let intoSecondary = activeIsSecondary
 
         Task {
             var lastPath: String?
@@ -2719,9 +3016,18 @@ final class BrowserModel: ObservableObject {
             }
             await MainActor.run {
                 if !createdPaths.isEmpty { self.pushUndo(.copied(created: createdPaths)) }
-                self.reload()
-                if let lastPath, failure == nil {
-                    self.selectOnly(lastPath)
+                if intoSecondary {
+                    self.reloadSecondary()
+                    if self.dualPaneEnabled { self.reload() }
+                    if let lastPath, failure == nil {
+                        self.selectSecondaryOnly(lastPath)
+                    }
+                } else {
+                    self.reload()
+                    if self.dualPaneEnabled { self.reloadSecondary() }
+                    if let lastPath, failure == nil {
+                        self.selectOnly(lastPath)
+                    }
                 }
                 if let failure {
                     self.statusMessage = failure
@@ -2735,7 +3041,14 @@ final class BrowserModel: ObservableObject {
     }
 
     /// Paths que se armarían si haces hold sobre `entry` (selección múltiple incluida).
-    func dragArmGroup(for entry: FileEntry) -> [String] {
+    func dragArmGroup(for entry: FileEntry, pane: PaneFocus? = nil) -> [String] {
+        let target = pane ?? paneForPath(entry.path)
+        if dualPaneEnabled, target == .secondary {
+            if secondarySelectedIDs.contains(entry.id), secondarySelectedIDs.count > 1 {
+                return secondarySelectedEntries.map(\.path)
+            }
+            return [entry.path]
+        }
         if selectedIDs.contains(entry.id), selectedIDs.count > 1 {
             return selectedEntries.map(\.path)
         }
@@ -2743,18 +3056,23 @@ final class BrowserModel: ObservableObject {
     }
 
     /// Empieza el anillo de progreso al pulsar (antes de los 1s).
-    func beginArmingFileDrag(for entry: FileEntry) {
+    func beginArmingFileDrag(for entry: FileEntry, pane: PaneFocus? = nil) {
+        let target = pane ?? paneForPath(entry.path)
+        if dualPaneEnabled {
+            focusedPane = target
+        }
         // Si ya estamos armando este gesto, no reinicies el anillo.
         if fileDragArmingPrimaryPath == entry.path, armingProgressTask != nil { return }
         if isFileDragArmed(path: entry.path) { return }
 
         armingProgressTask?.cancel()
-        let group = dragArmGroup(for: entry)
+        let group = dragArmGroup(for: entry, pane: target)
         fileDragArmingPaths = Set(group)
         fileDragArmingPrimaryPath = entry.path
         fileDragArmProgress = 0
         let path = entry.path
         let entryCopy = entry
+        let armPane = target
         let steps = 20
         let stepNanos: UInt64 = 50_000_000 // 20 × 50ms = 1s
         armingProgressTask = Task { @MainActor in
@@ -2765,7 +3083,7 @@ final class BrowserModel: ObservableObject {
             }
             guard !Task.isCancelled, self.fileDragArmingPrimaryPath == path else { return }
             // Hold completo sin soltar → arma aunque el mouse no se haya movido.
-            self.armFileDrag(for: entryCopy)
+            self.armFileDrag(for: entryCopy, pane: armPane)
         }
     }
 
@@ -2781,8 +3099,8 @@ final class BrowserModel: ObservableObject {
     }
 
     /// Compat: hold antiguo / llamadas internas → mismo efecto que ⌘+clic (rango + naranja).
-    func armFileDrag(for entry: FileEntry) {
-        commandRangeSelectForMove(to: entry.id)
+    func armFileDrag(for entry: FileEntry, pane: PaneFocus? = nil) {
+        commandRangeSelectForMove(to: entry.id, pane: pane ?? paneForPath(entry.path))
     }
 
     func isFileDragArmed(path: String) -> Bool {
@@ -2812,6 +3130,7 @@ final class BrowserModel: ObservableObject {
             guard let self, dropped else { return }
             self.clearArmedFileDrag()
             self.reload()
+            if self.dualPaneEnabled { self.reloadSecondary() }
         }
         return FolderDragBridge.shared.startDrag(paths: paths)
     }
@@ -2854,17 +3173,19 @@ final class BrowserModel: ObservableObject {
             return
         }
         let paths = urls.map(\.path)
-        let rest = offerMergeIfNeeded(paths: paths, toDirectory: currentPath, move: false)
+        let dest = activeWorkingPath
+        let rest = offerMergeIfNeeded(paths: paths, toDirectory: dest, move: false)
         if pendingMergePreview != nil {
             statusMessage = "Revisa Smart Merge; vuelve a pegar para continuar con los demás elementos"
             return
         }
         guard !rest.isEmpty else { return }
-        enqueueTransfer(paths: rest, toDirectory: currentPath, move: false) { result in
+        enqueueTransfer(paths: rest, toDirectory: dest, move: false) { result in
             switch result {
             case .success(let pairs):
                 self.pushUndo(.copied(created: pairs.map(\.to)))
                 self.reload()
+                if self.dualPaneEnabled { self.reloadSecondary() }
                 self.statusMessage = pairs.count == 1 ? "1 archivo pegado" : "\(pairs.count) archivos pegados"
             case .failure(let error):
                 self.statusMessage = "No se pudo pegar: \(error.localizedDescription)"
@@ -2881,7 +3202,7 @@ final class BrowserModel: ObservableObject {
     // MARK: - Bandeja (Dropover casero)
 
     func addSelectionToShelf(intent: FileOps.ShelfIntent = .move) {
-        let entries = selectedEntries
+        let entries = activeSelectedEntries
         guard !entries.isEmpty else {
             statusMessage = "Selecciona algo para la bandeja"
             return
@@ -2940,6 +3261,7 @@ final class BrowserModel: ObservableObject {
             return
         }
 
+        let dest = activeWorkingPath
         let originalItems = shelf
         var remaining: [FileOps.ShelfItem] = []
         var toMove: [String] = []
@@ -2948,7 +3270,7 @@ final class BrowserModel: ObservableObject {
 
         for (index, item) in originalItems.enumerated() {
             let move = item.intent == .move
-            let paths = offerMergeIfNeeded(paths: [item.path], toDirectory: currentPath, move: move)
+            let paths = offerMergeIfNeeded(paths: [item.path], toDirectory: dest, move: move)
             if pendingMergePreview != nil {
                 remaining.append(contentsOf: originalItems[index...])
                 break
@@ -2983,6 +3305,7 @@ final class BrowserModel: ObservableObject {
             if !moved.isEmpty { pushUndo(.moved(pairs: moved)) }
             if !copied.isEmpty { pushUndo(.copied(created: copied.map(\.to))) }
             reload()
+            if dualPaneEnabled { reloadSecondary() }
             var parts: [String] = []
             if !moved.isEmpty { parts.append("\(moved.count) movido(s)") }
             if !copied.isEmpty { parts.append("\(copied.count) copiado(s)") }
@@ -2998,18 +3321,19 @@ final class BrowserModel: ObservableObject {
         if toMove.isEmpty && toCopy.isEmpty {
             shelf = remaining
             reload()
+            if dualPaneEnabled { reloadSecondary() }
             statusMessage = "Nada transferido"
             return
         }
 
         if !toMove.isEmpty {
-            enqueueTransfer(paths: toMove, toDirectory: currentPath, move: true) { moveResult in
+            enqueueTransfer(paths: toMove, toDirectory: dest, move: true) { moveResult in
                 switch moveResult {
                 case .success(let movedPairs):
                     if toCopy.isEmpty {
                         finish(moved: movedPairs, copied: [], error: nil, restoreShelf: nil)
                     } else {
-                        self.enqueueTransfer(paths: toCopy, toDirectory: self.currentPath, move: false) { copyResult in
+                        self.enqueueTransfer(paths: toCopy, toDirectory: dest, move: false) { copyResult in
                             switch copyResult {
                             case .success(let copiedPairs):
                                 finish(moved: movedPairs, copied: copiedPairs, error: nil, restoreShelf: nil)
@@ -3033,7 +3357,7 @@ final class BrowserModel: ObservableObject {
                 }
             }
         } else {
-            enqueueTransfer(paths: toCopy, toDirectory: currentPath, move: false) { copyResult in
+            enqueueTransfer(paths: toCopy, toDirectory: dest, move: false) { copyResult in
                 switch copyResult {
                 case .success(let copiedPairs):
                     finish(moved: [], copied: copiedPairs, error: nil, restoreShelf: nil)
@@ -3059,13 +3383,13 @@ final class BrowserModel: ObservableObject {
             statusMessage = "Primero termina o cancela la fusión pendiente"
             return
         }
-        let rest = offerMergeIfNeeded(paths: paths, toDirectory: currentPath, move: forceMove)
+        let dest = activeWorkingPath
+        let rest = offerMergeIfNeeded(paths: paths, toDirectory: dest, move: forceMove)
         if pendingMergePreview != nil {
             statusMessage = "Revisa Smart Merge; los demás elementos siguen en la bandeja"
             return
         }
         guard !rest.isEmpty else { return }
-        let dest = currentPath
         let job = TransferQueue.Job(paths: rest, destinationDir: dest, move: forceMove)
         transferProgressFraction = 0
         transferProgressLabel = forceMove ? "Moviendo bandeja…" : "Copiando bandeja…"
@@ -3092,6 +3416,7 @@ final class BrowserModel: ObservableObject {
                     self.pushUndo(.copied(created: pairs.map(\.to)))
                 }
                 self.reload()
+                if self.dualPaneEnabled { self.reloadSecondary() }
                 self.statusMessage = forceMove
                     ? "Movidos \(pairs.count) a esta carpeta · ⌘Z deshace"
                     : "Copiados \(pairs.count) a esta carpeta · ⌘Z deshace"
@@ -3213,9 +3538,9 @@ final class BrowserModel: ObservableObject {
         return [entry.path]
     }
 
-    /// Rutas a sacar fuera de Ordena (selección, o bandeja si no hay selección).
+    /// Rutas a sacar fuera de Ordena (selección del panel activo, o bandeja).
     var outboundPaths: [String] {
-        let selected = selectedEntries.map(\.path).filter {
+        let selected = activeSelectedEntries.map(\.path).filter {
             FileManager.default.fileExists(atPath: $0)
         }
         if !selected.isEmpty { return selected }
