@@ -9,10 +9,11 @@ enum AboutOrdena {
             let status = await AppUpdateChecker.shared.aboutStatus(current: version)
 
             let alert = NSAlert()
-            alert.messageText = "Findaro"
+            alert.messageText = "FINDARO"
             alert.informativeText = """
             Versión \(version)
-            Tu espacio de archivos, más inteligente.
+            Tus archivos, bajo control.
+            Encuentra. Organiza. Avanza.
             \(status.line)
             """
             alert.alertStyle = .informational

@@ -50,10 +50,10 @@ struct FileActionsBar: View {
     var body: some View {
         ActionBarFlow(spacing: aroundPipe, lineSpacing: 6) {
             group {
-                chip("Nueva carpeta", "Carpeta", "folder.badge.plus", prominent: true, tint: OrdenTheme.accent, help: "Nueva carpeta · ⇧⌘N", enabled: true) {
+                chip("Nueva carpeta", "Carpeta", "folder.badge.plus", prominent: true, help: "Nueva carpeta · ⇧⌘N", enabled: true) {
                     browser.promptNewFolder()
                 }
-                chip("Nuevo archivo", "Archivo", "doc.badge.plus", prominent: true, tint: OrdenTheme.accent, help: "Nuevo archivo · ⌘N", enabled: true) {
+                chip("Nuevo archivo", "Archivo", "doc.badge.plus", help: "Nuevo archivo · ⌘N", enabled: true) {
                     browser.promptNewFile()
                 }
             }
@@ -65,8 +65,7 @@ struct FileActionsBar: View {
                     browser.showAssistantPanel ? "Cerrar IA" : "Asistente",
                     browser.showAssistantPanel ? "Cerrar IA" : "IA",
                     "sparkles",
-                    prominent: true,
-                    tint: browser.showAssistantPanel ? .orange : OrdenTheme.accent,
+                    smart: true,
                     help: "Asistente · ⌘5",
                     enabled: true
                 ) { browser.showAssistantPanel.toggle() }
@@ -74,16 +73,15 @@ struct FileActionsBar: View {
                     browser.dualPaneEnabled ? "Un panel" : "Dos paneles",
                     browser.dualPaneEnabled ? "1 panel" : "2 paneles",
                     "rectangle.split.2x1",
-                    prominent: true,
-                    tint: browser.dualPaneEnabled ? .orange : OrdenTheme.accent,
+                    prominent: browser.dualPaneEnabled,
                     help: browser.dualPaneEnabled ? "Volver a un solo panel" : "Dos paneles Origen | Destino",
                     enabled: true
                 ) { browser.toggleDualPane() }
                 if browser.dualPaneEnabled {
-                    chip("Mover →", "→ Dest", "arrow.right.circle.fill", prominent: true, tint: .orange, help: "A Destino · ⌘⇧M", enabled: !browser.selectedIDs.isEmpty) {
+                    chip("Mover →", "→ Dest", "arrow.right.circle.fill", prominent: true, help: "A Destino · ⌘⇧M", enabled: !browser.selectedIDs.isEmpty) {
                         browser.transferPrimarySelectionToSecondary(copy: false)
                     }
-                    chip("← Origen", "← Orig", "arrow.left.circle.fill", prominent: true, tint: .purple, help: "A Origen", enabled: !browser.secondarySelectedIDs.isEmpty) {
+                    chip("← Origen", "← Orig", "arrow.left.circle.fill", smart: true, help: "A Origen", enabled: !browser.secondarySelectedIDs.isEmpty) {
                         browser.transferSecondarySelectionToPrimary(copy: false)
                     }
                 }
@@ -116,8 +114,6 @@ struct FileActionsBar: View {
                     browser.shelf.isEmpty ? "Bandeja" : "Bandeja (\(browser.shelf.count))",
                     browser.shelf.isEmpty ? "Bandeja" : "Ban (\(browser.shelf.count))",
                     "tray.and.arrow.down.fill",
-                    prominent: true,
-                    tint: OrdenTheme.accent,
                     help: "Meter en bandeja",
                     enabled: !browser.selectedIDs.isEmpty
                 ) { browser.addSelectionToShelf(intent: .move) }
@@ -142,9 +138,8 @@ struct FileActionsBar: View {
         }
         .padding(.horizontal, metrics.isCompact ? 6 : 8)
         .padding(.vertical, metrics.isCompact ? 4 : 5)
-        .background(OrdenTheme.panelFill.opacity(0.96), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(OrdenTheme.hairline, lineWidth: 1))
-        .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+        .background(OrdenTheme.panelFill.opacity(0.96), in: RoundedRectangle(cornerRadius: OrdenTheme.radiusPanel, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: OrdenTheme.radiusPanel, style: .continuous).strokeBorder(OrdenTheme.hairline, lineWidth: 1))
     }
 
     private var pipe: some View {
@@ -166,7 +161,7 @@ struct FileActionsBar: View {
         _ short: String,
         _ systemImage: String,
         prominent: Bool = false,
-        tint: Color? = nil,
+        smart: Bool = false,
         role: ButtonRole? = nil,
         help: String,
         enabled: Bool,
@@ -174,17 +169,18 @@ struct FileActionsBar: View {
     ) -> some View {
         let title = density.label(full, short: short)
         Group {
-            if prominent {
-                Button(role: role, action: action) { chipLabel(title: title, systemImage: systemImage) }
-                    .buttonStyle(FindaroToolbarButtonStyle(prominent: true, destructive: role == .destructive))
-                    .tint(tint)
-            } else if role == .destructive {
+            if role == .destructive {
                 Button(role: .destructive, action: action) { chipLabel(title: title, systemImage: systemImage) }
-                    .buttonStyle(FindaroToolbarButtonStyle(destructive: role == .destructive))
+                    .buttonStyle(FindaroToolbarButtonStyle(destructive: true))
+            } else if smart {
+                Button(action: action) { chipLabel(title: title, systemImage: systemImage) }
+                    .buttonStyle(FindaroToolbarButtonStyle(smart: true))
+            } else if prominent {
+                Button(action: action) { chipLabel(title: title, systemImage: systemImage) }
+                    .buttonStyle(FindaroToolbarButtonStyle(prominent: true))
             } else {
                 Button(action: action) { chipLabel(title: title, systemImage: systemImage) }
-                    .buttonStyle(FindaroToolbarButtonStyle(destructive: role == .destructive))
-                    .tint(tint)
+                    .buttonStyle(FindaroToolbarButtonStyle())
             }
         }
         .controlSize(density.controlSize)

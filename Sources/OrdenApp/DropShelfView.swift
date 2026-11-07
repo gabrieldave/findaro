@@ -9,18 +9,24 @@ struct DropShelfView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
+            HStack(spacing: 8) {
                 Label("Bandeja", systemImage: "tray.and.arrow.down.fill")
-                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .font(.system(.subheadline).weight(.semibold))
                     .foregroundStyle(OrdenTheme.accent)
 
-                Text(
-                    browser.shelf.isEmpty
-                        ? "⌘C copia · ⌘X mueve · o arrastra aquí"
-                        : "\(browser.shelf.count) en bandeja · ⌘V suelta aquí"
-                )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if browser.shelf.isEmpty {
+                    Text("⌘C copia · ⌘X mueve · o arrastra aquí")
+                        .font(.caption)
+                        .foregroundStyle(OrdenTheme.textSecondary)
+                } else {
+                    FindaroStatusPill(
+                        title: "\(browser.shelf.count) en bandeja",
+                        kind: .processing
+                    )
+                    Text("⌘V suelta aquí")
+                        .font(.caption)
+                        .foregroundStyle(OrdenTheme.textMuted)
+                }
 
                 Spacer()
 
@@ -72,20 +78,20 @@ struct DropShelfView: View {
             }
 
             if browser.shelf.isEmpty {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: OrdenTheme.radiusPanel, style: .continuous)
                     .strokeBorder(
-                        browser.shelfDropTargeted ? OrdenTheme.accent : .secondary.opacity(0.35),
-                        style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
+                        browser.shelfDropTargeted ? OrdenTheme.accent : OrdenTheme.hairline,
+                        style: StrokeStyle(lineWidth: browser.shelfDropTargeted ? 1.5 : 1, dash: [6, 4])
                     )
                     .background(
                         (browser.shelfDropTargeted ? OrdenTheme.accent.opacity(0.12) : Color.clear),
-                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        in: RoundedRectangle(cornerRadius: OrdenTheme.radiusPanel, style: .continuous)
                     )
                     .frame(height: 36)
                     .overlay {
                         Text("Suelta archivos · también a Dropover")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(OrdenTheme.textSecondary)
                     }
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -98,12 +104,12 @@ struct DropShelfView: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.vertical, 10)
+        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: OrdenTheme.radiusWindow, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: OrdenTheme.radiusWindow, style: .continuous)
                 .strokeBorder(
-                    browser.shelfDropTargeted ? OrdenTheme.accent.opacity(0.8) : .white.opacity(0.06),
+                    browser.shelfDropTargeted ? OrdenTheme.accent.opacity(0.8) : OrdenTheme.hairline,
                     lineWidth: browser.shelfDropTargeted ? 2 : 1
                 )
         )
@@ -116,26 +122,32 @@ struct DropShelfView: View {
         HStack(spacing: 6) {
             Image(systemName: item.intent == .move ? "arrow.right.doc.on.clipboard" : "doc.on.doc")
                 .font(.caption2)
+                .foregroundStyle(item.intent == .move ? OrdenTheme.warning : OrdenTheme.accent)
             Text(item.name)
                 .font(.caption)
                 .lineLimit(1)
             Text(item.intent == .move ? "mover" : "copiar")
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(item.intent == .move ? .orange : OrdenTheme.accent)
+                .foregroundStyle(item.intent == .move ? OrdenTheme.warning : OrdenTheme.accent)
             Button {
                 browser.removeFromShelf(item)
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(OrdenTheme.textMuted)
             }
             .buttonStyle(.plain)
+            .help("Quitar de la bandeja")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(
-            (item.intent == .move ? Color.orange : OrdenTheme.accent).opacity(0.18),
-            in: Capsule()
+        .background(OrdenTheme.elevatedFill, in: RoundedRectangle(cornerRadius: OrdenTheme.radiusChip, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: OrdenTheme.radiusChip, style: .continuous)
+                .strokeBorder(
+                    (item.intent == .move ? OrdenTheme.warning : OrdenTheme.accent).opacity(0.35),
+                    lineWidth: 1
+                )
         )
         .help(item.path)
         .onDrag {

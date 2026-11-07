@@ -9,12 +9,16 @@ PRODUCT_NAME="Findaro"
 # Bundle ID propio: si se reutiliza app.ordena.files, Dock/Launch Services
 # confunden Findaro con Ordena.app (mismo ID = misma app para macOS).
 BUNDLE_ID="app.findaro.files"
-VERSION="0.1.74"
-BUILD="80"
+VERSION="0.1.75"
+BUILD="81"
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
 swift build -c release --product Orden
-swift "$ROOT/scripts/generate-findaro-icon.swift" "$ROOT/Resources"
+# Conservar AppIcon.icns instalado/aprobado: no regenerar hasta que dirección entregue PNG final.
+if [[ ! -f "$ROOT/Resources/AppIcon.icns" ]]; then
+  echo "WARN: falta Resources/AppIcon.icns — generando fallback temporal" >&2
+  swift "$ROOT/scripts/generate-findaro-icon.swift" "$ROOT/Resources"
+fi
 BIN="$(swift build -c release --show-bin-path)/Orden"
 
 APP_DIR="$ROOT/dist/${PRODUCT_NAME}.app"
@@ -26,7 +30,7 @@ cp "$BIN" "$APP_DIR/Contents/MacOS/${PRODUCT_NAME}"
 chmod +x "$APP_DIR/Contents/MacOS/${PRODUCT_NAME}"
 
 if [[ ! -f "$ROOT/Resources/AppIcon.icns" ]]; then
-  echo "ERROR: falta Resources/AppIcon.icns (generate-findaro-icon falló)" >&2
+  echo "ERROR: falta Resources/AppIcon.icns" >&2
   exit 1
 fi
 cp "$ROOT/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"

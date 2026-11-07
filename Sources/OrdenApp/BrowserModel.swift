@@ -161,7 +161,7 @@ final class BrowserModel: ObservableObject {
         showFolderHandlerSetupDialog = true
         switch result {
         case .alreadyDefault:
-            statusMessage = "Ordena ya está como app de carpetas"
+            statusMessage = "Findaro ya está como app de carpetas"
         case .readyForOpenWith:
             statusMessage = "Findaro lista en «Abrir con» — falta elegir Siempre (límite de Apple)"
         case .appMissing:

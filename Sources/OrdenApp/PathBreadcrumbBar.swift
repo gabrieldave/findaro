@@ -7,11 +7,11 @@ struct PathBreadcrumbBar: View {
     @FocusState private var omniboxFocused: Bool
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             if browser.pathOmniboxEditing {
                 Image(systemName: "magnifyingglass")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(OrdenTheme.accent)
                 TextField("Ruta o ~/carpeta", text: $browser.pathOmniboxDraft)
                     .textFieldStyle(.plain)
                     .font(.system(.callout, design: .monospaced))
@@ -33,17 +33,17 @@ struct PathBreadcrumbBar: View {
                             if index > 0 {
                                 Image(systemName: "chevron.forward")
                                     .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(OrdenTheme.textMuted)
                             }
                             Button {
                                 browser.navigate(to: segment.path)
                             } label: {
                                 Text(segment.title)
-                                    .font(.system(.callout, design: .rounded))
+                                    .font(.system(.callout))
                                     .lineLimit(1)
                             }
                             .buttonStyle(.plain)
-                            .foregroundStyle(index == browser.pathSegments.count - 1 ? .primary : .secondary)
+                            .foregroundStyle(index == browser.pathSegments.count - 1 ? .primary : OrdenTheme.textSecondary)
                             .help(segment.path)
                         }
                     }
@@ -58,28 +58,33 @@ struct PathBreadcrumbBar: View {
                 } label: {
                     Image(systemName: "pencil.and.list.clipboard")
                         .font(.caption.weight(.semibold))
+                        .foregroundStyle(OrdenTheme.accent)
                 }
                 .buttonStyle(.borderless)
                 .help("Editar ruta / Ir a carpeta… (⌘L o ⌘3)")
             }
 
             if browser.flattenFolderView {
-                Text("plana")
-                    .font(.caption2.weight(.bold))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.orange.opacity(0.25), in: Capsule())
+                FindaroStatusPill(title: "plana", kind: .warning)
                     .help("Vista plana activa")
             }
             if browser.showHiddenFiles {
-                Text("ocultos")
-                    .font(.caption2.weight(.bold))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.purple.opacity(0.25), in: Capsule())
+                FindaroStatusPill(title: "ocultos", kind: .processing)
                     .help("Mostrando archivos ocultos")
             }
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(OrdenTheme.elevatedFill.opacity(0.72), in: RoundedRectangle(cornerRadius: OrdenTheme.radiusControl, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: OrdenTheme.radiusControl, style: .continuous)
+                .strokeBorder(
+                    omniboxFocused || browser.pathOmniboxEditing
+                        ? OrdenTheme.accent.opacity(0.55)
+                        : OrdenTheme.hairline,
+                    lineWidth: 1
+                )
+        )
         .onChange(of: browser.pathOmniboxEditing) { _, editing in
             if editing {
                 DispatchQueue.main.async { omniboxFocused = true }
