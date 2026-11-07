@@ -1,11 +1,12 @@
 import Foundation
 import OrdenCore
 
-/// Cliente mínimo para Ollama local (opt-in). Sin Ollama → el agente usa reglas.
+/// Cliente Ollama local (fase 3, opt-in). Sin Ollama o desactivado → reglas.
 @MainActor
 final class OllamaClient: ObservableObject {
     static let shared = OllamaClient()
 
+    @Published var enabled = false
     @Published private(set) var available = false
     @Published private(set) var models: [String] = []
     @Published var selectedModel: String = "qwen2.5:3b"
@@ -13,14 +14,27 @@ final class OllamaClient: ObservableObject {
 
     private let baseURL = URL(string: "http://127.0.0.1:11434")!
 
+    var isReady: Bool { enabled && available }
+
+    func applyPreferences(_ prefs: OrdenPreferences) {
+        enabled = prefs.ollamaEnabled
+        selectedModel = prefs.ollamaModel.isEmpty ? "qwen2.5:3b" : prefs.ollamaModel
+    }
+
     func refresh() async {
+        guard enabled else {
+            available = false
+            models = []
+            lastError = nil
+            return
+        }
         do {
             let url = baseURL.appending(path: "api/tags")
             let (data, response) = try await URLSession.shared.data(from: url)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
                 available = false
                 models = []
-                lastError = "Ollama no responde en :11434"
+                lastError = "Ollama no responde en :11434. Ábrelo o apaga la opción en Ajustes."
                 return
             }
             struct Tags: Decodable {
@@ -41,9 +55,9 @@ final class OllamaClient: ObservableObject {
         }
     }
 
-    /// Pide un plan JSON; si falla, nil (caller usa reglas).
+    /// Pide un plan JSON; si falla o está off, nil (caller usa reglas).
     func proposePlan(prompt: String, currentPath: String) async -> AgentPlan? {
-        guard available else { return nil }
+        guard isReady else { return nil }
         struct ReqBody: Encodable {
             let model: String
             let stream: Bool

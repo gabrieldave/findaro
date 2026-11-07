@@ -90,6 +90,67 @@ public enum AgentPolicy {
 
 /// Parser de intenciones por reglas (sin LLM). Español e inglés básico.
 public enum AgentIntentParser {
+    /// Frases tipo «imágenes de hoy» / «música de hace 3 días» → atajo temporal.
+    public static func inferShortcut(from lower: String) -> AssistantShortcut? {
+        let folded = foldSpanish(lower)
+        let window: ShortcutDateWindow?
+        if folded.contains("hoy") {
+            window = .today
+        } else if folded.contains("ayer") {
+            window = .yesterday
+        } else if folded.contains("semana") {
+            window = .lastDays(7)
+        } else if let n = extractHaceDays(folded) {
+            window = .lastDays(n)
+        } else {
+            window = nil
+        }
+        guard let window else { return nil }
+
+        let categories: [FileCategory]
+        if folded.contains("imagen") || folded.contains("foto") || folded.contains("picture") {
+            categories = [.image]
+        } else if folded.contains("musica") || folded.contains("audio") || folded.contains("cancion") {
+            categories = [.audio]
+        } else if folded.contains("video") || folded.contains("pelicula") {
+            categories = [.video]
+        } else if folded.contains("pdf") {
+            categories = [.pdf]
+        } else if folded.contains("documento") || folded.contains("docs") {
+            categories = AssistantShortcut.documentCategories
+        } else {
+            return nil
+        }
+
+        let title: String
+        if categories == AssistantShortcut.documentCategories {
+            title = "Documentos \(window.labelSpanish)"
+        } else if let only = categories.first {
+            title = "\(only.labelSpanish)s \(window.labelSpanish)"
+        } else {
+            title = "Archivos \(window.labelSpanish)"
+        }
+        return AssistantShortcut(title: title, categories: categories, dateWindow: window)
+    }
+
+    private static func extractHaceDays(_ lower: String) -> Int? {
+        // Ya viene sin acentos: "hace 3 dias"
+        let pattern = #"hace\s+(\d+)\s+dias"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: lower, range: NSRange(lower.startIndex..., in: lower)),
+              match.numberOfRanges >= 2,
+              let range = Range(match.range(at: 1), in: lower),
+              let n = Int(lower[range]), n >= 1, n <= 365 else { return nil }
+        return n
+    }
+
+    /// Quita acentos para matchear «imágenes» ≈ imagen.
+    private static func foldSpanish(_ text: String) -> String {
+        text
+            .lowercased()
+            .folding(options: .diacriticInsensitive, locale: Locale(identifier: "es_ES"))
+    }
+
     public static func plan(from prompt: String, currentPath: String) -> AgentPlan {
         let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         let lower = text.lowercased()

@@ -26,6 +26,9 @@ final class BrowserModel: ObservableObject {
     @Published var cleanupMode = false
     /// Modo exclusivo: solo ítems agregados/creados hoy en esta carpeta (descargas del día).
     @Published var downloadsTodayMode = false
+    /// Atajo del asistente activo (tipo + fechas).
+    @Published var activeAssistantShortcut: AssistantShortcut? = nil
+    @Published var assistantShortcuts: [AssistantShortcut] = []
     /// Historial tipo Explorer/Finder: atrás / adelante.
     @Published private(set) var canGoBack = false
     @Published private(set) var canGoForward = false
@@ -171,7 +174,9 @@ final class BrowserModel: ObservableObject {
         self.viewMode = store.preferences.viewMode
         self.showRowPaths = store.preferences.showRowPaths
         self.explorerKeyboardProfile = store.preferences.explorerKeyboardProfile
+        self.assistantShortcuts = store.preferences.assistantShortcuts
         self.columnPaths = [start]
+        OllamaClient.shared.applyPreferences(store.preferences)
         folderWatcher.onChange = { [weak self] in
             Task { @MainActor in
                 self?.handleFolderWatcherEvent()
@@ -335,7 +340,10 @@ final class BrowserModel: ObservableObject {
 
     var visibleEntries: [FileEntry] {
         let base: [FileEntry]
-        if downloadsTodayMode {
+        if let shortcut = activeAssistantShortcut {
+            let matched = entries.filter { shortcut.matches($0) }
+            base = DownloadDayFilter.sortNewestFirst(matched)
+        } else if downloadsTodayMode {
             // Exclusivo: oculta todo lo que no sea actividad de hoy; orden fijo (más nuevo arriba)
             let today = entries.filter { DownloadDayFilter.isActivityToday($0) }
             base = DownloadDayFilter.sortNewestFirst(today)
@@ -343,7 +351,9 @@ final class BrowserModel: ObservableObject {
             base = SortEngine.sort(entries, by: rule)
         }
         let typed: [FileEntry]
-        if let categoryFilter {
+        if activeAssistantShortcut != nil {
+            typed = base
+        } else if let categoryFilter {
             typed = base.filter { $0.category == categoryFilter }
         } else {
             typed = base
@@ -388,6 +398,9 @@ final class BrowserModel: ObservableObject {
     }
 
     var ruleSummary: String {
+        if let shortcut = activeAssistantShortcut {
+            return "Atajo · \(shortcut.title) · \(visibleEntries.count)"
+        }
         if downloadsTodayMode {
             return "Descargados hoy · \(downloadsTodayCount) en esta carpeta"
         }
@@ -855,6 +868,12 @@ final class BrowserModel: ObservableObject {
         showAssistantPanel = true
         appendAgentUser(trimmed)
         agentLog.append("> \(trimmed)")
+
+        if let shortcut = matchAssistantShortcut(prompt: trimmed) {
+            applyAssistantShortcut(shortcut)
+            return
+        }
+
         if let llm = await OllamaClient.shared.proposePlan(prompt: trimmed, currentPath: currentPath) {
             agentPlan = llm
             agentLog.append("Plan (Ollama): \(llm.summary)")
@@ -863,7 +882,7 @@ final class BrowserModel: ObservableObject {
             agentPlan = plan
             agentLog.append("Plan (reglas): \(plan.summary)")
         }
-        // Fase 2: solo lectura se ejecuta solo. Escritura espera aprobación (fase 5).
+        // Fase 2–3: solo lectura se ejecuta solo. Escritura espera aprobación (fase 5).
         if let plan = agentPlan, !plan.needsApproval {
             executeAgentPlan(approved: true)
         } else if let plan = agentPlan, plan.needsApproval {
@@ -1219,6 +1238,7 @@ final class BrowserModel: ObservableObject {
     /// Orden por peso: lo más pesado arriba (no borra nada).
     func showHeaviestForCleanup() {
         downloadsTodayMode = false
+        activeAssistantShortcut = nil
         cleanupMode = true
         rule = .heaviestFirst
         let msg = "Listo: ordené por peso. Arriba está lo que más ocupa. No borré nada."
@@ -1240,6 +1260,7 @@ final class BrowserModel: ObservableObject {
             return
         }
         cleanupMode = false
+        activeAssistantShortcut = nil
         downloadsTodayMode = true
         clearSelection()
         let n = downloadsTodayCount
@@ -1253,6 +1274,98 @@ final class BrowserModel: ObservableObject {
         downloadsTodayMode = false
         statusMessage = "Saliste del modo Descargados"
         objectWillChange.send()
+    }
+
+    // MARK: Atajos del asistente
+
+    func applyAssistantShortcut(_ shortcut: AssistantShortcut) {
+        downloadsTodayMode = false
+        cleanupMode = false
+        categoryFilter = nil
+        activeAssistantShortcut = shortcut
+        clearSelection()
+        showAssistantPanel = true
+        let n = visibleEntries.count
+        let msg: String
+        if n == 0 {
+            msg = "Atajo «\(shortcut.title)»: no hay nada que coincida en esta carpeta."
+        } else if n == 1 {
+            msg = "Atajo «\(shortcut.title)»: 1 archivo. Lo más nuevo arriba."
+        } else {
+            msg = "Atajo «\(shortcut.title)»: \(n) archivos. Lo más nuevo arriba."
+        }
+        appendAgentReply(msg)
+        objectWillChange.send()
+    }
+
+    func clearAssistantShortcutFilter() {
+        guard activeAssistantShortcut != nil else { return }
+        activeAssistantShortcut = nil
+        appendAgentReply("Quité el filtro del atajo. Otra vez ves toda la carpeta.")
+        objectWillChange.send()
+    }
+
+    @discardableResult
+    func addAssistantShortcut(_ shortcut: AssistantShortcut) -> String? {
+        if assistantShortcuts.count >= AssistantShortcut.maxCount {
+            return "Ya tienes \(AssistantShortcut.maxCount) atajos (tope). Borra alguno para crear otro."
+        }
+        var next = shortcut
+        if next.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            next.title = defaultTitle(for: next)
+        }
+        assistantShortcuts.insert(next, at: 0)
+        persistAssistantShortcuts()
+        appendAgentReply("Guardé el atajo «\(next.title)». Queda fijo aquí para reusarlo.")
+        return nil
+    }
+
+    func deleteAssistantShortcut(id: UUID) {
+        assistantShortcuts.removeAll { $0.id == id }
+        if activeAssistantShortcut?.id == id {
+            activeAssistantShortcut = nil
+        }
+        persistAssistantShortcuts()
+    }
+
+    func persistAssistantShortcuts() {
+        let capped = Array(assistantShortcuts.prefix(AssistantShortcut.maxCount))
+        assistantShortcuts = capped
+        store.update { $0.assistantShortcuts = capped }
+    }
+
+    func setOllamaEnabled(_ on: Bool) {
+        store.update { $0.ollamaEnabled = on }
+        OllamaClient.shared.applyPreferences(store.preferences)
+        Task { await OllamaClient.shared.refresh() }
+    }
+
+    func setOllamaModel(_ model: String) {
+        store.update { $0.ollamaModel = model }
+        OllamaClient.shared.applyPreferences(store.preferences)
+    }
+
+    private func defaultTitle(for shortcut: AssistantShortcut) -> String {
+        let typePart: String
+        if shortcut.categories == AssistantShortcut.documentCategories {
+            typePart = "Documentos"
+        } else if shortcut.categories.count == 1, let only = shortcut.categories.first {
+            typePart = only.labelSpanish + "s"
+        } else if shortcut.categories.isEmpty {
+            typePart = "Archivos"
+        } else {
+            typePart = "Varios"
+        }
+        return "\(typePart) \(shortcut.dateWindow.labelSpanish)"
+    }
+
+    /// Si el texto coincide con un atajo guardado o una frase tipo+fecha, lo aplica.
+    func matchAssistantShortcut(prompt: String) -> AssistantShortcut? {
+        let lower = prompt.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if let saved = assistantShortcuts.first(where: { $0.title.lowercased() == lower }) {
+            return saved
+        }
+        return AgentIntentParser.inferShortcut(from: lower)
     }
 
     func open(_ entry: FileEntry) {

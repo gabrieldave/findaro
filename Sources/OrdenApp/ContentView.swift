@@ -434,7 +434,20 @@ struct FolderStatsBar: View {
                 .help("Clic para copiar la ruta de esta carpeta")
             }
 
-            if browser.downloadsTodayMode {
+            if let shortcut = browser.activeAssistantShortcut {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(.orange)
+                    Text("Atajo «\(shortcut.title)»: \(browser.visibleEntries.count) coincidencias. El resto está oculto.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    Button("Mostrar todo") {
+                        browser.clearAssistantShortcutFilter()
+                    }
+                    .controlSize(.regular)
+                }
+            } else if browser.downloadsTodayMode {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.down.circle.fill")
                         .foregroundStyle(.orange)
@@ -1466,11 +1479,46 @@ private struct BrowserDialogsModifier: ViewModifier {
 
 struct SettingsView: View {
     @EnvironmentObject private var browser: BrowserModel
+    @StateObject private var ollama = OllamaClient.shared
 
     var body: some View {
         Form {
             Section("Selección y bandeja") {
                 Text("Clic = uno · Arrastrar = rectángulo · ⌘+clic = listo para mover (naranja) · casillas o «Varios» = multi · ⌘C/⌘X bandeja · ⌘V suelta · ⌘Z deshace")
+            }
+            Section("Asistente e IA (Ollama)") {
+                Toggle("Usar Ollama si está corriendo", isOn: Binding(
+                    get: { browser.store.preferences.ollamaEnabled },
+                    set: { browser.setOllamaEnabled($0) }
+                ))
+                Text("Apagado por defecto. Con Ollama en este Mac, el asistente puede planear búsquedas con frases. Sin Ollama sigue con reglas y atajos.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if ollama.enabled {
+                    if ollama.available {
+                        Picker("Modelo", selection: Binding(
+                            get: { ollama.selectedModel },
+                            set: { browser.setOllamaModel($0) }
+                        )) {
+                            ForEach(ollama.models, id: \.self) { model in
+                                Text(model).tag(model)
+                            }
+                        }
+                        Text("Listo · \(ollama.models.count) modelo(s) en :11434")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(ollama.lastError ?? "No encuentro Ollama en http://127.0.0.1:11434")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                    Button("Probar conexión Ollama") {
+                        Task { await ollama.refresh() }
+                    }
+                }
+                Text("Atajos del asistente: hasta \(AssistantShortcut.maxCount). Créalos en el panel (⌘5) → Nuevo.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section("Búsqueda (⌘4)") {
                 Text("Filtro de arriba: solo nombres de esta carpeta.")
@@ -1478,7 +1526,7 @@ struct SettingsView: View {
                 Text("Reglas: por nombre (extensión incluida) · parte del nombre basta (vibe → vibesystems) · mayúsculas da igual · no lee el contenido · sin comodines * ?")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("Asistente / IA local (después): lenguaje natural y contenido dentro de archivos de texto — aparte de ⌘4.")
+                Text("Asistente: atajos (tipo+fecha) ya; con Ollama, frases y contenido de texto.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -1529,6 +1577,10 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 420)
+        .frame(width: 480, height: 520)
+        .task {
+            ollama.applyPreferences(browser.store.preferences)
+            await ollama.refresh()
+        }
     }
 }

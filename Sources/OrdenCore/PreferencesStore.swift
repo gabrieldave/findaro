@@ -14,16 +14,24 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public var showRowPaths: Bool
     /// Enter abre / F2 renombra (perfil tipo Explorer).
     public var explorerKeyboardProfile: Bool
+    /// Atajos del asistente (tipo + fecha). Muchos → UI scrolleable.
+    public var assistantShortcuts: [AssistantShortcut]
+    /// Fase 3: usar Ollama si está corriendo (opt-in).
+    public var ollamaEnabled: Bool
+    public var ollamaModel: String
 
     public init(
-        schemaVersion: Int = 11,
+        schemaVersion: Int = 12,
         globalRule: SortRule = .downloads,
         folderOverrides: [String: SortRule] = [:],
         favorites: [String] = [],
         lastPath: String? = nil,
         viewMode: BrowserViewMode = .list,
         showRowPaths: Bool = true,
-        explorerKeyboardProfile: Bool = false
+        explorerKeyboardProfile: Bool = false,
+        assistantShortcuts: [AssistantShortcut] = AssistantShortcut.factoryDefaults(),
+        ollamaEnabled: Bool = false,
+        ollamaModel: String = "qwen2.5:3b"
     ) {
         self.schemaVersion = schemaVersion
         self.globalRule = globalRule
@@ -33,6 +41,9 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         self.viewMode = viewMode
         self.showRowPaths = showRowPaths
         self.explorerKeyboardProfile = explorerKeyboardProfile
+        self.assistantShortcuts = assistantShortcuts
+        self.ollamaEnabled = ollamaEnabled
+        self.ollamaModel = ollamaModel
     }
 
     /// Override de carpeta si existe; si no, el global (estilo Descargas por defecto).
@@ -45,7 +56,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode, showRowPaths, explorerKeyboardProfile
+        case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode, showRowPaths,
+             explorerKeyboardProfile, assistantShortcuts, ollamaEnabled, ollamaModel
     }
 
     public init(from decoder: Decoder) throws {
@@ -58,6 +70,10 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         viewMode = try c.decodeIfPresent(BrowserViewMode.self, forKey: .viewMode) ?? .list
         showRowPaths = try c.decodeIfPresent(Bool.self, forKey: .showRowPaths) ?? true
         explorerKeyboardProfile = try c.decodeIfPresent(Bool.self, forKey: .explorerKeyboardProfile) ?? false
+        assistantShortcuts = try c.decodeIfPresent([AssistantShortcut].self, forKey: .assistantShortcuts)
+            ?? AssistantShortcut.factoryDefaults()
+        ollamaEnabled = try c.decodeIfPresent(Bool.self, forKey: .ollamaEnabled) ?? false
+        ollamaModel = try c.decodeIfPresent(String.self, forKey: .ollamaModel) ?? "qwen2.5:3b"
     }
 }
 
@@ -105,7 +121,7 @@ public final class PreferencesStore: @unchecked Sendable {
     private static func freshDefaults() -> OrdenPreferences {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return OrdenPreferences(
-            schemaVersion: 10,
+            schemaVersion: 12,
             globalRule: .downloads,
             folderOverrides: [:],
             favorites: [
@@ -148,6 +164,20 @@ public final class PreferencesStore: @unchecked Sendable {
         if next.schemaVersion < 11 {
             next.explorerKeyboardProfile = false
             next.schemaVersion = 11
+        }
+        if next.schemaVersion < 12 {
+            if next.assistantShortcuts.isEmpty {
+                next.assistantShortcuts = AssistantShortcut.factoryDefaults()
+            }
+            next.ollamaEnabled = false
+            if next.ollamaModel.isEmpty {
+                next.ollamaModel = "qwen2.5:3b"
+            }
+            next.schemaVersion = 12
+        }
+        // Tope duro: gente crea muchos; no dejamos crecer sin límite.
+        if next.assistantShortcuts.count > AssistantShortcut.maxCount {
+            next.assistantShortcuts = Array(next.assistantShortcuts.prefix(AssistantShortcut.maxCount))
         }
         return next
     }
