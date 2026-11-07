@@ -96,7 +96,8 @@ public enum AgentIntentParser {
         var steps: [AgentToolCall] = []
         var summary = "Interpreté tu pedido"
 
-        if lower.contains("pesad") || lower.contains("espacio") || lower.contains("largest") || lower.contains("heaviest") {
+        // "qué pesa más" / "pesa" — no exigir "pesad*" (fallaba el chip del panel).
+        if mentionsHeavy(lower) {
             steps.append(AgentToolCall(
                 name: .getStorageUsage,
                 arguments: ["path": currentPath],
@@ -105,7 +106,7 @@ public enum AgentIntentParser {
             summary = "Mostrar lo que más pesa aquí"
         }
 
-        if lower.contains("duplicad") || lower.contains("duplicate") {
+        if mentionsDuplicates(lower) {
             steps.append(AgentToolCall(
                 name: .findDuplicates,
                 arguments: ["path": currentPath],
@@ -195,6 +196,29 @@ public enum AgentIntentParser {
         }
 
         return AgentPlan(prompt: text, summary: summary, steps: steps)
+    }
+
+    private static func mentionsHeavy(_ lower: String) -> Bool {
+        lower.contains("pesad")
+            || lower.contains("pesa más")
+            || lower.contains("pesa mas")
+            || lower.contains("qué pesa")
+            || lower.contains("que pesa")
+            || lower.contains("más pesa")
+            || lower.contains("mas pesa")
+            || lower.contains("cuánto ocupa")
+            || lower.contains("cuanto ocupa")
+            || lower.contains("espacio")
+            || lower.contains("largest")
+            || lower.contains("heaviest")
+            || lower.contains("biggest")
+    }
+
+    private static func mentionsDuplicates(_ lower: String) -> Bool {
+        lower.contains("duplicad")
+            || lower.contains("duplicate")
+            || lower.contains("hay copia")
+            || lower.contains("copias iguales")
     }
 
     private static func extractQuoted(_ text: String) -> String? {

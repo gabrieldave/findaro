@@ -20,7 +20,9 @@ struct AssistantPanel: View {
             Divider().opacity(0.35)
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("Escribe en español. Hoy ejecuta solo lectura: buscar, listar, pesados, duplicados.")
+                    Text(ollama.available
+                         ? "Ollama listo. Si no responde el modelo, cae a reglas locales (buscar, listar, pesados, duplicados)."
+                         : "Sin IA aún: reglas locales. Los botones de abajo ya ejecutan acciones en la lista. Ollama = fase 3.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -149,6 +151,16 @@ private struct FlowTips: View {
     let tips: [String]
     let onTap: (String) -> Void
 
+    private func tipHelp(_ tip: String) -> String {
+        switch tip {
+        case "busca pdf": return "Busca archivos .pdf bajo la carpeta actual"
+        case "qué pesa más": return "Ordena la lista: lo más pesado arriba"
+        case "hay duplicados": return "Marca posibles duplicados (mismo nombre y tamaño)"
+        case "lista esta carpeta": return "Recarga y muestra el contenido actual"
+        default: return tip
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             ForEach(tips, id: \.self) { tip in
@@ -163,6 +175,7 @@ private struct FlowTips: View {
                         .background(OrdenTheme.panelFill, in: Capsule())
                 }
                 .buttonStyle(.plain)
+                .help(tipHelp(tip))
             }
         }
     }
