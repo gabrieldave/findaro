@@ -27,7 +27,7 @@ struct RecursiveSearchPanel: View {
                 }
             }
 
-            Text("Por nombre de archivo, coincidencia parcial. No revisa el contenido.")
+            Text("Por nombre (parcial). `*.png` cuenta como .png. Clic → abre carpeta, selecciona y hace scroll.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

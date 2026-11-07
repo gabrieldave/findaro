@@ -262,13 +262,22 @@ public enum AgentIntentParser {
             }
         }
 
-        if lower.contains("pdf") && steps.isEmpty {
-            steps.append(AgentToolCall(
-                name: .searchFiles,
-                arguments: ["query": ".pdf", "root": currentPath],
-                risk: .read
-            ))
-            summary = "Listar PDFs en esta carpeta y subcarpetas"
+        if lower.contains("pdf") {
+            let alreadyPdf = steps.contains {
+                $0.name == .searchFiles && ($0.arguments["query"] ?? "").lowercased().contains("pdf")
+            }
+            if !alreadyPdf {
+                steps.append(AgentToolCall(
+                    name: .searchFiles,
+                    arguments: ["query": ".pdf", "root": currentPath],
+                    risk: .read
+                ))
+                if summary == "Interpreté tu pedido" || mentionsHeavy(lower) {
+                    summary = mentionsHeavy(lower)
+                        ? "Peso + listar PDFs"
+                        : "Listar PDFs en esta carpeta y subcarpetas"
+                }
+            }
         }
 
         if (lower.contains("lista") || lower.contains("list ")) && !wantsContentSearch {

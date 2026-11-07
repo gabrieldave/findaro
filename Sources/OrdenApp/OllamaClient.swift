@@ -1,7 +1,7 @@
 import Foundation
 import OrdenCore
 
-/// Cliente Ollama local (fase 3, opt-in). Sin Ollama o desactivado → reglas.
+/// Cliente Ollama local. Sin Ollama o desactivado → el caller usa reglas.
 @MainActor
 final class OllamaClient: ObservableObject {
     static let shared = OllamaClient()
@@ -11,6 +11,8 @@ final class OllamaClient: ObservableObject {
     @Published private(set) var models: [String] = []
     @Published var selectedModel: String = "qwen2.5:3b"
     @Published var lastError: String?
+    /// true mientras /api/generate está en curso.
+    @Published private(set) var isGenerating = false
 
     private let baseURL = URL(string: "http://127.0.0.1:11434")!
 
@@ -25,7 +27,9 @@ final class OllamaClient: ObservableObject {
     func probe() async {
         do {
             let url = baseURL.appending(path: "api/tags")
-            let (data, response) = try await URLSession.shared.data(from: url)
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 5
+            let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
                 markUnavailable(message: "Ollama no responde en :11434")
                 return
@@ -60,76 +64,123 @@ final class OllamaClient: ObservableObject {
         lastError = message
     }
 
-    /// Pide un plan JSON; si falla o está off, nil (caller usa reglas).
-    func proposePlan(prompt: String, currentPath: String) async -> AgentPlan? {
-        guard isReady else { return nil }
+    enum ProposeOutcome: Sendable {
+        case plan(AgentPlan)
+        case unavailable
+        /// Ollama respondió pero no se pudo usar (JSON malo, timeout, etc.).
+        case failed(String)
+    }
+
+    /// Pide un plan JSON. Nunca deja colgado el chat sin feedback (timeout corto + errores).
+    func proposePlan(prompt: String, currentPath: String) async -> ProposeOutcome {
+        guard isReady else { return .unavailable }
+        isGenerating = true
+        defer { isGenerating = false }
+
         struct ReqBody: Encodable {
             let model: String
             let stream: Bool
             let prompt: String
+            let format: String
+            let options: [String: Int]
         }
         let system = """
-        Eres el planificador de Ordena (explorador macOS). Responde SOLO JSON:
-        {"summary":"...","steps":[{"name":"TOOL","arguments":{"key":"value"}}]}
+        Eres el planificador de Ordena (explorador macOS). Responde SOLO un objeto JSON válido (sin markdown, sin <think>):
+        {"summary":"frase corta","steps":[{"name":"TOOL","arguments":{"key":"valor"}}]}
         Tools lectura: searchFiles, searchContent, listDirectory, getStorageUsage, findDuplicates, openFile, previewFile, getFileMetadata
-        Tools escritura (el usuario aprobará antes): createDirectory, copyFiles, moveFiles, renameFiles, organizeFiles
-        Reglas:
-        - searchFiles: solo nombre (rápido). Extensión o nombre corto.
-        - searchContent: nombre + contenido de texto. Frases naturales / «que diga…».
-        - createDirectory: arguments.name + parent (ruta). parent por defecto = carpeta actual.
-        - moveFiles/copyFiles: arguments.destination (ruta carpeta). paths opcionales (el cliente rellena la selección).
-        - renameFiles: arguments.newName. path opcional (selección).
-        - organizeFiles: agrupar archivos sueltos de la carpeta actual por tipo.
-        Ámbito: carpeta actual y abajo. Sin Spotlight. Sin borrar a la papelera.
+        Tools escritura: createDirectory, copyFiles, moveFiles, renameFiles, organizeFiles
+        - Si piden peso/espacio Y pdfs: incluye getStorageUsage y searchFiles con query ".pdf".
+        - searchFiles: solo nombre. searchContent: nombre + texto interno.
+        - createDirectory: name + parent. moveFiles/copyFiles: destination. renameFiles: newName.
+        Ámbito: carpeta actual y abajo. Sin borrar. Sin Spotlight.
         Ruta actual: \(currentPath)
         Usuario: \(prompt)
         """
-        let body = ReqBody(model: selectedModel, stream: false, prompt: system)
+        let body = ReqBody(
+            model: selectedModel,
+            stream: false,
+            prompt: system,
+            format: "json",
+            options: ["num_predict": 256]
+        )
         var request = URLRequest(url: baseURL.appending(path: "api/generate"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONEncoder().encode(body)
-        request.timeoutInterval = 60
+        // 9B en frío puede tardar; 45s + fallback a reglas (mejor que “no hace nada”).
+        request.timeoutInterval = 45
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            guard let http = response as? HTTPURLResponse else {
+                lastError = "Respuesta inválida de Ollama"
+                return .failed(lastError!)
+            }
+            guard http.statusCode == 200 else {
+                lastError = "Ollama HTTP \(http.statusCode)"
+                return .failed(lastError!)
+            }
             struct Gen: Decodable { let response: String }
             let gen = try JSONDecoder().decode(Gen.self, from: data)
-            return parsePlanJSON(gen.response, prompt: prompt)
+            if let plan = parsePlanJSON(gen.response, prompt: prompt) {
+                lastError = nil
+                return .plan(plan)
+            }
+            lastError = "El modelo no devolvió un plan JSON usable"
+            return .failed(lastError!)
         } catch {
             lastError = error.localizedDescription
-            return nil
+            return .failed(error.localizedDescription)
         }
     }
 
     private func parsePlanJSON(_ raw: String, prompt: String) -> AgentPlan? {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let start = trimmed.firstIndex(of: "{"),
-              let end = trimmed.lastIndex(of: "}") else { return nil }
-        let json = String(trimmed[start...end])
-        guard let data = json.data(using: .utf8) else { return nil }
-        struct Payload: Decodable {
-            struct Step: Decodable {
-                let name: String
-                let arguments: [String: String]?
-            }
-            let summary: String?
-            let steps: [Step]
+        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Qwen3 / reasoning: quitar bloques de pensamiento si vinieran.
+        if let thinkOpen = text.range(of: "<think>"),
+           let thinkClose = text.range(of: "</think>") {
+            text.removeSubrange(thinkOpen.lowerBound..<thinkClose.upperBound)
+            text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        guard let payload = try? JSONDecoder().decode(Payload.self, from: data) else { return nil }
-        let steps: [AgentToolCall] = payload.steps.compactMap { step in
-            guard let name = AgentToolName(rawValue: step.name) else { return nil }
-            return AgentToolCall(
-                name: name,
-                arguments: step.arguments ?? [:],
-                risk: AgentPolicy.risk(for: name)
-            )
+        text = text
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard let start = text.firstIndex(of: "{"),
+              let end = text.lastIndex(of: "}"),
+              start < end else { return nil }
+        let json = String(text[start...end])
+        guard let data = json.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let stepsRaw = root["steps"] as? [[String: Any]] else { return nil }
+
+        let summary = (root["summary"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        var steps: [AgentToolCall] = []
+        for step in stepsRaw {
+            guard let nameRaw = step["name"] as? String,
+                  let name = AgentToolName(rawValue: nameRaw) else { continue }
+            var args: [String: String] = [:]
+            if let dict = step["arguments"] as? [String: Any] {
+                for (k, v) in dict {
+                    args[k] = stringifyArg(v)
+                }
+            }
+            steps.append(AgentToolCall(name: name, arguments: args, risk: AgentPolicy.risk(for: name)))
         }
         guard !steps.isEmpty else { return nil }
         return AgentPlan(
             prompt: prompt,
-            summary: payload.summary ?? "Plan de Ollama",
+            summary: (summary?.isEmpty == false ? summary! : "Plan de Ollama"),
             steps: steps
         )
+    }
+
+    private func stringifyArg(_ value: Any) -> String {
+        switch value {
+        case let s as String: return s
+        case let n as NSNumber: return n.stringValue
+        case let b as Bool: return b ? "true" : "false"
+        default: return "\(value)"
+        }
     }
 }

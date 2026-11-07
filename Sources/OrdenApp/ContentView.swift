@@ -938,41 +938,52 @@ struct FileBrowserPane: View {
 
             Divider().opacity(0.35)
 
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(Array(browser.visibleEntries.enumerated()), id: \.element.id) { index, entry in
-                        FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
-                            .frame(height: rowHeight)
-                    }
-                    Color.clear
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 320)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            browser.cancelSelectionFromBackgroundTap()
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(browser.visibleEntries.enumerated()), id: \.element.id) { index, entry in
+                            FileRowButton(entry: entry, zebra: index.isMultiple(of: 2))
+                                .frame(height: rowHeight)
+                                .id(entry.id)
                         }
+                        Color.clear
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 320)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                browser.cancelSelectionFromBackgroundTap()
+                            }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .coordinateSpace(name: "fileList")
+                    .overlay(alignment: .topLeading) {
+                        if let rect = marqueeRect {
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(OrdenTheme.accent.opacity(0.18))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                        .strokeBorder(OrdenTheme.accent.opacity(0.85), lineWidth: 1)
+                                )
+                                .frame(width: rect.width, height: rect.height)
+                                .offset(x: rect.minX, y: rect.minY)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .highPriorityGesture(marqueeGesture)
                 }
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-                .coordinateSpace(name: "fileList")
-                .overlay(alignment: .topLeading) {
-                    if let rect = marqueeRect {
-                        RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .fill(OrdenTheme.accent.opacity(0.18))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                    .strokeBorder(OrdenTheme.accent.opacity(0.85), lineWidth: 1)
-                            )
-                            .frame(width: rect.width, height: rect.height)
-                            .offset(x: rect.minX, y: rect.minY)
-                            .allowsHitTesting(false)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .onTapGesture {
+                    browser.cancelSelectionFromBackgroundTap()
+                }
+                .onChange(of: browser.revealToken) { _, _ in
+                    guard let id = browser.revealEntryID else { return }
+                    DispatchQueue.main.async {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            proxy.scrollTo(id, anchor: .center)
+                        }
                     }
                 }
-                .contentShape(Rectangle())
-                .highPriorityGesture(marqueeGesture)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .onTapGesture {
-                browser.cancelSelectionFromBackgroundTap()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

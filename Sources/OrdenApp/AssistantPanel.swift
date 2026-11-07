@@ -115,6 +115,16 @@ struct AssistantPanel: View {
                         chatBubble(msg)
                             .id(msg.id)
                     }
+                    if browser.agentBusy {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Trabajando…")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .id("agent-busy")
+                    }
                     if let plan = browser.agentPlan, plan.needsApproval {
                         approvalCard(plan)
                     }
@@ -125,6 +135,13 @@ struct AssistantPanel: View {
                 if let last = browser.agentMessages.last {
                     withAnimation(.easeOut(duration: 0.2)) {
                         proxy.scrollTo(last.id, anchor: .bottom)
+                    }
+                }
+            }
+            .onChange(of: browser.agentBusy) { _, busy in
+                if busy {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        proxy.scrollTo("agent-busy", anchor: .bottom)
                     }
                 }
             }
@@ -338,7 +355,11 @@ struct AssistantPanel: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(OrdenTheme.accent)
-                .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || holdingMic)
+                .disabled(
+                    draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || holdingMic
+                        || browser.agentBusy
+                )
                 .controlSize(.large)
             }
 

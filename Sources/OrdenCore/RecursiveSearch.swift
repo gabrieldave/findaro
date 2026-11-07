@@ -72,7 +72,13 @@ public enum RecursiveSearch {
         onProgress: @escaping (SearchProgress) -> Void,
         onHit: @escaping (SearchHit) -> Void
     ) {
-        let needle = query.text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        // Comodines tipo Finder: `*.png` → buscar `.png` (no es glob real).
+        let rawNeedle = query.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let needle = rawNeedle
+            .replacingOccurrences(of: "*", with: "")
+            .replacingOccurrences(of: "?", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
         guard !needle.isEmpty else {
             onProgress(SearchProgress(done: true))
             return

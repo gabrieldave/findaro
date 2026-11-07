@@ -74,6 +74,9 @@ final class BrowserModel: ObservableObject {
     private var ignorePlainSelectUntil: Date?
     /// Cursor de teclado: fila activa al navegar con flechas (con o sin ⇧).
     @Published var selectionFocusID: String?
+    /// Pedido de scroll hasta un ítem (p. ej. al clic en resultado de búsqueda).
+    @Published var revealEntryID: String?
+    @Published var revealToken: Int = 0
     @Published var showNewFolderDialog = false
     @Published var showNewFileDialog = false
     @Published var showRenameDialog = false
@@ -133,6 +136,8 @@ final class BrowserModel: ObservableObject {
     /// Conversación legible (no terminal en miniatura).
     @Published var agentMessages: [AgentChatMessage] = []
     @Published var pendingAgentApproval: AgentPlan?
+    /// true mientras el asistente espera a Ollama / ejecuta.
+    @Published var agentBusy = false
 
     struct AgentChatMessage: Identifiable, Equatable {
         enum Role: Equatable {
@@ -375,12 +380,26 @@ final class BrowserModel: ObservableObject {
         } else {
             typed = base
         }
-        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return typed }
-        return typed.filter {
-            $0.name.localizedCaseInsensitiveContains(q)
-                || $0.path.localizedCaseInsensitiveContains(q)
+        let needles = Self.filterNeedles(from: searchText)
+        guard !needles.isEmpty else { return typed }
+        return typed.filter { entry in
+            needles.contains { needle in
+                entry.name.localizedCaseInsensitiveContains(needle)
+                    || entry.path.localizedCaseInsensitiveContains(needle)
+            }
         }
+    }
+
+    /// `*.png` → `.png` (comodines como en Finder no son regex; se ignoran `*` y `?`).
+    static func filterNeedles(from raw: String) -> [String] {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        let stripped = trimmed
+            .replacingOccurrences(of: "*", with: "")
+            .replacingOccurrences(of: "?", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if stripped.isEmpty { return [trimmed] }
+        return [stripped]
     }
 
     /// Conteos por categoría en la carpeta actual (antes del filtro Tipo).
@@ -751,12 +770,45 @@ final class BrowserModel: ObservableObject {
     }
 
     func openDeepSearchHit(_ hit: SearchHit) {
+        let path = (hit.path as NSString).standardizingPath
         if hit.isDirectory {
-            navigate(to: hit.path)
-        } else {
-            navigate(to: (hit.path as NSString).deletingLastPathComponent)
-            selectOnly(hit.path)
+            clearFiltersForReveal()
+            navigate(to: path)
+            statusMessage = "Abrí carpeta: \((path as NSString).lastPathComponent)"
+            return
         }
+        let parent = ((path as NSString).deletingLastPathComponent as NSString).standardizingPath
+        // Quitar filtro de la barra (p. ej. «*.png») para que el archivo no quede oculto.
+        clearFiltersForReveal()
+        let current = (currentPath as NSString).standardizingPath
+        if parent != current {
+            navigate(to: parent)
+        }
+        // Tras navigate la selección se vacía; re-seleccionar y hacer scroll.
+        selectOnly(path)
+        requestReveal(path)
+        if entries.contains(where: { ($0.path as NSString).standardizingPath == path }) {
+            statusMessage = "Seleccionado: \((path as NSString).lastPathComponent)"
+        } else {
+            statusMessage = "Abrí la carpeta, pero no veo ese archivo en la lista"
+        }
+    }
+
+    /// Limpia filtros que ocultan filas al revelar un resultado de búsqueda.
+    private func clearFiltersForReveal() {
+        searchText = ""
+        categoryFilter = nil
+        if activeAssistantShortcut != nil {
+            activeAssistantShortcut = nil
+        }
+        if downloadsTodayMode {
+            downloadsTodayMode = false
+        }
+    }
+
+    func requestReveal(_ id: String) {
+        revealEntryID = (id as NSString).standardizingPath
+        revealToken &+= 1
     }
 
     func confirmPendingMerge(overwriteConflicts: Bool = false) {
@@ -884,6 +936,10 @@ final class BrowserModel: ObservableObject {
     func runAssistant(prompt: String) async {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        guard !agentBusy else {
+            appendAgentReply("Todavía estoy con el pedido anterior. Espera un momento…", alsoStatus: true)
+            return
+        }
         showAssistantPanel = true
         appendAgentUser(trimmed)
         agentLog.append("> \(trimmed)")
@@ -893,14 +949,48 @@ final class BrowserModel: ObservableObject {
             return
         }
 
-        if let llm = await OllamaClient.shared.proposePlan(prompt: trimmed, currentPath: currentPath) {
-            agentPlan = enrichAgentPlan(llm)
-            agentLog.append("Plan (Ollama): \(llm.summary)")
+        agentBusy = true
+        defer { agentBusy = false }
+
+        let ollama = OllamaClient.shared
+        if ollama.isReady {
+            appendAgentReply(
+                "Consultando Ollama («\(ollama.selectedModel)»)… Si el modelo está frío puede tardar unos segundos.",
+                alsoStatus: true
+            )
+            switch await ollama.proposePlan(prompt: trimmed, currentPath: currentPath) {
+            case .plan(let llm):
+                // Quita el mensaje de “consultando…” y deja el resultado real.
+                if agentMessages.last?.text.contains("Consultando Ollama") == true {
+                    agentMessages.removeLast()
+                }
+                agentPlan = enrichAgentPlan(llm)
+                agentLog.append("Plan (Ollama): \(llm.summary)")
+            case .unavailable:
+                if agentMessages.last?.text.contains("Consultando Ollama") == true {
+                    agentMessages.removeLast()
+                }
+                let plan = AgentIntentParser.plan(from: trimmed, currentPath: currentPath)
+                agentPlan = enrichAgentPlan(plan)
+                agentLog.append("Plan (reglas): \(plan.summary)")
+            case .failed(let reason):
+                if agentMessages.last?.text.contains("Consultando Ollama") == true {
+                    agentMessages.removeLast()
+                }
+                appendAgentReply(
+                    "Ollama no contestó a tiempo (\(reason)). Sigo con reglas locales.",
+                    alsoStatus: true
+                )
+                let plan = AgentIntentParser.plan(from: trimmed, currentPath: currentPath)
+                agentPlan = enrichAgentPlan(plan)
+                agentLog.append("Plan (reglas tras fallo Ollama): \(plan.summary)")
+            }
         } else {
             let plan = AgentIntentParser.plan(from: trimmed, currentPath: currentPath)
             agentPlan = enrichAgentPlan(plan)
             agentLog.append("Plan (reglas): \(plan.summary)")
         }
+
         // Lectura: ejecuta solo. Escritura: tarjeta de aprobación (fase 5).
         if let plan = agentPlan, !plan.needsApproval {
             executeAgentPlan(approved: true)
