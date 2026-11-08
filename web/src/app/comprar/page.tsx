@@ -22,6 +22,8 @@ function ComprarInner() {
 
   const [selectedTier, setSelectedTier] = useState<TierKey>("personal");
   const [referralCode, setReferralCode] = useState(urlRef);
+  const [refValid, setRefValid] = useState(false);
+  const [refStatus, setRefStatus] = useState<"idle" | "valid" | "invalid">("idle");
   const [offer, setOffer] = useState<Offer | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -33,6 +35,33 @@ function ComprarInner() {
   }, [urlRef]);
 
   useEffect(() => {
+    const trimmed = referralCode.trim();
+    if (!trimmed) {
+      setRefStatus("idle");
+      setRefValid(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      fetch(`/api/promo/validate?code=${encodeURIComponent(trimmed)}`)
+        .then((r) => r.json())
+        .then((j) => {
+          if (j.ok && j.data?.valid) {
+            setRefValid(true);
+            setRefStatus("valid");
+          } else {
+            setRefValid(false);
+            setRefStatus("invalid");
+          }
+        })
+        .catch(() => {
+          setRefValid(false);
+          setRefStatus("idle");
+        });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [referralCode]);
+
+  useEffect(() => {
     fetch("/api/promo")
       .then((r) => r.json())
       .then((j) => j.ok && setOffer(j.data))
@@ -40,7 +69,8 @@ function ComprarInner() {
   }, []);
 
   const basePrice = selectedTier === "family" ? 59 : 39;
-  const hasDiscount = Boolean(referralCode.trim());
+  const hasDiscount = refValid;
+  const discountAmount = selectedTier === "family" ? 6 : 4;
   const finalPrice = hasDiscount ? (selectedTier === "family" ? 53 : 35) : basePrice;
 
   async function onSubmit(e: FormEvent) {
@@ -55,7 +85,7 @@ function ComprarInner() {
           name,
           email,
           tier: selectedTier,
-          referralCode: referralCode.trim() || undefined,
+          referralCode: hasDiscount ? referralCode.trim() : undefined,
         }),
       });
       const json = await res.json();
@@ -127,7 +157,7 @@ function ComprarInner() {
           </button>
         </div>
 
-        {hasDiscount && (
+        {refStatus === "valid" && (
           <div
             style={{
               background: "rgba(34, 197, 94, 0.12)",
@@ -139,7 +169,23 @@ function ComprarInner() {
               marginBottom: "16px",
             }}
           >
-            ✓ Cupón de referido activo: <strong>{referralCode}</strong> (-$4 USD descuento aplicado)
+            ✓ Cupón de referido activo: <strong>{referralCode}</strong> (-${discountAmount} USD descuento aplicado)
+          </div>
+        )}
+
+        {refStatus === "invalid" && (
+          <div
+            style={{
+              background: "rgba(239, 68, 68, 0.12)",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
+              color: "#f87171",
+              padding: "10px 14px",
+              borderRadius: "8px",
+              fontSize: "13px",
+              marginBottom: "16px",
+            }}
+          >
+            ✕ Código <strong>{referralCode}</strong> no encontrado. Se aplicará el precio regular.
           </div>
         )}
 
