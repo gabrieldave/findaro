@@ -1049,6 +1049,18 @@ struct SidebarView: View {
         .accessibilityAddTraits(active ? [.isSelected] : [])
         .contextMenu {
             if isFavoriteSlot {
+                Button("Mover arriba en Favoritos") {
+                    browser.moveFavorite(path: item.path, direction: -1)
+                }
+                .disabled(browser.store.preferences.favorites.first == item.path)
+
+                Button("Mover abajo en Favoritos") {
+                    browser.moveFavorite(path: item.path, direction: 1)
+                }
+                .disabled(browser.store.preferences.favorites.last == item.path)
+
+                Divider()
+
                 Button("Quitar de Favoritos", role: .destructive) {
                     browser.removeFavorite(item.path)
                 }

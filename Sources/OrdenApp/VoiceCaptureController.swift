@@ -88,7 +88,7 @@ final class VoiceCaptureController: ObservableObject, @unchecked Sendable {
 
     private func didReceiveMicrophoneAccess(_ granted: Bool) {
         guard granted else {
-            phase = .error("Activa el micrófono para Ordena en Ajustes del sistema")
+            phase = .error("Activa el micrófono para Findaro en Ajustes del sistema")
             return
         }
         startEngine()

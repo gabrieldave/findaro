@@ -2494,6 +2494,18 @@ final class BrowserModel: ObservableObject {
         statusMessage = "Quitado de Favoritos"
     }
 
+    func moveFavorite(path: String, direction: Int) {
+        let target = (path as NSString).standardizingPath
+        guard let index = store.preferences.favorites.firstIndex(where: { ($0 as NSString).standardizingPath == target }) else { return }
+        let newIndex = index + direction
+        guard store.preferences.favorites.indices.contains(newIndex) else { return }
+        store.update { prefs in
+            let item = prefs.favorites.remove(at: index)
+            prefs.favorites.insert(item, at: newIndex)
+        }
+        objectWillChange.send()
+    }
+
     func addCurrentFolderToFavorites() {
         addFavorite(currentPath)
     }

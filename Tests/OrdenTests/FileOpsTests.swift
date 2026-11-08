@@ -72,4 +72,32 @@ final class FileOpsTests: XCTestCase {
         XCTAssertThrowsError(try FileOps.createFolder(named: "nested/name", in: parent.path))
         XCTAssertFalse(fm.fileExists(atPath: root.appendingPathComponent("escaped").path))
     }
+
+    func testTrashOpsPermanentlyDeleteOnIsolatedSandbox() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("findaro-qa-trash-test-\(UUID().uuidString)", isDirectory: true)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+
+        let file1 = root.appendingPathComponent("temp1.txt")
+        let file2 = root.appendingPathComponent("temp2.txt")
+        try Data("dummy1".utf8).write(to: file1)
+        try Data("dummy2".utf8).write(to: file2)
+
+        XCTAssertTrue(fm.fileExists(atPath: file1.path))
+        XCTAssertTrue(fm.fileExists(atPath: file2.path))
+
+        let result = try TrashOps.permanentlyDelete(paths: [file1.path, file2.path])
+        XCTAssertEqual(result.ok, 2)
+        XCTAssertEqual(result.failures.count, 0)
+        XCTAssertFalse(fm.fileExists(atPath: file1.path))
+        XCTAssertFalse(fm.fileExists(atPath: file2.path))
+    }
+
+    func testTrashOpsIsTrashPath() {
+        let userTrash = TrashOps.userTrashPath
+        XCTAssertTrue(TrashOps.isTrashPath(userTrash))
+        XCTAssertFalse(TrashOps.isTrashPath("/Applications"))
+        XCTAssertFalse(TrashOps.isTrashPath("/System"))
+    }
 }

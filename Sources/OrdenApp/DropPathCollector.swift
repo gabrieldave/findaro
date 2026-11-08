@@ -38,6 +38,8 @@ enum DropPathCollector {
                     path = url.path
                 } else if let url = item as? URL {
                     path = url.path
+                } else if let string = item as? String, let url = URL(string: string), url.isFileURL {
+                    path = url.path
                 } else {
                     path = nil
                 }
