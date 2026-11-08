@@ -3,6 +3,7 @@ import SwiftUI
 import OrdenCore
 import AppKit
 import UniformTypeIdentifiers
+import Combine
 
 struct OpenWithApp: Identifiable, Hashable {
     let id: String
@@ -197,6 +198,7 @@ final class BrowserModel: ObservableObject {
     }
 
     let store: PreferencesStore
+    private var prefsCancellable: AnyCancellable?
     private var measureTask: Task<Void, Never>?
     private let folderWatcher = FolderWatcher()
     private let secondaryFolderWatcher = FolderWatcher()
@@ -262,6 +264,35 @@ final class BrowserModel: ObservableObject {
         reloadSecondary()
         refreshHistoryFlags()
         startWatchingCurrentFolder()
+
+        prefsCancellable = NotificationCenter.default
+            .publisher(for: PreferencesStore.preferencesDidChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] note in
+                self?.handlePreferencesDidChange(note)
+            }
+    }
+
+    private func handlePreferencesDidChange(_ note: Notification) {
+        if let sender = note.object as? PreferencesStore, sender === self.store {
+            return
+        }
+        self.store.reloadFromDisk()
+        let prefs = self.store.preferences
+        self.assistantShortcuts = prefs.assistantShortcuts
+        self.viewTemplates = prefs.viewTemplates
+        self.showRowPaths = prefs.showRowPaths
+        self.explorerKeyboardProfile = prefs.explorerKeyboardProfile
+        self.showHiddenFiles = prefs.showHiddenFiles
+        self.flattenFolderView = prefs.flattenFolderView
+        self.viewMode = prefs.viewMode
+        if !prefs.folderOverrides.keys.contains(currentPath) {
+            self.rule = prefs.globalRule
+        }
+        OllamaClient.shared.applyPreferences(prefs)
+        objectWillChange.send()
+        reload()
+        if dualPaneEnabled { reloadSecondary() }
     }
 
     /// Hay algún filtro / modo que oculta o reordena distinto al “normal”.

@@ -241,7 +241,7 @@ private struct FindaroCommands: Commands {
                 .keyboardShortcut(.escape, modifiers: [])
                 .disabled(browser == nil)
             Button("Modo varios") { browser?.multiSelectMode.toggle() }
-                .keyboardShortcut("m", modifiers: [.command, .shift])
+                .keyboardShortcut("v", modifiers: [.command, .shift])
                 .disabled(browser == nil)
             Divider()
             Button("Abrir selección") { browser?.openSelection() }

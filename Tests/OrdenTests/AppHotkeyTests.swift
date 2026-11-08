@@ -49,4 +49,35 @@ final class AppHotkeyTests: XCTestCase {
         XCTAssertTrue(chord.displayLabel.contains("⇧"))
         XCTAssertTrue(chord.displayLabel.contains("M"))
     }
+
+    func testCatalogDefaultChordsHaveNoDuplicates() {
+        var seen: [KeyChord: String] = [:]
+        for def in AppHotkeyCatalog.catalog {
+            if let existing = seen[def.defaultChord] {
+                XCTFail("Conflicto en catálogo por defecto: \(def.id) y \(existing) comparten \(def.defaultChord.displayLabel)")
+            }
+            seen[def.defaultChord] = def.id
+        }
+    }
+
+    func testConflictingDefinitionDetectsCollision() {
+        let commandOne = KeyChord(keyCode: 18, character: "1", command: true)
+        let conflict = AppHotkeyCatalog.conflictingDefinition(
+            for: commandOne,
+            excludingId: "view.largeIcons",
+            overrides: [:]
+        )
+        XCTAssertNotNil(conflict)
+        XCTAssertEqual(conflict?.id, "nav.back")
+    }
+
+    func testConflictingDefinitionIgnoresSelf() {
+        let commandOne = KeyChord(keyCode: 18, character: "1", command: true)
+        let conflict = AppHotkeyCatalog.conflictingDefinition(
+            for: commandOne,
+            excludingId: "nav.back",
+            overrides: [:]
+        )
+        XCTAssertNil(conflict)
+    }
 }

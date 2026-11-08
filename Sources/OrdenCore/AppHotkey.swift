@@ -233,7 +233,7 @@ public enum AppHotkeyCatalog {
         .init(id: "view.hidden", title: "Mostrar ocultos", detail: "Alterna archivos ocultos", group: .view,
               defaultChord: .init(keyCode: 47, character: ".", command: true, shift: true)),
         .init(id: "view.multi", title: "Modo varios", detail: "Selección múltiple (naranja)", group: .view,
-              defaultChord: .init(keyCode: 46, character: "m", command: true, shift: true)),
+              defaultChord: .init(keyCode: 9, character: "v", command: true, shift: true)),
         .init(id: "view.flatten", title: "Vista plana", detail: "Archivos de subcarpetas en una lista", group: .view,
               defaultChord: .init(keyCode: 3, character: "f", command: true, shift: true)),
     ]
@@ -253,5 +253,20 @@ public enum AppHotkeyCatalog {
             map[def.id] = overrides[def.id] ?? def.defaultChord
         }
         return map
+    }
+
+    /// Comprueba si una combinación ya está asignada a otra acción del catálogo.
+    public static func conflictingDefinition(
+        for chord: KeyChord,
+        excludingId: String,
+        overrides: [String: KeyChord]
+    ) -> AppHotkeyDefinition? {
+        let resolvedMap = resolved(overrides: overrides)
+        for def in catalog where def.id != excludingId {
+            if let existingChord = resolvedMap[def.id], existingChord == chord {
+                return def
+            }
+        }
+        return nil
     }
 }

@@ -119,9 +119,14 @@ public final class PreferencesStore: @unchecked Sendable {
     private let decoder = JSONDecoder()
     public private(set) var preferences: OrdenPreferences
 
-    public init(fileName: String = "preferences.json") {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = support.appendingPathComponent("Ordena", isDirectory: true)
+    public init(fileName: String = "preferences.json", directory: URL? = nil) {
+        let dir: URL
+        if let custom = directory {
+            dir = custom
+        } else {
+            let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            dir = support.appendingPathComponent("Ordena", isDirectory: true)
+        }
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         self.url = dir.appendingPathComponent(fileName)
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -137,14 +142,29 @@ public final class PreferencesStore: @unchecked Sendable {
         }
     }
 
+    /// Notificación de broadcast para sincronización reactiva entre instancias (Ajustes, pestañas, ventanas).
+    public static let preferencesDidChangeNotification = Notification.Name("app.findaro.preferencesDidChange")
+
     /// Último error de persistencia (nil = OK). La UI puede mostrar `lastSaveError`.
     public private(set) var lastSaveError: String?
+
+    /// Recarga las preferencias desde el archivo en disco.
+    @discardableResult
+    public func reloadFromDisk() -> Bool {
+        guard let data = try? Data(contentsOf: url),
+              let decoded = try? decoder.decode(OrdenPreferences.self, from: data) else {
+            return false
+        }
+        preferences = Self.migrate(decoded)
+        return true
+    }
 
     public func update(_ mutate: (inout OrdenPreferences) -> Void) {
         mutate(&preferences)
         do {
             try saveThrowing()
             lastSaveError = nil
+            NotificationCenter.default.post(name: Self.preferencesDidChangeNotification, object: self)
         } catch {
             lastSaveError = error.localizedDescription
         }

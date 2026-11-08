@@ -10,6 +10,15 @@ struct HotkeyRecorderSheet: View {
     @State private var draft: KeyChord
     @State private var listening = true
     @State private var monitor: Any?
+    @State private var showConflictAlert = false
+
+    private var conflictingDefinition: AppHotkeyDefinition? {
+        AppHotkeyCatalog.conflictingDefinition(
+            for: draft,
+            excludingId: definition.id,
+            overrides: browser.keyboardHotkeyOverrides
+        )
+    }
 
     init(definition: AppHotkeyDefinition, current: KeyChord) {
         self.definition = definition
@@ -32,6 +41,23 @@ struct HotkeyRecorderSheet: View {
                     .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
 
+            if let conflict = conflictingDefinition {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Conflicto: Ya asignado a «\(conflict.title)» (\(conflict.group.titleSpanish))")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.orange)
+                        Text("No se sobrescribirá en silencio. Guardar requerirá confirmar la reasignación.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(10)
+                .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+
             Text(listening ? "Pulsa la nueva combinación…" : "Combinación capturada")
                 .font(.caption)
                 .foregroundStyle(listening ? OrdenTheme.accent : .secondary)
@@ -47,16 +73,36 @@ struct HotkeyRecorderSheet: View {
 
                 Button("Cancelar") { dismiss() }
                 Button("Guardar") {
-                    browser.setKeyboardHotkey(definition.id, chord: draft)
-                    dismiss()
+                    if conflictingDefinition != nil {
+                        showConflictAlert = true
+                    } else {
+                        browser.setKeyboardHotkey(definition.id, chord: draft)
+                        dismiss()
+                    }
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(OrdenTheme.accent)
+                .tint(conflictingDefinition != nil ? .orange : OrdenTheme.accent)
                 .disabled(!definition.isEditable)
             }
         }
         .padding(24)
         .frame(width: 420)
+        .alert("Conflicto de atajo de teclado", isPresented: $showConflictAlert) {
+            Button("Reasignar", role: .destructive) {
+                if let conflict = conflictingDefinition {
+                    browser.resetKeyboardHotkey(conflict.id)
+                }
+                browser.setKeyboardHotkey(definition.id, chord: draft)
+                dismiss()
+            }
+            Button("Cancelar", role: .cancel) { }
+        } message: {
+            if let conflict = conflictingDefinition {
+                Text("La combinación «\(draft.displayLabel)» ya está en uso por «\(conflict.title)». ¿Deseas reasignarla a «\(definition.title)»?")
+            } else {
+                Text("Esta combinación ya pertenece a otra acción.")
+            }
+        }
         .onAppear { startMonitor() }
         .onDisappear { stopMonitor() }
     }

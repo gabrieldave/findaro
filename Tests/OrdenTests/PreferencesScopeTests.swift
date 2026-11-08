@@ -26,4 +26,38 @@ final class PreferencesScopeTests: XCTestCase {
         XCTAssertEqual(prefs.rule(for: "/a"), .downloads)
         XCTAssertEqual(prefs.rule(for: "/b"), .downloads)
     }
+
+    @MainActor
+    func testPreferencesStoreReloadAndNotification() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let storeA = PreferencesStore(directory: tempDir)
+        let storeB = PreferencesStore(directory: tempDir)
+
+        let exp = expectation(description: "PreferencesDidChangeNotification fired")
+        let observer = NotificationCenter.default.addObserver(
+            forName: PreferencesStore.preferencesDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { note in
+            if (note.object as? PreferencesStore) === storeA {
+                exp.fulfill()
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        storeA.update { prefs in
+            prefs.globalRule = .projects
+        }
+
+        waitForExpectations(timeout: 1.0)
+        XCTAssertEqual(storeA.preferences.globalRule, .projects)
+
+        // Store B reloads from disk and sees the change
+        let reloaded = storeB.reloadFromDisk()
+        XCTAssertTrue(reloaded)
+        XCTAssertEqual(storeB.preferences.globalRule, .projects)
+    }
 }
