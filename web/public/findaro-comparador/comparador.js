@@ -1,7 +1,9 @@
 (() => {
   "use strict";
 
-  const root = document.getElementById("findaro-comparador");
+  const root =
+    document.getElementById("comparar") ||
+    document.querySelector(".findaro-compare-embed");
   if (!root) return;
 
   const names = {
