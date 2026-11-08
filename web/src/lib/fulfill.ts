@@ -1,5 +1,6 @@
 import { query } from "./db";
 import { issueDownloadToken } from "./download";
+import { sendPurchaseConfirmationEmail } from "./email";
 import { issueProLicense, mintReferralCode } from "./license";
 import { incrementPromoIfEligible, LicenseTier } from "./pricing";
 import { PUBLIC_APP_URL } from "./site";
@@ -135,17 +136,44 @@ export async function fulfillPaidOrder(opts: {
     existing.rows[0]?.token ||
     (await issueDownloadToken(order.id, 30, lic.rows[0]?.id));
 
+  const downloadUrl = `${PUBLIC_APP_URL}/api/download?token=${token}`;
+  const referralLink = `${PUBLIC_APP_URL}/?ref=${customerRefCode}`;
+
+  // Enviar correo de confirmación y respaldo si no se ha enviado aún
+  const orderCheck = await query<{ email_sent_at: Date | null }>(
+    `SELECT email_sent_at FROM orders WHERE id = $1`,
+    [order.id],
+  );
+  if (!orderCheck.rows[0]?.email_sent_at) {
+    try {
+      const emailRes = await sendPurchaseConfirmationEmail({
+        to: order.email,
+        name: order.name,
+        licenseKey: pro.licenseKey,
+        downloadUrl,
+        referralLink,
+        seats: pro.seats,
+        tier: orderTier,
+      });
+      if (emailRes.success) {
+        await query(`UPDATE orders SET email_sent_at = now() WHERE id = $1`, [order.id]);
+      }
+    } catch (e) {
+      console.error("[fulfill] Error enviando correo de confirmación:", e);
+    }
+  }
+
   return {
     orderId: order.id,
     email: order.email,
     name: order.name,
-    downloadUrl: `${PUBLIC_APP_URL}/api/download?token=${token}`,
+    downloadUrl,
     licenseKey: pro.licenseKey,
     signed: pro.signed,
     seats: pro.seats,
     tier: orderTier,
     referralCode: customerRefCode,
-    referralLink: `${PUBLIC_APP_URL}/?ref=${customerRefCode}`,
+    referralLink,
     plan: "pro" as const,
     alreadyPaid: order.status === "paid",
   };

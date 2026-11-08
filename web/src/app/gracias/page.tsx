@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import styles from "../marketing.module.css";
 
@@ -195,6 +196,19 @@ function GraciasInner() {
             )}
           </div>
         )}
+
+        <footer style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid #1e293b", textAlign: "center", fontSize: 12, color: "#64748b" }}>
+          <div>Findaro para macOS · Garantía de satisfacción de 14 días</div>
+          <div style={{ marginTop: 6, display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
+            <Link href="/terminos" style={{ color: "#94a3b8", textDecoration: "underline" }}>Términos de Servicio</Link>
+            <span>·</span>
+            <Link href="/privacidad" style={{ color: "#94a3b8", textDecoration: "underline" }}>Privacidad</Link>
+            <span>·</span>
+            <Link href="/reembolso" style={{ color: "#94a3b8", textDecoration: "underline" }}>Política de Reembolso</Link>
+            <span>·</span>
+            <a href="mailto:david.del.rio.colin@gmail.com" style={{ color: "#94a3b8", textDecoration: "underline" }}>Contacto</a>
+          </div>
+        </footer>
       </div>
     </main>
   );
