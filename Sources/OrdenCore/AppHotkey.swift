@@ -145,8 +145,9 @@ public enum AppHotkeyCatalog {
               defaultChord: .init(keyCode: 126, command: true)),
         .init(id: "nav.goTo", title: "Ir a carpeta…", detail: "Abrir diálogo de ruta", group: .navigation,
               defaultChord: .init(keyCode: 20, character: "3", command: true)),
-        .init(id: "nav.omnibox", title: "Editar ruta", detail: "Omnibox de la barra de ruta", group: .navigation,
-              defaultChord: .init(keyCode: 37, character: "l", command: true)),
+        // ⌘E (mano izq.) — antes ⌘L, lejos de la izquierda.
+        .init(id: "nav.omnibox", title: "Editar ruta", detail: "Omnibox de la barra de ruta · Enter confirma", group: .navigation,
+              defaultChord: .init(keyCode: 14, character: "e", command: true)),
         .init(id: "nav.downloads", title: "Ir a Descargas", detail: "Salto rápido a Descargas", group: .navigation,
               defaultChord: .init(keyCode: 37, character: "l", command: true, shift: true)),
         .init(id: "nav.globalOpen", title: "Abrir Findaro (global)", detail: "Desde cualquier app → carpeta elegida", group: .navigation,

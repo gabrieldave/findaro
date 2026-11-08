@@ -1,7 +1,7 @@
 import SwiftUI
 import OrdenCore
 
-/// Omnibox: breadcrumbs clicables o campo de ruta editable (⌘L / clic en lápiz).
+/// Omnibox: breadcrumbs clicables o campo de ruta editable (⌘E / clic en lápiz).
 struct PathBreadcrumbBar: View {
     @EnvironmentObject private var browser: BrowserModel
     @FocusState private var omniboxFocused: Bool
@@ -23,9 +23,11 @@ struct PathBreadcrumbBar: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.mini)
                     .tint(OrdenTheme.accent)
+                    .keyboardShortcut(.defaultAction)
                 Button("Esc") { browser.cancelPathOmnibox() }
                     .buttonStyle(.borderless)
                     .controlSize(.mini)
+                    .keyboardShortcut(.cancelAction)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 2) {
@@ -61,7 +63,7 @@ struct PathBreadcrumbBar: View {
                         .foregroundStyle(OrdenTheme.accent)
                 }
                 .buttonStyle(.borderless)
-                .help("Editar ruta / Ir a carpeta… (⌘L o ⌘3)")
+                .help("Editar ruta · ⌘E (Enter confirma) · o ⌘3 diálogo")
             }
 
             if browser.flattenFolderView {

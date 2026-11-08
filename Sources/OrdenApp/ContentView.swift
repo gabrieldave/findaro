@@ -108,7 +108,11 @@ struct ContentView: View {
         }
         .onKeyPress(keys: [.return], phases: .down) { press in
             guard !press.modifiers.contains(.command) else { return .ignored }
-            // Sheets: Enter lo confirma SelectionCancelMonitor / TextField.onSubmit.
+            // Omnibox / sheets: no abrir ni renombrar detrás.
+            if browser.pathOmniboxEditing {
+                browser.submitPathOmnibox()
+                return .handled
+            }
             if browser.hasModalSheet { return .ignored }
             if browser.explorerKeyboardProfile {
                 browser.openSelection()
@@ -119,6 +123,10 @@ struct ContentView: View {
             return .handled
         }
         .onKeyPress(.escape) {
+            if browser.pathOmniboxEditing {
+                browser.cancelPathOmnibox()
+                return .handled
+            }
             if browser.hasModalSheet {
                 browser.dismissModalSheet()
                 return .handled
@@ -219,62 +227,68 @@ struct ContentView: View {
                     // Siempre 50 % / 50 % — sin HSplitView (evita que Destino se coma el ancho).
                     HStack(spacing: 8) {
                         VStack(spacing: 0) {
-                            HStack(spacing: 8) {
-                                Text("Origen")
-                                    .font(.system(size: 12, weight: .semibold))
-                                if browser.focusedPane == .primary {
-                                    FindaroStatusPill(title: "activo", kind: .processing)
-                                }
-                                Spacer(minLength: 4)
-                                if browser.focusedPane != .primary {
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack(spacing: 8) {
+                                    Text("Origen")
+                                        .font(.system(size: 12, weight: .semibold))
+                                    if browser.focusedPane == .primary {
+                                        FindaroStatusPill(title: "activo", kind: .processing)
+                                    }
+                                    Spacer(minLength: 4)
+                                    if browser.focusedPane != .primary {
+                                        Button {
+                                            browser.focusOriginPane()
+                                        } label: {
+                                            Label("Activar", systemImage: "arrow.left.circle.fill")
+                                                .font(.caption.weight(.semibold))
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        .tint(OrdenTheme.accent)
+                                        .controlSize(.small)
+                                        .help("Enfoca el panel izquierdo · Tab · ⌘⇧← · o clic en vacío")
+                                    }
                                     Button {
-                                        browser.focusOriginPane()
+                                        browser.swapPaneFolders()
                                     } label: {
-                                        Label("Activar", systemImage: "arrow.left.circle.fill")
+                                        Image(systemName: "arrow.left.arrow.right")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .help("Intercambiar carpetas Origen ↔ Destino")
+                                    Button {
+                                        browser.transferSecondarySelectionToPrimary(copy: false)
+                                    } label: {
+                                        Label("← Mover", systemImage: "arrow.left.circle.fill")
                                             .font(.caption.weight(.semibold))
                                     }
                                     .buttonStyle(.borderedProminent)
-                                    .tint(OrdenTheme.accent)
+                                    .tint(OrdenTheme.warning)
                                     .controlSize(.small)
-                                    .help("Enfoca el panel izquierdo · Tab · ⌘⇧← · o clic en vacío")
+                                    .disabled(browser.secondarySelectedIDs.isEmpty)
+                                    .help("Mueve la selección del Destino (derecha) a este panel")
+                                    Button {
+                                        browser.transferPrimarySelectionToSecondary(copy: false)
+                                    } label: {
+                                        Label("Mover →", systemImage: "arrow.right.circle.fill")
+                                            .font(.caption.weight(.semibold))
+                                    }
+                                    .controlSize(.small)
+                                    .disabled(browser.selectedIDs.isEmpty)
+                                    .help("Mueve la selección de aquí al Destino")
                                 }
-                                Button {
-                                    browser.swapPaneFolders()
-                                } label: {
-                                    Image(systemName: "arrow.left.arrow.right")
-                                }
-                                .buttonStyle(.borderless)
-                                .help("Intercambiar carpetas Origen ↔ Destino")
-                                Button {
-                                    browser.transferSecondarySelectionToPrimary(copy: false)
-                                } label: {
-                                    Label("← Mover", systemImage: "arrow.left.circle.fill")
-                                        .font(.caption.weight(.semibold))
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .tint(OrdenTheme.warning)
-                                .controlSize(.small)
-                                .disabled(browser.secondarySelectedIDs.isEmpty)
-                                .help("Mueve la selección del Destino (derecha) a este panel")
-                                Button {
-                                    browser.transferPrimarySelectionToSecondary(copy: false)
-                                } label: {
-                                    Label("Mover →", systemImage: "arrow.right.circle.fill")
-                                        .font(.caption.weight(.semibold))
-                                }
-                                .controlSize(.small)
-                                .disabled(browser.selectedIDs.isEmpty)
-                                .help("Mueve la selección de aquí al Destino")
+                                Text(shortPath(browser.currentPath))
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                    .help(browser.currentPath)
+                                Text("Misma lista · naranja · Arrastra ↔ · Swap intercambia carpetas")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .contentShape(Rectangle())
                             .onTapGesture { browser.focusOriginPane() }
-                            Text("Misma lista · naranja · Arrastra ↔ · Swap intercambia carpetas")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                                .padding(.horizontal, 10)
-                                .padding(.bottom, 4)
                             FileBrowserPane()
                                 .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
                                     DualPaneDrop.handle(providers) { paths, copy in

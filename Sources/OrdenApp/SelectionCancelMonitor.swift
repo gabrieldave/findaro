@@ -31,6 +31,11 @@ enum SelectionCancelMonitor {
                 return nil
             }
 
+            // Omnibox de ruta (⌘E): Enter = Ir · Esc = cancelar.
+            if handlePathOmniboxKeys(event, browser: browser) {
+                return nil
+            }
+
             // Enter/Esc en sheets: confirmar o cancelar (SwiftUI .defaultAction falla a menudo).
             if handleModalDialogKeys(event, browser: browser) {
                 return nil
@@ -146,6 +151,10 @@ enum SelectionCancelMonitor {
             }
 
             if hit("files.return") {
+                if browser.pathOmniboxEditing {
+                    browser.submitPathOmnibox()
+                    return nil
+                }
                 if browser.explorerKeyboardProfile {
                     browser.openSelection()
                 } else if browser.selectedIDs.count == 1 {
@@ -355,6 +364,24 @@ enum SelectionCancelMonitor {
         VoiceCaptureController.shared.endPushToTalk()
     }
 
+    /// Omnibox inline: Enter confirma la ruta, Esc la cierra.
+    private static func handlePathOmniboxKeys(_ event: NSEvent, browser: BrowserModel) -> Bool {
+        guard browser.pathOmniboxEditing else { return false }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let key = event.keyCode
+        let bare = !flags.contains(.command) && !flags.contains(.option) && !flags.contains(.control)
+
+        if key == 53, bare || flags.isEmpty {
+            browser.cancelPathOmnibox()
+            return true
+        }
+        if bare, key == 36 || key == 76 {
+            browser.submitPathOmnibox()
+            return true
+        }
+        return false
+    }
+
     /// Return / keypad Enter / Esc mientras hay un sheet de confirmación.
     private static func handleModalDialogKeys(_ event: NSEvent, browser: BrowserModel) -> Bool {
         guard browser.hasModalSheet else { return false }
@@ -375,6 +402,7 @@ enum SelectionCancelMonitor {
     }
 
     private static func shouldIgnore(_ event: NSEvent, browser: BrowserModel) -> Bool {
+        if browser.pathOmniboxEditing { return true }
         if isEditingText { return true }
         if NSApp.keyWindow?.attachedSheet != nil { return true }
         if browser.hasModalSheet { return true }
