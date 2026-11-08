@@ -451,9 +451,6 @@ enum SelectionCancelMonitor {
     }
 
     private static var isEditingText: Bool {
-        guard let fr = NSApp.keyWindow?.firstResponder else { return false }
-        if fr is NSTextView || fr is NSTextField { return true }
-        let name = NSStringFromClass(type(of: fr))
-        return name.contains("FieldEditor") || name.contains("TextInput")
+        FindaroTextInput.isEditing
     }
 }

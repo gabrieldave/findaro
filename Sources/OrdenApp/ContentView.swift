@@ -92,6 +92,8 @@ struct ContentView: View {
         .modifier(BrowserDialogsModifier(shortPath: shortPath))
         .onKeyPress(.space) {
             guard !browser.hasModalSheet else { return .ignored }
+            // No robar el espacio del chat / omnibox / cualquier campo de texto.
+            if FindaroTextInput.isEditing { return .ignored }
             browser.quickLookSelection()
             return .handled
         }

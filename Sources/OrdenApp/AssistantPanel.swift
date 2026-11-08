@@ -10,6 +10,8 @@ struct AssistantPanel: View {
     @State private var showNewShortcut = false
     @State private var holdingMic = false
     @State private var busyDotCount = 1
+    @State private var showShortcuts = false
+    @FocusState private var composerFocused: Bool
 
     private let quickActions = [
         "busca pdf",
@@ -23,8 +25,17 @@ struct AssistantPanel: View {
             header
             Divider().opacity(0.35)
             chatArea
+                .layoutPriority(1)
             Divider().opacity(0.35)
-            shortcutsSection
+            DisclosureGroup(isExpanded: $showShortcuts) {
+                shortcutsSection
+            } label: {
+                Text("Atajos y acciones rápidas")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
             Divider().opacity(0.35)
             composer
         }
@@ -38,6 +49,10 @@ struct AssistantPanel: View {
             }
         }
         .onAppear {
+            showShortcuts = !OllamaClient.shared.isReady
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                composerFocused = true
+            }
             // El monitor de teclado (⌃Espacio) también asigna onFinished; reforzamos aquí
             // por si el panel se abrió sin reinstalar el monitor.
             voice.onFinished = { text in
@@ -223,15 +238,18 @@ struct AssistantPanel: View {
 
     private var welcomeCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(ollama.isReady ? "Listo para chatear" : "Hola")
+            Text(ollama.isReady ? "Chat con \(ollama.selectedModel)" : "Hola")
                 .font(.title2.weight(.semibold))
             if ollama.isReady {
                 Text(
-                    "Este panel es tu chat con Ollama. Prueba: «qué pesa más y si hay pdfs», «organiza por tipo», «crea carpeta Facturas»."
+                    "Escribe abajo, como en ChatGPT. Verás tus mensajes y las respuestas aquí. Mientras piensa, aparece «Trabajando…»."
                 )
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+                Text("Prueba: «qué pesa más y si hay pdfs» · «crea carpeta Facturas»")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             } else {
                 Text(
                     "Atajos, texto o voz. Sin Ollama: reglas básicas. Con Ollama (cerebro arriba): frases libres con más calidad."
@@ -256,24 +274,46 @@ struct AssistantPanel: View {
     }
 
     private func chatBubble(_ msg: BrowserModel.AgentChatMessage) -> some View {
-        HStack {
-            if msg.role == .user { Spacer(minLength: 36) }
-            Text(msg.text)
-                .font(.body)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: msg.role == .user ? .trailing : .leading
-                )
-                .background(
-                    msg.role == .user
-                        ? OrdenTheme.accent.opacity(0.28)
-                        : OrdenTheme.panelFill,
-                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-                )
-                .textSelection(.enabled)
-            if msg.role == .assistant { Spacer(minLength: 12) }
+        let isUser = msg.role == .user
+        return HStack(alignment: .top, spacing: 8) {
+            if isUser { Spacer(minLength: 28) }
+            if !isUser {
+                Image(systemName: "sparkles")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(OrdenTheme.accent)
+                    .frame(width: 22, height: 22)
+                    .background(OrdenTheme.accent.opacity(0.15), in: Circle())
+                    .padding(.top, 4)
+            }
+            VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
+                Text(isUser ? "Tú" : (ollama.isReady ? ollama.selectedModel : "Asistente"))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(msg.text)
+                    .font(.body)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: isUser ? .trailing : .leading
+                    )
+                    .background(
+                        isUser
+                            ? OrdenTheme.accent.opacity(0.28)
+                            : OrdenTheme.panelFill,
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    )
+                    .textSelection(.enabled)
+            }
+            if isUser {
+                Image(systemName: "person.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 22, height: 22)
+                    .background(OrdenTheme.panelFill, in: Circle())
+                    .padding(.top, 4)
+            }
+            if !isUser { Spacer(minLength: 8) }
         }
     }
 
@@ -322,14 +362,14 @@ struct AssistantPanel: View {
         .background(Color.orange.opacity(0.15), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
-    /// Zona scrolleable: caben muchos atajos sin empujar el chat.
+    /// Atajos colapsables: el chat es lo principal.
     private var shortcutsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Mis atajos")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.caption.weight(.semibold))
                 Text("\(browser.assistantShortcuts.count)/\(AssistantShortcut.maxCount)")
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer()
                 if browser.activeAssistantShortcut != nil {
@@ -355,24 +395,24 @@ struct AssistantPanel: View {
                     }
                     if browser.assistantShortcuts.isEmpty {
                         Text("Sin atajos aún. Crea uno: p. ej. imágenes de hoy.")
-                            .font(.subheadline)
+                            .font(.caption)
                             .foregroundStyle(.secondary)
-                            .padding(.vertical, 6)
+                            .padding(.vertical, 4)
                     }
                 }
             }
-            .frame(maxHeight: 168)
+            .frame(maxHeight: 120)
 
             Text("Acciones rápidas")
-                .font(.caption.weight(.semibold))
+                .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
             FlowTips(tips: quickActions) { tip in
                 draft = tip
                 submit()
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.top, 6)
+        .padding(.bottom, 4)
     }
 
     private func shortcutRow(_ shortcut: AssistantShortcut) -> some View {
@@ -433,16 +473,41 @@ struct AssistantPanel: View {
                     )
             }
 
-            TextField(
-                ollama.isReady
-                    ? "Habla con Ollama… ej: qué pesa más y si hay pdfs"
-                    : "Ej: imágenes de hoy… (sin Ollama = reglas)",
-                text: $draft
+            ZStack(alignment: .topLeading) {
+                if draft.isEmpty {
+                    Text(
+                        ollama.isReady
+                            ? "Escribe aquí como en ChatGPT…\nej: qué pesa más y si hay pdfs"
+                            : "Escribe aquí… (sin Ollama = reglas / atajos)"
+                    )
+                    .font(.body)
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 12)
+                    .allowsHitTesting(false)
+                }
+                TextEditor(text: $draft)
+                    .font(.body)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 72, maxHeight: 120)
+                    .padding(6)
+                    .focused($composerFocused)
+                    .disabled(holdingMic || voice.isListening || browser.agentBusy)
+                    .onKeyPress(keys: [.return], phases: .down) { press in
+                        // Return = enviar · ⇧Return = nueva línea
+                        if press.modifiers.contains(.shift) { return .ignored }
+                        submit()
+                        return .handled
+                    }
+            }
+            .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(
+                        composerFocused ? OrdenTheme.accent.opacity(0.55) : OrdenTheme.hairline,
+                        lineWidth: composerFocused ? 1.5 : 1
+                    )
             )
-                .font(.body)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit { submit() }
-                .disabled(holdingMic || voice.isListening || browser.agentBusy)
 
             HStack(spacing: 10) {
                 pushToTalkButton
@@ -450,12 +515,14 @@ struct AssistantPanel: View {
                     submit()
                 } label: {
                     Label(
-                        ollama.isReady ? "Enviar a Ollama" : "Enviar",
-                        systemImage: "arrow.up.circle.fill"
+                        browser.agentBusy
+                            ? "Trabajando…"
+                            : (ollama.isReady ? "Enviar a \(ollama.selectedModel)" : "Enviar"),
+                        systemImage: browser.agentBusy ? "hourglass" : "arrow.up.circle.fill"
                     )
-                        .font(.body.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(OrdenTheme.accent)
@@ -469,11 +536,11 @@ struct AssistantPanel: View {
 
             Text(
                 ollama.isReady
-                    ? "Micrófono o ⌃Espacio = dictar. Enviar = Ollama interpreta y actúa en esta carpeta."
-                    : "Micrófono o ⌃Espacio = dictar. Sin Ollama solo atajos/reglas."
+                    ? "↩ enviar · ⇧↩ nueva línea · micrófono o ⌃Espacio = dictar. Respuestas arriba, en el chat."
+                    : "↩ enviar · micrófono o ⌃Espacio = dictar. Sin Ollama solo atajos/reglas."
             )
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
         }
         .padding(16)
     }
