@@ -86,7 +86,7 @@
   {
     "id": 8,
     "grupo": "Transferencias",
-    "funcion": "Cortar ⌘X y pegar ⌘V con bandeja",
+    "funcion": "Cortar ⌘X y pegar ⌘V con bandeja entre pestañas y paneles",
     "findaro": "Sí",
     "finder": "N/D",
     "forklift": "N/D",
@@ -206,7 +206,7 @@
   {
     "id": 18,
     "grupo": "IA local",
-    "funcion": "Voz local push-to-talk ⌃Espacio",
+    "funcion": "Voz local con Whisper (⌃Espacio y botón de micrófono)",
     "findaro": "Sí",
     "finder": "N/D",
     "forklift": "N/D",
@@ -349,8 +349,8 @@
   },
   {
     "id": 30,
-    "grupo": "Visualización",
-    "funcion": "Selección múltiple y rectangular",
+    "grupo": "Archivos",
+    "funcion": "Restaurar archivos desde Papelera a su ruta original con 1 clic",
     "findaro": "Sí",
     "finder": "Sí",
     "forklift": "Sí",

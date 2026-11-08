@@ -46,7 +46,7 @@ export default function ProbarPage() {
         <p className={styles.brand}>FINDARO</p>
         <h1>Prueba 5 días gratis</h1>
         <p className={styles.sub}>
-          1 Mac · sin tarjeta. Al terminar, compra Pro de por vida ($59 primeros 1000).
+          1 Mac · sin tarjeta. Al terminar, compra Pro de por vida (desde $39 USD primeros 1000).
         </p>
 
         {!result ? (
