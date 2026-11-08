@@ -423,7 +423,7 @@ final class BrowserModel: ObservableObject {
         objectWillChange.send()
     }
 
-    /// Clic: ⇧ rango · ⌘ = **el mismo** `selectRange` + naranja · Varios/casilla · normal = uno.
+    /// Clic: ⇧ rango · ⌘ suma/quita toggle · Varios/casilla · normal = uno.
     func clickSelect(_ id: String) {
         if dualPaneEnabled {
             focusedPane = .primary
@@ -433,7 +433,7 @@ final class BrowserModel: ObservableObject {
             selectRange(to: id)
             if hasArmedFileDrag { syncArmedWithSelection() }
         } else if flags.contains(.command) {
-            commandRangeSelectForMove(to: id)
+            commandToggleSelect(to: id)
         } else if multiSelectMode {
             toggleSelection(id)
             if hasArmedFileDrag { syncArmedWithSelection() }
@@ -449,8 +449,26 @@ final class BrowserModel: ObservableObject {
         ignorePlainSelectUntil = Date().addingTimeInterval(0.5)
     }
 
-    /// ⌘+clic = idéntico a ⇧+clic (`selectRange` desde el ancla), y deja el grupo en naranja.
-    /// Clic a clic con ⌘ sostenido: 1, luego 2, luego 3 → va creciendo el bloque, igual que ⇧.
+    /// ⌘+clic nativo de macOS: añade o quita el elemento individual sin alterar los demás.
+    func commandToggleSelect(to id: String, pane: PaneFocus? = nil) {
+        noteCommandClickHandled()
+        let target = pane ?? (dualPaneEnabled ? focusedPane : .primary)
+        if dualPaneEnabled, target == .secondary {
+            focusedPane = .secondary
+            toggleSecondarySelection(id)
+            if hasArmedFileDrag {
+                fileDragArmedPaths = secondarySelectedEntries.map(\.path)
+            }
+            return
+        }
+        if dualPaneEnabled { focusedPane = .primary }
+        toggleSelection(id)
+        if hasArmedFileDrag {
+            fileDragArmedPaths = selectedEntries.map(\.path)
+        }
+    }
+
+    /// Selección de rango para mover (conservada por compatibilidad).
     func commandRangeSelectForMove(to id: String, pane: PaneFocus? = nil) {
         noteCommandClickHandled()
         let target = pane ?? (dualPaneEnabled ? focusedPane : .primary)
@@ -732,11 +750,7 @@ final class BrowserModel: ObservableObject {
     }
 
     func toggleSelection(_ id: String) {
-        if selectedIDs.contains(id) {
-            selectedIDs.remove(id)
-        } else {
-            selectedIDs.insert(id)
-        }
+        selectedIDs = SelectionRangeLogic.toggle(selectedIDs: selectedIDs, id: id)
         selectionAnchorID = id
         selectionFocusID = id
         syncArmedWithSelection()
@@ -745,17 +759,9 @@ final class BrowserModel: ObservableObject {
 
     func selectRange(to id: String) {
         let ids = visibleEntries.map(\.id)
-        let anchor = selectionAnchorID ?? selectedIDs.first ?? id
-        if selectionAnchorID == nil {
-            selectionAnchorID = anchor
-        }
-        guard let a = ids.firstIndex(of: anchor), let b = ids.firstIndex(of: id) else {
-            selectOnly(id)
-            return
-        }
-        let range = a <= b ? a...b : b...a
-        selectedIDs = Set(ids[range])
-        // El ancla se mantiene (como Finder/Explorer) para el próximo ⇧/⌘+clic.
+        let (rangeIDs, anchor) = SelectionRangeLogic.computeRange(ids: ids, anchor: selectionAnchorID ?? selectedIDs.first, target: id)
+        selectionAnchorID = anchor
+        selectedIDs = rangeIDs
         selectionFocusID = id
         syncArmedWithSelection()
         refreshSelectionStatus()
@@ -769,30 +775,20 @@ final class BrowserModel: ObservableObject {
             return
         }
         let ids = visibleEntries.map(\.id)
-        guard !ids.isEmpty else { return }
+        guard let result = SelectionRangeLogic.nextKeyboardSelection(
+            ids: ids,
+            currentFocus: selectionFocusID,
+            currentAnchor: selectionAnchorID,
+            selectedIDs: selectedIDs,
+            delta: delta,
+            extending: extending
+        ) else { return }
 
-        // Sin selección: flecha baja → primero; flecha alta → último.
-        if selectedIDs.isEmpty, selectionFocusID == nil {
-            selectOnly(delta >= 0 ? ids[0] : ids[ids.count - 1])
-            return
-        }
-
-        let cursor = selectionFocusID
-            ?? selectionAnchorID
-            ?? selectedIDs.first
-            ?? ids[0]
-        let idx = ids.firstIndex(of: cursor) ?? 0
-        let next = min(max(0, idx + delta), ids.count - 1)
-        let nextID = ids[next]
-
-        if extending {
-            if selectionAnchorID == nil {
-                selectionAnchorID = cursor
-            }
-            selectRange(to: nextID)
-        } else {
-            selectOnly(nextID)
-        }
+        selectedIDs = result.newSelected
+        selectionAnchorID = result.newAnchor
+        selectionFocusID = result.newFocus
+        syncArmedWithSelection()
+        refreshSelectionStatus()
     }
 
     /// Selección tipo Finder (rectángulo / marquee).
@@ -1115,16 +1111,9 @@ final class BrowserModel: ObservableObject {
 
     func selectSecondaryRange(to id: String) {
         let ids = secondaryEntries.map(\.id)
-        let anchor = secondarySelectionAnchorID ?? secondarySelectedIDs.first ?? id
-        if secondarySelectionAnchorID == nil {
-            secondarySelectionAnchorID = anchor
-        }
-        guard let a = ids.firstIndex(of: anchor), let b = ids.firstIndex(of: id) else {
-            selectSecondaryOnly(id)
-            return
-        }
-        let range = a <= b ? a...b : b...a
-        secondarySelectedIDs = Set(ids[range])
+        let (rangeIDs, anchor) = SelectionRangeLogic.computeRange(ids: ids, anchor: secondarySelectionAnchorID ?? secondarySelectedIDs.first, target: id)
+        secondarySelectionAnchorID = anchor
+        secondarySelectedIDs = rangeIDs
         secondarySelectionFocusID = id
         focusedPane = .secondary
         refreshSecondarySelectionStatus()
@@ -1139,7 +1128,7 @@ final class BrowserModel: ObservableObject {
             selectSecondaryRange(to: id)
             if hasArmedFileDrag { syncArmedWithSelection() }
         } else if flags.contains(.command) {
-            commandRangeSelectForMove(to: id, pane: .secondary)
+            commandToggleSelect(to: id, pane: .secondary)
         } else if multiSelectMode {
             toggleSecondarySelection(id)
             if hasArmedFileDrag { syncArmedWithSelection() }
@@ -1184,26 +1173,20 @@ final class BrowserModel: ObservableObject {
 
     func moveSecondarySelectionByKeyboard(delta: Int, extending: Bool) {
         let ids = secondaryEntries.map(\.id)
-        guard !ids.isEmpty else { return }
-        if secondarySelectedIDs.isEmpty, secondarySelectionFocusID == nil {
-            selectSecondaryOnly(delta >= 0 ? ids[0] : ids[ids.count - 1])
-            return
-        }
-        let cursor = secondarySelectionFocusID
-            ?? secondarySelectionAnchorID
-            ?? secondarySelectedIDs.first
-            ?? ids[0]
-        let idx = ids.firstIndex(of: cursor) ?? 0
-        let next = min(max(0, idx + delta), ids.count - 1)
-        let nextID = ids[next]
-        if extending {
-            if secondarySelectionAnchorID == nil {
-                secondarySelectionAnchorID = cursor
-            }
-            selectSecondaryRange(to: nextID)
-        } else {
-            selectSecondaryOnly(nextID)
-        }
+        guard let result = SelectionRangeLogic.nextKeyboardSelection(
+            ids: ids,
+            currentFocus: secondarySelectionFocusID,
+            currentAnchor: secondarySelectionAnchorID,
+            selectedIDs: secondarySelectedIDs,
+            delta: delta,
+            extending: extending
+        ) else { return }
+
+        secondarySelectedIDs = result.newSelected
+        secondarySelectionAnchorID = result.newAnchor
+        secondarySelectionFocusID = result.newFocus
+        refreshSecondarySelectionStatus()
+        objectWillChange.send()
     }
 
     private func refreshSecondarySelectionStatus() {

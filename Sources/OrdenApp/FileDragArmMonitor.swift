@@ -80,7 +80,7 @@ final class FileDragArmMonitor {
         }
         guard let entry else { return event }
 
-        browser.commandRangeSelectForMove(to: entry.id, pane: pane)
+        browser.commandToggleSelect(to: entry.id, pane: pane)
         browser.noteCommandClickHandled()
         return nil
     }
