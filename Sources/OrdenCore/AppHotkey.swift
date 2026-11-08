@@ -154,6 +154,8 @@ public enum AppHotkeyCatalog {
               defaultChord: .init(keyCode: 37, character: "l", command: true, shift: true)),
         .init(id: "nav.globalOpen", title: "Abrir Findaro (global)", detail: "Desde cualquier app → carpeta elegida", group: .navigation,
               defaultChord: .init(keyCode: 31, character: "o", option: true, control: true), isEditable: true),
+        .init(id: "help.guide", title: "Ayuda de Findaro", detail: "Abre la guía nativa y atajos de Findaro", group: .navigation,
+              defaultChord: .init(keyCode: 44, character: "?", command: true, shift: true)),
 
         // Ventanas y pestañas
         .init(id: "win.newWindow", title: "Nueva ventana", detail: "Abre otro explorador independiente", group: .windows,
@@ -166,6 +168,10 @@ public enum AppHotkeyCatalog {
               defaultChord: .init(keyCode: 30, character: "]", command: true, shift: true)),
         .init(id: "win.prevTab", title: "Pestaña anterior", detail: "Cicla a la pestaña de la izquierda", group: .windows,
               defaultChord: .init(keyCode: 33, character: "[", command: true, shift: true)),
+        .init(id: "win.moveTabLeft", title: "Mover pestaña a la izquierda", detail: "Reordena la pestaña hacia la izquierda", group: .windows,
+              defaultChord: .init(keyCode: 123, command: true, option: true)),
+        .init(id: "win.moveTabRight", title: "Mover pestaña a la derecha", detail: "Reordena la pestaña hacia la derecha", group: .windows,
+              defaultChord: .init(keyCode: 124, command: true, option: true)),
 
         // Archivos
         .init(id: "files.undo", title: "Deshacer", detail: "Deshace el último movimiento/copia", group: .files,
@@ -192,6 +198,8 @@ public enum AppHotkeyCatalog {
               defaultChord: .init(keyCode: 49)),
         .init(id: "files.trash", title: "Mover a la Papelera", detail: "Envía la selección a la Papelera", group: .files,
               defaultChord: .init(keyCode: 51, command: true)),
+        .init(id: "files.restore", title: "Sacar de la Papelera", detail: "Restaura la selección fuera del basurero", group: .files,
+              defaultChord: .init(keyCode: 51, command: true, option: true)),
         .init(id: "files.renameF2", title: "Renombrar (F2)", detail: "Renombra el ítem seleccionado", group: .files,
               defaultChord: .init(keyCode: 120)),
         .init(id: "files.return", title: "Return", detail: "Explorer: abrir · Finder: renombrar", group: .files,

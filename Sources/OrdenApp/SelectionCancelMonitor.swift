@@ -92,6 +92,26 @@ enum SelectionCancelMonitor {
                 SelectionCancelMonitor.sessionRef?.selectPreviousTab()
                 return nil
             }
+            if hit("win.moveTabLeft") {
+                if let s = SelectionCancelMonitor.sessionRef {
+                    s.moveTabLeft(s.selectedTabID)
+                }
+                return nil
+            }
+            if hit("win.moveTabRight") {
+                if let s = SelectionCancelMonitor.sessionRef {
+                    s.moveTabRight(s.selectedTabID)
+                }
+                return nil
+            }
+            if hit("help.guide") {
+                FindaroHelpWindow.show()
+                return nil
+            }
+            if browser.isViewingTrash, hit("files.restore") {
+                browser.restoreSelectionFromTrash()
+                return nil
+            }
 
             // Esc → búsqueda → otros filtros → selección / modo naranja
             if hit("files.cancel") {
