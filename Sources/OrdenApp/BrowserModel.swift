@@ -1925,6 +1925,20 @@ final class BrowserModel: ObservableObject {
         appendAgentUser(trimmed)
         agentLog.append("> \(trimmed)")
 
+        // Saludos y preguntas frecuentes: respuesta instantánea sin carga de GPU.
+        let lower = trimmed.lowercased().trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: .punctuationCharacters)
+        let greetings: Set<String> = [
+            "hola", "buen dia", "buenos dias", "buenas", "buenas tardes", "buenas noches",
+            "hey", "saludos", "hi", "hello", "ayuda", "que puedes hacer", "¿que puedes hacer?", "como te uso"
+        ]
+        if greetings.contains(lower) {
+            appendAgentReply(
+                "¡Hola! Soy Findaro. Puedo ayudarte a buscar archivos (ej: «busca fotos de ayer»), ver qué carpetas pesan más («qué pesa más»), organizar tus descargas («organizar descargas») o detectar duplicados. ¿Qué deseas hacer?",
+                alsoStatus: true
+            )
+            return
+        }
+
         if let shortcut = matchAssistantShortcut(prompt: trimmed) {
             applyAssistantShortcut(shortcut)
             return
@@ -1941,6 +1955,11 @@ final class BrowserModel: ObservableObject {
                 await Task.yield()
                 agentPlan = enrichAgentPlan(llm)
                 agentLog.append("Plan (Ollama): \(llm.summary)")
+            case .message(let text):
+                agentProgressLabel = ""
+                await Task.yield()
+                appendAgentReply(text, alsoStatus: true)
+                return
             case .unavailable:
                 agentProgressLabel = "Ollama no disponible · reglas"
                 await Task.yield()
