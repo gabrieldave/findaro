@@ -875,11 +875,26 @@ private struct EntryContextMenuButtons: View {
         }
         Button("Mostrar en Finder") { browser.revealInFinder(entry) }
         Divider()
-        Button("Mover a la Papelera", role: .destructive) {
-            if !browser.selectedIDs.contains(entry.id) {
-                browser.selectOnly(entry.id)
+        if browser.isViewingTrash {
+            Button("Sacar de la Papelera") {
+                if !browser.selectedIDs.contains(entry.id) {
+                    browser.selectOnly(entry.id)
+                }
+                browser.restoreSelectionFromTrash()
             }
-            browser.moveSelectionToTrash()
+            Button("Eliminar para siempre", role: .destructive) {
+                if !browser.selectedIDs.contains(entry.id) {
+                    browser.selectOnly(entry.id)
+                }
+                browser.permanentlyDeleteSelection(confirm: true)
+            }
+        } else {
+            Button("Mover a la Papelera", role: .destructive) {
+                if !browser.selectedIDs.contains(entry.id) {
+                    browser.selectOnly(entry.id)
+                }
+                browser.moveSelectionToTrash()
+            }
         }
     }
 }

@@ -137,8 +137,14 @@ struct FileActionsBar: View {
                 chip("A Favoritos", "Favorito", "star.fill", help: "A Favoritos", enabled: true) {
                     browser.addFoldersToFavoritesFromUI()
                 }
-                chip("Papelera", "Basura", "trash", role: .destructive, help: "Papelera · ⌘⌫", enabled: browser.activeHasSelection) {
-                    browser.moveSelectionToTrash()
+                if browser.isViewingTrash {
+                    chip("Restaurar", "Sacar", "arrow.uturn.backward", prominent: true, help: "Sacar de la Papelera", enabled: browser.activeHasSelection) {
+                        browser.restoreSelectionFromTrash()
+                    }
+                } else {
+                    chip("Papelera", "Basura", "trash", role: .destructive, help: "Papelera · ⌘⌫", enabled: browser.activeHasSelection) {
+                        browser.moveSelectionToTrash()
+                    }
                 }
             }
         }

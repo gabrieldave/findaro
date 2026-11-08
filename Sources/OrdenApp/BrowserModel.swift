@@ -3165,6 +3165,64 @@ final class BrowserModel: ObservableObject {
         }
     }
 
+    /// Saca los archivos seleccionados de la Papelera y los restaura a una carpeta de destino.
+    func restoreSelectionFromTrash(targetDirectory: String? = nil) {
+        let targets = activeSelectedEntries
+        guard !targets.isEmpty else {
+            statusMessage = "Selecciona archivos para sacar de la Papelera"
+            return
+        }
+
+        let destination: String
+        if let target = targetDirectory, !target.isEmpty {
+            destination = (target as NSString).standardizingPath
+        } else if dualPaneEnabled && !TrashOps.isTrashPath(secondaryPath) {
+            destination = (secondaryPath as NSString).standardizingPath
+        } else {
+            let desktop = (FileManager.default.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Desktop")
+            destination = FileManager.default.fileExists(atPath: desktop)
+                ? desktop
+                : GlobalHotKey.defaultDownloadsPath()
+        }
+
+        let paths = targets.map(\.path)
+        clearActiveSelection()
+        statusMessage = "Sacando de la Papelera…"
+
+        Task {
+            do {
+                let moved = try await Task.detached(priority: .userInitiated) {
+                    try FileOps.transfer(paths: paths, toDirectory: destination, move: true)
+                }.value
+                await MainActor.run {
+                    self.reload()
+                    if self.dualPaneEnabled { self.reloadSecondary() }
+                    let destName = URL(fileURLWithPath: destination).lastPathComponent
+                    self.statusMessage = moved.count == 1
+                        ? "Restaurado en «\(destName)»: \(URL(fileURLWithPath: moved[0].to).lastPathComponent)"
+                        : "\(moved.count) archivos restaurados en «\(destName)»"
+                }
+            } catch {
+                await MainActor.run {
+                    self.statusMessage = "No se pudo restaurar: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    /// Permite al usuario elegir interactivamente a qué carpeta restaurar los archivos de la Papelera.
+    func restoreSelectionFromTrashPromptFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Restaurar aquí"
+        panel.message = "Elige la carpeta donde deseas restaurar los archivos de la Papelera"
+        if panel.runModal() == .OK, let url = panel.url {
+            restoreSelectionFromTrash(targetDirectory: url.path)
+        }
+    }
+
     /// Borra de verdad lo seleccionado (solo tiene sentido en la Papelera).
     func permanentlyDeleteSelection(confirm: Bool) {
         let targets = activeSelectedEntries

@@ -276,9 +276,16 @@ private struct FindaroCommands: Commands {
                 .disabled(browser == nil)
             Button("Vista rápida") { browser?.quickLookSelection() }
                 .disabled(browser == nil)
-            Button("Mover a la Papelera") { browser?.moveSelectionToTrash() }
-                .keyboardShortcut(.delete, modifiers: .command)
-                .disabled(browser == nil)
+            if browser?.isViewingTrash == true {
+                Button("Sacar de la Papelera") { browser?.restoreSelectionFromTrash() }
+                    .disabled(browser == nil)
+                Button("Eliminar para siempre") { browser?.permanentlyDeleteSelection(confirm: true) }
+                    .disabled(browser == nil)
+            } else {
+                Button("Mover a la Papelera") { browser?.moveSelectionToTrash() }
+                    .keyboardShortcut(.delete, modifiers: .command)
+                    .disabled(browser == nil)
+            }
             Divider()
             Button("Usar Findaro para abrir carpetas…") {
                 browser?.runFolderHandlerSetup()
