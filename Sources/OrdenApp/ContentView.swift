@@ -712,17 +712,39 @@ struct FolderStatsBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
+                // Segmentos clicables: Downloads → va a Downloads, etc.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 2) {
+                        ForEach(Array(browser.pathSegments.enumerated()), id: \.element.id) { index, segment in
+                            if index > 0 {
+                                Text("/")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            Button {
+                                browser.navigate(to: segment.path)
+                            } label: {
+                                Text(segment.title)
+                                    .font(.system(.caption, design: .monospaced).weight(
+                                        index == browser.pathSegments.count - 1 ? .semibold : .regular
+                                    ))
+                                    .lineLimit(1)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(index == browser.pathSegments.count - 1 ? .primary : OrdenTheme.accent)
+                            .help("Ir a \(segment.path)")
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Button {
                     browser.copyCurrentFolderPath()
                 } label: {
-                    Label(browser.currentPath, systemImage: "doc.on.doc")
-                        .font(.system(.caption, design: .monospaced))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                    Image(systemName: "doc.on.doc")
+                        .font(.caption)
                 }
-                .buttonStyle(.plain)
-                .help("Clic para copiar la ruta de esta carpeta")
-                Spacer(minLength: 8)
+                .buttonStyle(.borderless)
+                .help("Copiar ruta completa")
                 Label(browser.folderTotalLabel, systemImage: "externaldrive.fill")
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                 if browser.isMeasuringSizes {
