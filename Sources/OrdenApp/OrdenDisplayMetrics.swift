@@ -22,7 +22,7 @@ struct OrdenDisplayMetrics: Equatable {
     static let reference = OrdenDisplayMetrics(
         textScale: 1,
         chromeScale: 1,
-        sidebarWidth: 212,
+        sidebarWidth: 248,
         assistantWidth: 360,
         detailMinWidth: 360,
         windowMinWidth: 560,
@@ -61,7 +61,8 @@ struct OrdenDisplayMetrics: Equatable {
         if visible.width < 1200 { chrome = min(chrome, 0.82) }
         chrome = min(1, max(0.78, chrome))
 
-        let sidebar: CGFloat = compact ? round(176 * chrome / 0.88) : 212
+        // Ancho fijo (nunca colapsa). Un poco más generoso para Favoritos / Drive.
+        let sidebar: CGFloat = compact ? round(200 * chrome / 0.88) : 248
         let assistant: CGFloat = compact ? 300 : 360
         let detailMin: CGFloat = compact ? 300 : 360
         let minW = min(visible.width * 0.92, sidebar + detailMin)
@@ -78,7 +79,7 @@ struct OrdenDisplayMetrics: Equatable {
         return OrdenDisplayMetrics(
             textScale: text,
             chromeScale: chrome,
-            sidebarWidth: max(160, sidebar),
+            sidebarWidth: max(184, sidebar),
             assistantWidth: assistant,
             detailMinWidth: detailMin,
             windowMinWidth: max(480, minW),

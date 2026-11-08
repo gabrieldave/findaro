@@ -34,9 +34,9 @@ final class SidebarLocationsTests: XCTestCase {
         )
 
         let titles = items.map(\.title)
-        XCTAssertTrue(titles.contains("Google Drive · david.del.rio.colin@gmail.com"))
-        XCTAssertTrue(titles.contains("Google Drive · feekwakjisan@gmail.com"))
-        XCTAssertEqual(titles.filter { $0.hasPrefix("Google Drive") }.count, 2)
+        XCTAssertTrue(titles.contains("Drive · david.del.rio.colin"))
+        XCTAssertTrue(titles.contains("Drive · feekwakjisan"))
+        XCTAssertEqual(titles.filter { $0.hasPrefix("Drive ·") }.count, 2)
     }
 
     func testSingleGoogleDriveKeepsPlainName() {

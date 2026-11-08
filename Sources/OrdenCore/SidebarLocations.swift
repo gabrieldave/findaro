@@ -149,11 +149,23 @@ public enum SidebarLocations {
         return tagged.map { folder, base, icon, account in
             let title: String
             if counts[base, default: 0] > 1, let account, !account.isEmpty {
-                title = "\(base) · \(account)"
+                // Sidebar estrecho: "Drive · usuario" cabe mejor que el correo completo.
+                let local = account.split(separator: "@").first.map(String.init) ?? account
+                title = "\(shortServiceLabel(base)) · \(local)"
             } else {
                 title = base
             }
             return TitledCloud(folder: folder, title: title, icon: icon)
+        }
+    }
+
+    /// Etiqueta corta al desambiguar varias cuentas del mismo servicio.
+    private static func shortServiceLabel(_ base: String) -> String {
+        switch base {
+        case "Google Drive": return "Drive"
+        case "OneDrive": return "OneDrive"
+        case "Dropbox": return "Dropbox"
+        default: return base
         }
     }
 

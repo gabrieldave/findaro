@@ -12,10 +12,12 @@ enum SelectionCancelMonitor {
     /// Push-to-talk activo por ⌃Espacio (no por el botón del panel).
     private static var voicePTTHeld = false
     private static weak var browserRef: BrowserModel?
+    private static weak var sessionRef: BrowserWindowSession?
 
-    static func install(browser: BrowserModel) {
+    static func install(browser: BrowserModel, session: BrowserWindowSession? = nil) {
         remove()
         browserRef = browser
+        sessionRef = session
         VoiceCaptureController.shared.onFinished = { text in
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { return }
@@ -67,6 +69,28 @@ enum SelectionCancelMonitor {
                     shift: shift,
                     control: ctrl
                 )
+            }
+
+            // Ventanas / pestañas (antes que archivos: ⌘T ≠ Favoritos ⌘⇧T).
+            if hit("win.newWindow") {
+                NotificationCenter.default.post(name: .findaroOpenNewBrowserWindow, object: nil)
+                return nil
+            }
+            if hit("win.newTab") {
+                SelectionCancelMonitor.sessionRef?.addTab()
+                return nil
+            }
+            if hit("win.closeTab") {
+                SelectionCancelMonitor.sessionRef?.closeActiveTab()
+                return nil
+            }
+            if hit("win.nextTab") {
+                SelectionCancelMonitor.sessionRef?.selectNextTab()
+                return nil
+            }
+            if hit("win.prevTab") {
+                SelectionCancelMonitor.sessionRef?.selectPreviousTab()
+                return nil
             }
 
             // Esc → búsqueda → otros filtros → selección / modo naranja
@@ -228,12 +252,28 @@ enum SelectionCancelMonitor {
                 browser.toggleDualPane()
                 return nil
             }
+            if browser.dualPaneEnabled, hit("dual.swapPanes") {
+                browser.swapPaneFolders()
+                return nil
+            }
+            if hit("view.flatten") {
+                browser.toggleFlattenFolderView()
+                return nil
+            }
             if hit("nav.downloads") {
                 browser.navigateToDownloads()
                 return nil
             }
             if hit("files.favorite") {
                 browser.addCurrentFolderToFavorites()
+                return nil
+            }
+            if hit("files.terminal") {
+                browser.openTerminalHere()
+                return nil
+            }
+            if hit("files.copyPath") {
+                browser.copySelectedPaths()
                 return nil
             }
             if hit("files.open") {
@@ -300,6 +340,7 @@ enum SelectionCancelMonitor {
             self.flagsMonitor = nil
         }
         browserRef = nil
+        sessionRef = nil
     }
 
     private static func handleVoicePTTKeyDown(_ event: NSEvent, browser: BrowserModel) -> Bool {

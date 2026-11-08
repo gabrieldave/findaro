@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 extension Notification.Name {
     static let ordenaOpenFolder = Notification.Name("ordenaOpenFolder")
+    static let findaroOpenNewBrowserWindow = Notification.Name("findaroOpenNewBrowserWindow")
 }
 
 enum FolderHandlerSetupResult: Equatable {

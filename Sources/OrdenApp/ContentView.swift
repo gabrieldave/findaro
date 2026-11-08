@@ -5,6 +5,7 @@ import OrdenCore
 
 struct ContentView: View {
     @EnvironmentObject private var browser: BrowserModel
+    @EnvironmentObject private var session: BrowserWindowSession
 
     /// Se actualiza en cada resize — fuerza redibujar sidebar + iconos al momento.
     @State private var layoutGeneration: Int = 0
@@ -85,7 +86,7 @@ struct ContentView: View {
         .onSubmit(of: .search) {
             browser.startDeepSearch()
         }
-        .onAppear { SelectionCancelMonitor.install(browser: browser) }
+        .onAppear { SelectionCancelMonitor.install(browser: browser, session: session) }
         .onDisappear { SelectionCancelMonitor.remove() }
         .modifier(BrowserToolbarModifier())
         .modifier(BrowserDialogsModifier(shortPath: shortPath))
@@ -1016,6 +1017,8 @@ struct SidebarView: View {
                     .font(.system(size: 13, weight: active ? .semibold : .medium))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
+                    .truncationMode(.middle)
+                    .layoutPriority(1)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 12)
@@ -1033,7 +1036,8 @@ struct SidebarView: View {
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 8)
-        .help(item.path)
+        // Sidebar de ancho fijo: si no caben letras, tooltip con nombre + ruta.
+        .help("\(item.title)\n\(item.path)")
         .accessibilityAddTraits(active ? [.isSelected] : [])
         .contextMenu {
             if isFavoriteSlot {

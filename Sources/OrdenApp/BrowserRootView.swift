@@ -3,6 +3,7 @@ import OrdenCore
 
 /// Raíz por ventana: pestañas + un `BrowserModel` por pestaña (ventanas independientes).
 struct BrowserRootView: View {
+    @Environment(\.openWindow) private var openWindow
     @StateObject private var session = BrowserWindowSession()
 
     var body: some View {
@@ -11,6 +12,7 @@ struct BrowserRootView: View {
 
             ContentView()
                 .environmentObject(session.activeBrowser)
+                .environmentObject(session)
                 .id(session.selectedTabID)
         }
         .focusedValue(\.findaroBrowser, session.activeBrowser)
@@ -31,6 +33,9 @@ struct BrowserRootView: View {
             if let path = note.object as? String {
                 session.activeBrowser.navigate(to: path, recordHistory: true)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .findaroOpenNewBrowserWindow)) { _ in
+            openWindow(id: "browser")
         }
         .onOpenURL { url in
             OpenFolderBridge.ingest(urls: [url])

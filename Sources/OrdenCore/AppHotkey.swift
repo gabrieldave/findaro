@@ -86,6 +86,7 @@ public struct KeyChord: Codable, Equatable, Hashable, Sendable {
 
 public enum AppHotkeyGroup: String, Codable, Sendable, CaseIterable {
     case navigation
+    case windows
     case files
     case dualPane
     case searchAssistant
@@ -94,6 +95,7 @@ public enum AppHotkeyGroup: String, Codable, Sendable, CaseIterable {
     public var titleSpanish: String {
         switch self {
         case .navigation: return "Navegación"
+        case .windows: return "Ventanas y pestañas"
         case .files: return "Archivos"
         case .dualPane: return "Doble panel"
         case .searchAssistant: return "Buscar y asistente"
@@ -153,6 +155,18 @@ public enum AppHotkeyCatalog {
         .init(id: "nav.globalOpen", title: "Abrir Findaro (global)", detail: "Desde cualquier app → carpeta elegida", group: .navigation,
               defaultChord: .init(keyCode: 31, character: "o", option: true, control: true), isEditable: true),
 
+        // Ventanas y pestañas
+        .init(id: "win.newWindow", title: "Nueva ventana", detail: "Abre otro explorador independiente", group: .windows,
+              defaultChord: .init(keyCode: 45, character: "n", command: true, option: true)),
+        .init(id: "win.newTab", title: "Nueva pestaña", detail: "Pestaña en la ventana actual", group: .windows,
+              defaultChord: .init(keyCode: 17, character: "t", command: true)),
+        .init(id: "win.closeTab", title: "Cerrar pestaña", detail: "Cierra la pestaña activa (o la ventana si solo hay una)", group: .windows,
+              defaultChord: .init(keyCode: 13, character: "w", command: true)),
+        .init(id: "win.nextTab", title: "Pestaña siguiente", detail: "Cicla a la pestaña de la derecha", group: .windows,
+              defaultChord: .init(keyCode: 30, character: "]", command: true, shift: true)),
+        .init(id: "win.prevTab", title: "Pestaña anterior", detail: "Cicla a la pestaña de la izquierda", group: .windows,
+              defaultChord: .init(keyCode: 33, character: "[", command: true, shift: true)),
+
         // Archivos
         .init(id: "files.undo", title: "Deshacer", detail: "Deshace el último movimiento/copia", group: .files,
               defaultChord: .init(keyCode: 6, character: "z", command: true)),
@@ -170,6 +184,8 @@ public enum AppHotkeyCatalog {
               defaultChord: .init(keyCode: 45, character: "n", command: true)),
         .init(id: "files.newFolder", title: "Nueva carpeta", detail: "Crea una carpeta", group: .files,
               defaultChord: .init(keyCode: 45, character: "n", command: true, shift: true)),
+        .init(id: "files.terminal", title: "Abrir Terminal aquí", detail: "Terminal.app en la carpeta del panel activo", group: .files,
+              defaultChord: .init(keyCode: 17, character: "t", command: true, option: true)),
         .init(id: "files.open", title: "Abrir selección", detail: "Abre el ítem seleccionado", group: .files,
               defaultChord: .init(keyCode: 125, command: true)),
         .init(id: "files.quickLook", title: "Vista rápida", detail: "Quick Look del archivo", group: .files,
@@ -200,6 +216,8 @@ public enum AppHotkeyCatalog {
               defaultChord: .init(keyCode: 46, character: "m", command: true, shift: true)),
         .init(id: "dual.moveToOrigin", title: "Mover → Origen", detail: "Mueve desde Destino al Origen", group: .dualPane,
               defaultChord: .init(keyCode: 46, character: "m", command: true, option: true, shift: true)),
+        .init(id: "dual.swapPanes", title: "Intercambiar paneles", detail: "Origen ↔ Destino (carpetas)", group: .dualPane,
+              defaultChord: .init(keyCode: 1, character: "s", command: true, shift: true)),
 
         // Buscar / asistente
         .init(id: "search.deep", title: "Buscar en subcarpetas", detail: "Búsqueda recursiva ⌘4", group: .searchAssistant,
@@ -216,6 +234,8 @@ public enum AppHotkeyCatalog {
               defaultChord: .init(keyCode: 47, character: ".", command: true, shift: true)),
         .init(id: "view.multi", title: "Modo varios", detail: "Selección múltiple (naranja)", group: .view,
               defaultChord: .init(keyCode: 46, character: "m", command: true, shift: true)),
+        .init(id: "view.flatten", title: "Vista plana", detail: "Archivos de subcarpetas en una lista", group: .view,
+              defaultChord: .init(keyCode: 3, character: "f", command: true, shift: true)),
     ]
 
     public static func definition(id: String) -> AppHotkeyDefinition? {

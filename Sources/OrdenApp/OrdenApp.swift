@@ -129,6 +129,7 @@ private struct FindaroCommands: Commands {
             Button("Intercambiar paneles") {
                 browser?.swapPaneFolders()
             }
+            .keyboardShortcut("s", modifiers: [.command, .shift])
             .disabled(!(browser?.dualPaneEnabled ?? false))
         }
 
@@ -188,6 +189,7 @@ private struct FindaroCommands: Commands {
             Button((browser?.flattenFolderView ?? false) ? "Vista de carpeta" : "Vista plana") {
                 browser?.toggleFlattenFolderView()
             }
+            .keyboardShortcut("f", modifiers: [.command, .shift])
             .disabled(browser == nil)
             Button("Escritorio") { browser?.navigateToDesktop() }
                 .disabled(browser == nil)
