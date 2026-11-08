@@ -43,7 +43,7 @@
 <div class="headrow"><span>Característica</span><strong>FINDARO</strong><span id="rival-label">Bloom</span></div>
 <div id="comparison-rows" class="rows" aria-live="polite"></div>
 </div>
-<div class="panel-foot"><div><div class="method"><strong>Cómo leer:</strong> Incluido = función documentada. Similar = función relacionada, no equivalente. Sin confirmar (rojo) = no existe evidencia suficiente para afirmar que la función está incluida o ausente. Rojo NO significa que el competidor carezca de ella. La matriz es una investigación documental; no se han probado todos los productos. En «Donde otros destacan», «No documentado» indica que la función no figura en el inventario de FINDARO.</div><div class="count" id="row-count"></div></div><button class="toggle" type="button" id="full-toggle" aria-pressed="false">Ver las 50 características</button></div>
+<div class="panel-foot"><div><div class="method"><strong>Cómo leer:</strong> Incluido = función documentada. Similar = función relacionada, no equivalente. No incluye = la matriz no documenta esa función en el competidor (o no hay evidencia suficiente de que la tenga). La matriz es una investigación documental; no se han probado todos los productos. En «Donde otros destacan», «No documentado» indica que la función no figura en el inventario de FINDARO.</div><div class="count" id="row-count"></div></div><button class="toggle" type="button" id="full-toggle" aria-pressed="false">Ver las 50 características</button></div>
 </section>
 <div class="after"><aside class="ethics"><h3 style="font-size:20px;letter-spacing:-.025em;font-weight:610;margin:0 0 11px;color:#fff">Una comparación honesta vale más.</h3><p>ForkLift, QSpace, Commander One y Path Finder también destacan en conexiones remotas, sincronización y herramientas avanzadas. FINDARO se enfoca en el flujo <strong>local</strong>: mover, fusionar, verificar y trabajar con IA opcional sin perder el control.</p></aside><aside class="offer"><div><div class="eyebrow">FINDARO PRO · LANZAMIENTO</div><p class="offer-title"><strong>$59 USD</strong> · pago único</p><p>Oferta para las primeras 1,000 compras. Después $99 USD. Diseñado para Apple Silicon y macOS 15 o posterior.</p></div><a class="cta" href="/comprar">Consultar oferta</a></aside></div>
 </div>
@@ -729,7 +729,7 @@
           ? "Similar"
           : primary && undocumented
             ? "No documentado"
-            : "Sin confirmar";
+            : "No incluye";
     return el(
       "span",
       "status " + key + (primary && key === "yes" ? " findaro" : ""),

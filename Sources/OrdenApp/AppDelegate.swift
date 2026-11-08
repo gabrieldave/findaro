@@ -68,14 +68,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     static func showMainWindows() {
         NSApp.activate(ignoringOtherApps: true)
-        let titled = NSApp.windows.filter { $0.styleMask.contains(.titled) }
-        if titled.isEmpty {
+        // Solo ventanas del explorador — no Ajustes (si no, el atajo global
+        // también trae al frente la pestaña General).
+        let browserWindows = NSApp.windows.filter { window in
+            guard window.styleMask.contains(.titled) else { return false }
+            return !isSettingsWindow(window)
+        }
+        if browserWindows.isEmpty {
             NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/Findaro.app"))
             return
         }
-        for window in titled {
+        for window in browserWindows {
             window.makeKeyAndOrderFront(nil)
             window.collectionBehavior.insert(.moveToActiveSpace)
         }
+    }
+
+    /// Ventana de Preferencias / Ajustes de SwiftUI (no el explorador).
+    @MainActor
+    private static func isSettingsWindow(_ window: NSWindow) -> Bool {
+        let title = window.title.lowercased()
+        if title.contains("ajustes")
+            || title.contains("settings")
+            || title.contains("preferences")
+            || title.contains("preferencias") {
+            return true
+        }
+        if let raw = window.identifier?.rawValue.lowercased(),
+           raw.contains("settings") || raw.contains("preference") {
+            return true
+        }
+        // Settings de Findaro: tamaño fijo ~560×520 del TabView.
+        let s = window.frame.size
+        if abs(s.width - 560) < 8, abs(s.height - 520) < 40 {
+            return true
+        }
+        return false
     }
 }

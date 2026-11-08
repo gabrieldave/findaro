@@ -77,7 +77,7 @@
           ? "Similar"
           : primary && undocumented
             ? "No documentado"
-            : "Sin confirmar";
+            : "No incluye";
     return el(
       "span",
       "status " + key + (primary && key === "yes" ? " findaro" : ""),
