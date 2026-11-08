@@ -1,0 +1,143 @@
+.page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+  background:
+    radial-gradient(1200px 500px at 20% -10%, #1d4ed855, transparent),
+    radial-gradient(900px 400px at 90% 0%, #7c3aed33, transparent),
+    #0b1220;
+  color: #e8eef7;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+}
+
+.card,
+.cardWide {
+  width: min(480px, 100%);
+  background: #121a2b;
+  border: 1px solid #243049;
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 20px 60px #0008;
+}
+
+.cardWide {
+  width: min(960px, 100%);
+}
+
+.brand {
+  letter-spacing: 0.18em;
+  font-weight: 800;
+  color: #93c5fd;
+  margin: 0 0 8px;
+}
+
+.sub {
+  color: #9fb0c9;
+  line-height: 1.5;
+}
+
+.priceBox {
+  margin: 20px 0;
+  padding: 16px;
+  border-radius: 14px;
+  background: #0b1220;
+  border: 1px solid #334155;
+}
+
+.price {
+  font-size: 2.4rem;
+  font-weight: 800;
+}
+
+.promo {
+  color: #fbbf24;
+  margin: 8px 0 0;
+}
+
+.form {
+  display: grid;
+  gap: 12px;
+}
+
+.form label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+
+.form input {
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #0b1220;
+  color: #fff;
+  padding: 12px 14px;
+  font-size: 1rem;
+}
+
+.cta {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 8px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 0;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cta:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.secondary {
+  margin: 8px 0 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: transparent;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.error {
+  color: #fca5a5;
+}
+
+.note {
+  margin-top: 16px;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.tableWrap {
+  overflow: auto;
+  max-height: 70vh;
+  border: 1px solid #243049;
+  border-radius: 12px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid #1e293b;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  background: #0f172a;
+}

@@ -1,34 +1,30 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "FINDARO — Gestor inteligente de archivos para macOS",
+  title: "FINDARO — Explorador de archivos con IA para Mac",
   description:
-    "Explorador avanzado de archivos para Mac. Encuentra, organiza y controla tus archivos con doble panel, Smart Merge y actualizaciones nativas.",
+    "Doble panel, Smart Merge, bandeja tipo Windows, búsqueda y asistente local. Licencia de por vida desde $59 (primeros 1000).",
   applicationName: "FINDARO",
+  appleWebApp: {
+    capable: true,
+    title: "FINDARO",
+    statusBarStyle: "black-translucent",
+  },
+  manifest: "/manifest.webmanifest",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0B1220",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="es">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
