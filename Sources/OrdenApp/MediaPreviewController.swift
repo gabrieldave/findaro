@@ -69,7 +69,7 @@ final class MediaPreviewController: NSObject, NSWindowDelegate {
         if window != nil { return }
 
         let rect = NSRect(x: 0, y: 0, width: 900, height: 620)
-        let win = NSWindow(
+        let win = MediaPreviewWindow(
             contentRect: rect,
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
@@ -131,5 +131,27 @@ final class MediaPreviewController: NSObject, NSWindowDelegate {
         player?.pause()
         player = nil
         playerView?.player = nil
+    }
+}
+
+final class MediaPreviewWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        let code = event.keyCode
+        if code == 49 || code == 53 { // Space o Esc cierran
+            MediaPreviewController.shared.hide()
+            return
+        }
+        if code == 123 { // Flecha izquierda
+            QuickLookController.shared.navigate(delta: -1)
+            return
+        }
+        if code == 124 { // Flecha derecha
+            QuickLookController.shared.navigate(delta: 1)
+            return
+        }
+        super.keyDown(with: event)
     }
 }

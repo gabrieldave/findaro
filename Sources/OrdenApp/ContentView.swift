@@ -1732,6 +1732,9 @@ struct FileRowButton: View {
     }
 
     private func selectRow() {
+        if FindaroTextInput.isEditing {
+            NSApp.keyWindow?.makeFirstResponder(nil)
+        }
         // ⇧ rango · ⌘ suma/quita + naranja · Varios toggle · clic = uno y sale del naranja.
         if isSecondary {
             browser.clickSelectSecondary(entry.id)

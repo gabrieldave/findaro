@@ -1237,10 +1237,12 @@ final class BrowserModel: ObservableObject {
     func openSecondaryEntry(_ entry: FileEntry) {
         if entry.isDirectory {
             navigateSecondary(to: entry.path)
+        } else if isDiskImage(entry.path) {
+            openDiskImage(entry, inSecondary: true)
         } else if ArchiveOps.isExtractable(entry.path) {
             extractArchive(entry, intoSecondary: true)
         } else {
-            NSWorkspace.shared.open(URL(fileURLWithPath: entry.path))
+            openFileWithSystem(entry)
         }
     }
 
@@ -2906,10 +2908,75 @@ final class BrowserModel: ObservableObject {
     func open(_ entry: FileEntry) {
         if entry.isDirectory {
             navigate(to: entry.path)
+        } else if isDiskImage(entry.path) {
+            openDiskImage(entry, inSecondary: false)
         } else if ArchiveOps.isExtractable(entry.path) {
             extractArchive(entry, intoSecondary: false)
         } else {
-            NSWorkspace.shared.open(URL(fileURLWithPath: entry.path))
+            openFileWithSystem(entry)
+        }
+    }
+
+    private func isDiskImage(_ path: String) -> Bool {
+        let lower = path.lowercased()
+        return lower.hasSuffix(".dmg")
+            || lower.hasSuffix(".iso")
+            || lower.hasSuffix(".img")
+            || lower.hasSuffix(".sparseimage")
+            || lower.hasSuffix(".sparsebundle")
+    }
+
+    private func openDiskImage(_ entry: FileEntry, inSecondary: Bool) {
+        statusMessage = "Montando «\(entry.name)»…"
+        let path = entry.path
+        Task.detached {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
+            process.arguments = ["attach", path, "-plist", "-nobrowse"]
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = Pipe()
+            do {
+                try process.run()
+                process.waitUntilExit()
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                if let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+                   let entities = plist["system-entities"] as? [[String: Any]] {
+                    let mountPoint = entities.compactMap { $0["mount-point"] as? String }.first
+                    if let mountPoint, FileManager.default.fileExists(atPath: mountPoint) {
+                        await MainActor.run {
+                            if inSecondary {
+                                self.navigateSecondary(to: mountPoint)
+                            } else {
+                                self.navigate(to: mountPoint)
+                            }
+                            self.statusMessage = "Montado: \(URL(fileURLWithPath: mountPoint).lastPathComponent)"
+                        }
+                        return
+                    }
+                }
+            } catch {}
+
+            await MainActor.run {
+                self.openFileWithSystem(entry)
+            }
+        }
+    }
+
+    private func openFileWithSystem(_ entry: FileEntry) {
+        let url = URL(fileURLWithPath: entry.path)
+        if NSWorkspace.shared.open(url) {
+            statusMessage = "Abrí: \(entry.name)"
+            return
+        }
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        proc.arguments = [entry.path]
+        do {
+            try proc.run()
+            statusMessage = "Abrí: \(entry.name)"
+        } catch {
+            statusMessage = "No se pudo abrir «\(entry.name)»: \(error.localizedDescription)"
         }
     }
 

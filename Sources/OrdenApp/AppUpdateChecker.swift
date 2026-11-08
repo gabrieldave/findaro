@@ -156,8 +156,9 @@ final class AppUpdateChecker: ObservableObject {
             throw URLError(.badServerResponse)
         }
         let decoded = try JSONDecoder().decode(UpdateFeed.PublicFeed.self, from: data)
-        let bundleID = Bundle.main.bundleIdentifier ?? ""
-        return try UpdateFeed.resolve(feed: decoded, installedBundleID: bundleID)
+        let bundleID = Bundle.main.bundleIdentifier ?? UpdateFeed.findaroBundleID
+        let effectiveID = (bundleID == UpdateFeed.ordenaBundleID) ? UpdateFeed.ordenaBundleID : UpdateFeed.findaroBundleID
+        return try UpdateFeed.resolve(feed: decoded, installedBundleID: effectiveID)
     }
 
     private func confirmUpdate(from current: String, to latest: String) async -> UpdateChoice {

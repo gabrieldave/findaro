@@ -52,12 +52,15 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
         guard entries.indices.contains(currentIndex) else { return }
         let entry = entries[currentIndex]
         switch entry.category {
-        case .video, .image:
+        case .video:
             QLPreviewPanel.shared()?.orderOut(nil)
             MediaPreviewController.shared.show(entry: entry)
         default:
             MediaPreviewController.shared.hide()
-            guard let panel = QLPreviewPanel.shared() else { return }
+            guard let panel = QLPreviewPanel.shared() else {
+                MediaPreviewController.shared.show(entry: entry)
+                return
+            }
             panel.dataSource = self
             panel.delegate = self
             panel.currentPreviewItemIndex = currentIndex
@@ -72,14 +75,11 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
             currentIndex = 0
             return
         }
-        let files = browser.visibleEntries.filter { !$0.isDirectory }
-        entries = files.sorted { lhs, rhs in
-            if lhs.dateAdded != rhs.dateAdded {
-                return lhs.dateAdded > rhs.dateAdded
-            }
-            return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
-        }
-        let focus = paths.first ?? browser.selectedEntries.first(where: { !$0.isDirectory })?.path
+        let sourceEntries = browser.activeIsSecondary ? browser.secondaryEntries : browser.visibleEntries
+        let files = sourceEntries.filter { !$0.isDirectory }
+        // Respetar el orden exacto de la vista actual (filtros, atajos o regla activa)
+        entries = files
+        let focus = paths.first ?? (browser.activeIsSecondary ? browser.secondarySelectedEntries : browser.selectedEntries).first(where: { !$0.isDirectory })?.path
         if let focus, let idx = entries.firstIndex(where: { $0.path == focus }) {
             currentIndex = idx
         } else {
@@ -135,5 +135,21 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
                 return false
             }
         }
+    }
+}
+
+extension NSApplication {
+    nonisolated open override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
+        true
+    }
+
+    nonisolated open override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        MainActor.assumeIsolated {
+            panel.delegate = QuickLookController.shared
+            panel.dataSource = QuickLookController.shared
+        }
+    }
+
+    nonisolated open override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
     }
 }
