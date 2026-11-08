@@ -199,6 +199,9 @@ enum SelectionCancelMonitor {
                     browser.submitPathOmnibox()
                     return nil
                 }
+                if isEditingText || browser.isAssistantFocused {
+                    return event
+                }
                 if browser.explorerKeyboardProfile {
                     browser.openSelection()
                 } else if browser.selectedIDs.count == 1 {
@@ -464,7 +467,7 @@ enum SelectionCancelMonitor {
 
     private static func shouldIgnore(_ event: NSEvent, browser: BrowserModel) -> Bool {
         if browser.pathOmniboxEditing { return true }
-        if isEditingText { return true }
+        if isEditingText || browser.isAssistantFocused { return true }
         if NSApp.keyWindow?.attachedSheet != nil { return true }
         if browser.hasModalSheet { return true }
         return false

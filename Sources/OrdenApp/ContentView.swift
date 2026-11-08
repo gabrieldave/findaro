@@ -111,12 +111,13 @@ struct ContentView: View {
         }
         .onKeyPress(keys: [.return], phases: .down) { press in
             guard !press.modifiers.contains(.command) else { return .ignored }
-            // Omnibox / sheets: no abrir ni renombrar detrás.
+            // Omnibox / sheets / texto / asistente: no abrir ni renombrar detrás.
             if browser.pathOmniboxEditing {
                 browser.submitPathOmnibox()
                 return .handled
             }
             if browser.hasModalSheet { return .ignored }
+            if FindaroTextInput.isEditing || browser.isAssistantFocused { return .ignored }
             if browser.explorerKeyboardProfile {
                 browser.openSelection()
             } else {
@@ -1584,6 +1585,10 @@ struct FileRowButton: View {
         .reportFileDragArmFrame(path: entry.path)
         .folderDropTarget(entry: entry)
         .fileDragArmPress(entry: entry, browser: browser)
+        .onDrag {
+            NSItemProvider(contentsOf: URL(fileURLWithPath: entry.path))
+                ?? NSItemProvider(object: URL(fileURLWithPath: entry.path) as NSURL)
+        }
         .contextMenu {
             Button("Abrir") {
                 ensureSelectedAlone()

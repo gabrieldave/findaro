@@ -44,6 +44,19 @@ public struct KeyChord: Codable, Equatable, Hashable, Sendable {
         return self.character == ch
     }
 
+    /// Comprueba si dos atajos colisionan semánticamente (mismos modificadores y misma tecla o carácter).
+    public func conflicts(with other: KeyChord) -> Bool {
+        guard self.command == other.command,
+              self.option == other.option,
+              self.shift == other.shift,
+              self.control == other.control else { return false }
+        if self.keyCode != 0, other.keyCode != 0, self.keyCode == other.keyCode { return true }
+        let a = self.character.lowercased()
+        let b = other.character.lowercased()
+        if !a.isEmpty, !b.isEmpty, a == b { return true }
+        return false
+    }
+
     public var displayLabel: String {
         var parts: [String] = []
         if control { parts.append("⌃") }
@@ -271,8 +284,10 @@ public enum AppHotkeyCatalog {
     ) -> AppHotkeyDefinition? {
         let resolvedMap = resolved(overrides: overrides)
         for def in catalog where def.id != excludingId {
-            if let existingChord = resolvedMap[def.id], existingChord == chord {
-                return def
+            if let existingChord = resolvedMap[def.id] {
+                if existingChord == chord || existingChord.conflicts(with: chord) {
+                    return def
+                }
             }
         }
         return nil

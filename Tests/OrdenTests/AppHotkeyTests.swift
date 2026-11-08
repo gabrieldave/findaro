@@ -80,4 +80,22 @@ final class AppHotkeyTests: XCTestCase {
         )
         XCTAssertNil(conflict)
     }
+
+    func testSemanticConflictDetection() {
+        let chordA = KeyChord(keyCode: 0, character: "c", command: true)
+        let chordB = KeyChord(keyCode: 8, character: "c", command: true)
+        XCTAssertTrue(chordA.conflicts(with: chordB))
+
+        let chordC = KeyChord(keyCode: 36, character: "", command: false)
+        let chordD = KeyChord(keyCode: 36, character: "\r", command: false)
+        XCTAssertTrue(chordC.conflicts(with: chordD))
+
+        let conflict = AppHotkeyCatalog.conflictingDefinition(
+            for: chordA,
+            excludingId: "custom.action",
+            overrides: [:]
+        )
+        XCTAssertNotNil(conflict)
+        XCTAssertEqual(conflict?.id, "files.copy")
+    }
 }

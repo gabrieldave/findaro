@@ -40,6 +40,7 @@ final class BrowserModel: ObservableObject {
     @Published var dualPaneEnabled = false
     @Published var focusedPane: PaneFocus = .primary
     @Published var secondaryPath: String = ""
+    private var userDidNavigateSecondary = false
     @Published var secondaryEntries: [FileEntry] = []
     @Published var secondarySelectedIDs: Set<String> = []
     /// Ancla / cursor de selección del panel Destino (⇧ / flechas).
@@ -148,6 +149,7 @@ final class BrowserModel: ObservableObject {
 
     // MARK: Asistente
     @Published var showAssistantPanel = false
+    @Published var isAssistantFocused = false
     @Published var showOllamaSetupDialog = false
     @Published var showFolderHandlerSetupDialog = false
     @Published var folderHandlerSetupResult: FolderHandlerSetupResult = .readyForOpenWith(appPath: "")
@@ -199,6 +201,7 @@ final class BrowserModel: ObservableObject {
 
     let store: PreferencesStore
     private var prefsCancellable: AnyCancellable?
+    private var shelfCancellable: AnyCancellable?
     private var measureTask: Task<Void, Never>?
     private let folderWatcher = FolderWatcher()
     private let secondaryFolderWatcher = FolderWatcher()
@@ -246,9 +249,7 @@ final class BrowserModel: ObservableObject {
         self.assistantShortcuts = store.preferences.assistantShortcuts
         self.viewTemplates = store.preferences.viewTemplates
         self.columnPaths = [start]
-        let desktop = (FileManager.default.homeDirectoryForCurrentUser.path as NSString)
-            .appendingPathComponent("Desktop")
-        self.secondaryPath = FileManager.default.fileExists(atPath: desktop) ? desktop : start
+        self.secondaryPath = start
         OllamaClient.shared.applyPreferences(store.preferences)
         OllamaClient.shared.onModelAutoSelected = { [weak self] model in
             self?.store.update { $0.ollamaModel = model }
@@ -273,6 +274,16 @@ final class BrowserModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] note in
                 self?.handlePreferencesDidChange(note)
+            }
+
+        shelfCancellable = NotificationCenter.default
+            .publisher(for: SharedShelf.didChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] note in
+                guard let self else { return }
+                if (note.object as? BrowserModel) !== self {
+                    self.shelf = SharedShelf.shared.items
+                }
             }
     }
 
@@ -985,7 +996,7 @@ final class BrowserModel: ObservableObject {
     func toggleDualPane() {
         dualPaneEnabled.toggle()
         if dualPaneEnabled {
-            if secondaryPath.isEmpty {
+            if !userDidNavigateSecondary || secondaryPath.isEmpty {
                 secondaryPath = currentPath
             }
             focusedPane = .secondary
@@ -1039,6 +1050,7 @@ final class BrowserModel: ObservableObject {
             return
         }
         secondaryPath = target
+        userDidNavigateSecondary = true
         secondarySelectedIDs = []
         secondarySelectionAnchorID = nil
         secondarySelectionFocusID = nil
@@ -3259,7 +3271,21 @@ final class BrowserModel: ObservableObject {
         Task {
             do {
                 let moved = try await Task.detached(priority: .userInitiated) {
-                    try FileOps.transfer(paths: paths, toDirectory: destination, move: true)
+                    do {
+                        return try FileOps.transfer(paths: paths, toDirectory: destination, move: true)
+                    } catch {
+                        // Fallback a Finder si macOS bloquea mover archivos directamente desde la Papelera
+                        var pairs: [FileOps.TransferPair] = []
+                        for p in paths {
+                            if let newPath = try? TrashOps.moveViaFinder(source: p, destDir: destination) {
+                                pairs.append(FileOps.TransferPair(from: p, to: newPath))
+                            }
+                        }
+                        if !pairs.isEmpty {
+                            return pairs
+                        }
+                        throw error
+                    }
                 }.value
                 await MainActor.run {
                     self.reload()
@@ -3687,6 +3713,9 @@ final class BrowserModel: ObservableObject {
 
     /// ⌘V → suelta la bandeja aquí (cada ítem según su intención).
     func pasteFromPasteboard() {
+        if !SharedShelf.shared.items.isEmpty {
+            shelf = SharedShelf.shared.items
+        }
         if !shelf.isEmpty {
             depositShelfHere()
             return
@@ -3741,6 +3770,15 @@ final class BrowserModel: ObservableObject {
         for entry in entries {
             upsertShelfItem(FileOps.ShelfItem(entry: entry, intent: intent))
         }
+        // Portapapeles general del sistema (para pegar entre pestañas y con otras apps)
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        let urls = entries.map { URL(fileURLWithPath: $0.path) } as [NSURL]
+        pb.writeObjects(urls)
+
+        SharedShelf.shared.items = shelf
+        NotificationCenter.default.post(name: SharedShelf.didChangeNotification, object: self)
+
         let verb = intent == .move ? "para mover" : "para copiar"
         statusMessage = entries.count == 1
             ? "En bandeja \(verb) — ve abajo o ⌘V aquí"
@@ -3753,6 +3791,8 @@ final class BrowserModel: ObservableObject {
             let name = URL(fileURLWithPath: path).lastPathComponent
             upsertShelfItem(FileOps.ShelfItem(path: path, name: name, intent: intent))
         }
+        SharedShelf.shared.items = shelf
+        NotificationCenter.default.post(name: SharedShelf.didChangeNotification, object: self)
         statusMessage = "Bandeja: \(shelf.count) ítem(s)"
     }
 
@@ -3766,10 +3806,14 @@ final class BrowserModel: ObservableObject {
 
     func removeFromShelf(_ item: FileOps.ShelfItem) {
         shelf.removeAll { $0.path == item.path }
+        SharedShelf.shared.items = shelf
+        NotificationCenter.default.post(name: SharedShelf.didChangeNotification, object: self)
     }
 
     func clearShelf() {
         shelf.removeAll()
+        SharedShelf.shared.items.removeAll()
+        NotificationCenter.default.post(name: SharedShelf.didChangeNotification, object: self)
         statusMessage = "Bandeja vacía"
     }
 
@@ -3833,6 +3877,8 @@ final class BrowserModel: ObservableObject {
                 // Moves salen de la bandeja; copias pueden permanecer.
                 shelf = remaining + copyKeepOnShelf
             }
+            SharedShelf.shared.items = shelf
+            NotificationCenter.default.post(name: SharedShelf.didChangeNotification, object: self)
             if !moved.isEmpty { pushUndo(.moved(pairs: moved)) }
             if !copied.isEmpty { pushUndo(.copied(created: copied.map(\.to))) }
             reload()
@@ -3851,6 +3897,8 @@ final class BrowserModel: ObservableObject {
 
         if toMove.isEmpty && toCopy.isEmpty {
             shelf = remaining
+            SharedShelf.shared.items = shelf
+            NotificationCenter.default.post(name: SharedShelf.didChangeNotification, object: self)
             reload()
             if dualPaneEnabled { reloadSecondary() }
             statusMessage = "Nada transferido"
@@ -3946,6 +3994,8 @@ final class BrowserModel: ObservableObject {
                 } else {
                     self.pushUndo(.copied(created: pairs.map(\.to)))
                 }
+                SharedShelf.shared.items = self.shelf
+                NotificationCenter.default.post(name: SharedShelf.didChangeNotification, object: self)
                 self.reload()
                 if self.dualPaneEnabled { self.reloadSecondary() }
                 self.statusMessage = forceMove

@@ -94,7 +94,7 @@ final class OllamaClient: ObservableObject {
             let model: String
             let stream: Bool
             let prompt: String
-            let format: String
+            let format: String?
             let options: [String: Int]
         }
         let system = """
@@ -129,10 +129,30 @@ final class OllamaClient: ObservableObject {
                 return .failed(lastError!)
             }
             guard http.statusCode == 200 else {
-                if http.statusCode == 404 {
-                    lastError = "El modelo «\(selectedModel)» no está instalado en Ollama (HTTP 404). Selecciona un modelo disponible."
-                } else if http.statusCode == 501 {
+                if http.statusCode == 501 {
+                    // Algunos modelos / runners en macOS (como MLX o ciertas arquitecturas) no soportan
+                    // gramática forzada format: "json" y devuelven 501 Not Implemented. Reintentamos sin format.
+                    let retryBody = ReqBody(
+                        model: selectedModel,
+                        stream: false,
+                        prompt: system,
+                        format: nil,
+                        options: ["num_predict": 256]
+                    )
+                    var retryReq = request
+                    retryReq.httpBody = try? JSONEncoder().encode(retryBody)
+                    if let (retryData, retryResp) = try? await URLSession.shared.data(for: retryReq),
+                       let retryHttp = retryResp as? HTTPURLResponse, retryHttp.statusCode == 200 {
+                        struct Gen: Decodable { let response: String }
+                        if let gen = try? JSONDecoder().decode(Gen.self, from: retryData),
+                           let plan = parsePlanJSON(gen.response, prompt: prompt) {
+                            lastError = nil
+                            return .plan(plan)
+                        }
+                    }
                     lastError = "Ollama no soporta la operación o formato solicitado con «\(selectedModel)» (HTTP 501)."
+                } else if http.statusCode == 404 {
+                    lastError = "El modelo «\(selectedModel)» no está instalado en Ollama (HTTP 404). Selecciona un modelo disponible."
                 } else {
                     lastError = "Ollama devolvió HTTP \(http.statusCode)"
                 }

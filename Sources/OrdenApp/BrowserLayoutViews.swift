@@ -370,6 +370,10 @@ private struct IconsItemCell: View {
         .folderDropTarget(entry: entry)
         .fileOpenOnDoubleClick(entry: entry, browser: browser)
         .fileDragArmPress(entry: entry, browser: browser)
+        .onDrag {
+            NSItemProvider(contentsOf: URL(fileURLWithPath: entry.path))
+                ?? NSItemProvider(object: URL(fileURLWithPath: entry.path) as NSURL)
+        }
         .contextMenu { entryContextMenu(entry) }
     }
 }
@@ -656,6 +660,10 @@ private struct ColumnRow: View {
         .folderDropTarget(entry: entry)
         .fileOpenOnDoubleClick(entry: entry, browser: browser)
         .fileDragArmPress(entry: entry, browser: browser)
+        .onDrag {
+            NSItemProvider(contentsOf: URL(fileURLWithPath: entry.path))
+                ?? NSItemProvider(object: URL(fileURLWithPath: entry.path) as NSURL)
+        }
         .contextMenu { entryContextMenu(entry) }
     }
 
@@ -821,6 +829,10 @@ private struct GalleryThumb: View {
             isSelected ? OrdenTheme.accent.opacity(0.2) : Color.clear,
             in: RoundedRectangle(cornerRadius: 10, style: .continuous)
         )
+        .onDrag {
+            NSItemProvider(contentsOf: URL(fileURLWithPath: entry.path))
+                ?? NSItemProvider(object: URL(fileURLWithPath: entry.path) as NSURL)
+        }
         .contextMenu { entryContextMenu(entry) }
     }
 }

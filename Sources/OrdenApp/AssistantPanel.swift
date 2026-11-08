@@ -67,6 +67,12 @@ struct AssistantPanel: View {
             ollama.applyPreferences(browser.store.preferences)
             await ollama.refresh()
         }
+        .onChange(of: composerFocused) { _, focused in
+            browser.isAssistantFocused = focused
+        }
+        .onDisappear {
+            browser.isAssistantFocused = false
+        }
         .task(id: browser.agentBusy) {
             guard browser.agentBusy else {
                 busyDotCount = 1
