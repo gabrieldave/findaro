@@ -131,6 +131,9 @@ struct FileActionsBar: View {
             pipe
 
             group {
+                chip("Terminal", "Term", "terminal", help: "Abrir Terminal en esta carpeta · ⌘⌥T", enabled: true) {
+                    browser.openTerminalHere()
+                }
                 chip("A Favoritos", "Favorito", "star.fill", help: "A Favoritos", enabled: true) {
                     browser.addFoldersToFavoritesFromUI()
                 }

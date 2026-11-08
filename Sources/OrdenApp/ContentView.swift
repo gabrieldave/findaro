@@ -1810,6 +1810,13 @@ private struct BrowserToolbarModifier: ViewModifier {
                 )
 
                 Button {
+                    browser.openTerminalHere()
+                } label: {
+                    Label("Terminal", systemImage: "terminal")
+                }
+                .help("Abrir Terminal en la carpeta activa (⌘⌥T)")
+
+                Button {
                     browser.reloadFromUser()
                 } label: {
                     Label("Actualizar", systemImage: "arrow.clockwise")

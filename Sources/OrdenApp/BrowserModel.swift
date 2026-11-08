@@ -1817,6 +1817,48 @@ final class BrowserModel: ObservableObject {
         showAssistantPanel = true
     }
 
+    /// Abre Terminal.app en la carpeta del panel activo (Origen o Destino).
+    func openTerminalHere() {
+        let path = (activeWorkingPath as NSString).standardizingPath
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
+            statusMessage = "No hay carpeta para Terminal"
+            return
+        }
+        let folderURL = URL(fileURLWithPath: path, isDirectory: true)
+        let terminalPaths = [
+            "/System/Applications/Utilities/Terminal.app",
+            "/Applications/Utilities/Terminal.app"
+        ]
+        if let appPath = terminalPaths.first(where: { FileManager.default.fileExists(atPath: $0) }) {
+            let config = NSWorkspace.OpenConfiguration()
+            NSWorkspace.shared.open(
+                [folderURL],
+                withApplicationAt: URL(fileURLWithPath: appPath),
+                configuration: config
+            ) { [weak self] _, error in
+                Task { @MainActor in
+                    guard let self else { return }
+                    if let error {
+                        self.statusMessage = "No pude abrir Terminal: \(error.localizedDescription)"
+                    } else {
+                        self.statusMessage = "Terminal en \((path as NSString).lastPathComponent)"
+                    }
+                }
+            }
+            return
+        }
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        proc.arguments = ["-a", "Terminal", path]
+        do {
+            try proc.run()
+            statusMessage = "Terminal en \((path as NSString).lastPathComponent)"
+        } catch {
+            statusMessage = "No pude abrir Terminal"
+        }
+    }
+
     func runAssistant(prompt: String) async {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }

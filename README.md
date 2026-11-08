@@ -35,11 +35,13 @@ El producto SPM se llama `Orden` internamente; el bundle comercial es `Findaro`.
 
 ## Funciones
 
-- Lista / iconos, doble panel, FSEvents
+- Lista / iconos, doble panel, pestañas, FSEvents
+- Nueva ventana (`⌘⌥N`), Terminal en carpeta (`⌘⌥T`)
 - Omnibox (`⌘L`), Explorer keys, ocultos, vista plana
 - Smart Merge SHA-256 + rollback
 - Bandeja y TransferQueue con manifiesto de integridad
 - Actualizador por canal (Findaro ≠ Ordena)
+- Sin SFTP/S3/Drive/Dropbox (fuera de alcance por ahora)
 
 ## Icono
 

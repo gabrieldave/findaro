@@ -32,6 +32,7 @@ struct OrdenApp: App {
 private struct FindaroCommands: Commands {
     @Environment(\.openWindow) private var openWindow
     @FocusedValue(\.findaroBrowser) private var browser
+    @FocusedValue(\.findaroSession) private var session
 
     var body: some Commands {
         CommandGroup(replacing: .appInfo) {
@@ -48,6 +49,16 @@ private struct FindaroCommands: Commands {
                 openWindow(id: "browser")
             }
             .keyboardShortcut("n", modifiers: [.command, .option])
+            Button("Nueva pestaña") {
+                session?.addTab()
+            }
+            .keyboardShortcut("t", modifiers: .command)
+            .disabled(session == nil)
+            Button("Cerrar pestaña") {
+                session?.closeActiveTab()
+            }
+            .keyboardShortcut("w", modifiers: .command)
+            .disabled(session == nil)
             Divider()
             Button("Nuevo archivo") { browser?.promptNewFile() }
                 .keyboardShortcut("n", modifiers: .command)
@@ -197,11 +208,27 @@ private struct FindaroCommands: Commands {
         CommandMenu("Archivo+") {
             Button("Nueva ventana") { openWindow(id: "browser") }
                 .keyboardShortcut("n", modifiers: [.command, .option])
+            Button("Nueva pestaña") { session?.addTab() }
+                .keyboardShortcut("t", modifiers: .command)
+                .disabled(session == nil)
+            Button("Cerrar pestaña") { session?.closeActiveTab() }
+                .keyboardShortcut("w", modifiers: .command)
+                .disabled(session == nil)
+            Button("Pestaña siguiente") { session?.selectNextTab() }
+                .keyboardShortcut("]", modifiers: [.command, .shift])
+                .disabled(session == nil)
+            Button("Pestaña anterior") { session?.selectPreviousTab() }
+                .keyboardShortcut("[", modifiers: [.command, .shift])
+                .disabled(session == nil)
+            Divider()
             Button("Nuevo archivo") { browser?.promptNewFile() }
                 .keyboardShortcut("n", modifiers: .command)
                 .disabled(browser == nil)
             Button("Nueva carpeta") { browser?.promptNewFolder() }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
+                .disabled(browser == nil)
+            Button("Abrir Terminal aquí") { browser?.openTerminalHere() }
+                .keyboardShortcut("t", modifiers: [.command, .option])
                 .disabled(browser == nil)
             Button("Renombrar") { browser?.promptRename() }
                 .disabled(browser == nil)
