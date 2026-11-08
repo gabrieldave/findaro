@@ -275,20 +275,24 @@ struct ContentView: View {
                                     .disabled(browser.selectedIDs.isEmpty)
                                     .help("Mueve la selección de aquí al Destino")
                                 }
-                                Text(shortPath(browser.currentPath))
-                                    .font(.caption.monospaced())
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                                    .help(browser.currentPath)
-                                Text("Misma lista · naranja · Arrastra ↔ · Swap intercambia carpetas")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
+                                // Tap en ruta/ayuda enfoca Origen; no envolver botones (bloqueaba Mover/Copiar).
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(shortPath(browser.currentPath))
+                                        .font(.caption.monospaced())
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                        .help(browser.currentPath)
+                                    Text("Misma lista · naranja · Arrastra ↔ · Swap intercambia carpetas")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                                .onTapGesture { browser.focusOriginPane() }
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .contentShape(Rectangle())
-                            .onTapGesture { browser.focusOriginPane() }
                             FileBrowserPane()
                                 .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
                                     DualPaneDrop.handle(providers) { paths, copy in
