@@ -31,8 +31,12 @@ struct OrdenApp: App {
 
 private struct FindaroCommands: Commands {
     @Environment(\.openWindow) private var openWindow
-    @FocusedValue(\.findaroBrowser) private var browser
-    @FocusedValue(\.findaroSession) private var session
+    @FocusedValue(\.findaroBrowser) private var focusedBrowser
+    @FocusedValue(\.findaroSession) private var focusedSession
+
+    /// FocusedValue falla a menudo con toolbar/search; el registro de ventana es el respaldo.
+    private var browser: BrowserModel? { focusedBrowser ?? FindaroWindowRegistry.keyBrowser }
+    private var session: BrowserWindowSession? { focusedSession ?? FindaroWindowRegistry.keySession }
 
     var body: some Commands {
         CommandGroup(replacing: .appInfo) {
@@ -50,23 +54,19 @@ private struct FindaroCommands: Commands {
             }
             .keyboardShortcut("n", modifiers: [.command, .option])
             Button("Nueva pestaña") {
-                session?.addTab()
+                (session ?? FindaroWindowRegistry.keySession)?.addTab()
             }
             .keyboardShortcut("t", modifiers: .command)
-            .disabled(session == nil)
             Button("Cerrar pestaña") {
-                session?.closeActiveTab()
+                (session ?? FindaroWindowRegistry.keySession)?.closeActiveTab()
             }
             .keyboardShortcut("w", modifiers: .command)
-            .disabled(session == nil)
             Divider()
             Button("Nuevo archivo") { browser?.promptNewFile() }
                 .keyboardShortcut("n", modifiers: .command)
-                .disabled(browser == nil)
             Button("Nueva carpeta") { browser?.promptNewFolder() }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
-                .disabled(browser == nil)
-        }
+            }
 
         CommandGroup(after: .pasteboard) {
             Button("Deshacer movimiento") { browser?.undoLastFileOp() }
@@ -212,16 +212,12 @@ private struct FindaroCommands: Commands {
                 .keyboardShortcut("n", modifiers: [.command, .option])
             Button("Nueva pestaña") { session?.addTab() }
                 .keyboardShortcut("t", modifiers: .command)
-                .disabled(session == nil)
             Button("Cerrar pestaña") { session?.closeActiveTab() }
                 .keyboardShortcut("w", modifiers: .command)
-                .disabled(session == nil)
             Button("Pestaña siguiente") { session?.selectNextTab() }
                 .keyboardShortcut("]", modifiers: [.command, .shift])
-                .disabled(session == nil)
             Button("Pestaña anterior") { session?.selectPreviousTab() }
                 .keyboardShortcut("[", modifiers: [.command, .shift])
-                .disabled(session == nil)
             Divider()
             Button("Nuevo archivo") { browser?.promptNewFile() }
                 .keyboardShortcut("n", modifiers: .command)

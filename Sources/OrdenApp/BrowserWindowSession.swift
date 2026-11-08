@@ -98,34 +98,50 @@ final class BrowserWindowSession: ObservableObject {
     }
 }
 
-/// Barra de pestañas tipo Finder / navegador.
+/// Barra de pestañas tipo Chrome/Safari (siempre visible + botón «+»).
 struct BrowserTabBar: View {
     @ObservedObject var session: BrowserWindowSession
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 4) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 2) {
+                HStack(spacing: 3) {
                     ForEach(session.tabs) { tab in
                         tabChip(tab)
                     }
                 }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 4)
+                .padding(.leading, 8)
+                .padding(.vertical, 5)
             }
 
             Button {
                 session.addTab()
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .semibold))
-                    .frame(width: 28, height: 22)
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .help("Nueva pestaña (⌘T)")
-            .padding(.trailing, 6)
+            .accessibilityLabel("Nueva pestaña")
+
+            Button {
+                openWindow(id: "browser")
+            } label: {
+                Image(systemName: "macwindow.badge.plus")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .help("Nueva ventana (⌘⌥N)")
+            .accessibilityLabel("Nueva ventana")
+            .padding(.trailing, 8)
         }
-        .background(OrdenTheme.sidebarFill.opacity(0.92))
+        .frame(minHeight: 36)
+        .background(OrdenTheme.sidebarFill)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(OrdenTheme.hairline)
@@ -136,39 +152,47 @@ struct BrowserTabBar: View {
     private func tabChip(_ tab: BrowserWindowSession.TabItem) -> some View {
         let selected = tab.id == session.selectedTabID
         return HStack(spacing: 6) {
+            Image(systemName: "folder.fill")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(selected ? OrdenTheme.accent : OrdenTheme.textSecondary)
+
             Button {
                 session.selectTab(tab.id)
             } label: {
                 Text(tab.title)
-                    .font(.system(size: 11, weight: selected ? .semibold : .medium))
+                    .font(.system(size: 12, weight: selected ? .semibold : .medium))
                     .lineLimit(1)
-                    .frame(minWidth: 56, maxWidth: 140, alignment: .leading)
+                    .truncationMode(.middle)
+                    .frame(minWidth: 64, maxWidth: 160, alignment: .leading)
             }
             .buttonStyle(.plain)
 
-            if session.canCloseTab {
-                Button {
-                    session.closeTab(tab.id)
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 14, height: 14)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Cerrar pestaña")
+            Button {
+                session.closeTab(tab.id)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14, height: 14)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .opacity(session.canCloseTab || selected ? 0.9 : 0.35)
+            .disabled(!session.canCloseTab)
+            .help(session.canCloseTab ? "Cerrar pestaña" : "Única pestaña · usa Cerrar ventana")
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(selected ? OrdenTheme.accent.opacity(0.18) : Color.clear)
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(selected ? OrdenTheme.elevatedFill : OrdenTheme.panelFill.opacity(0.55))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .strokeBorder(selected ? OrdenTheme.accent.opacity(0.45) : Color.clear, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .strokeBorder(
+                    selected ? OrdenTheme.accent.opacity(0.55) : OrdenTheme.hairline,
+                    lineWidth: selected ? 1.2 : 1
+                )
         )
         .foregroundStyle(selected ? Color.primary : OrdenTheme.textSecondary)
         .help(tab.browser.activeWorkingPath)

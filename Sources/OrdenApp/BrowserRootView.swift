@@ -1,10 +1,12 @@
 import SwiftUI
+import AppKit
 import OrdenCore
 
 /// Raíz por ventana: pestañas + un `BrowserModel` por pestaña (ventanas independientes).
 struct BrowserRootView: View {
     @Environment(\.openWindow) private var openWindow
     @StateObject private var session = BrowserWindowSession()
+    @State private var hostWindow: NSWindow?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,6 +19,10 @@ struct BrowserRootView: View {
         }
         .focusedValue(\.findaroBrowser, session.activeBrowser)
         .focusedValue(\.findaroSession, session)
+        .background(WindowAccessor { window in
+            hostWindow = window
+            FindaroWindowRegistry.register(session, for: window)
+        })
         .frame(
             minWidth: OrdenDisplayMetrics.resolve(windowSize: .zero).windowMinWidth,
             minHeight: OrdenDisplayMetrics.resolve(windowSize: .zero).windowMinHeight
@@ -29,6 +35,9 @@ struct BrowserRootView: View {
                 session.activeBrowser.navigate(to: pending, recordHistory: false)
             }
         }
+        .onDisappear {
+            FindaroWindowRegistry.unregister(for: hostWindow)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .ordenaOpenFolder)) { note in
             if let path = note.object as? String {
                 session.activeBrowser.navigate(to: path, recordHistory: true)
@@ -39,6 +48,25 @@ struct BrowserRootView: View {
         }
         .onOpenURL { url in
             OpenFolderBridge.ingest(urls: [url])
+        }
+    }
+}
+
+/// Captura el NSWindow anfitrión para registrar la sesión.
+private struct WindowAccessor: NSViewRepresentable {
+    var onResolve: (NSWindow?) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            onResolve(view.window)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            onResolve(nsView.window)
         }
     }
 }

@@ -1698,6 +1698,8 @@ struct FileRowButton: View {
 
 private struct BrowserToolbarModifier: ViewModifier {
     @EnvironmentObject private var browser: BrowserModel
+    @EnvironmentObject private var session: BrowserWindowSession
+    @Environment(\.openWindow) private var openWindow
 
     func body(content: Content) -> some View {
         content.toolbar {
@@ -1718,6 +1720,20 @@ private struct BrowserToolbarModifier: ViewModifier {
                     Label("Arriba", systemImage: "chevron.up")
                 }
                 .help("Carpeta superior (⌘↑)")
+
+                Button {
+                    session.addTab()
+                } label: {
+                    Label("Nueva pestaña", systemImage: "plus.square.on.square")
+                }
+                .help("Nueva pestaña (⌘T)")
+
+                Button {
+                    openWindow(id: "browser")
+                } label: {
+                    Label("Nueva ventana", systemImage: "macwindow.badge.plus")
+                }
+                .help("Nueva ventana (⌘⌥N)")
             }
             ToolbarItem(placement: .principal) {
                 HStack(spacing: 12) {
