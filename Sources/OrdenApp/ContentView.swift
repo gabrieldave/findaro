@@ -712,6 +712,17 @@ struct FolderStatsBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
+                Button {
+                    browser.copyCurrentFolderPath()
+                } label: {
+                    Label(browser.currentPath, systemImage: "doc.on.doc")
+                        .font(.system(.caption, design: .monospaced))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .buttonStyle(.plain)
+                .help("Clic para copiar la ruta de esta carpeta")
+                Spacer(minLength: 8)
                 Label(browser.folderTotalLabel, systemImage: "externaldrive.fill")
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                 if browser.isMeasuringSizes {
@@ -725,17 +736,6 @@ struct FolderStatsBar: View {
                 )
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Spacer()
-                Button {
-                    browser.copyCurrentFolderPath()
-                } label: {
-                    Label(browser.currentPath, systemImage: "doc.on.doc")
-                        .font(.system(.caption, design: .monospaced))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-                .buttonStyle(.plain)
-                .help("Clic para copiar la ruta de esta carpeta")
             }
 
             if let shortcut = browser.activeAssistantShortcut {
