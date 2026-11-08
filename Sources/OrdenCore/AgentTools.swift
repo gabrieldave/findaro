@@ -308,13 +308,20 @@ public enum AgentIntentParser {
             || lower.contains("containing")
             || lower.contains("inside ")
 
-        let wantsExplicitSearch =
-            lower.contains("busca ") || lower.contains("buscar ")
-            || lower.contains("encuentra ") || lower.contains("find ") || lower.contains("search ")
+        let searchKeys = [
+            "busca ", "buscar ", "buscame ", "búscame ", "buscando ",
+            "encuentra ", "encuentrame ", "encuéntrame ",
+            "localiza ", "localizame ", "localízame ",
+            "muestra ", "muéstrame ", "mostrar ",
+            "filtra por ", "filtrar por ", "filtrame ", "fíltrame ",
+            "find ", "search "
+        ]
+        let wantsExplicitSearch = searchKeys.contains { lower.contains($0) }
 
         if !isWriteAction, (wantsExplicitSearch || wantsContentSearch || (!mentionsHeavy(lower) && !mentionsDuplicates(lower) && extractQuoted(text) != nil)),
-           let name = (wantsExplicitSearch ? extractAfter(text, keys: ["busca ", "buscar ", "encuentra ", "find ", "search "]) : nil) ?? extractQuoted(text) {
-            if wantsContentSearch || name.split(separator: " ").count >= 3 {
+           let rawTarget = (wantsExplicitSearch ? extractAfter(text, keys: searchKeys) : nil) ?? extractQuoted(text) {
+            let name = sanitizeSearchQuery(rawTarget)
+            if wantsContentSearch || (!name.hasPrefix(".") && name.split(separator: " ").count >= 3) {
                 steps.append(AgentToolCall(
                     name: .searchContent,
                     arguments: ["query": name, "root": currentPath],
@@ -400,20 +407,98 @@ public enum AgentIntentParser {
         }
 
         if steps.isEmpty {
-            let tool: AgentToolName = (wantsContentSearch || text.split(separator: " ").count >= 3)
+            let candidate = extractAfter(text, keys: searchKeys) ?? text
+            let sanitized = sanitizeSearchQuery(candidate)
+            let isExt = sanitized.hasPrefix(".")
+            let tool: AgentToolName = (!isExt && (wantsContentSearch || sanitized.split(separator: " ").count >= 3))
                 ? .searchContent
                 : .searchFiles
             steps.append(AgentToolCall(
                 name: tool,
-                arguments: ["query": text, "root": currentPath],
+                arguments: ["query": sanitized, "root": currentPath],
                 risk: .read
             ))
             summary = tool == .searchContent
-                ? "Búsqueda asistente (nombre + contenido)"
-                : "Búsqueda por nombre"
+                ? "Búsqueda asistente (nombre + contenido) «\(sanitized)»"
+                : "Buscar por nombre «\(sanitized)» bajo la carpeta actual"
         }
 
         return AgentPlan(prompt: text, summary: summary, steps: steps)
+    }
+
+    /// Limpia frases coloquiales de búsqueda (ej: «archivos .wav» → «.wav», «canciones mp3» → «.mp3»).
+    public static func sanitizeSearchQuery(_ raw: String) -> String {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.isEmpty { return "" }
+
+        // Si viene entre comillas explícitas, respetar literal
+        if let quoted = extractQuoted(text) {
+            return quoted
+        }
+
+        // Si contiene una extensión con punto (ej: .wav, *.wav, .tar.gz, etc.)
+        if let dotIndex = text.firstIndex(of: ".") {
+            let afterDot = text[dotIndex...]
+            let extChars = afterDot.dropFirst().prefix { $0.isLetter || $0.isNumber || $0 == "." }
+            if !extChars.isEmpty && extChars.count <= 10 {
+                return ".\(extChars.lowercased())"
+            }
+        }
+
+        // Extensiones comunes mencionadas sin punto (ej: "archivos wav", "canciones mp3", "fotos jpg")
+        let knownExtensions: Set<String> = [
+            "wav", "mp3", "m4a", "flac", "aac", "ogg", "aiff",
+            "png", "jpg", "jpeg", "gif", "svg", "webp", "heic",
+            "pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "txt", "md", "csv",
+            "zip", "rar", "tar", "gz", "7z", "dmg", "iso", "pkg",
+            "mp4", "mov", "mkv", "avi", "webm"
+        ]
+        let lowerWords = text.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
+        for w in lowerWords {
+            if knownExtensions.contains(w) {
+                let low = text.lowercased()
+                if low.contains("archivo") || low.contains("tipo") || low.contains("extension") || low.contains("extensión") || low.contains("terminad") || low.contains("formato") || low.contains("musica") || low.contains("música") || low.contains("audio") || low.contains("foto") || low.contains("video") || low.contains("document") {
+                    return ".\(w)"
+                }
+            }
+        }
+
+        // Limpiar palabras de relleno comunes en español al inicio
+        let allFillers = [
+            "archivos con extension ", "archivos con extensión ",
+            "archivos de tipo ", "archivos que terminen en ", "archivos terminados en ",
+            "archivos que sean ", "archivos que contengan ", "archivos con nombre ",
+            "archivos llamados ", "archivos de ", "archivos que ", "archivos ",
+            "los archivos que ", "los archivos con ", "los archivos ",
+            "los documentos de ", "los documentos con ", "los documentos ",
+            "las fotos de ", "las fotos con ", "las fotos ",
+            "los videos de ", "los videos con ", "los videos ",
+            "las canciones de ", "las canciones con ", "las canciones ",
+            "los audios de ", "los audios con ", "los audios ",
+            "el archivo con ", "el archivo ", "las carpetas con ", "las carpetas ",
+            "todos los archivos ", "todas las carpetas ",
+            "documentos de ", "documentos con ", "documentos ",
+            "fotos de ", "fotos con ", "fotos ",
+            "videos de ", "videos con ", "videos ",
+            "canciones de ", "canciones con ", "canciones ",
+            "audios de ", "audios con ", "audios ",
+            "el ", "la ", "los ", "las ", "un ", "una ", "de "
+        ]
+        var cleaned = text
+        var changed = true
+        while changed {
+            changed = false
+            for prefix in allFillers {
+                if cleaned.lowercased().hasPrefix(prefix) {
+                    cleaned = String(cleaned.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+                    changed = true
+                    break
+                }
+            }
+        }
+
+        let result = cleaned.trimmingCharacters(in: CharacterSet(charactersIn: " \t\r\n.,;!?«»\"'"))
+        return result.isEmpty ? text : result
     }
 
     private static func mentionsHeavy(_ lower: String) -> Bool {

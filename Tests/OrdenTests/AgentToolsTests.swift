@@ -69,6 +69,23 @@ final class AgentToolsTests: XCTestCase {
         let plan2 = AgentIntentParser.plan(from: "renombrar a ‘Otro Archivo.docx’", currentPath: "/tmp")
         XCTAssertEqual(plan2.steps.first?.arguments["newName"], "Otro Archivo.docx")
     }
+
+    func testPlanSearchWavColloquial() {
+        let plan = AgentIntentParser.plan(from: "buscame archivos .wav", currentPath: "/tmp")
+        XCTAssertEqual(plan.steps.first?.name, .searchFiles)
+        XCTAssertEqual(plan.steps.first?.arguments["query"], ".wav")
+    }
+
+    func testPlanSearchWavWithoutDot() {
+        let plan = AgentIntentParser.plan(from: "busca archivos wav", currentPath: "/tmp")
+        XCTAssertEqual(plan.steps.first?.name, .searchFiles)
+        XCTAssertEqual(plan.steps.first?.arguments["query"], ".wav")
+    }
+
+    func testPlanSearchSanitizesFiller() {
+        let plan = AgentIntentParser.plan(from: "búscame los documentos de presupuesto", currentPath: "/tmp")
+        XCTAssertEqual(plan.steps.first?.arguments["query"], "presupuesto")
+    }
 }
 
 final class RecursiveContentSearchTests: XCTestCase {

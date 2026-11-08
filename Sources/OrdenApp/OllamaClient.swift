@@ -101,7 +101,7 @@ final class OllamaClient: ObservableObject {
             let stream: Bool
             let prompt: String
             let format: String?
-            let thinking: Bool?
+            let think: Bool?
             let options: [String: Int]
         }
         let system = """
@@ -111,6 +111,7 @@ final class OllamaClient: ObservableObject {
         {"summary":"frase corta","steps":[{"name":"TOOL","arguments":{"param":"valor"}}]}
         Tools lectura: searchFiles (query), searchContent (query), listDirectory (path), getStorageUsage (path), findDuplicates (path), openFile (path), previewFile (path), getFileMetadata (path)
         Tools escritura: createDirectory (name, parent), copyFiles (destination), moveFiles (destination), renameFiles (newName), organizeFiles (path)
+        - Si piden buscar archivos o una extensión (ej: .wav, *.wav, pdf, fotos): usa siempre searchFiles con el patrón o extensión en query (ej: .wav).
         - Si piden peso/espacio Y pdfs: incluye getStorageUsage y searchFiles con query ".pdf".
         Ámbito: carpeta actual y abajo. Sin borrar permanentemente.
         Ruta actual: \(currentPath)
@@ -121,7 +122,7 @@ final class OllamaClient: ObservableObject {
             stream: false,
             prompt: system,
             format: nil,
-            thinking: false,
+            think: false,
             options: ["num_predict": 512]
         )
         var request = URLRequest(url: baseURL.appending(path: "api/generate"))
