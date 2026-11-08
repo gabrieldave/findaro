@@ -92,4 +92,61 @@ final class SelectionRangeLogicTests: XCTestCase {
         XCTAssertEqual(result?.newAnchor, "file1")
         XCTAssertEqual(result?.newFocus, "file1")
     }
+
+    func testNextKeyboardSelectionUpExtendingMaintainsAnchor() {
+        let result = SelectionRangeLogic.nextKeyboardSelection(
+            ids: sampleIDs,
+            currentFocus: "file3",
+            currentAnchor: "file3",
+            selectedIDs: ["file3"],
+            delta: -1,
+            extending: true
+        )
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.newSelected, ["file2", "file3"])
+        XCTAssertEqual(result?.newAnchor, "file3")
+        XCTAssertEqual(result?.newFocus, "file2")
+
+        let result2 = SelectionRangeLogic.nextKeyboardSelection(
+            ids: sampleIDs,
+            currentFocus: result!.newFocus,
+            currentAnchor: result!.newAnchor,
+            selectedIDs: result!.newSelected,
+            delta: -1,
+            extending: true
+        )
+        XCTAssertNotNil(result2)
+        XCTAssertEqual(result2?.newSelected, ["file1", "file2", "file3"])
+        XCTAssertEqual(result2?.newAnchor, "file3")
+        XCTAssertEqual(result2?.newFocus, "file1")
+    }
+
+    func testNextKeyboardSelectionShrinkBackToAnchor() {
+        // Starts with file2, file3, file4 (anchor file2, focus file4)
+        let result = SelectionRangeLogic.nextKeyboardSelection(
+            ids: sampleIDs,
+            currentFocus: "file4",
+            currentAnchor: "file2",
+            selectedIDs: ["file2", "file3", "file4"],
+            delta: -1,
+            extending: true
+        )
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.newSelected, ["file2", "file3"])
+        XCTAssertEqual(result?.newAnchor, "file2")
+        XCTAssertEqual(result?.newFocus, "file3")
+    }
+
+    func testMultipleCommandClicksToggleIndependently() {
+        var selected: Set<String> = ["file1"]
+        // User ⌘+clicks file3
+        selected = SelectionRangeLogic.toggle(selectedIDs: selected, id: "file3")
+        XCTAssertEqual(selected, ["file1", "file3"])
+        // User ⌘+clicks file5
+        selected = SelectionRangeLogic.toggle(selectedIDs: selected, id: "file5")
+        XCTAssertEqual(selected, ["file1", "file3", "file5"])
+        // User ⌘+clicks file3 again (uncheck)
+        selected = SelectionRangeLogic.toggle(selectedIDs: selected, id: "file3")
+        XCTAssertEqual(selected, ["file1", "file5"])
+    }
 }

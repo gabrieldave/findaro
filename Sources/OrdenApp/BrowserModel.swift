@@ -473,6 +473,7 @@ final class BrowserModel: ObservableObject {
         if dualPaneEnabled {
             focusedPane = .primary
         }
+        isAssistantFocused = false
         let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.shift) {
             selectRange(to: id)
@@ -496,6 +497,7 @@ final class BrowserModel: ObservableObject {
 
     /// ⌘+clic nativo de macOS: añade o quita el elemento individual sin alterar los demás.
     func commandToggleSelect(to id: String, pane: PaneFocus? = nil) {
+        isAssistantFocused = false
         noteCommandClickHandled()
         let target = pane ?? (dualPaneEnabled ? focusedPane : .primary)
         if dualPaneEnabled, target == .secondary {
@@ -776,6 +778,7 @@ final class BrowserModel: ObservableObject {
     }
 
     func selectOnly(_ id: String) {
+        isAssistantFocused = false
         selectedIDs = [id]
         selectionAnchorID = id
         selectionFocusID = id
@@ -923,6 +926,7 @@ final class BrowserModel: ObservableObject {
     /// Clic en zona vacía: no cancelar si hay ⌘/⇧ (evita apagar el naranja al soltar ⌘+clic).
     /// En doble panel también enfoca el panel donde se hizo clic.
     func cancelSelectionFromBackgroundTap(activating pane: PaneFocus? = nil) {
+        isAssistantFocused = false
         if let pane, dualPaneEnabled {
             focusPane(pane)
         }
@@ -1134,6 +1138,7 @@ final class BrowserModel: ObservableObject {
     }
 
     func selectSecondaryOnly(_ id: String) {
+        isAssistantFocused = false
         secondarySelectedIDs = [id]
         secondarySelectionAnchorID = id
         secondarySelectionFocusID = id
@@ -1169,6 +1174,7 @@ final class BrowserModel: ObservableObject {
     /// Clic en Destino: ⇧ rango · ⌘ naranja · Varios toggle · normal = uno.
     func clickSelectSecondary(_ id: String) {
         focusedPane = .secondary
+        isAssistantFocused = false
         let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.shift) {
             selectSecondaryRange(to: id)

@@ -22,7 +22,6 @@ enum FindaroTextInput {
             || name.contains("TextField")
             || name.contains("TextView")
             || name.contains("TextEditor")
-            || name.contains("Editor")
             || name.contains("SearchField")
     }
 }

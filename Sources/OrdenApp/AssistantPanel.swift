@@ -72,8 +72,14 @@ struct AssistantPanel: View {
         .onChange(of: composerFocused) { _, focused in
             browser.isAssistantFocused = focused
         }
+        .onChange(of: browser.isAssistantFocused) { _, focused in
+            if !focused {
+                composerFocused = false
+            }
+        }
         .onDisappear {
             browser.isAssistantFocused = false
+            composerFocused = false
         }
         .task(id: browser.agentBusy) {
             guard browser.agentBusy else {

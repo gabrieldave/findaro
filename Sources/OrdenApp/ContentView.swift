@@ -1239,6 +1239,12 @@ struct FileBrowserPane: View {
                         }
                     }
                 }
+                .onChange(of: isSecondary ? browser.secondarySelectionFocusID : browser.selectionFocusID) { _, newFocus in
+                    guard let newFocus else { return }
+                    DispatchQueue.main.async {
+                        proxy.scrollTo(newFocus, anchor: nil)
+                    }
+                }
                 .onChange(of: paneEntries.map(\.id)) { _, _ in
                     FileDragArmMonitor.shared.invalidateFrames()
                 }
@@ -1313,7 +1319,7 @@ struct FileBrowserPane: View {
                         return
                     }
 
-                    // Arrastre sobre fila (archivo o carpeta): arrastre nativo inmediato
+                    // Arrastre sobre fila ya seleccionada: arrastre nativo inmediato de los archivos seleccionados
                     if let entry = entryAtY(value.startLocation.y) {
                         let isSelected = isSecondary
                             ? browser.secondarySelectedIDs.contains(entry.id)
@@ -1322,25 +1328,19 @@ struct FileBrowserPane: View {
                             folderDragPaths = isSecondary
                                 ? browser.secondarySelectedEntries.map(\.path)
                                 : browser.selectedEntries.map(\.path)
-                        } else {
-                            if isSecondary {
-                                browser.selectSecondaryOnly(entry.id)
-                            } else {
-                                browser.selectOnly(entry.id)
-                            }
-                            folderDragPaths = [entry.path]
+                            marqueeStart = value.startLocation
+                            marqueeCurrent = value.location
+                            folderDragStarted = false
+                            return
                         }
-                        marqueeStart = value.startLocation
-                        marqueeCurrent = value.location
-                        folderDragStarted = false
-                        return
                     }
 
+                    // Arrastre sobre fila no seleccionada o vacío: inicia selección marquesina (como Finder)
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
                     folderDragPaths = []
                     marqueeCommitted = false
-                    marqueeStartEntryID = nil
+                    marqueeStartEntryID = entryAtY(value.startLocation.y)?.id
                     marqueeAdditive = flags.contains(.shift)
                     marqueeBase = marqueeAdditive
                         ? (isSecondary ? browser.secondarySelectedIDs : browser.selectedIDs)
@@ -1376,25 +1376,9 @@ struct FileBrowserPane: View {
                 if folderDragPaths.isEmpty {
                     if marqueeCommitted {
                         applyMarquee()
-                    } else if let id = marqueeStartEntryID {
-                        // Arrastre corto / temblor: 1 solo ítem (el del clic).
-                        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
-                        if isSecondary {
-                            if flags.contains(.shift) {
-                                browser.selectSecondaryRange(to: id)
-                            } else if browser.multiSelectMode {
-                                browser.toggleSecondarySelection(id)
-                            } else {
-                                browser.selectSecondaryOnly(id)
-                            }
-                        } else if flags.contains(.shift) {
-                            browser.selectRange(to: id)
-                        } else if browser.multiSelectMode {
-                            browser.toggleSelection(id)
-                        } else {
-                            browser.selectOnly(id)
-                        }
                     }
+                    // Si no hubo marquee committed (clic limpio o micro-movimiento),
+                    // FileRowButton ya gestiona el clic directamente sin pisar ⌘ ni ⇧.
                 }
                 resetMarquee()
             }
@@ -1554,14 +1538,16 @@ struct FileRowButton: View {
             .padding(.vertical, metrics.isCompact ? 10 : 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
-            .onTapGesture(count: 2) {
-                ensureSelectedAlone()
-                if isSecondary {
-                    browser.openSecondaryEntry(entry)
-                } else {
-                    browser.activateEntry(entry)
+            .simultaneousGesture(
+                TapGesture(count: 2).onEnded {
+                    ensureSelectedAlone()
+                    if isSecondary {
+                        browser.openSecondaryEntry(entry)
+                    } else {
+                        browser.activateEntry(entry)
+                    }
                 }
-            }
+            )
             .onTapGesture(count: 1) {
                 selectRow()
             }
@@ -1585,10 +1571,6 @@ struct FileRowButton: View {
         .reportFileDragArmFrame(path: entry.path)
         .folderDropTarget(entry: entry)
         .fileDragArmPress(entry: entry, browser: browser)
-        .onDrag {
-            NSItemProvider(contentsOf: URL(fileURLWithPath: entry.path))
-                ?? NSItemProvider(object: URL(fileURLWithPath: entry.path) as NSURL)
-        }
         .contextMenu {
             Button("Abrir") {
                 ensureSelectedAlone()
@@ -1737,6 +1719,7 @@ struct FileRowButton: View {
     }
 
     private func selectRow() {
+        browser.isAssistantFocused = false
         if FindaroTextInput.isEditing {
             NSApp.keyWindow?.makeFirstResponder(nil)
         }

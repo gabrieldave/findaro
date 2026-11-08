@@ -248,7 +248,7 @@ struct IconsBrowserView: View {
                         return
                     }
                     if browser.fileDragArmingPath != nil { return }
-                    if !browser.selectedIDs.isEmpty {
+                    if let entry = iconEntry(at: value.startLocation), browser.selectedIDs.contains(entry.id) {
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
                         folderDragPaths = browser.selectedEntries.map(\.path)
@@ -314,6 +314,27 @@ struct IconsBrowserView: View {
         }
         browser.applyMarqueeSelection(hitIDs: hits, base: marqueeBase, additive: marqueeAdditive)
     }
+
+    private func iconEntry(at point: CGPoint) -> FileEntry? {
+        let entries = browser.visibleEntries
+        guard !entries.isEmpty else { return nil }
+        let cols = colCount
+        guard cols > 0 else { return nil }
+        for (idx, entry) in entries.enumerated() {
+            let row = idx / cols
+            let col = idx % cols
+            let cell = CGRect(
+                x: gridPadding + CGFloat(col) * (cellW + spacing),
+                y: gridPadding + CGFloat(row) * (cellH + spacing),
+                width: cellW,
+                height: cellH
+            )
+            if cell.contains(point) {
+                return entry
+            }
+        }
+        return nil
+    }
 }
 
 private struct IconsItemCell: View {
@@ -370,10 +391,6 @@ private struct IconsItemCell: View {
         .folderDropTarget(entry: entry)
         .fileOpenOnDoubleClick(entry: entry, browser: browser)
         .fileDragArmPress(entry: entry, browser: browser)
-        .onDrag {
-            NSItemProvider(contentsOf: URL(fileURLWithPath: entry.path))
-                ?? NSItemProvider(object: URL(fileURLWithPath: entry.path) as NSURL)
-        }
         .contextMenu { entryContextMenu(entry) }
     }
 }
@@ -547,7 +564,7 @@ private struct ColumnPane: View {
                         return
                     }
                     if browser.fileDragArmingPath != nil { return }
-                    if !browser.selectedIDs.isEmpty {
+                    if let entry = entryAtY(value.startLocation.y), browser.selectedIDs.contains(entry.id) {
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
                         folderDragPaths = browser.selectedEntries.map(\.path)
@@ -600,6 +617,14 @@ private struct ColumnPane: View {
         }
         let hits = Set(entries[first...last].map(\.id))
         browser.applyMarqueeSelection(hitIDs: hits, base: marqueeBase, additive: marqueeAdditive)
+    }
+
+    private func entryAtY(_ y: CGFloat) -> FileEntry? {
+        let entries = sortedEntries
+        guard let idx = RowHitTestLogic.indexAtY(y, rowHeight: rowHeight, count: entries.count) else {
+            return nil
+        }
+        return entries[idx]
     }
 }
 
@@ -660,10 +685,6 @@ private struct ColumnRow: View {
         .folderDropTarget(entry: entry)
         .fileOpenOnDoubleClick(entry: entry, browser: browser)
         .fileDragArmPress(entry: entry, browser: browser)
-        .onDrag {
-            NSItemProvider(contentsOf: URL(fileURLWithPath: entry.path))
-                ?? NSItemProvider(object: URL(fileURLWithPath: entry.path) as NSURL)
-        }
         .contextMenu { entryContextMenu(entry) }
     }
 
@@ -829,10 +850,6 @@ private struct GalleryThumb: View {
             isSelected ? OrdenTheme.accent.opacity(0.2) : Color.clear,
             in: RoundedRectangle(cornerRadius: 10, style: .continuous)
         )
-        .onDrag {
-            NSItemProvider(contentsOf: URL(fileURLWithPath: entry.path))
-                ?? NSItemProvider(object: URL(fileURLWithPath: entry.path) as NSURL)
-        }
         .contextMenu { entryContextMenu(entry) }
     }
 }
