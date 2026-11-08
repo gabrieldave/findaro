@@ -70,24 +70,7 @@ struct SecondaryBrowserPane: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Subir en el panel derecho")
-                Button {
-                    browser.transferPrimarySelectionToSecondary(copy: false)
-                } label: {
-                    Label("Mover →", systemImage: "arrow.right.circle.fill")
-                        .font(.caption.weight(.semibold))
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.orange)
-                .controlSize(.small)
-                .help("Mueve lo seleccionado en Origen → aquí · ⌘⇧M")
-                Button {
-                    browser.transferPrimarySelectionToSecondary(copy: true)
-                } label: {
-                    Text("Copiar →")
-                        .font(.caption.weight(.semibold))
-                }
-                .controlSize(.small)
-                .help("Copia lo seleccionado en Origen → aquí")
+                // Solo acciones hacia Origen (←). «Mover → / Copiar →» viven en el header de Origen.
                 Button {
                     browser.transferSecondarySelectionToPrimary(copy: false)
                 } label: {

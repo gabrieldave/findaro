@@ -254,24 +254,25 @@ struct ContentView: View {
                                     }
                                     .buttonStyle(.borderless)
                                     .help("Intercambiar carpetas Origen ↔ Destino")
-                                    Button {
-                                        browser.transferSecondarySelectionToPrimary(copy: false)
-                                    } label: {
-                                        Label("← Mover", systemImage: "arrow.left.circle.fill")
-                                            .font(.caption.weight(.semibold))
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .tint(OrdenTheme.warning)
-                                    .controlSize(.small)
-                                    .help("Mueve lo seleccionado en Destino → Origen")
+                                    // Solo acciones hacia Destino (→). «← Mover / ← Copiar» viven en Destino.
                                     Button {
                                         browser.transferPrimarySelectionToSecondary(copy: false)
                                     } label: {
                                         Label("Mover →", systemImage: "arrow.right.circle.fill")
                                             .font(.caption.weight(.semibold))
                                     }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(.orange)
                                     .controlSize(.small)
-                                    .help("Mueve lo seleccionado en Origen → Destino")
+                                    .help("Mueve lo seleccionado aquí → Destino · ⌘⇧M")
+                                    Button {
+                                        browser.transferPrimarySelectionToSecondary(copy: true)
+                                    } label: {
+                                        Text("Copiar →")
+                                            .font(.caption.weight(.semibold))
+                                    }
+                                    .controlSize(.small)
+                                    .help("Copia lo seleccionado aquí → Destino")
                                 }
                                 // Tap en ruta/ayuda enfoca Origen; no envolver botones (bloqueaba Mover/Copiar).
                                 VStack(alignment: .leading, spacing: 4) {
