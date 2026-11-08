@@ -254,6 +254,13 @@ struct ContentView: View {
                                     }
                                     .buttonStyle(.borderless)
                                     .help("Intercambiar carpetas Origen ↔ Destino")
+                                    Button {
+                                        browser.goUp()
+                                    } label: {
+                                        Image(systemName: "arrow.up.left")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .help("Subir en el panel izquierdo")
                                     // Solo acciones hacia Destino (→). «← Mover / ← Copiar» viven en Destino.
                                     Button {
                                         browser.transferPrimarySelectionToSecondary(copy: false)
