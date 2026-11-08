@@ -123,14 +123,15 @@ ssh "$HOST" "cat > '${REMOTE_DIR}/downloads/latest.json' <<EOF
 EOF
 cat > '${REMOTE_DIR}/index.html' <<EOF
 <!doctype html>
-<html lang=\"es\"><head>
-<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">
-<title>Findaro</title>
-</head><body style=\"font:16px system-ui;background:#0B1220;color:#E8EEF7;display:grid;place-items:center;min-height:100vh\">
-<main style=\"text-align:center\">
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="0;url=https://findaro.iareal.net/">
+<title>FINDARO</title>
+</head><body style="font:16px system-ui;background:#0B1220;color:#E8EEF7;display:grid;place-items:center;min-height:100vh">
+<main style="text-align:center">
 <h1>FINDARO</h1>
-<p>Explorador de archivos para Mac. Apple Silicon.</p>
-<a style=\"color:#fff;background:#2563EB;padding:.85rem 1.4rem;border-radius:12px;text-decoration:none;font-weight:700\" href=\"/downloads/${DMG_NAME}\">Descargar Findaro ${VERSION}</a>
+<p>La descarga ahora es por licencia oficial.</p>
+<a style="color:#fff;background:#2563EB;padding:.85rem 1.4rem;border-radius:12px;text-decoration:none;font-weight:700" href="https://findaro.iareal.net/comprar">Comprar / Descargar en findaro.iareal.net</a>
 </main></body></html>
 EOF"
 
