@@ -7,6 +7,7 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
       - /dev/shm:rw,noexec,nosuid,size=32m
+      - /app/.next/cache:rw,noexec,nosuid,size=64m
     security_opt:
       - no-new-privileges:true
     cap_drop:
