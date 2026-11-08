@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Ir a carpeta (⌘3) — mismo chrome formal que la búsqueda.
+/// Ir a carpeta o archivo (⌘3) — mismo chrome formal que la búsqueda.
 struct GoToFolderSheet: View {
     @EnvironmentObject private var browser: BrowserModel
     @FocusState private var fieldFocused: Bool
@@ -9,8 +9,8 @@ struct GoToFolderSheet: View {
         OrdenDialogShell {
             OrdenDialogHeader(
                 systemImage: "arrow.right.circle.fill",
-                title: "Ir a carpeta",
-                subtitle: "Abre cualquier ruta de tu Mac"
+                title: "Ir a carpeta o archivo",
+                subtitle: "Abre cualquier ruta o archivo de tu Mac"
             )
         } content: {
             VStack(alignment: .leading, spacing: 16) {
@@ -20,7 +20,7 @@ struct GoToFolderSheet: View {
                         .font(.body.monospaced())
                         .focused($fieldFocused)
                         .onSubmit { browser.submitGoToFolder() }
-                    Text("Puedes pegar una ruta completa o empezar con ~/ para tu carpeta de usuario.")
+                    Text("Puedes pegar una ruta de carpeta o archivo, o empezar con ~/ para tu carpeta de usuario.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -28,8 +28,8 @@ struct GoToFolderSheet: View {
 
                 OrdenDialogHintBox(rows: [
                     .init(icon: "checkmark.circle.fill", tint: .green, text: "~/Descargas o ~/Documents funcionan igual que la ruta larga."),
-                    .init(icon: "info.circle.fill", tint: OrdenTheme.accent, text: "Si la carpeta no existe o no hay permiso, Ordena te lo indica abajo."),
-                    .init(icon: "xmark.circle.fill", tint: .secondary, text: "No abre archivos sueltos: solo carpetas.")
+                    .init(icon: "arrow.up.forward.app.fill", tint: OrdenTheme.accent, text: "Si introduces un archivo, lo abre de inmediato y va a su carpeta."),
+                    .init(icon: "info.circle.fill", tint: .secondary, text: "Si la ruta no existe o no hay permiso, Findaro te lo indica abajo.")
                 ])
             }
             .padding(20)

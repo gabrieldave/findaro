@@ -1525,7 +1525,7 @@ final class BrowserModel: ObservableObject {
         return false
     }
 
-    // MARK: - Ir a carpeta (⌘3)
+    // MARK: - Ir a carpeta o archivo (⌘3)
 
     func promptGoToFolder() {
         goToFolderDraft = currentPath
@@ -1533,26 +1533,76 @@ final class BrowserModel: ObservableObject {
     }
 
     func submitGoToFolder() {
-        let raw = goToFolderDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        var raw = goToFolderDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !raw.isEmpty else { return }
+
+        // Si viene con prefijo file://
+        if raw.hasPrefix("file://") {
+            if let fileUrl = URL(string: raw), fileUrl.isFileURL {
+                raw = fileUrl.path
+            } else {
+                raw = String(raw.dropFirst(7))
+            }
+        }
+
+        // Si viene entre comillas
+        if (raw.hasPrefix("\"") && raw.hasSuffix("\"")) || (raw.hasPrefix("'") && raw.hasSuffix("'")) {
+            raw = String(raw.dropFirst().dropLast())
+        }
+
         let expanded: String
         if raw == "~" {
             expanded = FileManager.default.homeDirectoryForCurrentUser.path
         } else if raw.hasPrefix("~/") {
             let home = FileManager.default.homeDirectoryForCurrentUser.path
             expanded = (home as NSString).appendingPathComponent(String(raw.dropFirst(2)))
-        } else {
+        } else if raw.hasPrefix("/") {
             expanded = raw
+        } else {
+            // Intentar relativo a la carpeta actual si existe ahí
+            let relativeCandidate = (currentPath as NSString).appendingPathComponent(raw)
+            if FileManager.default.fileExists(atPath: relativeCandidate) {
+                expanded = relativeCandidate
+            } else {
+                expanded = raw
+            }
         }
         let path = (expanded as NSString).standardizingPath
         var isDir: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
-            statusMessage = "No existe esa carpeta"
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir) else {
+            statusMessage = "No existe esa ruta"
             return
         }
+
         showGoToFolderDialog = false
-        navigate(to: path)
-        statusMessage = "Fui a \(path)"
+
+        if isDir.boolValue {
+            navigate(to: path)
+            statusMessage = "Fui a \(path)"
+        } else {
+            // Es un archivo: abrirlo de inmediato con su app predeterminada
+            let parentDir = (path as NSString).deletingLastPathComponent
+            let current = (currentPath as NSString).standardizingPath
+            if parentDir != current {
+                navigate(to: parentDir)
+            }
+            selectOnly(path)
+
+            let fileURL = URL(fileURLWithPath: path)
+            if NSWorkspace.shared.open(fileURL) {
+                statusMessage = "Abrí «\(fileURL.lastPathComponent)»"
+            } else {
+                let proc = Process()
+                proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                proc.arguments = [path]
+                do {
+                    try proc.run()
+                    statusMessage = "Abrí «\(fileURL.lastPathComponent)»"
+                } catch {
+                    statusMessage = "No se pudo abrir «\(fileURL.lastPathComponent)»: \(error.localizedDescription)"
+                }
+            }
+        }
     }
 
     // MARK: - Stubs Fase 1c–5 (compilan; UI se activa fase a fase)
