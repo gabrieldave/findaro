@@ -1067,10 +1067,10 @@ struct FileBrowserPane: View {
 
     /// Debe coincidir con la altura fija de cada `FileRowButton`.
     private var rowHeight: CGFloat {
-        let showPaths = browser.showRowPaths && !metrics.isCompact
-        let base = PressDragSelectLogic.listRowHeight(showPaths: showPaths)
+        // Respetar el toggle «Rutas» siempre (antes se ocultaban en compacto y el botón “no servía”).
+        let base = PressDragSelectLogic.listRowHeight(showPaths: browser.showRowPaths)
         // En compacto el nombre puede ocupar 2 líneas.
-        return metrics.isCompact ? max(base, 52) : base
+        return metrics.isCompact ? max(base, browser.showRowPaths ? 72 : 52) : base
     }
 
     @State private var marqueeStart: CGPoint?
@@ -1452,7 +1452,7 @@ struct FileRowButton: View {
                         .minimumScaleFactor(0.85)
                         .foregroundStyle(isCut ? .secondary : .primary)
                         .strikethrough(isCut)
-                    if browser.showRowPaths && !metrics.isCompact {
+                    if browser.showRowPaths {
                         Text(entry.path)
                             .font(.system(.caption2, design: .monospaced))
                             .foregroundStyle(.secondary)
