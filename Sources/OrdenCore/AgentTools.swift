@@ -236,6 +236,47 @@ public enum AgentIntentParser {
         var steps: [AgentToolCall] = []
         var summary = "Interpreté tu pedido"
 
+        let isRename = lower.contains("renombr") || lower.contains("rename") || lower.contains("cambiar nombre") || lower.contains("cambia el nombre") || lower.contains("cambia nombre")
+        let isCreateDir = (lower.contains("carpeta") || lower.contains("folder") || lower.contains("directorio") || lower.contains("mkdir")) && (lower.contains("crea") || lower.contains("nueva") || lower.contains("create") || lower.contains("nuevo") || lower.contains("mkdir"))
+        let isOrganize = lower.contains("organiza") || lower.contains("organize") || lower.contains("ordenar por tipo")
+        let isMove = lower.contains("mueve") || lower.contains("mover") || lower.contains("muéve") || lower.contains("move ") || lower.contains("move to") || lower.contains("move into")
+        let isCopy = lower.contains("copia") || lower.contains("copiar") || lower.contains("copy ") || lower.contains("copy to") || lower.contains("copy into")
+        let isWriteAction = isRename || isCreateDir || isOrganize || isMove || isCopy
+
+        if isRename,
+           let newName = extractQuoted(text) ?? extractAfter(text, keys: [
+                "renombra el archivo a ", "renombrar el archivo a ",
+                "renombra este archivo a ", "renombrar este archivo a ",
+                "cambia el nombre a ", "cambiar el nombre a ",
+                "cambiar nombre a ", "cambia nombre a ",
+                "renombra a ", "renombrar a ",
+                "renombra como ", "renombrar como ",
+                "rename to ", "rename as ", "rename "
+           ]) {
+            steps.append(AgentToolCall(
+                name: .renameFiles,
+                arguments: ["newName": newName],
+                risk: .write
+            ))
+            summary = "Renombrar selección a «\(newName)» (requiere aprobación)"
+            return AgentPlan(prompt: text, summary: summary, steps: steps)
+        }
+
+        if isCreateDir,
+           let folderName = extractQuoted(text) ?? extractAfter(text, keys: [
+                "crea carpeta ", "crear carpeta ", "nueva carpeta ",
+                "crea directorio ", "crear directorio ", "nuevo directorio ",
+                "create folder ", "new folder ", "mkdir "
+           ]) {
+            steps.append(AgentToolCall(
+                name: .createDirectory,
+                arguments: ["name": folderName, "parent": currentPath],
+                risk: .write
+            ))
+            summary = "Crear carpeta «\(folderName)» (requiere aprobación)"
+            return AgentPlan(prompt: text, summary: summary, steps: steps)
+        }
+
         // "qué pesa más" / "pesa" — no exigir "pesad*" (fallaba el chip del panel).
         if mentionsHeavy(lower) {
             steps.append(AgentToolCall(
@@ -267,7 +308,12 @@ public enum AgentIntentParser {
             || lower.contains("containing")
             || lower.contains("inside ")
 
-        if let name = extractQuoted(text) ?? extractAfter(text, keys: ["busca ", "buscar ", "encuentra ", "find ", "search "]) {
+        let wantsExplicitSearch =
+            lower.contains("busca ") || lower.contains("buscar ")
+            || lower.contains("encuentra ") || lower.contains("find ") || lower.contains("search ")
+
+        if !isWriteAction, (wantsExplicitSearch || wantsContentSearch || (!mentionsHeavy(lower) && !mentionsDuplicates(lower) && extractQuoted(text) != nil)),
+           let name = (wantsExplicitSearch ? extractAfter(text, keys: ["busca ", "buscar ", "encuentra ", "find ", "search "]) : nil) ?? extractQuoted(text) {
             if wantsContentSearch || name.split(separator: " ").count >= 3 {
                 steps.append(AgentToolCall(
                     name: .searchContent,
@@ -285,7 +331,7 @@ public enum AgentIntentParser {
             }
         }
 
-        if lower.contains("pdf") {
+        if !isWriteAction && lower.contains("pdf") {
             let alreadyPdf = steps.contains {
                 $0.name == .searchFiles && ($0.arguments["query"] ?? "").lowercased().contains("pdf")
             }
@@ -303,38 +349,13 @@ public enum AgentIntentParser {
             }
         }
 
-        if (lower.contains("lista") || lower.contains("list ")) && !wantsContentSearch {
+        if !isWriteAction && (lower.contains("lista") || lower.contains("list ")) && !wantsContentSearch {
             steps.append(AgentToolCall(
                 name: .listDirectory,
                 arguments: ["path": currentPath],
                 risk: .read
             ))
             summary = "Listar contenido de la carpeta actual"
-        }
-
-        if (lower.contains("carpeta") || lower.contains("folder") || lower.contains("mkdir")),
-           let folderName = extractQuoted(text) ?? extractAfter(text, keys: [
-                "crea carpeta ", "crear carpeta ", "nueva carpeta ",
-                "create folder ", "mkdir "
-           ]) {
-            steps.append(AgentToolCall(
-                name: .createDirectory,
-                arguments: ["name": folderName, "parent": currentPath],
-                risk: .write
-            ))
-            summary = "Crear carpeta «\(folderName)» (requiere aprobación)"
-        }
-
-        if lower.contains("renombr") || lower.contains("rename"),
-           let newName = extractQuoted(text) ?? extractAfter(text, keys: [
-                "renombra a ", "renombrar a ", "rename to ", "rename "
-           ]) {
-            steps.append(AgentToolCall(
-                name: .renameFiles,
-                arguments: ["newName": newName],
-                risk: .write
-            ))
-            summary = "Renombrar selección a «\(newName)» (requiere aprobación)"
         }
 
         if lower.contains("organiza") || lower.contains("organize") || lower.contains("ordenar por tipo") {
@@ -419,21 +440,44 @@ public enum AgentIntentParser {
     }
 
     private static func extractQuoted(_ text: String) -> String? {
-        guard let first = text.firstIndex(of: "«") ?? text.firstIndex(of: "\""),
-              let last = text.lastIndex(of: "»") ?? text.lastIndex(of: "\""),
-              first < last else { return nil }
-        let start = text.index(after: first)
-        let value = String(text[start..<last]).trimmingCharacters(in: .whitespaces)
-        return value.isEmpty ? nil : value
+        let pairs: [(Character, Character)] = [
+            ("«", "»"),
+            ("\"", "\""),
+            ("“", "”"),
+            ("‘", "’"),
+            ("'", "'")
+        ]
+        for (open, close) in pairs {
+            if let first = text.firstIndex(of: open) {
+                let rest = text[text.index(after: first)...]
+                if let last = rest.lastIndex(of: close) {
+                    let value = String(rest[..<last]).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !value.isEmpty { return value }
+                }
+            }
+        }
+        return nil
     }
 
     private static func extractAfter(_ text: String, keys: [String]) -> String? {
         for key in keys {
             if let range = text.range(of: key, options: [.caseInsensitive, .diacriticInsensitive]) {
-                let rest = String(text[range.upperBound...]).trimmingCharacters(in: .whitespaces)
-                let cut = rest.split(whereSeparator: { $0 == "." || $0 == "," || $0 == ";" }).first.map(String.init) ?? rest
-                let cleaned = cut.trimmingCharacters(in: .whitespaces)
-                if cleaned.count >= 1 { return cleaned }
+                var rest = String(text[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+                if rest.hasPrefix("«") || rest.hasPrefix("\"") || rest.hasPrefix("“") || rest.hasPrefix("'") {
+                    if let quoted = extractQuoted(rest) {
+                        return quoted
+                    }
+                }
+                // Stop at trailing clauses like ", por favor" or ";"
+                if let commaIdx = rest.firstIndex(of: ",") {
+                    rest = String(rest[..<commaIdx])
+                }
+                if let semiIdx = rest.firstIndex(of: ";") {
+                    rest = String(rest[..<semiIdx])
+                }
+                // Trim trailing punctuation (., !?), preserving extensions (.txt, .tar.gz)
+                let cleaned = rest.trimmingCharacters(in: CharacterSet(charactersIn: " \t\r\n.,;!?"))
+                if !cleaned.isEmpty { return cleaned }
             }
         }
         return nil

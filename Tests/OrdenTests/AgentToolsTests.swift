@@ -38,6 +38,37 @@ final class AgentToolsTests: XCTestCase {
         )
         XCTAssertEqual(step.labelSpanish, "Crear carpeta «PDFs»")
     }
+
+    func testPlanRenamePreservesExtension() {
+        let plan = AgentIntentParser.plan(from: "renombrar a QA-renombrado.txt", currentPath: "/tmp")
+        XCTAssertEqual(plan.steps.first?.name, .renameFiles)
+        XCTAssertEqual(plan.steps.first?.arguments["newName"], "QA-renombrado.txt")
+        XCTAssertTrue(plan.needsApproval)
+    }
+
+    func testPlanRenamePreservesCompoundExtension() {
+        let plan = AgentIntentParser.plan(from: "renombra a archivo.tar.gz", currentPath: "/tmp")
+        XCTAssertEqual(plan.steps.first?.name, .renameFiles)
+        XCTAssertEqual(plan.steps.first?.arguments["newName"], "archivo.tar.gz")
+    }
+
+    func testPlanRenameTrimsTrailingPunctuation() {
+        let plan = AgentIntentParser.plan(from: "renombrar a QA-renombrado.txt.", currentPath: "/tmp")
+        XCTAssertEqual(plan.steps.first?.arguments["newName"], "QA-renombrado.txt")
+    }
+
+    func testPlanRenameWithoutExtension() {
+        let plan = AgentIntentParser.plan(from: "cambiar nombre a reporte sin extension", currentPath: "/tmp")
+        XCTAssertEqual(plan.steps.first?.arguments["newName"], "reporte sin extension")
+    }
+
+    func testPlanRenameWithQuotedNames() {
+        let plan1 = AgentIntentParser.plan(from: "renombrar a \"Mi Documento 2026.pdf\"", currentPath: "/tmp")
+        XCTAssertEqual(plan1.steps.first?.arguments["newName"], "Mi Documento 2026.pdf")
+
+        let plan2 = AgentIntentParser.plan(from: "renombrar a ‘Otro Archivo.docx’", currentPath: "/tmp")
+        XCTAssertEqual(plan2.steps.first?.arguments["newName"], "Otro Archivo.docx")
+    }
 }
 
 final class RecursiveContentSearchTests: XCTestCase {
