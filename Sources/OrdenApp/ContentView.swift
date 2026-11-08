@@ -263,8 +263,7 @@ struct ContentView: View {
                                     .buttonStyle(.borderedProminent)
                                     .tint(OrdenTheme.warning)
                                     .controlSize(.small)
-                                    .disabled(browser.secondarySelectedIDs.isEmpty)
-                                    .help("Mueve la selección del Destino (derecha) a este panel")
+                                    .help("Mueve lo seleccionado en Destino → Origen")
                                     Button {
                                         browser.transferPrimarySelectionToSecondary(copy: false)
                                     } label: {
@@ -272,8 +271,7 @@ struct ContentView: View {
                                             .font(.caption.weight(.semibold))
                                     }
                                     .controlSize(.small)
-                                    .disabled(browser.selectedIDs.isEmpty)
-                                    .help("Mueve la selección de aquí al Destino")
+                                    .help("Mueve lo seleccionado en Origen → Destino")
                                 }
                                 // Tap en ruta/ayuda enfoca Origen; no envolver botones (bloqueaba Mover/Copiar).
                                 VStack(alignment: .leading, spacing: 4) {

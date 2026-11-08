@@ -79,8 +79,7 @@ struct SecondaryBrowserPane: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
                 .controlSize(.small)
-                .disabled(browser.selectedIDs.isEmpty)
-                .help("Mueve la selección de Origen aquí · ⌘⇧M")
+                .help("Mueve lo seleccionado en Origen → aquí · ⌘⇧M")
                 Button {
                     browser.transferPrimarySelectionToSecondary(copy: true)
                 } label: {
@@ -88,8 +87,7 @@ struct SecondaryBrowserPane: View {
                         .font(.caption.weight(.semibold))
                 }
                 .controlSize(.small)
-                .disabled(browser.selectedIDs.isEmpty)
-                .help("Copia la selección de Origen aquí")
+                .help("Copia lo seleccionado en Origen → aquí")
                 Button {
                     browser.transferSecondarySelectionToPrimary(copy: false)
                 } label: {
@@ -99,8 +97,7 @@ struct SecondaryBrowserPane: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.purple)
                 .controlSize(.small)
-                .disabled(browser.secondarySelectedIDs.isEmpty)
-                .help("Mueve lo seleccionado aquí hacia Origen. También ⌘+clic (naranja) y arrastra.")
+                .help("Mueve lo seleccionado aquí → Origen")
                 Button {
                     browser.transferSecondarySelectionToPrimary(copy: true)
                 } label: {
@@ -108,8 +105,7 @@ struct SecondaryBrowserPane: View {
                         .font(.caption.weight(.semibold))
                 }
                 .controlSize(.small)
-                .disabled(browser.secondarySelectedIDs.isEmpty)
-                .help("Copia lo seleccionado aquí hacia Origen")
+                .help("Copia lo seleccionado aquí → Origen")
             }
 
             // Tap en ruta/ayuda enfoca Destino; no envolver los botones (SwiftUI se come el clic).

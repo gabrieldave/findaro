@@ -1215,12 +1215,15 @@ final class BrowserModel: ObservableObject {
         }
     }
 
-    /// Mueve (o copia con ⌥) la selección del panel izquierdo al derecho.
+    /// Mueve (o copia) la selección del panel izquierdo al derecho.
     func transferPrimarySelectionToSecondary(copy: Bool = false) {
         guard dualPaneEnabled else { return }
         let paths = selectedEntries.map(\.path)
         guard !paths.isEmpty else {
-            statusMessage = "Selecciona archivos a la izquierda (Origen) primero"
+            let verb = copy ? "copiar" : "mover"
+            statusMessage = secondarySelectedIDs.isEmpty
+                ? "Para \(verb) a Destino, selecciona algo en Origen (izquierda)"
+                : "Esa selección está en Destino. Usa «← Mover» o selecciona en Origen"
             return
         }
         _ = transferPaths(paths, toDirectory: secondaryPath, copy: copy, clearPrimary: true, clearSecondary: false)
@@ -1231,7 +1234,10 @@ final class BrowserModel: ObservableObject {
         guard dualPaneEnabled else { return }
         let paths = secondarySelectedEntries.map(\.path)
         guard !paths.isEmpty else {
-            statusMessage = "Selecciona archivos a la derecha (Destino) primero"
+            let verb = copy ? "copiar" : "mover"
+            statusMessage = selectedIDs.isEmpty
+                ? "Para \(verb) a Origen, selecciona algo en Destino (derecha)"
+                : "Esa selección está en Origen. Usa «Mover →» o selecciona en Destino"
             return
         }
         _ = transferPaths(paths, toDirectory: currentPath, copy: copy, clearPrimary: false, clearSecondary: true)

@@ -78,10 +78,10 @@ struct FileActionsBar: View {
                     enabled: true
                 ) { browser.toggleDualPane() }
                 if browser.dualPaneEnabled {
-                    chip("Mover →", "→ Dest", "arrow.right.circle.fill", prominent: true, help: "A Destino · ⌘⇧M", enabled: !browser.selectedIDs.isEmpty) {
+                    chip("Mover →", "→ Dest", "arrow.right.circle.fill", prominent: true, help: "Selección Origen → Destino · ⌘⇧M", enabled: true) {
                         browser.transferPrimarySelectionToSecondary(copy: false)
                     }
-                    chip("← Origen", "← Orig", "arrow.left.circle.fill", smart: true, help: "A Origen", enabled: !browser.secondarySelectedIDs.isEmpty) {
+                    chip("← Origen", "← Orig", "arrow.left.circle.fill", smart: true, help: "Selección Destino → Origen", enabled: true) {
                         browser.transferSecondarySelectionToPrimary(copy: false)
                     }
                     chip("Swap", "Swap", "arrow.left.arrow.right", help: "Intercambiar carpetas Origen ↔ Destino", enabled: true) {
