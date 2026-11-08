@@ -641,6 +641,16 @@ final class BrowserModel: ObservableObject {
         activeIsSecondary ? secondaryPath : currentPath
     }
 
+    /// ¿El panel Origen muestra la Papelera?
+    var isViewingTrash: Bool {
+        TrashOps.isTrashPath(currentPath)
+    }
+
+    /// ¿El panel activo es la Papelera?
+    var activeIsTrash: Bool {
+        TrashOps.isTrashPath(activeWorkingPath)
+    }
+
     var secondarySelectedEntries: [FileEntry] {
         secondaryEntries.filter { secondarySelectedIDs.contains($0.id) }
     }
@@ -1040,14 +1050,16 @@ final class BrowserModel: ObservableObject {
     }
 
     private func loadEntries(at path: String) throws -> [FileEntry] {
+        // En Papelera siempre incluir ocultos: macOS marca muchos ítems como hidden.
+        let includeHidden = showHiddenFiles || TrashOps.isTrashPath(path)
         if flattenFolderView {
             return try DirectoryFlatten.load(
                 root: path,
-                includeHidden: showHiddenFiles,
+                includeHidden: includeHidden,
                 includeDirectories: false
             )
         }
-        return try DirectoryLoader.load(path: path, includeHidden: showHiddenFiles)
+        return try DirectoryLoader.load(path: path, includeHidden: includeHidden)
     }
 
     func goUpSecondary() {
@@ -3076,6 +3088,11 @@ final class BrowserModel: ObservableObject {
     }
 
     func moveSelectionToTrash() {
+        // Dentro de la Papelera: borrar para siempre (como Finder).
+        if activeIsTrash {
+            permanentlyDeleteSelection(confirm: true)
+            return
+        }
         let targets = activeSelectedEntries
         guard !targets.isEmpty else { return }
         statusMessage = "Enviando a la Papelera…"
@@ -3117,6 +3134,132 @@ final class BrowserModel: ObservableObject {
                 self.statusMessage = parts.isEmpty ? "Nada enviado a la Papelera" : parts.joined(separator: " · ")
             }
         }
+    }
+
+    /// Borra de verdad lo seleccionado (solo tiene sentido en la Papelera).
+    func permanentlyDeleteSelection(confirm: Bool) {
+        let targets = activeSelectedEntries
+        guard !targets.isEmpty else {
+            statusMessage = "Selecciona algo en la Papelera"
+            return
+        }
+        if confirm {
+            let alert = NSAlert()
+            alert.messageText = targets.count == 1
+                ? "¿Eliminar «\(targets[0].name)» para siempre?"
+                : "¿Eliminar \(targets.count) elementos para siempre?"
+            alert.informativeText = "No se pueden recuperar desde la Papelera."
+            alert.alertStyle = .critical
+            alert.addButton(withTitle: "Eliminar para siempre")
+            alert.addButton(withTitle: "Cancelar")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+        let paths = targets.map(\.path)
+        clearActiveSelection()
+        statusMessage = "Eliminando…"
+        Task {
+            let result: (ok: Int, failures: [String]) = await Task.detached(priority: .userInitiated) {
+                do {
+                    return try TrashOps.permanentlyDelete(paths: paths)
+                } catch {
+                    return (ok: 0, failures: [error.localizedDescription])
+                }
+            }.value
+            await MainActor.run {
+                self.reload()
+                if self.dualPaneEnabled { self.reloadSecondary() }
+                var parts: [String] = []
+                if result.ok > 0 {
+                    parts.append(result.ok == 1
+                        ? "1 eliminado para siempre"
+                        : "\(result.ok) eliminados para siempre")
+                }
+                if !result.failures.isEmpty {
+                    parts.append("Fallaron \(result.failures.count): "
+                        + result.failures.prefix(2).joined(separator: "; "))
+                }
+                self.statusMessage = parts.joined(separator: " · ")
+            }
+        }
+    }
+
+    /// Vacía toda la Papelera del usuario.
+    func emptyTrash(confirm: Bool) {
+        if confirm {
+            let alert = NSAlert()
+            alert.messageText = "¿Vaciar la Papelera?"
+            alert.informativeText = "Se eliminarán para siempre todos los elementos de la Papelera."
+            alert.alertStyle = .critical
+            alert.addButton(withTitle: "Vaciar Papelera")
+            alert.addButton(withTitle: "Cancelar")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+        // Asegura que estamos en la ruta canónica.
+        if !isViewingTrash {
+            navigate(to: TrashOps.userTrashPath, recordHistory: true)
+        }
+        statusMessage = "Vaciando Papelera…"
+        Task {
+            let result: (ok: Int, failures: [String]) = await Task.detached(priority: .userInitiated) {
+                do {
+                    return try TrashOps.emptyUserTrash()
+                } catch {
+                    // Sin Acceso completo al disco: pedir a Finder.
+                    if TrashOps.isPermissionError(error) {
+                        let script = """
+                        tell application "Finder"
+                          empty the trash
+                        end tell
+                        """
+                        var err: NSDictionary?
+                        if let apple = NSAppleScript(source: script) {
+                            _ = apple.executeAndReturnError(&err)
+                            if err == nil {
+                                return (ok: -1, failures: [])
+                            }
+                            let msg = (err?[NSAppleScript.errorMessage] as? String)
+                                ?? error.localizedDescription
+                            return (ok: 0, failures: [msg])
+                        }
+                    }
+                    return (ok: 0, failures: [error.localizedDescription])
+                }
+            }.value
+            await MainActor.run {
+                self.reload()
+                if result.ok < 0 {
+                    self.statusMessage = "Papelera vaciada (Finder)"
+                } else if result.ok == 0, result.failures.isEmpty {
+                    self.statusMessage = "La Papelera ya estaba vacía"
+                } else {
+                    var parts: [String] = []
+                    if result.ok > 0 {
+                        parts.append("Papelera: \(result.ok) eliminados")
+                    }
+                    if !result.failures.isEmpty {
+                        parts.append(result.failures.prefix(2).joined(separator: "; "))
+                    }
+                    self.statusMessage = parts.joined(separator: " · ")
+                }
+            }
+        }
+    }
+
+    func openFullDiskAccessSettings() {
+        let urls = [
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles",
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+        ]
+        for raw in urls {
+            if let url = URL(string: raw), NSWorkspace.shared.open(url) { return }
+        }
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    func navigateToTrash() {
+        navigate(to: TrashOps.userTrashPath, recordHistory: true)
     }
 
     // MARK: - Crear / renombrar / duplicar / portapapeles

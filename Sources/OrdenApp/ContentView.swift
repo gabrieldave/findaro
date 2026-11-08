@@ -182,6 +182,12 @@ struct ContentView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
+            if browser.isViewingTrash {
+                TrashActionsBar()
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 16)
+            }
+
             FolderStatsBar()
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
@@ -921,13 +927,12 @@ struct SidebarView: View {
             }
         }
 
-        let trash = (home as NSString).appendingPathComponent(".Trash")
         return SidebarLocations.make(
             homePath: home,
             iCloudPath: fm.fileExists(atPath: iCloud) ? iCloud : nil,
             cloudFolders: clouds,
             volumes: volumes,
-            trashPath: fm.fileExists(atPath: trash) ? trash : nil
+            trashPath: TrashOps.userTrashPath
         ).map {
             SidebarItem(id: $0.id, title: $0.title, path: $0.path, systemImage: $0.systemImage)
         }
@@ -1113,13 +1118,17 @@ struct FileBrowserPane: View {
     var body: some View {
         Group {
             if let error = paneError {
-                ContentUnavailableView(
-                    "No se pudo abrir",
-                    systemImage: "exclamationmark.folder",
-                    description: Text(error)
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                if !isSecondary, browser.isViewingTrash {
+                    TrashPermissionUnavailable(errorText: error)
+                } else {
+                    ContentUnavailableView(
+                        "No se pudo abrir",
+                        systemImage: "exclamationmark.folder",
+                        description: Text(error)
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
             } else if paneEntries.isEmpty && (isSecondary || browser.viewMode != .columns) {
                 ContentUnavailableView(
                     "Vacío",

@@ -1,5 +1,6 @@
 import { query } from "./db";
 import { issueDownloadToken } from "./download";
+import { issueProLicense } from "./license";
 import { incrementPromoIfEligible } from "./pricing";
 import { PUBLIC_APP_URL } from "./site";
 
@@ -59,41 +60,48 @@ export async function fulfillPaidOrder(opts: {
   }
 
   if (!order) return null;
-  if (order.status === "paid") {
-    const existing = await query<{ token: string }>(
-      `SELECT token FROM download_tokens WHERE order_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [order.id],
+  if (order.status !== "paid") {
+    await query(
+      `UPDATE orders
+       SET status = 'paid',
+           paid_at = now(),
+           stripe_payment_intent = COALESCE($2, stripe_payment_intent),
+           stripe_session_id = COALESCE(stripe_session_id, $1)
+       WHERE id = $3`,
+      [opts.sessionId, opts.paymentIntent || null, order.id],
     );
-    const token = existing.rows[0]?.token || (await issueDownloadToken(order.id));
-    return {
-      orderId: order.id,
-      email: order.email,
-      name: order.name,
-      downloadUrl: `${PUBLIC_APP_URL}/api/download?token=${token}`,
-      alreadyPaid: true,
-    };
+
+    if (order.promo_slot) {
+      await incrementPromoIfEligible();
+    }
   }
 
-  await query(
-    `UPDATE orders
-     SET status = 'paid',
-         paid_at = now(),
-         stripe_payment_intent = COALESCE($2, stripe_payment_intent),
-         stripe_session_id = COALESCE(stripe_session_id, $1)
-     WHERE id = $3`,
-    [opts.sessionId, opts.paymentIntent || null, order.id],
+  const pro = await issueProLicense({
+    customerId: order.customer_id,
+    orderId: order.id,
+    email: order.email,
+  });
+  const lic = await query<{ id: string }>(
+    `SELECT id FROM licenses WHERE license_key = $1`,
+    [pro.licenseKey],
   );
+  const existing = await query<{ token: string }>(
+    `SELECT token FROM download_tokens WHERE order_id = $1 ORDER BY created_at DESC LIMIT 1`,
+    [order.id],
+  );
+  const token =
+    existing.rows[0]?.token ||
+    (await issueDownloadToken(order.id, 30, lic.rows[0]?.id));
 
-  if (order.promo_slot) {
-    await incrementPromoIfEligible();
-  }
-
-  const token = await issueDownloadToken(order.id);
   return {
     orderId: order.id,
     email: order.email,
     name: order.name,
     downloadUrl: `${PUBLIC_APP_URL}/api/download?token=${token}`,
-    alreadyPaid: false,
+    licenseKey: pro.licenseKey,
+    signed: pro.signed,
+    seats: 1,
+    plan: "pro" as const,
+    alreadyPaid: order.status === "paid",
   };
 }

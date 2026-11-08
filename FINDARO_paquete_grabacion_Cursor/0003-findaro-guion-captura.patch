@@ -1,0 +1,567 @@
+From c321cad1d4363aae704e49511ae66ca41591160a Mon Sep 17 00:00:00 2001
+From: "Claude (BLACK EYE CTO)" <noreply@anthropic.com>
+Date: Sat, 7 Nov 2026 22:41:19 +0000
+Subject: [PATCH] =?UTF-8?q?docs(captura):=20guion=20de=20grabaci=C3=B3n,?=
+ =?UTF-8?q?=20set=20de=20prueba=20y=20ayudante=20para=20Cursor?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- scripts/demo/make_demo_dataset.py: set ficticio «Estudio Aurora» solo
+  con la biblioteca estándar (imágenes, PDF, ZIP/TAR, ocultos, videos
+  grandes reales). Deja preparados Smart Merge (6 nuevos, 3 iguales,
+  2 distintos) y la búsqueda «contrato» (8 resultados). --reset solo
+  borra carpetas con su marcador. Probado en Linux.
+- scripts/demo/capture.sh: coloca la ventana de Findaro, saca PNG,
+  graba video con clics visibles y empaqueta con manifiesto sha256.
+  Escrito sin acceso a un Mac: NO PROBADO, Cursor lo valida primero.
+- docs/web/captura/GUION_CAPTURA.md: 8 videos y 15 fotos con estado
+  inicial y acción exacta; ventana de 1280x800 pt para la pantalla
+  21:9 del Director; reglas de privacidad y entrega.
+- docs/web/captura/MENSAJE_PARA_CURSOR.md: encargo listo para pegar.
+
+Sin cambios en Sources/, Tests/ ni web/.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01HfcfgueQe4KcnN4XR2gsWh
+---
+ docs/web/HANDOFF_CURSOR_LANDING.md      |   2 +
+ docs/web/captura/GUION_CAPTURA.md       |  83 ++++++++
+ docs/web/captura/MENSAJE_PARA_CURSOR.md |  24 +++
+ scripts/demo/capture.sh                 | 110 ++++++++++
+ scripts/demo/make_demo_dataset.py       | 272 ++++++++++++++++++++++++
+ 5 files changed, 491 insertions(+)
+ create mode 100644 docs/web/captura/GUION_CAPTURA.md
+ create mode 100644 docs/web/captura/MENSAJE_PARA_CURSOR.md
+ create mode 100755 scripts/demo/capture.sh
+ create mode 100755 scripts/demo/make_demo_dataset.py
+
+diff --git a/docs/web/HANDOFF_CURSOR_LANDING.md b/docs/web/HANDOFF_CURSOR_LANDING.md
+index 380c71e..28c098d 100644
+--- a/docs/web/HANDOFF_CURSOR_LANDING.md
++++ b/docs/web/HANDOFF_CURSOR_LANDING.md
+@@ -13,6 +13,8 @@ Producir capturas limpias y auténticas de FINDARO para la landing y, en una seg
+ 
+ ## 2. Fase 1: recaptura limpia
+ 
++> **Sustituida por `docs/web/captura/GUION_CAPTURA.md`** (videos, set de prueba y ayudante de captura). La lista de abajo queda como referencia.
++
+ ### Preparación (privacidad)
+ - Usar una cuenta de macOS nueva llamada `Demo` (rutas `/Users/demo/...`). Es la forma fiable de que no aparezcan nombre real, correos ni servicios conectados.
+ - Sin Google Drive, iCloud con datos personales ni volúmenes de red montados. Favoritos solo con carpetas demo.
+diff --git a/docs/web/captura/GUION_CAPTURA.md b/docs/web/captura/GUION_CAPTURA.md
+new file mode 100644
+index 0000000..04eccb7
+--- /dev/null
++++ b/docs/web/captura/GUION_CAPTURA.md
+@@ -0,0 +1,83 @@
++# FINDARO: guion de grabación para la landing
++
++**Para:** Cursor (ejecución local en el Mac). **De:** Claude (CTO). **Aprueba:** Director General.
++**Estado:** LISTO PARA EJECUTAR. Nada de esto se publica: el material se entrega en un ZIP y Claude lo procesa.
++**Build a grabar:** la que esté instalada y aprobada por el Director; `capture.sh prep` la registra (HEAD empaqueta 0.1.88 / 94).
++
++## 1. Por qué fallaron las capturas anteriores
++1. Ventana de 2820 px en una pantalla 21:9: en la web se reduce a la mitad y el texto queda en 6 px.
++2. Carpetas casi vacías (cuatro carpetas de 36 bytes): no se ve el trabajo real.
++3. Pantallas en reposo: no se ve ninguna acción.
++
++## 2. Preparación (una sola vez)
++
++### Cuenta y privacidad
++- Crear una cuenta de macOS nueva llamada **`demo`** (nombre completo «Demo»). Grabar todo desde ahí.
++- En esa cuenta: sin Google Drive, Dropbox ni iCloud con datos; sin volúmenes de red. `capture.sh prep` avisa si encuentra alguno.
++- Apariencia **oscura**, No molestar activado, Dock oculto, escritorio sin iconos, ninguna otra app visible.
++- Instalar Findaro en `/Applications` y darle a la Terminal (o a Cursor) permisos de **Accesibilidad** y **Grabación de pantalla**.
++
++### Pantalla 21:9 (3440×1440)
++La pantalla del Director es ultrapanorámica y casi seguro trabaja a 1x (sin Retina).
++- **Nunca maximizar Findaro.** Ventana de **1280×800 puntos**, centrada: `scripts/demo/capture.sh window`.
++- Si el Mac es un portátil con pantalla Retina, grabar en esa pantalla: el resultado sale a 2x (2560×1600) y se ve más nítido. En ese caso, misma ventana de 1280×800 puntos.
++- Si a 1280 la barra de acciones se ve partida o apretada, probar `capture.sh window 1440 900` e indicarlo en el handoff.
++
++### Set de prueba
++```bash
++python3 scripts/demo/make_demo_dataset.py              # crea ~/Documents/FINDARO-Demo (≈1,7 GB, 1-2 min)
++python3 scripts/demo/make_demo_dataset.py --reset      # vuelve al estado inicial entre tomas
++```
++Estudio fotográfico ficticio «Estudio Aurora»:
++- `ORIGEN/Estudio Aurora`: Campaña-Otoño-2026 (Fotos, Selección, Video, Documentos), Clientes, Facturas, Plantillas, Entregas (ZIP y TAR) y dos archivos ocultos.
++- `DESTINO/Respaldo Estudio`: copia anterior y desactualizada.
++- Smart Merge en `Campaña-Otoño-2026/Documentos` da **6 nuevos, 3 iguales y 2 distintos**.
++- Buscar **«contrato»** desde `Estudio Aurora` da **8 resultados**.
++
++Barra lateral de Findaro: dejar en Favoritos solo `Estudio Aurora`, `Respaldo Estudio`, Descargas, Escritorio y Documentos.
++
++## 3. Reglas de grabación
++- **Reset del set antes de cada toma que mueve archivos** (V1, V2, V3, V4, P03, P05, P06).
++- Movimientos de ratón lentos y directos. Pausa de 1 s quieto al empezar y al terminar (el video va en bucle).
++- Si una toma sale mal, se repite entera; no se edita para simular nada.
++- Cada archivo con el id exacto de las tablas: `capture.sh shot <id>` / `capture.sh video <id> <segundos>`.
++- Antes de entregar, abrir cada PNG y cada video al 100 % y revisar barra de título, rutas, barra lateral, tooltips y contenido. Marcar en `manifest.tsv` la columna `revision_privacidad` como `OK` o anotar el problema.
++
++## 4. Videos (lo más importante)
++
++| ID | Seg. | Estado inicial | Acción que se graba |
++|---|---|---|---|
++| V1-cortar-pegar | 10 | Dos paneles (⌘⇧D). Origen: `Campaña-Otoño-2026/Selección` en vista Iconos. Destino: `Respaldo Estudio/Campaña-Otoño-2026/Selección` | Clic en una foto, ⇧+clic en otra (3 seleccionadas) → ⌘X (se atenúan y van a la bandeja) → Tab → ⌘V → aparecen en Destino |
++| V2-mover-entre-paneles | 8 | Origen: `Clientes/Hotel-Marea/Fotos-habitaciones` (lista). Destino: `Respaldo Estudio/Clientes-2025` | Seleccionar 3 fotos → ⌘⇧M → aparecen en Destino y Origen se actualiza solo |
++| V3-smart-merge | 12 | Origen: `Campaña-Otoño-2026`. Destino: `Respaldo Estudio/Campaña-Otoño-2026` | Arrastrar o mover `Documentos` al Destino → se abre «Fusionar carpetas» → 2 s quieto en el diálogo → «Conservar ambos» → resultado en Destino |
++| V4-transferencia-verificada | 15 | Origen: `Campaña-Otoño-2026`. Destino: `Respaldo Estudio` | Copiar la carpeta `Video` al Destino → barra de progreso → mensaje final de verificación. Si dura menos de 6 s, recrear el set con `--video-mb 3000` |
++| V5-busqueda | 10 | Origen: `Estudio Aurora` | ⌘4 → escribir «contrato» letra por letra → 8 resultados → clic en `anexo-contrato-marea.pdf` → Findaro lo muestra en su carpeta |
++| V6-cuatro-vistas | 9 | Origen: `Campaña-Otoño-2026/Fotos`, un panel | Pulsar los botones de vista de la barra superior: Iconos → Lista → Columnas → Galería, unos 2 s en cada una |
++| V7-omnibox | 7 | Origen: `Estudio Aurora` | ⌘L → escribir `~/Documents/FINDARO-Demo/ORIGEN/Estudio Aurora/Facturas` → Enter |
++| V8-descomprimir | 7 | Origen: `Estudio Aurora/Entregas` | Abrir `Entrega-Aurora-v1.zip` → aparece la carpeta descomprimida |
++
++## 5. Fotos (PNG)
++
++| ID | Qué debe verse |
++|---|---|
++| P01-hero | Dos paneles. Origen: `Selección` en vista Iconos con 2 fotos seleccionadas. Destino: `Respaldo Estudio/Campaña-Otoño-2026` en lista. Bandeja con 3 elementos (copiar) |
++| P02-doble-panel | Dos paneles en lista. Origen: `Clientes`. Destino: `Respaldo Estudio`. Panel Destino activo |
++| P03a-seleccion / P03b-tras-cmd-x / P03c-tras-cmd-v | Los tres momentos de V1 como fotos fijas |
++| P04-smart-merge | Diálogo «Fusionar carpetas» abierto (6 / 3 / 2) sin pulsar nada |
++| P05-transferencia | Barra de progreso de V4 a mitad del lote |
++| P06-verificacion | Mensaje final de V4 |
++| P07-busqueda | 8 resultados de «contrato», el tercero seleccionado |
++| P08-iconos / P09-lista / P10-columnas / P11-galeria | `Campaña-Otoño-2026/Fotos` en cada vista |
++| P12-omnibox | Ruta escrita en el omnibox antes de pulsar Enter |
++| P13-atajos | Ajustes › Atajos con la lista visible y el perfil «Teclado tipo Explorer» |
++| P14-ocultos | `Estudio Aurora` con ⌘⇧. activo (se ven `.presets-color.xmp` y `.cache-miniaturas`) |
++| P15-modo-claro | **Solo si** los paneles de archivos cambian a claro con la apariencia clara del sistema. Si siguen oscuros, no capturar y reportarlo como defecto (ver capturas 0.1.86) |
++
++No grabar el asistente con IA salvo que el Director lo pida.
++
++## 6. Entrega
++1. `scripts/demo/capture.sh pack` → `~/Desktop/FINDARO_CAPTURA_<fecha>.zip` con `png/`, `video/` (`.mov` sin editar) y `manifest.tsv`.
++2. Añadir dentro un `HANDOFF.md` con el formato de BLACK EYE (`protocols/HANDOFF.md`): build y commit, pantalla usada, tamaño de ventana, tomas hechas y no hechas, problemas encontrados (por ejemplo el modo claro) y revisión de privacidad.
++3. Entregar el ZIP al Director. **No** copiar nada a `web/public`, no hacer commit de los PNG ni videos y no subirlos a ningún servicio.
++
++Claude se encarga después de recortar, comprimir los videos (MP4/WebM de 1 a 2 MB con imagen fija de respaldo), revisar la privacidad otra vez y montarlos en la web.
+diff --git a/docs/web/captura/MENSAJE_PARA_CURSOR.md b/docs/web/captura/MENSAJE_PARA_CURSOR.md
+new file mode 100644
+index 0000000..c090204
+--- /dev/null
++++ b/docs/web/captura/MENSAJE_PARA_CURSOR.md
+@@ -0,0 +1,24 @@
++# Mensaje para pegar en Cursor
++
++---
++
++Soy el Director General de BLACK EYE. Te asigno la grabación del material de marketing de FINDARO.
++
++**Antes de empezar:** lee en `main` de https://github.com/gabrieldave/black-eye-ai-operating-system los archivos `AI_START_HERE.md`, `VERSION`, `roles/CURSOR.md`, `protocols/APPROVALS.md` y `protocols/HANDOFF.md`.
++
++**Tarea:** sigue al pie de la letra `docs/web/captura/GUION_CAPTURA.md` del repo `gabrieldave/orden` (rama `propuesta/landing-findaro-claude` o el parche que te paso). Usa:
++- `scripts/demo/make_demo_dataset.py` para crear el set de prueba ficticio (y `--reset` entre tomas);
++- `scripts/demo/capture.sh` para colocar la ventana, sacar las fotos, grabar los videos y empaquetar.
++
++`capture.sh` lo escribió Claude sin acceso a un Mac: **pruébalo primero** con `prep`, `window` y `shot prueba`. Si algo falla, corrígelo y explica qué cambiaste en el handoff.
++
++**Puntos clave:**
++1. Graba desde una cuenta de macOS nueva llamada `demo`, sin Google Drive ni servicios conectados.
++2. Mi pantalla es 21:9. No maximices Findaro: ventana de 1280×800 puntos centrada (`capture.sh window`).
++3. Los videos V1-V8 son lo más importante; después las fotos P01-P15.
++4. Revisa cada archivo al 100 % por privacidad antes de entregarlo.
++5. Si los paneles no cambian a claro con la apariencia clara, no grabes el modo claro y repórtalo como defecto.
++
++**Permisos:** ejecución local y lectura del repo. No modifiques `Sources/` ni `Tests/`, no hagas commit de capturas ni videos, no hagas push, no publiques y no subas nada a internet.
++
++**Entrega:** el ZIP de `capture.sh pack` con `png/`, `video/`, `manifest.tsv` y un `HANDOFF.md` en formato BLACK EYE. Me lo pasas a mí.
+diff --git a/scripts/demo/capture.sh b/scripts/demo/capture.sh
+new file mode 100755
+index 0000000..bbe83f0
+--- /dev/null
++++ b/scripts/demo/capture.sh
+@@ -0,0 +1,110 @@
++#!/bin/bash
++# Ayudante de capturas y videos de FINDARO para marketing (macOS, bash 3.2 compatible).
++# Estado: escrito por Claude sin acceso a un Mac -> NO PROBADO. Cursor debe validarlo con `prep` y `shot prueba`.
++#
++# Requisitos: permisos de Accesibilidad y Grabación de pantalla para la Terminal (o Cursor) que lo ejecute.
++#
++#   scripts/demo/capture.sh prep                 # comprueba entorno, versión y privacidad
++#   scripts/demo/capture.sh window [W H]         # coloca la ventana de Findaro (por defecto 1280x800 pt)
++#   scripts/demo/capture.sh shot P01-hero        # PNG de la ventana de Findaro
++#   scripts/demo/capture.sh video V1-cortar 10   # video de la ventana, 10 s, con clics visibles
++#   scripts/demo/capture.sh pack                 # comprime la carpeta de entrega en el Escritorio
++set -euo pipefail
++
++APP_NAME="Findaro"
++OUT="${FINDARO_CAPTURE_OUT:-$HOME/Desktop/FINDARO_CAPTURA_$(date +%Y%m%d)}"
++MANIFEST="$OUT/manifest.tsv"
++DEFAULT_W=1280
++DEFAULT_H=800
++
++app_plist() {
++  for p in "/Applications/$APP_NAME.app" "$HOME/Applications/$APP_NAME.app"; do
++    [ -f "$p/Contents/Info.plist" ] && { echo "$p/Contents/Info.plist"; return; }
++  done
++}
++
++build_id() {
++  local pl; pl="$(app_plist)"
++  [ -n "$pl" ] || { echo "desconocida"; return; }
++  echo "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$pl") ($(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$pl"))"
++}
++
++# Devuelve "x,y,w,h" en puntos de la ventana frontal de Findaro
++bounds() {
++  osascript <<EOF
++tell application "System Events" to tell process "$APP_NAME"
++  set {x, y} to position of front window
++  set {w, h} to size of front window
++end tell
++return (x as text) & "," & (y as text) & "," & (w as text) & "," & (h as text)
++EOF
++}
++
++ensure_out() {
++  mkdir -p "$OUT/png" "$OUT/video"
++  [ -f "$MANIFEST" ] || printf 'utc\tid\ttipo\tarchivo\tancho\talto\tsha256\tbuild\tusuario_macos\trevision_privacidad\n' > "$MANIFEST"
++}
++
++record() { # id tipo archivo
++  local f="$3" w="-" h="-"
++  if [ "$2" = "png" ]; then
++    w=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}')
++    h=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}')
++  fi
++  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tPENDIENTE\n' "$(date -u +%Y%m%dT%H%M%SZ)" "$1" "$2" "${f#$OUT/}" "$w" "$h" \
++    "$(shasum -a 256 "$f" | cut -d' ' -f1)" "$(build_id)" "$(whoami)" >> "$MANIFEST"
++  echo "OK $f"
++}
++
++cmd="${1:-help}"
++case "$cmd" in
++  prep)
++    echo "Findaro: $(build_id)"
++    echo "Usuario macOS: $(whoami)"; [ "$(whoami)" = "demo" ] || echo "  AVISO: usa la cuenta 'demo' para que no salgan tu nombre ni tus rutas"
++    echo "Apariencia: $(defaults read -g AppleInterfaceStyle 2>/dev/null || echo Light)"
++    echo "Pantallas:"; system_profiler SPDisplaysDataType | grep -E 'Resolution|Retina|Main Display' | sed 's/^ */  /'
++    if [ -d "$HOME/Library/CloudStorage" ] && [ -n "$(ls -A "$HOME/Library/CloudStorage" 2>/dev/null)" ]; then
++      echo "  AVISO: hay servicios en ~/Library/CloudStorage (Google Drive, Dropbox...). Desconéctalos antes de grabar:"; ls "$HOME/Library/CloudStorage" | sed 's/^/    /'
++    fi
++    ls /Volumes | grep -v '^Macintosh HD$' | sed 's/^/  Volumen montado: /' || true
++    pgrep -x "$APP_NAME" >/dev/null && echo "Findaro abierto: sí" || echo "Findaro abierto: NO (ábrelo antes de capturar)"
++    [ -d "$HOME/Documents/FINDARO-Demo" ] && echo "Set de prueba: sí" || echo "Set de prueba: NO -> python3 scripts/demo/make_demo_dataset.py"
++    ;;
++  window)
++    W="${2:-$DEFAULT_W}"; H="${3:-$DEFAULT_H}"
++    osascript <<EOF
++tell application "$APP_NAME" to activate
++delay 0.4
++tell application "Finder" to set {l, t, r, b} to bounds of window of desktop
++tell application "System Events" to tell process "$APP_NAME"
++  set size of front window to {$W, $H}
++  set position of front window to {round ((r - $W) / 2), round ((b - $H) / 2)}
++end tell
++EOF
++    echo "Ventana en $(bounds) (x,y,ancho,alto en puntos)"
++    ;;
++  shot)
++    id="${2:?falta el id, p. ej. P01-hero}"; ensure_out
++    osascript -e "tell application \"$APP_NAME\" to activate"; sleep 0.6
++    f="$OUT/png/$id.png"
++    screencapture -x -R"$(bounds)" "$f"
++    record "$id" png "$f"
++    ;;
++  video)
++    id="${2:?falta el id, p. ej. V1-cortar}"; secs="${3:-10}"; ensure_out
++    osascript -e "tell application \"$APP_NAME\" to activate"; sleep 0.6
++    f="$OUT/video/$id.mov"
++    echo "Grabando $secs s en 3..."; sleep 1; echo "2..."; sleep 1; echo "1..."; sleep 1
++    screencapture -v -k -V "$secs" -R"$(bounds)" "$f"
++    record "$id" video "$f"
++    ;;
++  pack)
++    [ -d "$OUT" ] || { echo "No hay $OUT"; exit 1; }
++    z="$HOME/Desktop/$(basename "$OUT").zip"
++    (cd "$(dirname "$OUT")" && ditto -c -k --keepParent "$(basename "$OUT")" "$z")
++    echo "Listo: $z ($(du -h "$z" | cut -f1))"
++    ;;
++  *)
++    sed -n '2,13p' "$0"
++    ;;
++esac
+diff --git a/scripts/demo/make_demo_dataset.py b/scripts/demo/make_demo_dataset.py
+new file mode 100755
+index 0000000..1dcc98b
+--- /dev/null
++++ b/scripts/demo/make_demo_dataset.py
+@@ -0,0 +1,272 @@
++#!/usr/bin/env python3
++"""Crea el set de prueba ficticio de FINDARO para capturas y videos de marketing.
++
++Solo usa la biblioteca estándar de Python 3. En macOS convierte las imágenes a JPEG con `sips`.
++
++    python3 scripts/demo/make_demo_dataset.py            # crea ~/Documents/FINDARO-Demo
++    python3 scripts/demo/make_demo_dataset.py --reset    # borra y recrea (solo si es un set de prueba)
++    python3 scripts/demo/make_demo_dataset.py --video-mb 2000   # videos más pesados = barra de progreso más larga
++
++Historia: «Estudio Aurora», un estudio de fotografía ficticio.
++- ORIGEN  = Estudio Aurora (proyectos de trabajo)
++- DESTINO = Respaldo Estudio (copia anterior, desactualizada)
++
++Escenas que deja preparadas:
++- Smart Merge: ORIGEN/Campaña-Otoño-2026/Documentos → DESTINO/Campaña-Otoño-2026/Documentos
++  = 6 nuevos, 3 iguales, 2 distintos.
++- Búsqueda «contrato» desde ORIGEN = 8 resultados en subcarpetas distintas.
++- Transferencia con barra de progreso: ORIGEN/Campaña-Otoño-2026/Video (archivos grandes reales).
++- Archivos ocultos (⌘⇧.), ZIP y TAR para descomprimir, imágenes para la vista Galería.
++
++Todos los nombres, empresas y datos son inventados.
++"""
++from __future__ import annotations
++
++import argparse
++import colorsys
++import os
++import random
++import shutil
++import struct
++import subprocess
++import sys
++import tarfile
++import time
++import zipfile
++import zlib
++from pathlib import Path
++
++MARKER = ".findaro-demo"
++SEED = 20261107
++
++
++# ---------------------------------------------------------------- archivos de contenido
++
++def write_png(path: Path, w: int, h: int, hue: float, rng: random.Random) -> None:
++    """Imagen abstracta: degradado diagonal entre dos tonos y un «sol» suave."""
++    h2 = (hue + rng.uniform(0.08, 0.22)) % 1.0
++    c1 = colorsys.hsv_to_rgb(hue, rng.uniform(0.45, 0.75), rng.uniform(0.55, 0.85))
++    c2 = colorsys.hsv_to_rgb(h2, rng.uniform(0.55, 0.9), rng.uniform(0.18, 0.4))
++    sx, sy, sr = rng.uniform(0.2, 0.8) * w, rng.uniform(0.15, 0.55) * h, rng.uniform(0.12, 0.25) * w
++    rows = []
++    for y in range(h):
++        row = bytearray([0])
++        for x in range(w):
++            t = (x / w * 0.4 + y / h * 0.6)
++            r, g, b = (c1[i] * (1 - t) + c2[i] * t for i in range(3))
++            d = ((x - sx) ** 2 + (y - sy) ** 2) ** 0.5
++            glow = max(0.0, 1 - d / sr) ** 2 * 0.55
++            row += bytes(min(255, int((v + glow) * 255)) for v in (r, g, b))
++        rows.append(bytes(row))
++    raw = b"".join(rows)
++
++    def chunk(tag: bytes, data: bytes) -> bytes:
++        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
++
++    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
++    png += chunk(b"IDAT", zlib.compress(raw, 6)) + chunk(b"IEND", b"")
++    path.write_bytes(png)
++
++
++def write_image(path_jpg: Path, hue: float, rng: random.Random, size=(720, 480)) -> None:
++    png = path_jpg.with_suffix(".png")
++    write_png(png, size[0], size[1], hue, rng)
++    if shutil.which("sips"):
++        subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "82", str(png), "--out", str(path_jpg)],
++                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
++        png.unlink()
++    else:  # fuera de macOS se queda en PNG
++        png.rename(path_jpg.with_suffix(".png"))
++
++
++def write_pdf(path: Path, title: str, lines: list[str]) -> None:
++    """PDF mínimo válido con texto, para que Quick Look muestre algo legible."""
++    def esc(s: str) -> str:
++        return s.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
++    text = ["BT", "/F1 20 Tf", "72 760 Td", f"({esc(title)}) Tj", "/F1 12 Tf"]
++    for ln in lines:
++        text += ["0 -22 Td", f"({esc(ln)}) Tj"]
++    text.append("ET")
++    stream = "\n".join(text).encode("latin-1", "replace")
++    objs = [
++        b"<< /Type /Catalog /Pages 2 0 R >>",
++        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
++        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
++        b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream",
++        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
++    ]
++    out = bytearray(b"%PDF-1.4\n")
++    offsets = []
++    for i, o in enumerate(objs, 1):
++        offsets.append(len(out))
++        out += f"{i} 0 obj\n".encode() + o + b"\nendobj\n"
++    xref = len(out)
++    out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n".encode()
++    for off in offsets:
++        out += f"{off:010d} 00000 n \n".encode()
++    out += f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
++    path.write_bytes(bytes(out))
++
++
++def write_big(path: Path, mb: int) -> None:
++    """Archivo grande con bytes reales (no disperso), para que copiar y verificar lleve unos segundos."""
++    chunk = os.urandom(4 * 1024 * 1024)
++    with path.open("wb") as f:
++        for i in range(max(1, mb // 4)):
++            f.write(chunk if i % 8 else os.urandom(len(chunk)))
++
++
++def touch_past(path: Path, days_ago: float) -> None:
++    t = time.time() - days_ago * 86400
++    os.utime(path, (t, t))
++
++
++# ---------------------------------------------------------------- el set
++
++def build(root: Path, video_mb: int) -> dict[str, int]:
++    rng = random.Random(SEED)
++    o = root / "ORIGEN" / "Estudio Aurora"
++    d = root / "DESTINO" / "Respaldo Estudio"
++    stats = {"archivos": 0}
++
++    def mk(p: Path) -> Path:
++        p.mkdir(parents=True, exist_ok=True)
++        return p
++
++    def text(p: Path, body: str, days: float = 0) -> None:
++        p.write_text(body, encoding="utf-8")
++        touch_past(p, days)
++        stats["archivos"] += 1
++
++    def pdf(p: Path, title: str, lines: list[str], days: float = 0) -> None:
++        write_pdf(p, title, lines)
++        touch_past(p, days)
++        stats["archivos"] += 1
++
++    def img(p: Path, hue: float, days: float = 0, size=(720, 480)) -> None:
++        write_image(p, hue, rng, size)
++        final = p if p.exists() else p.with_suffix(".png")
++        touch_past(final, days)
++        stats["archivos"] += 1
++
++    camp = mk(o / "Campaña-Otoño-2026")
++
++    # Fotos para galería / iconos (tonos otoñales)
++    raw = mk(camp / "Fotos")
++    for i in range(1, 25):
++        img(raw / f"AUR-{100 + i:04d}.jpg", rng.choice([0.02, 0.05, 0.08, 0.11, 0.58, 0.62]) + rng.uniform(-0.02, 0.02), days=rng.uniform(3, 9))
++    sel = mk(camp / "Selección")
++    for i in (103, 107, 111, 114, 118, 122, 124, 130):
++        img(sel / f"AUR-{i:04d}-final.jpg", rng.choice([0.03, 0.07, 0.6]), days=rng.uniform(1, 3))
++
++    # Videos grandes reales: la barra de progreso y la verificación SHA-256 se ven
++    vid = mk(camp / "Video")
++    write_big(vid / "teaser-otoño-4K.mov", video_mb)
++    write_big(vid / "making-of.mov", max(200, video_mb // 3))
++    stats["archivos"] += 2
++
++    # Smart Merge: Documentos (ORIGEN 11 archivos, DESTINO 5: 3 iguales + 2 distintos)
++    od = mk(camp / "Documentos")
++    dd = mk(d / "Campaña-Otoño-2026" / "Documentos")
++    same = {
++        "brief-campaña.pdf": ("Brief Campaña Otoño 2026", ["Cliente: Estudio Aurora", "Entrega: 24 fotos + teaser 30 s"]),
++        "presupuesto-v3.pdf": ("Presupuesto v3", ["Producción, edición y entrega", "Vigencia: 30 días"]),
++        "lista-de-tomas.pdf": ("Lista de tomas", ["Exterior parque, luz de tarde", "Retrato, interior estudio"]),
++    }
++    for name, (t, lines) in same.items():
++        pdf(od / name, t, lines, days=6)
++        shutil.copy2(od / name, dd / name)
++        stats["archivos"] += 1
++    pdf(od / "contrato-aurora-firmado.pdf", "Contrato Estudio Aurora", ["Versión firmada por ambas partes", "Fecha: 4 nov 2026"], days=2)
++    pdf(dd / "contrato-aurora-firmado.pdf", "Contrato Estudio Aurora", ["Borrador sin firmar", "Fecha: 28 oct 2026"], days=10)
++    text(od / "notas-del-equipo.txt", "Notas del equipo\n- Confirmar locación del parque\n- Llevar reflector dorado\n- Revisar permisos de dron\n", days=1)
++    text(dd / "notas-del-equipo.txt", "Notas del equipo\n- Confirmar locación\n", days=12)
++    pdf(od / "calendario-rodaje.pdf", "Calendario de rodaje", ["Día 1: exteriores", "Día 2: estudio"], days=3)
++    pdf(od / "permisos-locación.pdf", "Permisos de locación", ["Parque Central, 8:00-18:00"], days=3)
++    text(od / "resumen-proyecto.md", "# Campaña Otoño 2026\n\n24 fotos seleccionadas y un teaser de 30 segundos.\n", days=1)
++    pdf(od / "moodboard.pdf", "Moodboard", ["Paleta cálida, hojas, contraluz"], days=5)
++    text(od / "guion-teaser.txt", "Teaser 30 s\n0-5 s hojas cayendo\n5-20 s retratos\n20-30 s logo\n", days=2)
++    pdf(od / "derechos-de-imagen.pdf", "Derechos de imagen", ["Modelos: autorización firmada"], days=4)
++
++    # Clientes (búsqueda «contrato»)
++    cl = mk(o / "Clientes")
++    lumen = mk(cl / "Lumen-Café")
++    pdf(lumen / "contrato-lumen-2026.pdf", "Contrato Lumen Café", ["Sesión de menú de temporada"], days=20)
++    pdf(lumen / "propuesta-lumen.pdf", "Propuesta Lumen Café", ["12 fotos de producto"], days=22)
++    img(lumen / "referencia-lumen.jpg", 0.09, days=21)
++    marea = mk(cl / "Hotel-Marea")
++    pdf(marea / "contrato-marea-temporada.pdf", "Contrato Hotel Marea", ["Temporada alta 2026"], days=15)
++    pdf(marea / "anexo-contrato-marea.pdf", "Anexo al contrato", ["Fotos de habitaciones nuevas"], days=14)
++    fm = mk(marea / "Fotos-habitaciones")
++    for i in range(1, 7):
++        img(fm / f"marea-hab-{i:02d}.jpg", 0.52 + rng.uniform(-0.03, 0.03), days=13)
++    bodega = mk(cl / "Bodega-Norte")
++    pdf(bodega / "contrato-bodega-norte.pdf", "Contrato Bodega Norte", ["Catálogo de vinos 2027"], days=30)
++    text(bodega / "notas-reunión.txt", "Reunión Bodega Norte\n- Fondo oscuro\n- 40 botellas\n", days=29)
++
++    fac = mk(o / "Facturas")
++    for i in range(31, 39):
++        pdf(fac / f"factura-2026-{i:03d}.pdf", f"Factura 2026-{i:03d}", ["Estudio Aurora", "Servicios de fotografía"], days=60 - i)
++    pdf(fac / "contrato-marco-servicios.pdf", "Contrato marco de servicios", ["Condiciones generales"], days=90)
++
++    pla = mk(o / "Plantillas")
++    text(pla / "contrato-plantilla.rtf", "{\\rtf1\\ansi Plantilla de contrato de servicios fotogr\\'e1ficos.}", days=120)
++    text(pla / "presupuesto-plantilla.txt", "Concepto | Cantidad | Precio\n", days=120)
++
++    ent = mk(o / "Entregas")
++    pdf(ent / "contrato-entrega-aurora.pdf", "Acta de entrega", ["Entrega v1 Campaña Otoño"], days=1)
++    with zipfile.ZipFile(ent / "Entrega-Aurora-v1.zip", "w", zipfile.ZIP_DEFLATED) as z:
++        for p in sorted(sel.iterdir())[:4]:
++            z.write(p, f"Entrega-Aurora-v1/{p.name}")
++    with tarfile.open(ent / "Selección-Lumen.tar.gz", "w:gz") as t:
++        t.add(lumen, arcname="Selección-Lumen")
++    stats["archivos"] += 2
++
++    # Ocultos (⌘⇧.)
++    text(o / ".presets-color.xmp", "<x:xmpmeta>preset ficticio</x:xmpmeta>\n", days=40)
++    text(o / ".cache-miniaturas", "cache\n", days=1)
++
++    # DESTINO: respaldo anterior con algo de estructura
++    for name in ("Clientes-2025", "Entregas-anteriores", "Facturas-2025"):
++        mk(d / name)
++    for i in range(1, 9):
++        pdf(d / "Facturas-2025" / f"factura-2025-{i:03d}.pdf", f"Factura 2025-{i:03d}", ["Estudio Aurora"], days=300 - i)
++    for i in range(1, 7):
++        img(d / "Entregas-anteriores" / f"verano-2025-{i:02d}.jpg", 0.12 + rng.uniform(-0.04, 0.04), days=120)
++    sel_d = mk(d / "Campaña-Otoño-2026" / "Selección")
++    for p in sorted(sel.iterdir())[:2]:
++        shutil.copy2(p, sel_d / p.name)
++        stats["archivos"] += 1
++
++    (root / MARKER).write_text("Set de prueba de FINDARO. Se puede borrar.\n", encoding="utf-8")
++    return stats
++
++
++def main() -> int:
++    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
++    ap.add_argument("--root", default=str(Path.home() / "Documents" / "FINDARO-Demo"))
++    ap.add_argument("--reset", action="store_true", help="borra el set existente (solo si tiene el marcador) y lo recrea")
++    ap.add_argument("--video-mb", type=int, default=1200, help="tamaño del video principal en MB (por defecto 1200)")
++    a = ap.parse_args()
++    root = Path(a.root).expanduser()
++    if root.exists() and any(root.iterdir()):
++        if not a.reset:
++            print(f"Ya existe {root}. Usa --reset para recrearlo.", file=sys.stderr)
++            return 1
++        if not (root / MARKER).exists():
++            print(f"{root} no tiene el marcador {MARKER}: no lo borro.", file=sys.stderr)
++            return 2
++        shutil.rmtree(root)
++    root.mkdir(parents=True, exist_ok=True)
++    t0 = time.time()
++    stats = build(root, a.video_mb)
++    print(f"Set creado en {root} ({stats['archivos']} archivos, {time.time() - t0:.0f} s)")
++    print("  ORIGEN : ORIGEN/Estudio Aurora")
++    print("  DESTINO: DESTINO/Respaldo Estudio")
++    print("  Smart Merge: Campaña-Otoño-2026/Documentos → 6 nuevos, 3 iguales, 2 distintos")
++    print("  Búsqueda: «contrato» desde ORIGEN/Estudio Aurora → 8 resultados")
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+-- 
+2.43.0
+
