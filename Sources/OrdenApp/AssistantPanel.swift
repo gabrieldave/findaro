@@ -25,7 +25,8 @@ struct AssistantPanel: View {
             header
             Divider().opacity(0.35)
             chatArea
-                .layoutPriority(1)
+                .frame(minHeight: 120, maxHeight: .infinity)
+                .layoutPriority(0)
             Divider().opacity(0.35)
             DisclosureGroup(isExpanded: $showShortcuts) {
                 shortcutsSection
@@ -34,10 +35,11 @@ struct AssistantPanel: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
             Divider().opacity(0.35)
             composer
+                .layoutPriority(1)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(OrdenTheme.windowFill)
@@ -461,18 +463,14 @@ struct AssistantPanel: View {
     }
 
     private var composer: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if browser.agentBusy {
-                agentBusyBanner
-            }
-
+        VStack(alignment: .leading, spacing: 8) {
             if voice.phase != .idle || holdingMic {
                 Text(voice.statusLabel)
                     .font(.subheadline)
                     .foregroundStyle(holdingMic || voice.isListening ? .orange : .secondary)
                     .lineLimit(3)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
+                    .padding(8)
                     .background(
                         (holdingMic || voice.isListening ? Color.orange : OrdenTheme.accent).opacity(0.12),
                         in: RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -489,13 +487,13 @@ struct AssistantPanel: View {
                     .font(.body)
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, 10)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 8)
                     .allowsHitTesting(false)
                 }
                 TextEditor(text: $draft)
                     .font(.body)
                     .scrollContentBackground(.hidden)
-                    .frame(minHeight: 72, maxHeight: 120)
+                    .frame(minHeight: 44, maxHeight: 80)
                     .padding(6)
                     .focused($composerFocused)
                     .disabled(holdingMic || voice.isListening || browser.agentBusy)
@@ -515,7 +513,7 @@ struct AssistantPanel: View {
                     )
             )
 
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 pushToTalkButton
                 Button {
                     submit()
@@ -548,7 +546,8 @@ struct AssistantPanel: View {
             .font(.caption2)
             .foregroundStyle(.tertiary)
         }
-        .padding(16)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 
     private var pushToTalkButton: some View {
