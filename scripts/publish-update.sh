@@ -110,18 +110,19 @@ scp "$FINDARO_DMG" "${HOST}:${REMOTE_DIR}/downloads/${PRODUCT_NAME}-latest.dmg"
 scp "$LEGACY_DMG" "${HOST}:${REMOTE_DIR}/downloads/${LEGACY_DMG_NAME}"
 scp "$LEGACY_DMG" "${HOST}:${REMOTE_DIR}/downloads/${LEGACY_NAME}-latest.dmg"
 
-ssh "$HOST" "cat > '${REMOTE_DIR}/downloads/latest.json' <<EOF
+ssh "$HOST" "cat > '${REMOTE_DIR}/downloads/latest.json'" <<EOF
 {
-  \"version\": \"${VERSION}\",
-  \"tag\": \"v${VERSION}\",
-  \"dmg_url\": \"${PUBLIC_BASE}/downloads/${LEGACY_DMG_NAME}\",
-  \"notes_url\": \"${PUBLIC_BASE}/\",
-  \"sha256\": \"${SHA256}\",
-  \"findaro_dmg_url\": \"${PUBLIC_BASE}/downloads/${DMG_NAME}\",
-  \"findaro_sha256\": \"${FINDARO_SHA}\"
+  "version": "${VERSION}",
+  "tag": "v${VERSION}",
+  "dmg_url": "${PUBLIC_BASE}/downloads/${LEGACY_DMG_NAME}",
+  "notes_url": "${PUBLIC_BASE}/",
+  "sha256": "${SHA256}",
+  "findaro_dmg_url": "${PUBLIC_BASE}/downloads/${DMG_NAME}",
+  "findaro_sha256": "${FINDARO_SHA}"
 }
 EOF
-cat > '${REMOTE_DIR}/index.html' <<EOF
+
+ssh "$HOST" "cat > '${REMOTE_DIR}/index.html'" <<'EOF'
 <!doctype html>
 <html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -133,7 +134,7 @@ cat > '${REMOTE_DIR}/index.html' <<EOF
 <p>La descarga ahora es por licencia oficial.</p>
 <a style="color:#fff;background:#2563EB;padding:.85rem 1.4rem;border-radius:12px;text-decoration:none;font-weight:700" href="https://findaro.iareal.net/comprar">Comprar / Descargar en findaro.iareal.net</a>
 </main></body></html>
-EOF"
+EOF
 
 echo "Publicado v${VERSION}"
 curl -sS "${PUBLIC_BASE}/downloads/latest.json"
