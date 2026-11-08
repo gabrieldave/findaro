@@ -1,0 +1,19 @@
+FINDARO | Comparador de ventajas para la web
+
+1. Abre index.html en Chrome/Safari/Edge. No necesita servidor ni conexión.
+2. Inicia con Bloom (comparación solicitada) o selecciona ForkLift, QSpace, Path Finder, Commander One o Finder.
+3. Navega Seguridad, IA, Transferencias, Productividad y fortalezas de rivales.
+4. Pulsa Ver las 50 características para revisar toda la matriz. El contenido viene de una comparación documental, no de pruebas funcionales propias de las apps rivales.
+5. PROMPT_CLAUDE_IMPLEMENTACION.md explica cómo integrarlo en el sitio real con Next.js.
+
+ESTADO: DEMO PRIVADA. No se ha publicado ni integrado en el repo. Los datos sobre competidores deben reconfirmarse con fuentes oficiales antes de lanzamiento. El sitio público debe mostrar claramente la diferencia entre “sin confirmar” y “no disponible”.
+
+CORRECCIÓN 1.1: pestañas habilitadas en modo 50 características; diseño de botones más legible; 5 afirmaciones sobre FINDARO corregidas a «No documentado».
+
+CORRECCIÓN V1.2 PARA CURSOR:
+- Encabezado exacto: «¿Cómo se compara FINDARO con la competencia?».
+- Los estados «Sin confirmar» se distinguen en rojo, pero no significan «No lo tiene».
+- Todos los filtros permanecen activos después de desplegar las 50 características.
+- La categoría «Lo esencial» presenta solo ventajas verificadas de FINDARO, no funciones ajenas.
+- Las cinco filas de fortalezas de los rivales muestran «No documentado» para FINDARO, no «Incluido».
+- Mantener el comparador privado hasta verificar afirmaciones ante publicación.
