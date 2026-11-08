@@ -362,7 +362,7 @@
   {
     "id": 31,
     "grupo": "Visualización",
-    "funcion": "Modo varios naranja y selección persistente",
+    "funcion": "Selección múltiple nativa (⌘, ⇧, marquesina) y arrastre directo",
     "findaro": "Sí",
     "finder": "N/D",
     "forklift": "N/D",
