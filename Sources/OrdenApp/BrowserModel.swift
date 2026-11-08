@@ -1273,7 +1273,7 @@ final class BrowserModel: ObservableObject {
             return false
         }
         guard AgentPolicy.isPathAllowed(dest) else {
-            statusMessage = "Destino no permitido"
+            statusMessage = "Destino no permitido (solo tu carpeta de usuario, /Users/Shared o discos en /Volumes)"
             return false
         }
         let destStd = (dest as NSString).standardizingPath

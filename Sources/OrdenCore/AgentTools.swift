@@ -134,8 +134,8 @@ public enum AgentPolicy {
         }
     }
 
-    /// Solo permite el home del usuario y volúmenes montados. Resuelve symlinks
-    /// y comprueba límites de componentes para evitar prefijos como /Users/alguien-otro.
+    /// Home del usuario, `/Users/Shared` (sets compartidos / demos) y volúmenes montados.
+    /// Resuelve symlinks y evita prefijos engañosos (`/Users/alguien-otro`).
     public static func isPathAllowed(_ path: String) -> Bool {
         let expanded = (path as NSString).expandingTildeInPath
         guard !expanded.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
@@ -143,7 +143,8 @@ public enum AgentPolicy {
         let home = FileManager.default.homeDirectoryForCurrentUser
             .standardizedFileURL.resolvingSymlinksInPath().path
         let mountedVolume = resolved != "/Volumes" && isSameOrDescendant(resolved, of: "/Volumes")
-        return isSameOrDescendant(resolved, of: home) || mountedVolume
+        let sharedFolder = isSameOrDescendant(resolved, of: "/Users/Shared")
+        return isSameOrDescendant(resolved, of: home) || mountedVolume || sharedFolder
     }
 
     public static func isSameOrDescendant(_ path: String, of root: String) -> Bool {

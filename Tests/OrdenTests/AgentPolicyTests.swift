@@ -16,6 +16,12 @@ final class AgentPolicyTests: XCTestCase {
         XCTAssertFalse(AgentPolicy.isPathAllowed(""))
     }
 
+    func testPathPolicyAllowsUsersShared() {
+        XCTAssertTrue(AgentPolicy.isPathAllowed("/Users/Shared"))
+        XCTAssertTrue(AgentPolicy.isPathAllowed("/Users/Shared/FINDARO-Demo/DESTINO/Respaldo Estudio"))
+        XCTAssertFalse(AgentPolicy.isPathAllowed("/Users/SharedSomething"))
+    }
+
     func testPathPolicyRejectsSymlinkEscape() throws {
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
