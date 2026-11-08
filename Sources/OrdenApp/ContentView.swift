@@ -1299,11 +1299,34 @@ struct FileBrowserPane: View {
                         return
                     }
 
+                    // Arrastre sobre fila (archivo o carpeta): arrastre nativo inmediato
+                    if let entry = entryAtY(value.startLocation.y) {
+                        let isSelected = isSecondary
+                            ? browser.secondarySelectedIDs.contains(entry.id)
+                            : browser.selectedIDs.contains(entry.id)
+                        if isSelected {
+                            folderDragPaths = isSecondary
+                                ? browser.secondarySelectedEntries.map(\.path)
+                                : browser.selectedEntries.map(\.path)
+                        } else {
+                            if isSecondary {
+                                browser.selectSecondaryOnly(entry.id)
+                            } else {
+                                browser.selectOnly(entry.id)
+                            }
+                            folderDragPaths = [entry.path]
+                        }
+                        marqueeStart = value.startLocation
+                        marqueeCurrent = value.location
+                        folderDragStarted = false
+                        return
+                    }
+
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
                     folderDragPaths = []
                     marqueeCommitted = false
-                    marqueeStartEntryID = entryAtY(value.startLocation.y)?.id
+                    marqueeStartEntryID = nil
                     marqueeAdditive = flags.contains(.shift)
                     marqueeBase = marqueeAdditive
                         ? (isSecondary ? browser.secondarySelectedIDs : browser.selectedIDs)
@@ -1315,7 +1338,7 @@ struct FileBrowserPane: View {
                     let dist = hypot(value.translation.width, value.translation.height)
                     if !folderDragStarted, dist >= PressDragSelectLogic.moveThreshold {
                         folderDragStarted = true
-                        _ = browser.startArmedNativeDrag()
+                        _ = browser.startDragWithPaths(folderDragPaths)
                     }
                     return
                 }

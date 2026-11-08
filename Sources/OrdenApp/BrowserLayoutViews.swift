@@ -245,6 +245,13 @@ struct IconsBrowserView: View {
                         return
                     }
                     if browser.fileDragArmingPath != nil { return }
+                    if !browser.selectedIDs.isEmpty {
+                        marqueeStart = value.startLocation
+                        marqueeCurrent = value.location
+                        folderDragPaths = browser.selectedEntries.map(\.path)
+                        folderDragStarted = false
+                        return
+                    }
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
                     folderDragPaths = []
@@ -256,7 +263,7 @@ struct IconsBrowserView: View {
                     let dist = hypot(value.translation.width, value.translation.height)
                     if !folderDragStarted, dist >= PressDragSelectLogic.moveThreshold {
                         folderDragStarted = true
-                        _ = browser.startArmedNativeDrag()
+                        _ = browser.startDragWithPaths(folderDragPaths)
                     }
                     return
                 }
@@ -533,6 +540,13 @@ private struct ColumnPane: View {
                         return
                     }
                     if browser.fileDragArmingPath != nil { return }
+                    if !browser.selectedIDs.isEmpty {
+                        marqueeStart = value.startLocation
+                        marqueeCurrent = value.location
+                        folderDragPaths = browser.selectedEntries.map(\.path)
+                        folderDragStarted = false
+                        return
+                    }
                     marqueeStart = value.startLocation
                     marqueeCurrent = value.location
                     folderDragPaths = []
@@ -544,7 +558,7 @@ private struct ColumnPane: View {
                     let dist = hypot(value.translation.width, value.translation.height)
                     if !folderDragStarted, dist >= PressDragSelectLogic.moveThreshold {
                         folderDragStarted = true
-                        _ = browser.startArmedNativeDrag()
+                        _ = browser.startDragWithPaths(folderDragPaths)
                     }
                     return
                 }

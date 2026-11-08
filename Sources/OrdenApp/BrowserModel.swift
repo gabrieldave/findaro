@@ -3479,6 +3479,13 @@ final class BrowserModel: ObservableObject {
     func startArmedNativeDrag() -> Bool {
         let paths = peekArmedFileDrag()
         guard !paths.isEmpty else { return false }
+        return startDragWithPaths(paths)
+    }
+
+    /// Inicia arrastre nativo con una lista arbitraria de rutas seleccionadas.
+    @discardableResult
+    func startDragWithPaths(_ paths: [String]) -> Bool {
+        guard !paths.isEmpty else { return false }
         FolderDragBridge.shared.onSessionEnded = { [weak self] dropped in
             guard let self, dropped else { return }
             self.clearArmedFileDrag()
