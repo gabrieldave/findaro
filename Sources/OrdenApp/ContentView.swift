@@ -1969,9 +1969,13 @@ private struct BrowserDialogsModifier: ViewModifier {
 struct SettingsView: View {
     @EnvironmentObject private var browser: BrowserModel
     @StateObject private var ollama = OllamaClient.shared
+    @StateObject private var licenseStore = LicenseStore.shared
     @State private var editingShortcut: AssistantShortcut?
     @State private var showNewShortcut = false
     @State private var editingHotkey: AppHotkeyDefinition?
+    @State private var licenseInput: String = ""
+    @State private var licenseActionError: String?
+    @State private var showDeactivateConfirm: Bool = false
 
     var body: some View {
         TabView {
@@ -1985,6 +1989,8 @@ struct SettingsView: View {
                 .tabItem { Label("Búsqueda", systemImage: "magnifyingglass") }
             settingsMaintenance
                 .tabItem { Label("Mantenimiento", systemImage: "wrench.and.screwdriver") }
+            settingsLicense
+                .tabItem { Label("Licencia", systemImage: "key.fill") }
         }
         .frame(width: 560, height: 520)
         .sheet(isPresented: $browser.showOllamaSetupDialog) {
@@ -2497,5 +2503,226 @@ struct SettingsView: View {
             }
         }
         .padding(.vertical, 2)
+    }
+
+    // MARK: Licencia
+
+    private var settingsLicense: some View {
+        Form {
+            Section {
+                switch licenseStore.state {
+                case .proActive(let key, let tier, let seats, let activeCount):
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "checkmark.seal.fill")
+                                .font(.title)
+                                .foregroundStyle(Color.green)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("FINDARO PRO")
+                                    .font(.headline.weight(.bold))
+                                Text("Licencia de por vida activa en este equipo")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        Divider()
+
+                        HStack {
+                            Text("Plan:")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(tier == "family" ? "Familiar (hasta 5 Macs)" : "Personal (hasta 2 Macs)")
+                                .fontWeight(.semibold)
+                        }
+
+                        HStack {
+                            Text("Equipos activos:")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text("\(activeCount) de \(seats) Macs registradas")
+                                .fontWeight(.semibold)
+                        }
+
+                        HStack {
+                            Text("Clave:")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(key)
+                                .font(.system(.body, design: .monospaced))
+                        }
+
+                        HStack {
+                            Text("ID de Hardware (este Mac):")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(HardwareID.current())
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.tertiary)
+                        }
+
+                        HStack {
+                            Spacer()
+                            Button("Desactivar esta Mac", role: .destructive) {
+                                showDeactivateConfirm = true
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(.vertical, 6)
+
+                case .trial(let daysRemaining, let expiresAt):
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "clock.badge.checkmark")
+                                .font(.title)
+                                .foregroundStyle(Color.blue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Período de prueba activo")
+                                    .font(.headline.weight(.bold))
+                                Text("\(daysRemaining) días restantes (hasta el \(expiresAt.formatted(date: .abbreviated, time: .shortened)))")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        Text("Disfruta de todas las funciones de Findaro. Cuando estés listo, adquiere tu licencia de por vida.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        HStack {
+                            Button {
+                                if let url = URL(string: "https://findaro.iareal.net/comprar") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            } label: {
+                                Label("Comprar licencia ($39 USD · 2 Macs)", systemImage: "cart.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(OrdenTheme.accent)
+                        }
+                    }
+                    .padding(.vertical, 6)
+
+                case .trialExpired:
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "hourglass.bottomhalf.filled")
+                                .font(.title)
+                                .foregroundStyle(Color.orange)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Prueba de 5 días finalizada")
+                                    .font(.headline.weight(.bold))
+                                Text("Adquiere tu licencia de por vida para seguir usando Findaro.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        HStack {
+                            Button {
+                                if let url = URL(string: "https://findaro.iareal.net/comprar") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            } label: {
+                                Label("Comprar licencia de por vida ($39 USD)", systemImage: "cart.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(OrdenTheme.accent)
+                        }
+                    }
+                    .padding(.vertical, 6)
+
+                case .revoked(let message):
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.title)
+                                .foregroundStyle(Color.red)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Licencia no válida o revocada")
+                                    .font(.headline.weight(.bold))
+                                Text(message)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 6)
+                }
+            } header: {
+                Text("Estado de activación")
+            }
+
+            if !licenseStore.state.isPro {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Si ya compraste tu licencia o recibiste una clave, ingrésala a continuación:")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        HStack(spacing: 8) {
+                            TextField("FINDARO-XXXX-XXXX-XXXX-XXXX", text: $licenseInput)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(.body, design: .monospaced))
+
+                            Button {
+                                Task {
+                                    do {
+                                        licenseActionError = nil
+                                        try await licenseStore.activate(key: licenseInput)
+                                        licenseInput = ""
+                                    } catch {
+                                        licenseActionError = error.localizedDescription
+                                    }
+                                }
+                            } label: {
+                                if licenseStore.isBusy {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Text("Activar")
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(OrdenTheme.accent)
+                            .disabled(licenseInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || licenseStore.isBusy)
+                        }
+
+                        if let err = licenseActionError ?? licenseStore.lastErrorMessage {
+                            Text(err)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("Activar con clave")
+                }
+            }
+
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("• Plan Personal: incluye 2 Macs por $39 USD (pago único de por vida).")
+                    Text("• Plan Familiar: incluye 5 Macs por $59 USD.")
+                    Text("• Validación offline: tu licencia funciona permanentemente sin requerir conexión constante a internet.")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            } header: {
+                Text("Información de licenciamiento")
+            }
+        }
+        .formStyle(.grouped)
+        .padding(8)
+        .confirmationDialog("¿Desactivar esta Mac?", isPresented: $showDeactivateConfirm) {
+            Button("Desactivar esta Mac", role: .destructive) {
+                Task {
+                    try? await licenseStore.deactivate()
+                }
+            }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Esta Mac dejará de tener la licencia activa y se liberará el asiento para otro equipo.")
+        }
     }
 }

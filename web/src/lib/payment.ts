@@ -1,3 +1,4 @@
+import { LicenseTier, TIERS } from "./pricing";
 import { APP_ID, PAYMENT_GATEWAY_URL, PUBLIC_APP_URL, PRODUCT_NAME } from "./site";
 
 export type CheckoutInput = {
@@ -6,22 +7,24 @@ export type CheckoutInput = {
   customerName: string;
   orderId: string;
   isPromo: boolean;
+  tier?: LicenseTier;
 };
 
 export async function createCheckoutSession(input: CheckoutInput): Promise<{
   url: string;
   sessionId: string;
 }> {
+  const tier = input.tier || "personal";
+  const tierInfo = TIERS[tier];
+
   const body = {
     appId: APP_ID,
     event: "payment.create_checkout_session",
     data: {
       amount: input.amountUsd,
       currency: "usd",
-      serviceTitle: `${PRODUCT_NAME} — licencia de por vida`,
-      serviceDescription: input.isPromo
-        ? "Precio de lanzamiento (primeros 1000) con actualizaciones incluidas."
-        : "Licencia de por vida con actualizaciones incluidas.",
+      serviceTitle: `${PRODUCT_NAME} — ${tierInfo.name} (${tierInfo.seats} Macs)`,
+      serviceDescription: `${tierInfo.description}. Pago único de por vida.`,
       serviceId: input.orderId,
       customerEmail: input.customerEmail,
       customerName: input.customerName,
@@ -30,6 +33,7 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<{
       metadata: {
         purchaseId: input.orderId,
         tradingAppSlug: APP_ID,
+        tier,
       },
     },
   };

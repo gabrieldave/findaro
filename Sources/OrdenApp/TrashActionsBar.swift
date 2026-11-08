@@ -31,42 +31,52 @@ struct TrashActionsBar: View {
             Spacer(minLength: 8)
 
             if !browser.selectedIDs.isEmpty && browser.errorMessage == nil {
-                Menu {
-                    if browser.dualPaneEnabled && !TrashOps.isTrashPath(browser.secondaryPath) {
-                        Button {
-                            browser.restoreSelectionFromTrash(targetDirectory: browser.secondaryPath)
-                        } label: {
-                            Label("Sacar al panel destino (\(URL(fileURLWithPath: browser.secondaryPath).lastPathComponent))", systemImage: "rectangle.split.2x1")
+                HStack(spacing: 4) {
+                    Button {
+                        browser.restoreSelectionFromTrash()
+                    } label: {
+                        Label("Restaurar", systemImage: "arrow.uturn.backward.circle.fill")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.white)
+                    .foregroundStyle(Color(findaroHex: "#0F766E"))
+                    .help("Restaura los archivos seleccionados fuera de la Papelera (atajo ⌥⌘⌫)")
+
+                    Menu {
+                        if browser.dualPaneEnabled && !TrashOps.isTrashPath(browser.secondaryPath) {
+                            Button {
+                                browser.restoreSelectionFromTrash(targetDirectory: browser.secondaryPath)
+                            } label: {
+                                Label("Sacar al panel destino (\(URL(fileURLWithPath: browser.secondaryPath).lastPathComponent))", systemImage: "rectangle.split.2x1")
+                            }
                         }
-                    }
-                    Button {
-                        let desktop = (FileManager.default.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Desktop")
-                        browser.restoreSelectionFromTrash(targetDirectory: desktop)
+                        Button {
+                            let desktop = (FileManager.default.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Desktop")
+                            browser.restoreSelectionFromTrash(targetDirectory: desktop)
+                        } label: {
+                            Label("Sacar al Escritorio", systemImage: "menubar.dock.rectangle")
+                        }
+                        Button {
+                            browser.restoreSelectionFromTrash(targetDirectory: GlobalHotKey.defaultDownloadsPath())
+                        } label: {
+                            Label("Sacar a Descargas", systemImage: "arrow.down.circle")
+                        }
+                        Divider()
+                        Button {
+                            browser.restoreSelectionFromTrashPromptFolder()
+                        } label: {
+                            Label("Elegir otra carpeta…", systemImage: "folder.badge.plus")
+                        }
                     } label: {
-                        Label("Sacar al Escritorio", systemImage: "menubar.dock.rectangle")
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.bold))
                     }
-                    Button {
-                        browser.restoreSelectionFromTrash(targetDirectory: GlobalHotKey.defaultDownloadsPath())
-                    } label: {
-                        Label("Sacar a Descargas", systemImage: "arrow.down.circle")
-                    }
-                    Divider()
-                    Button {
-                        browser.restoreSelectionFromTrashPromptFolder()
-                    } label: {
-                        Label("Elegir otra carpeta…", systemImage: "folder.badge.plus")
-                    }
-                } label: {
-                    Label("Sacar de la Papelera", systemImage: "arrow.uturn.backward.circle.fill")
-                        .font(.subheadline.weight(.semibold))
-                } primaryAction: {
-                    browser.restoreSelectionFromTrash()
+                    .menuStyle(.borderlessButton)
+                    .buttonStyle(.bordered)
+                    .tint(.white)
+                    .help("Elegir dónde restaurar la selección")
                 }
-                .menuStyle(.borderlessButton)
-                .buttonStyle(.borderedProminent)
-                .tint(.white)
-                .foregroundStyle(Color(findaroHex: "#1E3A8A"))
-                .help("Saca los archivos seleccionados de la Papelera y los restaura")
             }
 
             Button {
