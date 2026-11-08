@@ -48,6 +48,13 @@ private struct FindaroCommands: Commands {
             }
         }
 
+        CommandGroup(replacing: .help) {
+            Button("Ayuda de Findaro") {
+                FindaroHelpWindow.show()
+            }
+            .keyboardShortcut("?", modifiers: .command)
+        }
+
         CommandGroup(replacing: .newItem) {
             Button("Nueva ventana") {
                 openWindow(id: "browser")
@@ -61,6 +68,26 @@ private struct FindaroCommands: Commands {
                 (session ?? FindaroWindowRegistry.keySession)?.closeActiveTab()
             }
             .keyboardShortcut("w", modifiers: .command)
+            Button("Pestaña anterior") {
+                (session ?? FindaroWindowRegistry.keySession)?.selectPreviousTab()
+            }
+            .keyboardShortcut("[", modifiers: [.command, .shift])
+            Button("Pestaña siguiente") {
+                (session ?? FindaroWindowRegistry.keySession)?.selectNextTab()
+            }
+            .keyboardShortcut("]", modifiers: [.command, .shift])
+            Button("Mover pestaña a la izquierda") {
+                if let s = (session ?? FindaroWindowRegistry.keySession) {
+                    s.moveTabLeft(s.selectedTabID)
+                }
+            }
+            .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+            Button("Mover pestaña a la derecha") {
+                if let s = (session ?? FindaroWindowRegistry.keySession) {
+                    s.moveTabRight(s.selectedTabID)
+                }
+            }
+            .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
             Divider()
             Button("Nuevo archivo") { browser?.promptNewFile() }
                 .keyboardShortcut("n", modifiers: .command)

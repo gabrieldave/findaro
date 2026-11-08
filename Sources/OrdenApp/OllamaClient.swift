@@ -14,13 +14,25 @@ final class OllamaClient: ObservableObject {
     /// true mientras /api/generate está en curso.
     @Published private(set) var isGenerating = false
 
+    /// Callback para persistir en preferencias cuando se auto-selecciona un modelo instalado.
+    var onModelAutoSelected: ((String) -> Void)?
+
     private let baseURL = URL(string: "http://127.0.0.1:11434")!
 
     var isReady: Bool { enabled && available }
 
     func applyPreferences(_ prefs: OrdenPreferences) {
         enabled = prefs.ollamaEnabled
-        selectedModel = prefs.ollamaModel.isEmpty ? "qwen2.5:3b" : prefs.ollamaModel
+        if !models.isEmpty {
+            if models.contains(prefs.ollamaModel) {
+                selectedModel = prefs.ollamaModel
+            } else if let first = models.first {
+                selectedModel = first
+                onModelAutoSelected?(first)
+            }
+        } else if !prefs.ollamaModel.isEmpty {
+            selectedModel = prefs.ollamaModel
+        }
     }
 
     /// Detecta si Ollama responde (sirve aunque esté desactivado en preferencias).
@@ -53,8 +65,9 @@ final class OllamaClient: ObservableObject {
         self.models = models
         available = true
         lastError = nil
-        if let first = models.first, !models.contains(selectedModel) {
+        if !models.contains(selectedModel), let first = models.first {
             selectedModel = first
+            onModelAutoSelected?(first)
         }
     }
 
@@ -107,16 +120,22 @@ final class OllamaClient: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONEncoder().encode(body)
-        // 9B en frío puede tardar; 45s + fallback a reglas (mejor que “no hace nada”).
-        request.timeoutInterval = 45
+        // 9B en frío puede tardar en memoria unificada; 75s + fallback a reglas.
+        request.timeoutInterval = 75
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else {
-                lastError = "Respuesta inválida de Ollama"
+                lastError = "Respuesta inválida del servidor Ollama"
                 return .failed(lastError!)
             }
             guard http.statusCode == 200 else {
-                lastError = "Ollama HTTP \(http.statusCode)"
+                if http.statusCode == 404 {
+                    lastError = "El modelo «\(selectedModel)» no está instalado en Ollama (HTTP 404). Selecciona un modelo disponible."
+                } else if http.statusCode == 501 {
+                    lastError = "Ollama no soporta la operación o formato solicitado con «\(selectedModel)» (HTTP 501)."
+                } else {
+                    lastError = "Ollama devolvió HTTP \(http.statusCode)"
+                }
                 return .failed(lastError!)
             }
             struct Gen: Decodable { let response: String }

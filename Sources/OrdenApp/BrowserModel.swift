@@ -250,6 +250,9 @@ final class BrowserModel: ObservableObject {
             .appendingPathComponent("Desktop")
         self.secondaryPath = FileManager.default.fileExists(atPath: desktop) ? desktop : start
         OllamaClient.shared.applyPreferences(store.preferences)
+        OllamaClient.shared.onModelAutoSelected = { [weak self] model in
+            self?.store.update { $0.ollamaModel = model }
+        }
         folderWatcher.onChange = { [weak self] in
             Task { @MainActor in
                 self?.handleFolderWatcherEvent()

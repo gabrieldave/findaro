@@ -508,8 +508,9 @@ struct SortBar: View {
                 Button {
                     browser.useDownloadsStyleEverywhere()
                 } label: {
-                    Label("En todas partes", systemImage: "globe")
+                    Label("Fijar orden global", systemImage: "arrow.up.and.down.square")
                 }
+                .help("Aplica este criterio de ordenación a todas las carpetas (no altera el alcance de la búsqueda)")
                 .buttonStyle(.borderedProminent)
                 .tint(OrdenTheme.accent)
                 .controlSize(.regular)

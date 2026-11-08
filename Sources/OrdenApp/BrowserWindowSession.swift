@@ -96,12 +96,35 @@ final class BrowserWindowSession: ObservableObject {
         let prev = tabs[(index - 1 + tabs.count) % tabs.count]
         selectedTabID = prev.id
     }
+
+    func moveTab(sourceID: UUID, targetID: UUID) {
+        guard sourceID != targetID,
+              let sourceIndex = tabs.firstIndex(where: { $0.id == sourceID }),
+              let targetIndex = tabs.firstIndex(where: { $0.id == targetID }) else { return }
+        let item = tabs.remove(at: sourceIndex)
+        tabs.insert(item, at: targetIndex)
+    }
+
+    func moveTab(fromOffsets source: IndexSet, toOffset destination: Int) {
+        tabs.move(fromOffsets: source, toOffset: destination)
+    }
+
+    func moveTabLeft(_ id: UUID) {
+        guard let index = tabs.firstIndex(where: { $0.id == id }), index > 0 else { return }
+        tabs.swapAt(index, index - 1)
+    }
+
+    func moveTabRight(_ id: UUID) {
+        guard let index = tabs.firstIndex(where: { $0.id == id }), index < tabs.count - 1 else { return }
+        tabs.swapAt(index, index + 1)
+    }
 }
 
 /// Barra de pestañas tipo Chrome/Safari (siempre visible + botón «+»).
 struct BrowserTabBar: View {
     @ObservedObject var session: BrowserWindowSession
     @Environment(\.openWindow) private var openWindow
+    @State private var draggingTabID: UUID?
 
     var body: some View {
         HStack(spacing: 4) {
@@ -196,5 +219,36 @@ struct BrowserTabBar: View {
         )
         .foregroundStyle(selected ? Color.primary : OrdenTheme.textSecondary)
         .help(tab.browser.activeWorkingPath)
+        .onDrag {
+            draggingTabID = tab.id
+            return NSItemProvider(object: tab.id.uuidString as NSString)
+        }
+        .onDrop(of: [.plainText, .text], isTargeted: nil) { providers in
+            guard let dragging = draggingTabID, dragging != tab.id else { return false }
+            withAnimation(.snappy(duration: 0.2)) {
+                session.moveTab(sourceID: dragging, targetID: tab.id)
+            }
+            draggingTabID = nil
+            return true
+        }
+        .contextMenu {
+            Button("Mover pestaña a la izquierda") {
+                withAnimation { session.moveTabLeft(tab.id) }
+            }
+            .disabled(session.tabs.first?.id == tab.id)
+
+            Button("Mover pestaña a la derecha") {
+                withAnimation { session.moveTabRight(tab.id) }
+            }
+            .disabled(session.tabs.last?.id == tab.id)
+
+            Divider()
+
+            Button("Nueva pestaña", action: { session.addTab() })
+
+            if session.canCloseTab {
+                Button("Cerrar pestaña", action: { session.closeTab(tab.id) })
+            }
+        }
     }
 }

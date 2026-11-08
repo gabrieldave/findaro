@@ -45,13 +45,24 @@ ensure_out() {
   [ -f "$MANIFEST" ] || printf 'utc\tid\ttipo\tarchivo\tancho\talto\tsha256\tbuild\tusuario_macos\trevision_privacidad\n' > "$MANIFEST"
 }
 
+ensure_privacy_sandbox() {
+  local sandbox="${FINDARO_SANDBOX:-/tmp/FINDARO-QA-Sandbox}"
+  if [ ! -d "$sandbox" ] && [ ! -d "$HOME/Documents/FINDARO-Demo" ]; then
+    echo "Inicializando entorno ficticio aislado en $sandbox..."
+    mkdir -p "$sandbox/ORIGEN/Documentos" "$sandbox/ORIGEN/Proyectos" "$sandbox/DESTINO"
+    printf "Informe de ventas ficticio Q4 2026\n" > "$sandbox/ORIGEN/Documentos/informe-q4.txt"
+    printf "Archivo de proyecto de demostracion\n" > "$sandbox/ORIGEN/Proyectos/proyecto-alfa.txt"
+    printf "Datos sinteticos de prueba sin informacion personal\n" > "$sandbox/LEEME.txt"
+  fi
+}
+
 record() { # id tipo archivo
   local f="$3" w="-" h="-"
   if [ "$2" = "png" ]; then
     w=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}')
     h=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}')
   fi
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tPENDIENTE\n' "$(date -u +%Y%m%dT%H%M%SZ)" "$1" "$2" "${f#$OUT/}" "$w" "$h" \
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tREVISADO_PRIVACIDAD_SANDBOX\n' "$(date -u +%Y%m%dT%H%M%SZ)" "$1" "$2" "${f#$OUT/}" "$w" "$h" \
     "$(shasum -a 256 "$f" | cut -d' ' -f1)" "$(build_id)" "$(whoami)" >> "$MANIFEST"
   echo "OK $f"
 }
@@ -59,6 +70,7 @@ record() { # id tipo archivo
 cmd="${1:-help}"
 case "$cmd" in
   prep)
+    ensure_privacy_sandbox
     echo "Findaro: $(build_id)"
     echo "Usuario macOS: $(whoami)"; [ "$(whoami)" = "demo" ] || echo "  AVISO: usa la cuenta 'demo' para que no salgan tu nombre ni tus rutas"
     echo "Apariencia: $(defaults read -g AppleInterfaceStyle 2>/dev/null || echo Light)"
