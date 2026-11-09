@@ -33,7 +33,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public var appLanguage: AppLanguage
 
     public init(
-        schemaVersion: Int = 16,
+        schemaVersion: Int = 17,
         globalRule: SortRule = .downloads,
         folderOverrides: [String: SortRule] = [:],
         favorites: [String] = [],
@@ -197,7 +197,7 @@ public final class PreferencesStore: @unchecked Sendable {
     private static func freshDefaults() -> OrdenPreferences {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return OrdenPreferences(
-            schemaVersion: 14,
+            schemaVersion: 17,
             globalRule: .downloads,
             folderOverrides: [:],
             favorites: [
@@ -211,7 +211,8 @@ public final class PreferencesStore: @unchecked Sendable {
             explorerKeyboardProfile: false,
             showHiddenFiles: false,
             flattenFolderView: false,
-            viewTemplates: ViewTemplate.factoryDefaults()
+            viewTemplates: ViewTemplate.factoryDefaults(),
+            appLanguage: .english
         )
     }
 
@@ -272,6 +273,11 @@ public final class PreferencesStore: @unchecked Sendable {
         if next.schemaVersion < 16 {
             next.globalHotkeyFolderPath = nil
             next.schemaVersion = 16
+        }
+        if next.schemaVersion < 17 {
+            // Default global to English for all installs
+            next.appLanguage = .english
+            next.schemaVersion = 17
         }
         // Tope duro: gente crea muchos; no dejamos crecer sin límite.
         if next.assistantShortcuts.count > AssistantShortcut.maxCount {

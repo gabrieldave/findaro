@@ -26,9 +26,17 @@ final class VoiceCaptureController: ObservableObject, @unchecked Sendable {
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private var finishWorkItem: DispatchWorkItem?
-    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "es-MX"))
-        ?? SFSpeechRecognizer(locale: Locale(identifier: "es-ES"))
-        ?? SFSpeechRecognizer()
+    private var speechRecognizer: SFSpeechRecognizer? {
+        if L10n.activeLanguage == .english {
+            return SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+                ?? SFSpeechRecognizer(locale: Locale(identifier: "en-GB"))
+                ?? SFSpeechRecognizer(locale: Locale(identifier: "en"))
+        } else {
+            return SFSpeechRecognizer(locale: Locale(identifier: "es-MX"))
+                ?? SFSpeechRecognizer(locale: Locale(identifier: "es-ES"))
+                ?? SFSpeechRecognizer(locale: Locale(identifier: "es"))
+        }
+    }
 
     var isListening: Bool {
         if case .listening = phase { return true }
@@ -77,7 +85,7 @@ final class VoiceCaptureController: ObservableObject, @unchecked Sendable {
 
     private func didReceiveSpeechAuthorization(_ status: SFSpeechRecognizerAuthorizationStatus) {
         guard status == .authorized else {
-            phase = .error("Activa Reconocimiento de voz en Ajustes del sistema")
+            phase = .error(L10n.s("Activa Reconocimiento de voz en Ajustes del sistema", "Enable Speech Recognition in System Settings"))
             return
         }
         AVCaptureDevice.requestAccess(for: .audio) { granted in
@@ -89,7 +97,7 @@ final class VoiceCaptureController: ObservableObject, @unchecked Sendable {
 
     private func didReceiveMicrophoneAccess(_ granted: Bool) {
         guard granted else {
-            phase = .error("Activa el micrófono para Findaro en Ajustes del sistema")
+            phase = .error(L10n.s("Activa el micrófono para Findaro en Ajustes del sistema", "Enable microphone for Findaro in System Settings"))
             return
         }
         startEngine()
@@ -126,14 +134,17 @@ final class VoiceCaptureController: ObservableObject, @unchecked Sendable {
     private func startEngine() {
         stopEngine()
         guard let recognizer = speechRecognizer, recognizer.isAvailable else {
-            phase = .error("Reconocimiento de voz no disponible en este Mac")
+            phase = .error(L10n.s("Reconocimiento de voz no disponible en este Mac", "Speech recognition not available on this Mac"))
             return
         }
 
         // Privacidad: solo reconocimiento on-device. Sin soporte local → no iniciar.
         guard recognizer.supportsOnDeviceRecognition else {
             phase = .error(
-                "Este Mac no admite reconocimiento de voz local. No inicio el dictado para proteger tu privacidad."
+                L10n.s(
+                    "Este Mac no admite reconocimiento de voz local. No inicio el dictado para proteger tu privacidad.",
+                    "This Mac does not support on-device speech recognition. Dictation not started to protect privacy."
+                )
             )
             return
         }
@@ -146,7 +157,7 @@ final class VoiceCaptureController: ObservableObject, @unchecked Sendable {
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else {
-            phase = .error("No hay micrófono disponible")
+            phase = .error(L10n.s("No hay micrófono disponible", "No microphone available"))
             return
         }
 

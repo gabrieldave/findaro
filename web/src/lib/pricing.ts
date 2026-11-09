@@ -38,6 +38,8 @@ export type PromoOffer = {
   promoLimit: number;
   regularPrice: number;
   label: string;
+  labelEn: string;
+  labelEs: string;
   tiers: Record<LicenseTier, TierInfo>;
 };
 
@@ -50,6 +52,8 @@ export async function currentOffer(tier: LicenseTier = "personal"): Promise<Prom
   }>("SELECT sold_count, promo_limit, promo_price, regular_price FROM promo_state WHERE id = 1");
   const row = rows[0];
   if (!row) {
+    const defaultEn = "Launch special · $39 lifetime (2 Macs included)";
+    const defaultEs = "Lanzamiento · $39 de por vida (2 Macs incluidas)";
     return {
       amountUsd: TIERS[tier].priceUsd,
       isPromo: true,
@@ -57,7 +61,9 @@ export async function currentOffer(tier: LicenseTier = "personal"): Promise<Prom
       soldCount: 0,
       promoLimit: 1000,
       regularPrice: 59,
-      label: "Lanzamiento · $39 de por vida (2 Macs)",
+      label: defaultEn,
+      labelEn: defaultEn,
+      labelEs: defaultEs,
       tiers: TIERS,
     };
   }
@@ -69,6 +75,12 @@ export async function currentOffer(tier: LicenseTier = "personal"): Promise<Prom
   const remaining = Math.max(0, limit - sold);
 
   const basePrice = tier === "family" ? regular : promo;
+  const labelEn = isPromo
+    ? `Launch special: $${basePrice} USD (${TIERS[tier].seats} Macs) · ${remaining} spots remaining`
+    : `Lifetime License: $${basePrice} USD (${TIERS[tier].seats} Macs)`;
+  const labelEs = isPromo
+    ? `Lanzamiento: $${basePrice} USD (${TIERS[tier].seats} Macs) · quedan ${remaining} cupos`
+    : `Licencia de por vida: $${basePrice} USD (${TIERS[tier].seats} Macs)`;
 
   return {
     amountUsd: basePrice,
@@ -77,9 +89,9 @@ export async function currentOffer(tier: LicenseTier = "personal"): Promise<Prom
     soldCount: sold,
     promoLimit: limit,
     regularPrice: regular,
-    label: isPromo
-      ? `Lanzamiento: $${basePrice} USD (${TIERS[tier].seats} Macs) · quedan ${remaining} cupos`
-      : `Licencia de por vida: $${basePrice} USD (${TIERS[tier].seats} Macs)`,
+    label: labelEn,
+    labelEn,
+    labelEs,
     tiers: TIERS,
   };
 }

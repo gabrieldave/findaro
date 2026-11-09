@@ -140,7 +140,7 @@ struct TrashPermissionUnavailable: View {
                 .font(.system(size: 48))
                 .foregroundStyle(OrdenTheme.danger.opacity(0.9))
 
-            Text("Papelera bloqueada")
+            Text(L10n.s("Papelera bloqueada", "Trash Access Blocked"))
                 .font(.title2.weight(.semibold))
 
             Text(
@@ -148,7 +148,10 @@ struct TrashPermissionUnavailable: View {
                     || errorText.localizedCaseInsensitiveContains("permission")
                     || errorText.localizedCaseInsensitiveContains("no tienes")
                     || errorText.localizedCaseInsensitiveContains("couldn't be opened")
-                    ? "macOS no deja a Findaro ver la Papelera sin Acceso completo al disco. Actívalo, reinicia Findaro y vuelve a tocar Basurero."
+                    ? L10n.s(
+                        "macOS no deja a Findaro ver la Papelera sin Acceso completo al disco. Actívalo, reinicia Findaro y vuelve a tocar Basurero.",
+                        "macOS requires Full Disk Access for Findaro to view Trash contents. Enable it in System Settings, restart Findaro, and reopen Trash."
+                    )
                     : errorText
             )
             .font(.body)
@@ -160,7 +163,7 @@ struct TrashPermissionUnavailable: View {
                 Button {
                     browser.openFullDiskAccessSettings()
                 } label: {
-                    Label("Abrir Acceso completo al disco", systemImage: "lock.open")
+                    Label(L10n.s("Abrir Acceso completo al disco", "Open Full Disk Access"), systemImage: "lock.open")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(OrdenTheme.accent)
@@ -168,14 +171,14 @@ struct TrashPermissionUnavailable: View {
                 Button {
                     browser.emptyTrash(confirm: true)
                 } label: {
-                    Label("Vaciar Papelera", systemImage: "trash.slash")
+                    Label(L10n.s("Vaciar Papelera", "Empty Trash"), systemImage: "trash.slash")
                 }
                 .buttonStyle(.bordered)
 
                 Button {
                     browser.reloadFromUser()
                 } label: {
-                    Label("Reintentar", systemImage: "arrow.clockwise")
+                    Label(L10n.s("Reintentar", "Retry"), systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
             }

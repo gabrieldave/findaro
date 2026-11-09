@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import OrdenCore
 
 /// Compact commercial mark: approved AppIcon asset + wordmark.
 /// Creative direction v1.1 forbids inventing logo art in code — use Resources/AppIcon.icns.
@@ -26,7 +27,7 @@ struct FindaroMark: View {
                         .tracking(wordmarkSize * 0.08)
                         .foregroundStyle(.primary)
                     if !compact {
-                        Text("Archivos")
+                        Text(L10n.s("Archivos", "Files"))
                             .font(.system(size: max(9, wordmarkSize * 0.58), weight: .medium))
                             .foregroundStyle(OrdenTheme.textMuted)
                     }

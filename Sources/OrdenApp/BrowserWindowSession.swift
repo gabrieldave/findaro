@@ -147,8 +147,8 @@ struct BrowserTabBar: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
-            .help("Nueva pestaña (⌘T)")
-            .accessibilityLabel("Nueva pestaña")
+            .help(L10n.s("Nueva pestaña (⌘T)", "New Tab (⌘T)"))
+            .accessibilityLabel(L10n.s("Nueva pestaña", "New Tab"))
 
             Button {
                 openWindow(id: "browser")
@@ -159,8 +159,8 @@ struct BrowserTabBar: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
-            .help("Nueva ventana (⌘⌥N)")
-            .accessibilityLabel("Nueva ventana")
+            .help(L10n.s("Nueva ventana (⌘⌥N)", "New Window (⌘⌥N)"))
+            .accessibilityLabel(L10n.s("Nueva ventana", "New Window"))
             .padding(.trailing, 8)
         }
         .frame(minHeight: 36)
@@ -202,7 +202,7 @@ struct BrowserTabBar: View {
             .buttonStyle(.plain)
             .opacity(session.canCloseTab || selected ? 0.9 : 0.35)
             .disabled(!session.canCloseTab)
-            .help(session.canCloseTab ? "Cerrar pestaña" : "Única pestaña · usa Cerrar ventana")
+            .help(session.canCloseTab ? L10n.s("Cerrar pestaña", "Close Tab") : L10n.s("Única pestaña · usa Cerrar ventana", "Single tab · use Close Window"))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)

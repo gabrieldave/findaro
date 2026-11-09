@@ -662,7 +662,12 @@ public enum FolderMerge {
         }
 
         if truncated {
-            warnings.append("Se alcanzó el límite de \(maxItems) elementos; la vista previa está incompleta.")
+            warnings.append(
+                L10n.s(
+                    "Se alcanzó el límite de \(maxItems) elementos; la vista previa está incompleta.",
+                    "Limit of \(maxItems) items reached; preview is incomplete."
+                )
+            )
         }
 
         let warningList = warnings.snapshot()

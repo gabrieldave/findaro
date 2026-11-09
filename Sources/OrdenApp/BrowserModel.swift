@@ -290,9 +290,6 @@ final class BrowserModel: ObservableObject {
     }
 
     private func handlePreferencesDidChange(_ note: Notification) {
-        if let sender = note.object as? PreferencesStore, sender === self.store {
-            return
-        }
         self.store.reloadFromDisk()
         let prefs = self.store.preferences
         L10n.activeLanguage = prefs.appLanguage
@@ -536,8 +533,14 @@ final class BrowserModel: ObservableObject {
             fileDragArmProgress = 1
             fileDragArmedPaths = secondarySelectedEntries.map(\.path)
             statusMessage = fileDragArmedPaths.count <= 1
-                ? "Destino listo para mover — ⌘+clic / arrastra a Origen · Esc cancela"
-                : "Destino · \(fileDragArmedPaths.count) listos — arrastra a Origen · Esc"
+                ? L10n.s(
+                    "Destino listo para mover — ⌘+clic / arrastra a Origen · Esc cancela",
+                    "Destination ready to move — ⌘+click / drag to Origin · Esc cancels"
+                )
+                : L10n.s(
+                    "Destino · \(fileDragArmedPaths.count) listos — arrastra a Origen · Esc",
+                    "Destination · \(fileDragArmedPaths.count) ready — drag to Origin · Esc"
+                )
             NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
             objectWillChange.send()
             return
@@ -557,8 +560,14 @@ final class BrowserModel: ObservableObject {
         fileDragArmedPaths = selectedEntries.map(\.path)
 
         statusMessage = fileDragArmedPaths.count <= 1
-            ? "Listo para mover — ⌘+clic siguiente = mismo rango que ⇧ · Esc cancela"
-            : "\(fileDragArmedPaths.count) listos — ⌘+clic = igual que ⇧ · arrastra · Esc"
+            ? L10n.s(
+                "Listo para mover — ⌘+clic siguiente = mismo rango que ⇧ · Esc cancela",
+                "Ready to move — ⌘+click next extends range · Esc cancels"
+            )
+            : L10n.s(
+                "\(fileDragArmedPaths.count) listos — ⌘+clic = igual que ⇧ · arrastra · Esc",
+                "\(fileDragArmedPaths.count) ready — ⌘+click extends range · drag · Esc"
+            )
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
         objectWillChange.send()
     }
@@ -1991,14 +2000,20 @@ final class BrowserModel: ObservableObject {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         guard !agentBusy else {
-            appendAgentReply("Todavía estoy con el pedido anterior. Espera un momento…", alsoStatus: true)
+            appendAgentReply(
+                L10n.s(
+                    "Todavía estoy con el pedido anterior. Espera un momento…",
+                    "Still working on the previous request. Please wait a moment…"
+                ),
+                alsoStatus: true
+            )
             return
         }
         showAssistantPanel = true
         agentBusy = true
         agentProgressLabel = OllamaClient.shared.isReady
-            ? "Consultando Ollama («\(OllamaClient.shared.selectedModel)»)"
-            : "Interpretando con reglas"
+            ? L10n.s("Consultando Ollama («\(OllamaClient.shared.selectedModel)»)", "Querying Ollama («\(OllamaClient.shared.selectedModel)»)")
+            : L10n.s("Interpretando con reglas", "Interpreting with rules")
         statusMessage = agentProgressLabel + "…"
         defer {
             agentBusy = false
@@ -2447,8 +2462,8 @@ final class BrowserModel: ObservableObject {
             refreshSelectionStatus()
         }
         statusMessage = groups.isEmpty
-            ? "Sin duplicados obvios aquí"
-            : "\(groups.count) grupos posibles (nombre+tamaño)"
+            ? L10n.s("Sin duplicados obvios aquí", "No obvious duplicates here")
+            : L10n.s("\(groups.count) grupos posibles (nombre+tamaño)", "\(groups.count) possible duplicate groups (name+size)")
         return groups.count
     }
 
@@ -3687,8 +3702,14 @@ final class BrowserModel: ObservableObject {
                 } catch {
                     let name = names[path] ?? URL(fileURLWithPath: path).lastPathComponent
                     failure = createdPaths.isEmpty
-                        ? "No se pudo duplicar \(name): \(error.localizedDescription)"
-                        : "Duplicación parcial (\(createdPaths.count) elemento(s)); ⌘Z deshace lo creado. \(error.localizedDescription)"
+                        ? L10n.s(
+                            "No se pudo duplicar \(name): \(error.localizedDescription)",
+                            "Could not duplicate \(name): \(error.localizedDescription)"
+                        )
+                        : L10n.s(
+                            "Duplicación parcial (\(createdPaths.count) elemento(s)); ⌘Z deshace lo creado. \(error.localizedDescription)",
+                            "Partial duplication (\(createdPaths.count) item(s)); ⌘Z undos created items. \(error.localizedDescription)"
+                        )
                     break
                 }
             }

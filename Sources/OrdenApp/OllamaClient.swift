@@ -235,7 +235,8 @@ final class OllamaClient: ObservableObject {
                     }
                 }
                 if !steps.isEmpty {
-                    let safeSummary = String((summary?.isEmpty == false ? summary! : "Plan de Ollama").prefix(240))
+                    let defaultSummary = L10n.s("Plan de Ollama", "Ollama Plan")
+                    let safeSummary = String((summary?.isEmpty == false ? summary! : defaultSummary).prefix(240))
                     return .plan(AgentPlan(prompt: prompt, summary: safeSummary, steps: steps))
                 }
                 if let summary, !summary.isEmpty {

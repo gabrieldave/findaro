@@ -27,7 +27,7 @@ struct ContentView: View {
                 .frame(maxHeight: .infinity, alignment: .top)
                 .layoutPriority(1)
                 .background(OrdenTheme.sidebarFill)
-                .accessibilityLabel("Menú lateral")
+                .accessibilityLabel(L10n.s("Menú lateral", "Sidebar"))
                 // Al terminar un resize (layoutGeneration++) reaparece si SwiftUI lo había “congelado”
                 .id("sidebar-\(layoutGeneration)-\(Int(sidebarWidth))")
 
@@ -82,7 +82,7 @@ struct ContentView: View {
         .searchable(
             text: $browser.searchText,
             placement: .toolbar,
-            prompt: "Buscar en Findaro…"
+            prompt: L10n.s("Buscar en Findaro…", "Search in Findaro…")
         )
         .onSubmit(of: .search) {
             browser.startDeepSearch()

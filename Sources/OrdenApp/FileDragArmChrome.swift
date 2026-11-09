@@ -81,7 +81,9 @@ enum FileDragArmChrome {
                             .padding(.trailing, 40)
                             .transition(.move(edge: .trailing).combined(with: .opacity))
                     } else if isArming {
-                        Text(armingCount > 1 ? "Mantén… (\(armingCount))" : "Mantén…")
+                        Text(armingCount > 1
+                            ? L10n.s("Mantén… (\(armingCount))", "Hold… (\(armingCount))")
+                            : L10n.s("Mantén…", "Hold…"))
                             .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -107,20 +109,20 @@ enum FileDragArmChrome {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(
                             browser.fileDragArmedPaths.count == 1
-                                ? "Listo para mover"
-                                : "\(browser.fileDragArmedPaths.count) listos para mover"
+                                ? L10n.s("Listo para mover", "Ready to move")
+                                : L10n.s("\(browser.fileDragArmedPaths.count) listos para mover", "\(browser.fileDragArmedPaths.count) ready to move")
                         )
                         .font(.subheadline.weight(.bold))
                         Text(
                             browser.fileDragArmedPaths.count == 1
-                                ? "⌘+clic en el siguiente amplía el rango (igual que ⇧) · Esc cancela"
-                                : "⌘+clic = mismo rango que ⇧ · arrástralos · Esc cancela"
+                                ? L10n.s("⌘+clic en el siguiente amplía el rango (igual que ⇧) · Esc cancela", "⌘+click next extends range (same as ⇧) · Esc to cancel")
+                                : L10n.s("⌘+clic = mismo rango que ⇧ · arrástralos · Esc cancela", "⌘+click = same range as ⇧ · drag them · Esc to cancel")
                         )
                             .font(.caption)
                             .opacity(0.9)
                     }
                     Spacer(minLength: 0)
-                    Button("Cancelar") {
+                    Button(L10n.s("Cancelar", "Cancel")) {
                         browser.cancelSelection()
                     }
                     .buttonStyle(.bordered)
