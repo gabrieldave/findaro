@@ -143,6 +143,22 @@ final class BrowserModel: ObservableObject {
     @Published var deepSearchDraft = ""
     private var deepSearchTask: Task<Void, Never>?
 
+    // MARK: Licencia y Paywall
+    @Published var showLicenseSheet = false
+
+    @discardableResult
+    public func ensureLicenseAllowsWrite() -> Bool {
+        if LicenseStore.shared.state.isUsable {
+            return true
+        }
+        statusMessage = L10n.s(
+            "Función bloqueada: el período de prueba ha finalizado. Adquiere una licencia Pro.",
+            "Feature blocked: the trial period has expired. Please purchase a Pro license."
+        )
+        showLicenseSheet = true
+        return false
+    }
+
     // MARK: Smart merge
     @Published var pendingMergePreview: FolderMerge.Preview?
     @Published var pendingMergeMove = false
@@ -1338,6 +1354,7 @@ final class BrowserModel: ObservableObject {
         clearPrimary: Bool,
         clearSecondary: Bool
     ) -> Bool {
+        guard ensureLicenseAllowsWrite() else { return false }
         guard dualPaneEnabled, !paths.isEmpty else { return false }
         guard pendingMergePreview == nil else {
             statusMessage = L10n.s("Primero termina o cancela la fusión pendiente", "Complete or cancel the pending merge first")
@@ -1768,6 +1785,7 @@ final class BrowserModel: ObservableObject {
     }
 
     func confirmPendingMerge(overwriteConflicts: Bool = false) {
+        guard ensureLicenseAllowsWrite() else { return }
         guard let preview = pendingMergePreview else { return }
         let asMove = pendingMergeMove
         let sourcePath = preview.sourcePath
@@ -1873,6 +1891,7 @@ final class BrowserModel: ObservableObject {
     /// Devuelve true si abrió el preview (y no hay que transferir esos paths).
     @discardableResult
     private func offerMergeIfNeeded(paths: [String], toDirectory dest: String, move: Bool) -> [String] {
+        guard ensureLicenseAllowsWrite() else { return [] }
         // Nunca sustituir una vista previa que el usuario ya está revisando.
         guard pendingMergePreview == nil else { return paths }
         var remaining: [String] = []
@@ -2324,6 +2343,7 @@ final class BrowserModel: ObservableObject {
     }
 
     private func executeCreateDirectory(_ step: AgentToolCall) {
+        guard ensureLicenseAllowsWrite() else { return }
         let name = (step.arguments["name"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let parent = step.arguments["parent"] ?? currentPath
         guard !name.isEmpty else {
@@ -2353,6 +2373,7 @@ final class BrowserModel: ObservableObject {
     }
 
     private func executeTransfer(_ step: AgentToolCall, move: Bool) {
+        guard ensureLicenseAllowsWrite() else { return }
         let paths = step.pathsArgument
         let dest = (step.arguments["destination"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !paths.isEmpty else {
@@ -3337,6 +3358,7 @@ final class BrowserModel: ObservableObject {
     }
 
     func moveSelectionToTrash() {
+        guard ensureLicenseAllowsWrite() else { return }
         // Dentro de la Papelera: borrar para siempre (como Finder).
         if activeIsTrash {
             permanentlyDeleteSelection(confirm: true)
@@ -3389,6 +3411,7 @@ final class BrowserModel: ObservableObject {
 
     /// Saca los archivos seleccionados de la Papelera y los restaura a una carpeta de destino.
     func restoreSelectionFromTrash(targetDirectory: String? = nil) {
+        guard ensureLicenseAllowsWrite() else { return }
         let targets = activeSelectedEntries
         guard !targets.isEmpty else {
             statusMessage = L10n.s("Selecciona archivos para sacar de la Papelera", "Select files to restore from Trash")
@@ -3461,6 +3484,7 @@ final class BrowserModel: ObservableObject {
 
     /// Borra de verdad lo seleccionado (solo tiene sentido en la Papelera).
     func permanentlyDeleteSelection(confirm: Bool) {
+        guard ensureLicenseAllowsWrite() else { return }
         let targets = activeSelectedEntries
         guard !targets.isEmpty else {
             statusMessage = L10n.s("Selecciona algo en la Papelera", "Select items in Trash")
@@ -3588,11 +3612,13 @@ final class BrowserModel: ObservableObject {
     // MARK: - Crear / renombrar / duplicar / portapapeles
 
     func promptNewFolder() {
+        guard ensureLicenseAllowsWrite() else { return }
         nameDraft = L10n.s("Carpeta sin título", "Untitled Folder")
         showNewFolderDialog = true
     }
 
     func createFolderFromDraft() {
+        guard ensureLicenseAllowsWrite() else { return }
         let name = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
         let folder = activeWorkingPath
@@ -3614,11 +3640,13 @@ final class BrowserModel: ObservableObject {
     }
 
     func promptNewFile() {
+        guard ensureLicenseAllowsWrite() else { return }
         nameDraft = L10n.s("Sin título.txt", "Untitled.txt")
         showNewFileDialog = true
     }
 
     func createFileFromDraft() {
+        guard ensureLicenseAllowsWrite() else { return }
         var name = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
         // Si no pone extensión, .txt por defecto (cositas de texto).
@@ -3644,6 +3672,7 @@ final class BrowserModel: ObservableObject {
     }
 
     func promptRename() {
+        guard ensureLicenseAllowsWrite() else { return }
         guard let entry = activeSelectedEntries.first else {
             statusMessage = L10n.s("Selecciona un ítem para renombrar", "Select an item to rename")
             return
@@ -3654,6 +3683,7 @@ final class BrowserModel: ObservableObject {
     }
 
     func commitRenameFromDraft() {
+        guard ensureLicenseAllowsWrite() else { return }
         guard let path = renameTargetPath else { return }
         let newName = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !newName.isEmpty else { return }
@@ -3678,6 +3708,7 @@ final class BrowserModel: ObservableObject {
     }
 
     func duplicateSelection() {
+        guard ensureLicenseAllowsWrite() else { return }
         let targets = activeSelectedEntries
         guard !targets.isEmpty else {
             statusMessage = L10n.s("Selecciona algo para duplicar", "Select items to duplicate")
@@ -3913,6 +3944,7 @@ final class BrowserModel: ObservableObject {
     // MARK: - Bandeja (Dropover casero)
 
     func addSelectionToShelf(intent: FileOps.ShelfIntent = .move) {
+        guard ensureLicenseAllowsWrite() else { return }
         let entries = activeSelectedEntries
         guard !entries.isEmpty else {
             statusMessage = L10n.s("Selecciona algo para la bandeja", "Select items for the tray")
@@ -3938,6 +3970,7 @@ final class BrowserModel: ObservableObject {
     }
 
     func addPathsToShelf(_ paths: [String], intent: FileOps.ShelfIntent = .move) {
+        guard ensureLicenseAllowsWrite() else { return }
         for path in paths {
             let name = URL(fileURLWithPath: path).lastPathComponent
             upsertShelfItem(FileOps.ShelfItem(path: path, name: name, intent: intent))
@@ -3978,6 +4011,7 @@ final class BrowserModel: ObservableObject {
 
     /// Respeta la intención de cada ítem (⌘C copia / ⌘X mueve).
     func depositShelfHere() {
+        guard ensureLicenseAllowsWrite() else { return }
         guard !shelf.isEmpty else {
             statusMessage = L10n.s("La bandeja está vacía", "The tray is empty")
             return

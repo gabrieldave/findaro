@@ -78,6 +78,10 @@ struct ContentView: View {
         .onAppear {
             OrdenWindowFit.applyToOpenWindows()
             metrics = .resolve(windowSize: CGSize(width: windowWidth, height: windowHeight))
+            LicenseStore.shared.evaluateLocalState()
+            if !LicenseStore.shared.state.isUsable {
+                browser.showLicenseSheet = true
+            }
         }
         .searchable(
             text: $browser.searchText,
@@ -1981,6 +1985,9 @@ private struct BrowserDialogsModifier: ViewModifier {
             .sheet(item: $browser.pendingMergePreview) { preview in
                 MergePreviewSheet(preview: preview)
                     .environmentObject(browser)
+            }
+            .sheet(isPresented: $browser.showLicenseSheet) {
+                FindaroLicenseSheet()
             }
     }
 }

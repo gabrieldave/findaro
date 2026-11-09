@@ -14,6 +14,12 @@ struct OrdenApp: App {
         let langCode = storedLang.isEnglish ? "en" : "es"
         UserDefaults.standard.set([langCode], forKey: "AppleLanguages")
         UserDefaults.standard.set(storedLang.rawValue, forKey: "findaro_app_language")
+
+        // T-03: Iniciar comprobación periódica (cada 24h) y comprobación al inicio
+        LicenseStore.shared.startPeriodicCheck()
+        Task {
+            await LicenseStore.shared.checkServerStatus()
+        }
     }
 
     var body: some Scene {
