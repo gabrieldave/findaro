@@ -32,7 +32,7 @@ export default async function Home(props: {
         suppressHydrationWarning
       />
     );
-  } catch (err) {
+  } catch {
     return null;
   }
 }

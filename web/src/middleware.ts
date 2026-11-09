@@ -26,49 +26,53 @@ export function middleware(request: NextRequest) {
     return res;
   }
 
-  // 2. Only handle root path '/'
-  if (pathname === '/') {
-    const queryLang = searchParams.get('lang');
-    const cookieLang = request.cookies.get('findaro_lang')?.value;
+  // 2. Language Detection
+  const queryLang = searchParams.get('lang');
+  const cookieLang = request.cookies.get('findaro_lang')?.value;
 
-    let targetLang: 'en' | 'es';
+  let targetLang: 'en' | 'es';
 
-    if (queryLang === 'en' || queryLang === 'es') {
-      targetLang = queryLang;
-    } else if (cookieLang === 'en' || cookieLang === 'es') {
-      targetLang = cookieLang;
+  if (queryLang === 'en' || queryLang === 'es') {
+    targetLang = queryLang;
+  } else if (cookieLang === 'en' || cookieLang === 'es') {
+    targetLang = cookieLang;
+  } else {
+    // Edge / Cloudflare IP country detection
+    const cfCountry = (
+      request.headers.get('cf-ipcountry') ||
+      request.headers.get('x-vercel-ip-country') ||
+      request.headers.get('x-country') ||
+      request.headers.get('geoip-country-code') ||
+      ''
+    ).toUpperCase().trim();
+
+    const acceptLang = (request.headers.get('accept-language') || '').toLowerCase();
+
+    if (cfCountry && cfCountry !== 'XX' && cfCountry !== 'T1') {
+      targetLang = SPANISH_COUNTRIES.has(cfCountry) ? 'es' : 'en';
+    } else if (acceptLang.startsWith('es') || acceptLang.includes(',es') || acceptLang.includes(';es')) {
+      targetLang = 'es';
     } else {
-      // Edge / Cloudflare IP country detection
-      const cfCountry = (
-        request.headers.get('cf-ipcountry') ||
-        request.headers.get('x-vercel-ip-country') ||
-        request.headers.get('x-country') ||
-        request.headers.get('geoip-country-code') ||
-        ''
-      ).toUpperCase().trim();
-
-      const acceptLang = (request.headers.get('accept-language') || '').toLowerCase();
-
-      if (cfCountry && cfCountry !== 'XX' && cfCountry !== 'T1') {
-        targetLang = SPANISH_COUNTRIES.has(cfCountry) ? 'es' : 'en';
-      } else if (acceptLang.startsWith('es') || acceptLang.includes(',es') || acceptLang.includes(';es')) {
-        targetLang = 'es';
-      } else {
-        targetLang = 'en'; // Global default: English
-      }
+      targetLang = 'en'; // Global default: English
     }
+  }
 
+  // 3. Root path '/' -> internal rewrite to clean HTML without changing browser URL
+  if (pathname === '/') {
     const targetFile = targetLang === 'es' ? '/findaro-landing.html' : '/findaro-landing-en.html';
-
-    // Rewrite internally so browser URL bar STAYS clean as https://findaro.iareal.net
     const res = NextResponse.rewrite(new URL(targetFile, request.url));
     res.cookies.set('findaro_lang', targetLang, { maxAge: 60 * 60 * 24 * 365, path: '/' });
     return res;
   }
 
-  return NextResponse.next();
+  // 4. Other pages (/comprar, /probar, /gracias): pass through and set language cookie
+  const res = NextResponse.next();
+  if (!cookieLang || queryLang) {
+    res.cookies.set('findaro_lang', targetLang, { maxAge: 60 * 60 * 24 * 365, path: '/' });
+  }
+  return res;
 }
 
 export const config = {
-  matcher: ['/', '/findaro-landing.html', '/findaro-landing-en.html'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|downloads|screenshots|findaro-comparador).*)'],
 };

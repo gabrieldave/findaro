@@ -11,6 +11,8 @@ struct OrdenApp: App {
     init() {
         let storedLang = PreferencesStore.shared.preferences.appLanguage
         L10n.activeLanguage = storedLang
+        let langCode = storedLang.isEnglish ? "en" : "es"
+        UserDefaults.standard.set([langCode], forKey: "AppleLanguages")
         UserDefaults.standard.set(storedLang.rawValue, forKey: "findaro_app_language")
     }
 
@@ -48,6 +50,8 @@ private struct FindaroCommands: Commands {
     private func setGlobalLanguage(_ lang: AppLanguage) {
         PreferencesStore.shared.update { $0.appLanguage = lang }
         L10n.activeLanguage = lang
+        let langCode = lang.isEnglish ? "en" : "es"
+        UserDefaults.standard.set([langCode], forKey: "AppleLanguages")
         UserDefaults.standard.set(lang.rawValue, forKey: "findaro_app_language")
         browser?.setAppLanguage(lang)
         AppMenuLocalizer.applyLocalization()

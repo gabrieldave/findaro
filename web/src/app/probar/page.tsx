@@ -1,9 +1,23 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import styles from "../marketing.module.css";
 
-export default function ProbarPage() {
+function ProbarInner() {
+  const searchParams = useSearchParams();
+  const paramLang = searchParams.get("lang");
+
+  const [lang, setLang] = useState<"es" | "en">(() => {
+    if (paramLang === "en" || paramLang === "es") return paramLang;
+    if (typeof document !== "undefined") {
+      const match = document.cookie.match(/findaro_lang=(en|es)/);
+      if (match) return match[1] as "es" | "en";
+    }
+    return "en"; // Global default: English
+  });
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -14,6 +28,34 @@ export default function ProbarPage() {
     message: string;
     trialDays?: number;
   } | null>(null);
+
+  const isEn = lang === "en";
+
+  const handleToggleLang = () => {
+    const nextLang = isEn ? "es" : "en";
+    setLang(nextLang);
+    if (typeof document !== "undefined") {
+      document.cookie = `findaro_lang=${nextLang}; path=/; max-age=31536000`;
+    }
+  };
+
+  const t = {
+    title: isEn ? "Try 5 Days Free" : "Prueba 5 días gratis",
+    sub: isEn
+      ? "1 Mac · no credit card required. After trial, upgrade to lifetime license (from $39 USD first 1,000)."
+      : "1 Mac · sin tarjeta. Al terminar, compra Pro de por vida (desde $39 USD primeros 1000).",
+    nameLabel: isEn ? "Full Name" : "Nombre",
+    emailLabel: isEn ? "Email" : "Correo",
+    busyBtn: isEn ? "Preparing trial…" : "Preparando…",
+    submitBtn: isEn ? "Download Free Trial" : "Descargar prueba gratis",
+    keyLabel: isEn ? "Your license key (1 Mac):" : "Tu clave (1 Mac):",
+    downloadBtn: isEn ? "Download Findaro.dmg" : "Descargar Findaro.dmg",
+    note: (days: number) =>
+      isEn
+        ? `In Findaro: Settings → License → paste your key. Your trial lasts ${days} days.`
+        : `En Findaro: Ajustes → Licencia → pega la clave. La prueba dura ${days} días.`,
+    upgradeBtn: isEn ? "Buy Lifetime License Now" : "Comprar Pro ahora",
+  };
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -26,7 +68,7 @@ export default function ProbarPage() {
         body: JSON.stringify({ name, email }),
       });
       const json = await res.json();
-      if (!json.ok) throw new Error(json.error || "No se pudo crear la prueba");
+      if (!json.ok) throw new Error(json.error || (isEn ? "Could not create trial" : "No se pudo crear la prueba"));
       setResult({
         licenseKey: json.data.licenseKey,
         downloadUrl: json.data.downloadUrl,
@@ -43,16 +85,33 @@ export default function ProbarPage() {
   return (
     <main className={styles.page}>
       <div className={styles.card}>
-        <p className={styles.brand}>FINDARO</p>
-        <h1>Prueba 5 días gratis</h1>
-        <p className={styles.sub}>
-          1 Mac · sin tarjeta. Al terminar, compra Pro de por vida (desde $39 USD primeros 1000).
-        </p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <p className={styles.brand} style={{ margin: 0 }}>FINDARO</p>
+          <button
+            type="button"
+            onClick={handleToggleLang}
+            style={{
+              background: "rgba(56, 189, 248, 0.12)",
+              border: "1px solid rgba(56, 189, 248, 0.3)",
+              color: "#38bdf8",
+              borderRadius: "6px",
+              padding: "4px 10px",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            🌐 {isEn ? "Español" : "English"}
+          </button>
+        </div>
+
+        <h1 style={{ marginTop: "12px" }}>{t.title}</h1>
+        <p className={styles.sub}>{t.sub}</p>
 
         {!result ? (
           <form className={styles.form} onSubmit={onSubmit}>
             <label>
-              Nombre
+              {t.nameLabel}
               <input
                 required
                 minLength={2}
@@ -62,7 +121,7 @@ export default function ProbarPage() {
               />
             </label>
             <label>
-              Correo
+              {t.emailLabel}
               <input
                 required
                 type="email"
@@ -73,30 +132,37 @@ export default function ProbarPage() {
             </label>
             {error && <p className={styles.error}>{error}</p>}
             <button className={styles.cta} type="submit" disabled={busy}>
-              {busy ? "Preparando…" : "Descargar prueba gratis"}
+              {busy ? t.busyBtn : t.submitBtn}
             </button>
           </form>
         ) : (
           <div className={styles.priceBox}>
             <p>{result.message}</p>
             <p>
-              <strong>Tu clave (1 Mac):</strong>
+              <strong>{t.keyLabel}</strong>
               <br />
               <code>{result.licenseKey}</code>
             </p>
             <a className={styles.cta} href={result.downloadUrl}>
-              Descargar Findaro.dmg
+              {t.downloadBtn}
             </a>
             <p className={styles.note}>
-              En Findaro: Ajustes → Licencia → pega la clave. La prueba dura{" "}
-              {result.trialDays ?? 5} días.
+              {t.note(result.trialDays ?? 5)}
             </p>
-            <a className={styles.secondary} href="/comprar">
-              Comprar Pro ahora
-            </a>
+            <Link className={styles.secondary} href={`/comprar?lang=${lang}`}>
+              {t.upgradeBtn}
+            </Link>
           </div>
         )}
       </div>
     </main>
+  );
+}
+
+export default function ProbarPage() {
+  return (
+    <Suspense fallback={<main className={styles.page}><p>Loading…</p></main>}>
+      <ProbarInner />
+    </Suspense>
   );
 }

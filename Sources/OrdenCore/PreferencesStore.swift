@@ -108,7 +108,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
             ?? ViewTemplate.factoryDefaults()
         keyboardHotkeyOverrides = try c.decodeIfPresent([String: KeyChord].self, forKey: .keyboardHotkeyOverrides) ?? [:]
         globalHotkeyFolderPath = try c.decodeIfPresent(String.self, forKey: .globalHotkeyFolderPath)
-        appLanguage = try c.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? .english
+        let decodedLang = try c.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? .english
+        appLanguage = (decodedLang == .auto) ? .english : decodedLang
     }
 }
 

@@ -19,9 +19,17 @@ type Offer = {
 function ComprarInner() {
   const searchParams = useSearchParams();
   const urlRef = searchParams.get("ref") || "";
-  const initialLang = searchParams.get("lang") === "en" ? "en" : "es";
+  const paramLang = searchParams.get("lang");
 
-  const [lang, setLang] = useState<"es" | "en">(initialLang);
+  const [lang, setLang] = useState<"es" | "en">(() => {
+    if (paramLang === "en" || paramLang === "es") return paramLang;
+    if (typeof document !== "undefined") {
+      const match = document.cookie.match(/findaro_lang=(en|es)/);
+      if (match) return match[1] as "es" | "en";
+    }
+    return "en"; // Global default: English
+  });
+
   const [selectedTier, setSelectedTier] = useState<TierKey>("personal");
   const [referralCode, setReferralCode] = useState(urlRef);
   const [refValid, setRefValid] = useState(false);
@@ -33,6 +41,20 @@ function ComprarInner() {
   const [error, setError] = useState<string | null>(null);
 
   const isEn = lang === "en";
+
+  const handleToggleLang = () => {
+    const nextLang = isEn ? "es" : "en";
+    setLang(nextLang);
+    if (typeof document !== "undefined") {
+      document.cookie = `findaro_lang=${nextLang}; path=/; max-age=31536000`;
+    }
+  };
+
+  const basePrice = selectedTier === "family" ? 59 : 39;
+  const hasDiscount = refValid;
+  const discountAmount = selectedTier === "family" ? 6 : 4;
+  const finalPrice = hasDiscount ? (selectedTier === "family" ? 53 : 35) : basePrice;
+
   const t = {
     title: isEn ? "Lifetime License" : "Licencia de por vida",
     sub: isEn
@@ -53,7 +75,7 @@ function ComprarInner() {
     nameLabel: isEn ? "Full Name" : "Nombre",
     namePlaceholder: isEn ? "Your name" : "Tu nombre",
     emailLabel: isEn ? "Email" : "Correo",
-    emailPlaceholder: "tu@email.com",
+    emailPlaceholder: isEn ? "you@email.com" : "tu@email.com",
     refLabel: isEn ? "Referral / Promo code (optional)" : "Código de referido (opcional)",
     refPlaceholder: isEn ? "e.g. DAVE-8F12" : "Ej. DAVE-8F12",
     payButton: (price: number, tier: string) =>
@@ -71,6 +93,18 @@ function ComprarInner() {
     privacy: isEn ? "Privacy" : "Privacidad",
     refund: isEn ? "Refund Policy" : "Política de Reembolso",
     contact: isEn ? "Contact" : "Contacto",
+    offerLabel: (seats: number, remaining: number, isPromo: boolean) => {
+      const price = isPromo ? (seats === 5 ? 59 : (hasDiscount ? 35 : 39)) : (seats === 5 ? 59 : 39);
+      if (isEn) {
+        return isPromo
+          ? `Launch special: $${price} USD (${seats} Macs) · ${remaining} spots remaining`
+          : `Lifetime License: $${price} USD (${seats} Macs)`;
+      } else {
+        return isPromo
+          ? `Lanzamiento: $${price} USD (${seats} Macs) · quedan ${remaining} cupos`
+          : `Licencia de por vida: $${price} USD (${seats} Macs)`;
+      }
+    },
   };
 
   useEffect(() => {
@@ -111,11 +145,6 @@ function ComprarInner() {
       .catch(() => setOffer(null));
   }, []);
 
-  const basePrice = selectedTier === "family" ? 59 : 39;
-  const hasDiscount = refValid;
-  const discountAmount = selectedTier === "family" ? 6 : 4;
-  const finalPrice = hasDiscount ? (selectedTier === "family" ? 53 : 35) : basePrice;
-
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -133,7 +162,7 @@ function ComprarInner() {
       });
       const json = await res.json();
       if (!json.ok || !json.data?.url) {
-        throw new Error(json.error || "No se pudo iniciar el pago");
+        throw new Error(json.error || (isEn ? "Could not initiate checkout with Stripe" : "No se pudo iniciar el pago"));
       }
       window.location.href = json.data.url;
     } catch (err) {
@@ -149,7 +178,7 @@ function ComprarInner() {
           <p className={styles.brand} style={{ margin: 0 }}>FINDARO</p>
           <button
             type="button"
-            onClick={() => setLang(isEn ? "es" : "en")}
+            onClick={handleToggleLang}
             style={{
               background: "rgba(56, 189, 248, 0.12)",
               border: "1px solid rgba(56, 189, 248, 0.3)",
@@ -172,7 +201,7 @@ function ComprarInner() {
 
         {offer && (
           <div style={{ fontSize: "13px", color: "#38bdf8", margin: "14px 0 6px", fontWeight: 500 }}>
-            ⚡ {offer.label}
+            ⚡️ {t.offerLabel(selectedTier === "family" ? 5 : 2, offer.remaining, offer.isPromo)}
           </div>
         )}
 
@@ -313,7 +342,7 @@ function ComprarInner() {
 
 export default function ComprarPage() {
   return (
-    <Suspense fallback={<main className={styles.page}><p>Cargando…</p></main>}>
+    <Suspense fallback={<main className={styles.page}><p>Loading…</p></main>}>
       <ComprarInner />
     </Suspense>
   );

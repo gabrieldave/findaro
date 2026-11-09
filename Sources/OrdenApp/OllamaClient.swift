@@ -47,7 +47,7 @@ final class OllamaClient: ObservableObject {
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                markUnavailable(message: "Ollama no respondió en 127.0.0.1:11434")
+                markUnavailable(message: L10n.s("Ollama no respondió en 127.0.0.1:11434", "Ollama did not respond at 127.0.0.1:11434"))
                 return
             }
             struct TagsResp: Decodable {
@@ -58,7 +58,7 @@ final class OllamaClient: ObservableObject {
             let names = decoded.models.map(\.name)
             markAvailable(models: names)
         } catch {
-            markUnavailable(message: "Ollama apagado o no instalado")
+            markUnavailable(message: L10n.s("Ollama apagado o no instalado", "Ollama is off or not installed"))
         }
     }
 
@@ -153,14 +153,20 @@ final class OllamaClient: ObservableObject {
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else {
-                lastError = "Respuesta inválida del servidor Ollama"
+                lastError = L10n.s("Respuesta inválida del servidor Ollama", "Invalid response from Ollama server")
                 return .failed(lastError!)
             }
             guard http.statusCode == 200 else {
                 if http.statusCode == 404 {
-                    lastError = "El modelo «\(selectedModel)» no está instalado en Ollama (HTTP 404). Selecciona un modelo disponible."
+                    lastError = L10n.s(
+                        "El modelo «\(selectedModel)» no está instalado en Ollama (HTTP 404). Selecciona un modelo disponible.",
+                        "Model «\(selectedModel)» is not installed in Ollama (HTTP 404). Choose an installed model."
+                    )
                 } else {
-                    lastError = "Ollama devolvió HTTP \(http.statusCode)"
+                    lastError = L10n.s(
+                        "Ollama devolvió HTTP \(http.statusCode)",
+                        "Ollama returned HTTP \(http.statusCode)"
+                    )
                 }
                 return .failed(lastError!)
             }
@@ -244,7 +250,7 @@ final class OllamaClient: ObservableObject {
             return .message(clean)
         }
 
-        return .failed("El modelo no devolvió un plan ni respuesta usable")
+        return .failed(L10n.s("El modelo no devolvió un plan ni respuesta usable", "Model did not return a valid plan or usable response"))
     }
 
     private func stringifyArg(_ value: Any) -> String {

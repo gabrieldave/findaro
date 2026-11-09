@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import styles from "../marketing.module.css";
 
@@ -17,14 +16,57 @@ type ConfirmData = {
 function GraciasInner() {
   const params = useSearchParams();
   const sessionId = params.get("session_id") || "";
+  const paramLang = params.get("lang");
+
+  const [lang, setLang] = useState<"es" | "en">(() => {
+    if (paramLang === "en" || paramLang === "es") return paramLang;
+    if (typeof document !== "undefined") {
+      const match = document.cookie.match(/findaro_lang=(en|es)/);
+      if (match) return match[1] as "es" | "en";
+    }
+    return "en"; // Global default: English
+  });
+
+  const isEn = lang === "en";
+
   const [data, setData] = useState<ConfirmData | null>(null);
-  const [msg, setMsg] = useState("Confirmando tu pago en Stripe…");
+  const [msg, setMsg] = useState(isEn ? "Confirming payment with Stripe…" : "Confirmando tu pago en Stripe…");
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedRef, setCopiedRef] = useState(false);
 
+  const t = {
+    title: isEn ? "Thank you for your purchase!" : "¡Gracias por tu compra!",
+    missingSession: isEn
+      ? "Missing session_id. If you already completed payment, check your email."
+      : "Falta session_id. Si ya pagaste, revisa tu correo electrónico.",
+    readyMsg: (name: string) =>
+      isEn
+        ? `You're all set, ${name || "friend"}! Your license and download are active.`
+        : `¡Todo listo, ${name || "amigo"}! Tu licencia y descarga están activas.`,
+    verifying: isEn ? "Verifying…" : "Verificando…",
+    keyTitle: (seats: number) =>
+      isEn
+        ? `Your Lifetime License Key (${seats} Macs included)`
+        : `Tu Clave de Licencia (${seats} Macs incluidas)`,
+    copied: isEn ? "Copied!" : "¡Copiado!",
+    copyKey: isEn ? "Copy License Key" : "Copiar clave",
+    keyHelp: isEn
+      ? "In Findaro: Settings → License → paste this key."
+      : "En Findaro: Ajustes → Licencia → pega esta clave.",
+    downloadBtn: isEn ? "Download Findaro.dmg" : "Descargar Findaro.dmg",
+    gatekeeperNote: isEn
+      ? "FINDARO is signed with Developer ID and notarized by Apple. Open the DMG, drag to Applications, and launch directly with double-click."
+      : "FINDARO está firmado con Developer ID y notarizado por Apple. Abre el DMG, arrastra a Aplicaciones y se abre al instante con doble clic.",
+    refBoxTitle: isEn ? "Earn $10 USD for every friend you refer" : "Gana $10 USD por cada amigo que recomiendes",
+    refBoxDesc: isEn
+      ? "Your referral code applies a discount to your friends, and automatically credits $10 USD directly to you for every purchase."
+      : "Tu código aplica descuento a tus amigos y te abona $10 USD directo por cada compra.",
+    copyLink: isEn ? "Copy Link" : "Copiar enlace",
+  };
+
   useEffect(() => {
     if (!sessionId) {
-      setMsg("Falta session_id. Si ya pagaste, revisa tu correo electrónico.");
+      setMsg(t.missingSession);
       return;
     }
     let tries = 0;
@@ -39,176 +81,151 @@ function GraciasInner() {
         const json = await res.json();
         if (json.ok && json.data?.downloadUrl) {
           setData(json.data);
-          setMsg(`¡Todo listo, ${json.data.name || "amigo"}! Tu licencia y descarga están activas.`);
+          setMsg(t.readyMsg(json.data.name));
           return;
         }
       } catch {}
-
       if (tries < 15) {
-        setMsg("Esperando confirmación final de Stripe…");
-        setTimeout(tick, 2500);
+        setTimeout(tick, 1500);
       } else {
-        setMsg("El pago fue recibido. Si la confirmación tarda más de un minuto, refresca esta página o contáctanos.");
+        setMsg(
+          isEn
+            ? "Your payment was registered. We are delivering your license key by email."
+            : "Tu pago se registró. Te estamos enviando la clave y enlace por correo."
+        );
       }
     };
-    void tick();
-  }, [sessionId]);
+    tick();
+  }, [sessionId, isEn]);
 
-  const copyKey = () => {
-    if (!data?.licenseKey) return;
-    navigator.clipboard.writeText(data.licenseKey);
-    setCopiedKey(true);
-    setTimeout(() => setCopiedKey(false), 2000);
-  };
-
-  const copyRef = () => {
-    if (!data?.referralLink) return;
-    navigator.clipboard.writeText(data.referralLink);
-    setCopiedRef(true);
-    setTimeout(() => setCopiedRef(false), 2000);
-  };
+  async function copyToClipboard(text: string, which: "key" | "ref") {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (which === "key") {
+        setCopiedKey(true);
+        setTimeout(() => setCopiedKey(false), 2000);
+      } else {
+        setCopiedRef(true);
+        setTimeout(() => setCopiedRef(false), 2000);
+      }
+    } catch {}
+  }
 
   return (
     <main className={styles.page}>
-      <div className={styles.card} style={{ maxWidth: 540 }}>
+      <div className={styles.card} style={{ maxWidth: 560 }}>
         <p className={styles.brand}>FINDARO</p>
-        <h1>¡Pago confirmado!</h1>
+        <h1>{t.title}</h1>
         <p className={styles.sub}>{msg}</p>
 
-        {data && (
-          <div style={{ marginTop: 24, textAlign: "left" }}>
-            {/* Clave de Licencia */}
-            <div
-              style={{
-                background: "rgba(15, 23, 42, 0.8)",
-                border: "1px solid #334155",
-                borderRadius: 10,
-                padding: 16,
-                marginBottom: 16,
-              }}
-            >
-              <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 6 }}>
-                Tu clave de licencia ({data.seats} {data.seats === 1 ? "Mac" : "Macs"}):
+        {data ? (
+          <div className={styles.priceBox}>
+            <div style={{ textAlign: "left", marginBottom: 16 }}>
+              <div style={{ fontSize: 13, color: "#94a3b8", fontWeight: 600 }}>
+                {t.keyTitle(data.seats)}
               </div>
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  background: "#020617",
+                  background: "#0b1220",
                   padding: "10px 14px",
-                  borderRadius: 6,
-                  fontFamily: "monospace",
-                  fontSize: 16,
-                  color: "#38bdf8",
-                  fontWeight: "bold",
+                  borderRadius: 8,
+                  marginTop: 6,
+                  border: "1px solid #334155",
                 }}
               >
-                <span>{data.licenseKey}</span>
+                <code style={{ fontSize: 15, fontWeight: "bold", color: "#38bdf8", wordBreak: "break-all" }}>
+                  {data.licenseKey}
+                </code>
                 <button
                   type="button"
-                  onClick={copyKey}
+                  onClick={() => copyToClipboard(data.licenseKey, "key")}
                   style={{
-                    background: copiedKey ? "#22c55e" : "#1e293b",
+                    marginLeft: 10,
+                    background: copiedKey ? "#22c55e" : "#2563eb",
                     color: "#fff",
                     border: "none",
                     padding: "6px 12px",
-                    borderRadius: 4,
+                    borderRadius: 6,
                     cursor: "pointer",
                     fontSize: 12,
+                    fontWeight: 600,
                   }}
                 >
-                  {copiedKey ? "¡Copiada!" : "Copiar"}
+                  {copiedKey ? t.copied : t.copyKey}
                 </button>
               </div>
-              <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>
-                Abre Findaro → Preferencias (⌘,) → Licencia y pega tu clave para activar.
-              </p>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+                {t.keyHelp}
+              </div>
             </div>
 
-            {/* Botón de Descarga */}
-            <a
-              className={styles.cta}
-              href={data.downloadUrl}
-              style={{ display: "block", textAlign: "center", marginBottom: 20 }}
-            >
-              ⬇️ Descargar Findaro para macOS
+            <a className={styles.cta} href={data.downloadUrl} style={{ display: "block", textAlign: "center" }}>
+              {t.downloadBtn}
             </a>
 
-            {/* Caja de Referidos y Cashback */}
+            <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 12 }}>
+              {t.gatekeeperNote}
+            </p>
+
             {data.referralLink && (
               <div
                 style={{
-                  background: "rgba(34, 197, 94, 0.08)",
-                  border: "1px solid rgba(34, 197, 94, 0.25)",
-                  borderRadius: 10,
+                  marginTop: 20,
                   padding: 16,
+                  background: "rgba(56, 189, 248, 0.08)",
+                  border: "1px solid rgba(56, 189, 248, 0.2)",
+                  borderRadius: 10,
+                  textAlign: "left",
                 }}
               >
-                <div style={{ fontSize: 14, fontWeight: "bold", color: "#4ade80", marginBottom: 6 }}>
-                  💰 Recupera tu dinero: $10 USD de cashback por amigo
+                <div style={{ fontSize: 14, fontWeight: "bold", color: "#38bdf8" }}>
+                  💰 {t.refBoxTitle}
                 </div>
-                <p style={{ fontSize: 13, color: "#cbd5e1", lineHeight: 1.5, marginBottom: 12 }}>
-                  Comparte tu enlace. Tus amigos reciben <strong>10% de descuento ($35 USD)</strong> y nosotros te
-                  reembolsamos <strong>$10 USD directo a tu tarjeta</strong> por cada uno. Con 3 amigos, tu Findaro
-                  te sale <strong>100% gratis</strong>.
-                </p>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    background: "#020617",
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                  }}
-                >
+                <div style={{ fontSize: 12, color: "#cbd5e1", marginTop: 4 }}>
+                  {t.refBoxDesc}
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   <input
                     readOnly
                     value={data.referralLink}
                     style={{
-                      background: "transparent",
-                      border: "none",
+                      flex: 1,
+                      background: "#0b1220",
+                      border: "1px solid #334155",
+                      borderRadius: 6,
                       color: "#94a3b8",
+                      padding: "6px 10px",
                       fontSize: 12,
-                      width: "100%",
-                      outline: "none",
                     }}
                   />
                   <button
                     type="button"
-                    onClick={copyRef}
+                    onClick={() => copyToClipboard(data.referralLink!, "ref")}
                     style={{
-                      background: copiedRef ? "#22c55e" : "#0284c7",
-                      color: "#fff",
+                      background: copiedRef ? "#22c55e" : "#38bdf8",
+                      color: "#0f172a",
                       border: "none",
                       padding: "6px 12px",
-                      borderRadius: 4,
+                      borderRadius: 6,
                       cursor: "pointer",
                       fontSize: 12,
-                      whiteSpace: "nowrap",
+                      fontWeight: 700,
                     }}
                   >
-                    {copiedRef ? "¡Copiado!" : "Copiar enlace"}
+                    {copiedRef ? t.copied : t.copyLink}
                   </button>
                 </div>
               </div>
             )}
           </div>
-        )}
-
-        <footer style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid #1e293b", textAlign: "center", fontSize: 12, color: "#64748b" }}>
-          <div>Findaro para macOS · Garantía de satisfacción de 14 días</div>
-          <div style={{ marginTop: 6, display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
-            <Link href="/terminos" style={{ color: "#94a3b8", textDecoration: "underline" }}>Términos de Servicio</Link>
-            <span>·</span>
-            <Link href="/privacidad" style={{ color: "#94a3b8", textDecoration: "underline" }}>Privacidad</Link>
-            <span>·</span>
-            <Link href="/reembolso" style={{ color: "#94a3b8", textDecoration: "underline" }}>Política de Reembolso</Link>
-            <span>·</span>
-            <a href="mailto:david.del.rio.colin@gmail.com" style={{ color: "#94a3b8", textDecoration: "underline" }}>Contacto</a>
+        ) : (
+          <div style={{ padding: "40px 0", textAlign: "center", color: "#94a3b8" }}>
+            {t.verifying}
           </div>
-        </footer>
+        )}
       </div>
     </main>
   );
@@ -216,7 +233,7 @@ function GraciasInner() {
 
 export default function GraciasPage() {
   return (
-    <Suspense fallback={<main className={styles.page}><p>Cargando…</p></main>}>
+    <Suspense fallback={<main className={styles.page}><p>Loading…</p></main>}>
       <GraciasInner />
     </Suspense>
   );

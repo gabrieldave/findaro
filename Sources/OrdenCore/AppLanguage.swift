@@ -24,11 +24,8 @@ public enum AppLanguage: String, Codable, Sendable, CaseIterable {
         case .spanish:
             return false
         case .auto:
-            let preferred = Locale.preferredLanguages.first?.lowercased() ?? "en"
-            if preferred.hasPrefix("es") {
-                return false
-            }
             return true
+
         }
     }
 }

@@ -309,7 +309,7 @@ struct AssistantPanel: View {
                     .padding(.top, 4)
             }
             VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
-                Text(isUser ? "Tú" : (ollama.isReady ? ollama.selectedModel : "Asistente"))
+                Text(isUser ? L10n.s("Tú", "You") : (ollama.isReady ? ollama.selectedModel : L10n.s("Asistente", "Assistant")))
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Text(msg.text)
