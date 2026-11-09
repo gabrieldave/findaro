@@ -97,6 +97,8 @@ final class BrowserModel: ObservableObject {
     @Published var selectionAnchorID: String?
     /// Tras ⌘+clic del monitor AppKit, ignorar el clic SwiftUI que llega sin modificadores y te deja 1 solo.
     private var ignorePlainSelectUntil: Date?
+    /// Último ⌘+clic aplicado: evita que UN clic físico alterne dos veces (seleccionar y quitar al instante).
+    private var lastCommandToggle: (id: String, mouseDownAt: TimeInterval, appliedAt: TimeInterval)?
     /// Cursor de teclado: fila activa al navegar con flechas (con o sin ⇧).
     @Published var selectionFocusID: String?
     /// Pedido de scroll hasta un ítem (p. ej. al clic en resultado de búsqueda).
@@ -521,6 +523,16 @@ final class BrowserModel: ObservableObject {
     /// ⌘+clic nativo de macOS: añade o quita el elemento individual sin alterar los demás.
     func commandToggleSelect(to id: String, pane: PaneFocus? = nil) {
         isAssistantFocused = false
+        // Un mismo clic puede llegar dos veces (gesto SwiftUI duplicado, software de mouse como
+        // Logi Options+, o rebote del botón). Si es el mismo mouseDown, o el mismo ítem en <0,25 s,
+        // se ignora el segundo: antes se veía "selecciona y se quita luego luego".
+        let now = ProcessInfo.processInfo.systemUptime
+        let mouseDownAt = FileDragArmMonitor.shared.clickMemory.capturedAt
+        if let last = lastCommandToggle, last.id == id,
+           (mouseDownAt.isFinite && last.mouseDownAt == mouseDownAt) || now - last.appliedAt < 0.25 {
+            return
+        }
+        lastCommandToggle = (id, mouseDownAt, now)
         noteCommandClickHandled()
         let target = pane ?? (dualPaneEnabled ? focusedPane : .primary)
         if dualPaneEnabled, target == .secondary {
@@ -967,6 +979,8 @@ final class BrowserModel: ObservableObject {
         }
         let mods = FileDragArmMonitor.shared.effectiveClickModifiers()
         if mods.command || mods.shift { return }
+        // Un toque de "fondo" que llega justo después de un ⌘+clic en una fila es el mismo clic: no cancelar.
+        if let until = ignorePlainSelectUntil, Date() < until { return }
         if dualPaneEnabled, focusedPane == .secondary {
             clearSecondarySelection()
             selectionCancelToken &+= 1

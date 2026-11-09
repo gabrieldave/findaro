@@ -57,7 +57,11 @@ final class FileDragArmMonitor {
             shift: flags.contains(.shift),
             option: flags.contains(.option)
         )
-        return clickMemory.resolve(now: ProcessInfo.processInfo.systemUptime, current: current)
+        return clickMemory.resolve(
+            now: ProcessInfo.processInfo.systemUptime,
+            current: current,
+            window: ClickModifierMemory.window(doubleClickInterval: NSEvent.doubleClickInterval)
+        )
     }
 
     /// Solo REGISTRA las teclas del clic; nunca se come el evento.

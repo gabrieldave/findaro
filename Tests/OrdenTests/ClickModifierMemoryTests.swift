@@ -33,4 +33,18 @@ final class ClickModifierMemoryTests: XCTestCase {
         let memory = ClickModifierMemory()
         XCTAssertTrue(memory.resolve(now: 1, current: .init(command: true)).command)
     }
+
+    /// Mouse con "velocidad de doble clic" lenta (p. ej. 3 s): el clic simple llega tarde
+    /// pero debe conservar ⌘ capturado en el mouseDown.
+    func testSlowMouseDoubleClickSettingKeepsModifier() {
+        var memory = ClickModifierMemory()
+        memory.recordMouseDown(.init(command: true), at: 200)
+        let window = ClickModifierMemory.window(doubleClickInterval: 3.0)
+        XCTAssertTrue(memory.resolve(now: 203.2, current: .none, window: window).command)
+        XCTAssertFalse(memory.resolve(now: 203.2, current: .none).command, "Con la ventana fija de 1,5 s fallaba")
+    }
+
+    func testWindowNeverShorterThanMinimum() {
+        XCTAssertEqual(ClickModifierMemory.window(doubleClickInterval: 0.2), ClickModifierMemory.maxAge)
+    }
 }
