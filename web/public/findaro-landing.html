@@ -6,13 +6,19 @@
     var p = new URLSearchParams(window.location.search);
     var explicit = p.get("lang");
     var saved = localStorage.getItem("findaro_lang");
-    if (explicit === "es" || saved === "es") return;
+    if (explicit === "es") {
+      try {
+        localStorage.setItem("findaro_lang", "es");
+        document.cookie = "findaro_lang=es;path=/;max-age=31536000";
+      } catch(e) {}
+      return;
+    }
     if (explicit === "en" || saved === "en") {
       window.location.replace("/findaro-landing-en.html" + window.location.search);
       return;
     }
     var nav = (navigator.languages && navigator.languages[0]) || navigator.language || "";
-    if (!nav.toLowerCase().startsWith("es")) {
+    if (!nav.toLowerCase().startsWith("es") && !saved) {
       window.location.replace("/findaro-landing-en.html" + window.location.search);
     }
   })();

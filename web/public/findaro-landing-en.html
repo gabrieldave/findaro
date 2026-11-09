@@ -3,14 +3,10 @@
 <head>
   <script>
   (function() {
-    var p = new URLSearchParams(window.location.search);
-    var explicit = p.get('lang');
-    var saved = localStorage.getItem('findaro_lang');
-    var lang = explicit || saved;
-    if (lang === 'es') {
-      window.location.replace('/findaro-landing.html' + window.location.search);
-      return;
-    }
+    try {
+      localStorage.setItem("findaro_lang", "en");
+      document.cookie = "findaro_lang=en;path=/;max-age=31536000";
+    } catch(e) {}
   })();
   </script>
 <meta charset="utf-8">
