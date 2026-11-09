@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
+import { detectLanguageFromHeaders } from "@/lib/geo";
 
 export default async function Home(props: {
   searchParams: Promise<{ ref?: string; lang?: string }>;
@@ -9,14 +10,16 @@ export default async function Home(props: {
   const explicitLang = searchParams?.lang;
 
   const headerList = await headers();
-  const acceptLang = headerList.get("accept-language") || "";
-  const isEnglish = explicitLang === "en" || (!explicitLang && acceptLang.toLowerCase().startsWith("en"));
+  const cookieStore = await cookies();
+  const cookieLang = cookieStore.get("findaro_lang")?.value;
+
+  const lang = detectLanguageFromHeaders(headerList, cookieLang, explicitLang);
 
   if (ref) {
-    redirect(`/comprar?ref=${encodeURIComponent(ref)}${isEnglish ? "&lang=en" : ""}`);
+    redirect(`/comprar?ref=${encodeURIComponent(ref)}&lang=${lang}`);
   }
 
-  if (isEnglish) {
+  if (lang === "en") {
     redirect("/findaro-landing-en.html");
   }
 
