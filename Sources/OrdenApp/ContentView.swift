@@ -1659,7 +1659,7 @@ struct FileRowButton: View {
                 ensureSelectedAlone()
                 browser.quickLookSelection()
             }
-            Button(L10n.s("Mostrar en Finder", "Show in Finder")) { browser.revealInFinder(entry) }
+            Button(DefaultFileViewerManager.isEnabled ? L10n.s("Abrir carpeta en Finder", "Open folder in Finder") : L10n.s("Mostrar en Finder", "Show in Finder")) { browser.revealInFinder(entry) }
             Button(L10n.s("Copiar", "Copy")) {
                 ensureInSelection()
                 browser.copySelectionToPasteboard()
@@ -2137,6 +2137,25 @@ struct SettingsView: View {
                     Button(OpenFolderBridge.isDefaultFolderHandler() ? L10n.s("Ver cómo", "See how") : L10n.s("Preparar…", "Setup…")) {
                         browser.runFolderHandlerSetup()
                     }
+                }
+
+                settingsRow(
+                    icon: "macwindow.and.cursorarrow",
+                    tint: .teal,
+                    title: L10n.s("Usar Findaro en lugar de Finder para “Mostrar en Finder”", "Use Findaro instead of Finder for “Show in Finder”"),
+                    subtitle: L10n.s("Cuando otra app pida mostrar un archivo, se abrirá en Findaro. El escritorio, la Papelera, el Dock y las ventanas de Guardar/Abrir siguen siendo de macOS. Puedes desactivarlo cuando quieras.", "When another app asks to show a file, it will open in Findaro. Desktop, Trash, Dock and Save/Open windows remain macOS. You can disable it anytime.")
+                ) {
+                    Toggle("", isOn: Binding(
+                        get: { DefaultFileViewerManager.isEnabled },
+                        set: { newValue in
+                            if newValue {
+                                _ = DefaultFileViewerManager.enable()
+                            } else {
+                                _ = DefaultFileViewerManager.disable()
+                            }
+                        }
+                    ))
+                    .toggleStyle(.switch)
                 }
             } header: {
                 Text(L10n.s("Inicio rápido", "Quick Start"))

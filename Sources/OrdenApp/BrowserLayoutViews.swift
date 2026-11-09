@@ -905,7 +905,7 @@ private struct EntryContextMenuButtons: View {
             }
             browser.addSelectionToShelf()
         }
-        Button(L10n.s("Mostrar en Finder", "Show in Finder")) { browser.revealInFinder(entry) }
+        Button(DefaultFileViewerManager.isEnabled ? L10n.s("Abrir carpeta en Finder", "Open folder in Finder") : L10n.s("Mostrar en Finder", "Show in Finder")) { browser.revealInFinder(entry) }
         Divider()
         if browser.isViewingTrash {
             Button(L10n.s("Sacar de la Papelera", "Restore from Trash")) {

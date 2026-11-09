@@ -82,6 +82,15 @@ private struct FindaroCommands: Commands {
                 Button("Español") { setGlobalLanguage(.spanish) }
                 Button("English") { setGlobalLanguage(.english) }
             }
+
+            if DefaultFileViewerManager.isEnabled {
+                Button(L10n.s("Restaurar Finder como explorador", "Restore Finder as File Viewer")) {
+                    _ = DefaultFileViewerManager.disable()
+                }
+            }
+            Button(L10n.s("Desinstalar Findaro…", "Uninstall Findaro…")) {
+                DefaultFileViewerManager.uninstallApp()
+            }
         }
 
         CommandGroup(replacing: .help) {

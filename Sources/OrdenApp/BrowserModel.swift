@@ -3328,7 +3328,14 @@ final class BrowserModel: ObservableObject {
     }
 
     func revealInFinder(_ entry: FileEntry) {
-        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: entry.path)])
+        if DefaultFileViewerManager.isEnabled {
+            let fileURL = URL(fileURLWithPath: entry.path)
+            let folderURL = fileURL.hasDirectoryPath ? fileURL : fileURL.deletingLastPathComponent()
+            let finderURL = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")
+            NSWorkspace.shared.open([folderURL], withApplicationAt: finderURL, configuration: NSWorkspace.OpenConfiguration())
+        } else {
+            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: entry.path)])
+        }
     }
 
     func copyPath(_ entry: FileEntry) {

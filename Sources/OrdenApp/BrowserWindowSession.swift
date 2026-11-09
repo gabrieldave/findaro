@@ -118,6 +118,54 @@ final class BrowserWindowSession: ObservableObject {
         guard let index = tabs.firstIndex(where: { $0.id == id }), index < tabs.count - 1 else { return }
         tabs.swapAt(index, index + 1)
     }
+
+    /// Abre la carpeta contenedora y selecciona los archivos especificados (T-08).
+    func revealPaths(_ paths: [String]) {
+        guard !paths.isEmpty else { return }
+
+        var byParent: [String: [String]] = [:]
+        for path in paths {
+            let parent: String
+            var isDir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue {
+                parent = (path as NSString).deletingLastPathComponent
+            } else {
+                parent = (path as NSString).deletingLastPathComponent
+            }
+            byParent[parent, default: []].append(path)
+        }
+
+        var isFirst = true
+        for (parent, items) in byParent {
+            guard FileManager.default.fileExists(atPath: parent) else {
+                activeBrowser.statusMessage = L10n.s("Ruta no disponible: \(parent)", "Path unavailable: \(parent)")
+                continue
+            }
+
+            let browser: BrowserModel
+            if isFirst {
+                browser = activeBrowser
+                browser.navigate(to: parent, recordHistory: true)
+                isFirst = false
+            } else {
+                let newTab = TabItem()
+                tabs.append(newTab)
+                bindBrowserUpdates(for: newTab)
+                selectedTabID = newTab.id
+                browser = newTab.browser
+                browser.navigate(to: parent, recordHistory: false)
+            }
+
+            if let target = items.first {
+                browser.selectOnly(target)
+                browser.revealEntryID = target
+                browser.revealToken += 1
+            }
+            for extra in items.dropFirst() {
+                browser.selectedIDs.insert(extra)
+            }
+        }
+    }
 }
 
 /// Barra de pestañas tipo Chrome/Safari (siempre visible + botón «+»).

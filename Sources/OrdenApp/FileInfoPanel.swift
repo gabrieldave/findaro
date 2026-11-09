@@ -54,9 +54,18 @@ enum FileInfoPanel {
         icon.size = NSSize(width: 64, height: 64)
         alert.icon = icon
         alert.addButton(withTitle: L10n.s("Listo", "Done"))
-        alert.addButton(withTitle: L10n.s("Mostrar en Finder", "Show in Finder"))
+        let finderTitle = DefaultFileViewerManager.isEnabled
+            ? L10n.s("Abrir carpeta en Finder", "Open folder in Finder")
+            : L10n.s("Mostrar en Finder", "Show in Finder")
+        alert.addButton(withTitle: finderTitle)
         if alert.runModal() == .alertSecondButtonReturn {
-            NSWorkspace.shared.activateFileViewerSelecting([url])
+            if DefaultFileViewerManager.isEnabled {
+                let folderURL = url.hasDirectoryPath ? url : url.deletingLastPathComponent()
+                let finderURL = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")
+                NSWorkspace.shared.open([folderURL], withApplicationAt: finderURL, configuration: NSWorkspace.OpenConfiguration())
+            } else {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
         }
     }
 }

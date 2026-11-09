@@ -1,7 +1,12 @@
 import AppKit
+import OrdenCore
 
 /// Sin esto, un binario SPM corre “en background” y no ves ventana ni Dock.
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        DefaultFileViewerManager.shared.install()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)

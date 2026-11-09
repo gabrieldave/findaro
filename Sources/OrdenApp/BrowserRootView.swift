@@ -34,6 +34,11 @@ struct BrowserRootView: View {
                 OpenFolderBridge.pendingFolderPath = nil
                 session.activeBrowser.navigate(to: pending, recordHistory: false)
             }
+            if !DefaultFileViewerManager.pendingRevealPaths.isEmpty {
+                let pendingPaths = DefaultFileViewerManager.pendingRevealPaths
+                DefaultFileViewerManager.pendingRevealPaths = []
+                session.revealPaths(pendingPaths)
+            }
         }
         .onDisappear {
             FindaroWindowRegistry.unregister(for: hostWindow)
@@ -41,6 +46,11 @@ struct BrowserRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .ordenaOpenFolder)) { note in
             if let path = note.object as? String {
                 session.activeBrowser.navigate(to: path, recordHistory: true)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .findaroRevealPaths)) { note in
+            if let paths = note.object as? [String] {
+                session.revealPaths(paths)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .findaroOpenNewBrowserWindow)) { _ in
