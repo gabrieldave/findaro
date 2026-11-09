@@ -1,13 +1,54 @@
-import { createHmac, randomBytes } from "crypto";
+import { createPrivateKey, createPublicKey, randomBytes, sign, verify } from "crypto";
 import { query } from "./db";
 import { LicenseTier, TIERS } from "./pricing";
 
 const TRIAL_DAYS = 5;
 
-function signingSecret(): string {
-  const s = process.env.LICENSE_SIGNING_SECRET || process.env.ADMIN_SESSION_SECRET;
-  if (!s || s.length < 16) throw new Error("LICENSE_SIGNING_SECRET no configurado");
-  return s;
+// Clave pública canónica Ed25519 embebida en la app Findaro (32 bytes raw hex)
+export const FINDARO_ED25519_PUBLIC_KEY_HEX =
+  "6dd877795679418e21f4e19c116e5c02c68c7d58808cd3b330bc0c5b2e3c3bac";
+
+// Clave privada canónica Ed25519 (DER PKCS#8) para desarrollo y respaldo si no se define LICENSE_SIGNING_PRIVATE_KEY
+const DEFAULT_PRIVATE_KEY_PEM = `-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEIMHjWGCrFSk7cCF7Q2lXf2Ux840IBDI/0fdg/aCzzibo
+-----END PRIVATE KEY-----`;
+
+function getSigningPrivateKey() {
+  const raw = process.env.LICENSE_SIGNING_PRIVATE_KEY;
+  if (!raw) {
+    return createPrivateKey(DEFAULT_PRIVATE_KEY_PEM);
+  }
+  if (raw.includes("BEGIN PRIVATE KEY")) {
+    return createPrivateKey(raw);
+  }
+  let buf: Buffer;
+  if (raw.length === 64 && /^[0-9a-fA-F]+$/.test(raw)) {
+    buf = Buffer.from(raw, "hex");
+  } else {
+    buf = Buffer.from(raw, "base64url");
+  }
+  const prefix = Buffer.from("302e020100300506032b657004220420", "hex");
+  return createPrivateKey({ key: Buffer.concat([prefix, buf]), format: "der", type: "pkcs8" });
+}
+
+function getSigningPublicKey() {
+  const raw = process.env.LICENSE_SIGNING_PUBLIC_KEY;
+  if (!raw) {
+    const pubBuf = Buffer.from(FINDARO_ED25519_PUBLIC_KEY_HEX, "hex");
+    const prefix = Buffer.from("302a300506032b6570032100", "hex");
+    return createPublicKey({ key: Buffer.concat([prefix, pubBuf]), format: "der", type: "spki" });
+  }
+  if (raw.includes("BEGIN PUBLIC KEY")) {
+    return createPublicKey(raw);
+  }
+  let buf: Buffer;
+  if (raw.length === 64 && /^[0-9a-fA-F]+$/.test(raw)) {
+    buf = Buffer.from(raw, "hex");
+  } else {
+    buf = Buffer.from(raw, "base64url");
+  }
+  const prefix = Buffer.from("302a300506032b6570032100", "hex");
+  return createPublicKey({ key: Buffer.concat([prefix, buf]), format: "der", type: "spki" });
 }
 
 /** Clave legible: FINDARO-XXXX-XXXX-XXXX-XXXX */
@@ -27,19 +68,24 @@ export function mintReferralCode(seed?: string): string {
   return `${prefix}-${suffix}`;
 }
 
+/** Firma asimétrica Ed25519 de licencias para Findaro */
 export function signLicensePayload(payload: Record<string, unknown>): string {
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const sig = createHmac("sha256", signingSecret()).update(body).digest("base64url");
-  return `F1.${body}.${sig}`;
+  const privateKey = getSigningPrivateKey();
+  const sig = sign(null, Buffer.from(body), privateKey);
+  return `F1.${body}.${sig.toString("base64url")}`;
 }
 
+/** Verificación asimétrica Ed25519 del token de licencia */
 export function verifySignedLicense(token: string): Record<string, unknown> | null {
   const parts = token.split(".");
   if (parts.length !== 3 || parts[0] !== "F1") return null;
-  const [, body, sig] = parts;
-  const expect = createHmac("sha256", signingSecret()).update(body).digest("base64url");
-  if (expect !== sig) return null;
+  const [, body, sigB64] = parts;
   try {
+    const publicKey = getSigningPublicKey();
+    const sig = Buffer.from(sigB64, "base64url");
+    const valid = verify(null, Buffer.from(body), publicKey, sig);
+    if (!valid) return null;
     return JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
   } catch {
     return null;
