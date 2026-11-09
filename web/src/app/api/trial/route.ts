@@ -51,12 +51,13 @@ export const POST = handle(async (req) => {
     [customerId],
   );
   if (pro.rows[0]) {
-    const token = await issueDownloadToken(null, 30, pro.rows[0].id);
+    // Nunca devolver la clave Pro aquí: este endpoint no tiene autenticación y bastaría
+    // con conocer el correo de un cliente para robar su licencia. La clave va solo por correo.
     return ok({
       plan: "pro",
-      licenseKey: pro.rows[0].license_key,
-      downloadUrl: `${PUBLIC_APP_URL}/api/download?token=${token}`,
-      message: "Ya tienes licencia Pro. Aquí tienes tu descarga.",
+      licenseKey: "",
+      downloadUrl: "",
+      message: "Este correo ya tiene licencia Pro. Revisa tu correo de compra o escríbenos para reenviarte la clave.",
     });
   }
 

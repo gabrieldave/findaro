@@ -51,6 +51,7 @@ CFBundleName = "Findaro";
 NSHumanReadableCopyright = "Copyright © 2026 Findaro. Todos los derechos reservados.";
 NSSpeechRecognitionUsageDescription = "Findaro usa reconocimiento de voz local para el asistente push-to-talk.";
 NSMicrophoneUsageDescription = "Findaro usa el micrófono solo mientras mantienes el botón de dictado.";
+NSAppleEventsUsageDescription = "Findaro le pide a Finder vaciar la Papelera y restaurar elementos desde ella.";
 STRINGS
 
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST
@@ -91,6 +92,8 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <string>Findaro uses on-device speech recognition for the push-to-talk assistant.</string>
   <key>NSMicrophoneUsageDescription</key>
   <string>Findaro uses your microphone only while holding the dictation button.</string>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Findaro asks Finder to empty the Trash and restore items from it.</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
   <key>CFBundleIconFile</key>

@@ -29,9 +29,12 @@ final class LicenseStoreTests: XCTestCase {
     var suiteName: String!
     var mockKeychain: InMemoryKeychainStore!
 
-    // Clave privada de pruebas para generar firmas Ed25519 válidas en los tests
-    // Correspondiente a la clave pública embeddedPublicKeyHex
-    let testPrivateKeyHex = "c1e35860ab15293b70217b4369577f6531f38d0804323fd1f760fda0b3ce26e8"
+    // Par de claves EFÍMERO generado en cada ejecución. Nunca usar aquí la clave de producción
+    // (antes este archivo contenía la privada real: cualquiera con el repo podía crear licencias).
+    let testSigningKey = Curve25519.Signing.PrivateKey()
+    var testPublicKeyHex: String {
+        testSigningKey.publicKey.rawRepresentation.map { String(format: "%02x", $0) }.joined()
+    }
 
     override func setUp() {
         super.setUp()
@@ -83,8 +86,7 @@ final class LicenseStoreTests: XCTestCase {
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
 
-        let privKeyData = hexToData(testPrivateKeyHex)
-        let privKey = try! Curve25519.Signing.PrivateKey(rawRepresentation: privKeyData)
+        let privKey = testSigningKey
         let sigData = try! privKey.signature(for: bodyB64.data(using: .utf8)!)
         let sigB64 = sigData.base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")
@@ -160,7 +162,7 @@ final class LicenseStoreTests: XCTestCase {
         let mismatchedToken = mintSignedTestToken(machineId: "DIFFERENT-MAC-HARDWARE-ID")
         tempDefaults.set(mismatchedToken, forKey: LicenseStore.Keys.signedToken)
 
-        let store = LicenseStore(defaults: tempDefaults, keychain: mockKeychain)
+        let store = LicenseStore(defaults: tempDefaults, keychain: mockKeychain, publicKeyHex: testPublicKeyHex)
         XCTAssertFalse(store.state.isPro)
     }
 
@@ -170,7 +172,7 @@ final class LicenseStoreTests: XCTestCase {
         tempDefaults.set(validToken, forKey: LicenseStore.Keys.signedToken)
         tempDefaults.set("FINDARO-VALID-1234", forKey: LicenseStore.Keys.licenseKey)
 
-        let store = LicenseStore(defaults: tempDefaults, keychain: mockKeychain)
+        let store = LicenseStore(defaults: tempDefaults, keychain: mockKeychain, publicKeyHex: testPublicKeyHex)
         switch store.state {
         case .proActive(let key, let tier, let seats, _):
             XCTAssertEqual(key, "FINDARO-VALID-1234")
@@ -181,6 +183,51 @@ final class LicenseStoreTests: XCTestCase {
         default:
             XCTFail("Expected proActive state for valid token, got: \(store.state)")
         }
+    }
+
+    // Un token Pro SIN machineId (como el de la página de gracias) no debe servir en ningún Mac.
+    @MainActor
+    func testTokenWithoutMachineIdIsRejected() {
+        let unbound = mintSignedTestToken(machineId: nil)
+        tempDefaults.set(unbound, forKey: LicenseStore.Keys.signedToken)
+        let store = LicenseStore(defaults: tempDefaults, keychain: mockKeychain, publicKeyHex: testPublicKeyHex)
+        XCTAssertFalse(store.state.isPro)
+    }
+
+    // Token firmado con la clave antigua/otra clave: rechazado aunque el formato sea perfecto.
+    @MainActor
+    func testTokenSignedWithOtherKeyIsRejected() {
+        let token = mintSignedTestToken()
+        tempDefaults.set(token, forKey: LicenseStore.Keys.signedToken)
+        let store = LicenseStore(defaults: tempDefaults, keychain: mockKeychain) // clave embebida real
+        XCTAssertFalse(store.state.isPro)
+    }
+
+    // Lease Pro caducado (más de 30 días sin conexión): pide revalidar, no queda Pro.
+    @MainActor
+    func testExpiredProLeaseRequiresRevalidation() {
+        let past = Int(Date().addingTimeInterval(-60).timeIntervalSince1970)
+        let token = mintSignedTestToken(exp: past)
+        tempDefaults.set(token, forKey: LicenseStore.Keys.signedToken)
+        tempDefaults.set("FINDARO-TEST-1234", forKey: LicenseStore.Keys.licenseKey)
+        let store = LicenseStore(defaults: tempDefaults, keychain: mockKeychain, publicKeyHex: testPublicKeyHex)
+        XCTAssertFalse(store.state.isUsable)
+        if case .revoked = store.state {} else { XCTFail("Esperaba estado de revalidación, obtuve \(store.state)") }
+    }
+
+    // Atrasar el reloj del Mac no alarga la prueba.
+    @MainActor
+    func testRollingClockBackDoesNotExtendTrial() {
+        let start = Date()
+        let clock = TestClock(start)
+        let store = LicenseStore(defaults: tempDefaults, keychain: mockKeychain, dateProvider: { clock.now })
+        clock.now = start.addingTimeInterval(6 * 24 * 60 * 60)
+        store.evaluateLocalState()
+        XCTAssertEqual(store.state, .trialExpired)
+        // El usuario atrasa el reloj al día 1.
+        clock.now = start.addingTimeInterval(1 * 24 * 60 * 60)
+        store.evaluateLocalState()
+        XCTAssertEqual(store.state, .trialExpired)
     }
 
     // TP-08: Borrar findaro.trial.start de UserDefaults no reinicia la prueba (conservado en Keychain)

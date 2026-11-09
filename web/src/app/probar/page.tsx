@@ -158,14 +158,18 @@ function ProbarInner() {
         ) : (
           <div className={styles.priceBox}>
             <p>{result.message}</p>
-            <p>
-              <strong>{t.keyLabel}</strong>
-              <br />
-              <code>{result.licenseKey}</code>
-            </p>
-            <a className={styles.cta} href={result.downloadUrl}>
-              {t.downloadBtn}
-            </a>
+            {result.licenseKey ? (
+              <p>
+                <strong>{t.keyLabel}</strong>
+                <br />
+                <code>{result.licenseKey}</code>
+              </p>
+            ) : null}
+            {result.downloadUrl ? (
+              <a className={styles.cta} href={result.downloadUrl}>
+                {t.downloadBtn}
+              </a>
+            ) : null}
             <p className={styles.note}>
               {t.note(result.trialDays ?? 5)}
             </p>

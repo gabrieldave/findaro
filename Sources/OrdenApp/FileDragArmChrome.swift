@@ -115,8 +115,8 @@ enum FileDragArmChrome {
                         .font(.subheadline.weight(.bold))
                         Text(
                             browser.fileDragArmedPaths.count == 1
-                                ? L10n.s("⌘+clic en el siguiente amplía el rango (igual que ⇧) · Esc cancela", "⌘+click next extends range (same as ⇧) · Esc to cancel")
-                                : L10n.s("⌘+clic = mismo rango que ⇧ · arrástralos · Esc cancela", "⌘+click = same range as ⇧ · drag them · Esc to cancel")
+                                ? L10n.s("⌘+clic suma o quita uno · ⇧+clic selecciona un rango · Esc cancela", "⌘+click adds/removes one · ⇧+click selects a range · Esc to cancel")
+                                : L10n.s("⌘+clic suma o quita · arrástralos · Esc cancela", "⌘+click adds/removes · drag them · Esc to cancel")
                         )
                             .font(.caption)
                             .opacity(0.9)

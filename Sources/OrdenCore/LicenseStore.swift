@@ -144,7 +144,9 @@ public struct SignedLicensePayload: Codable, Sendable {
 }
 
 public enum FindaroLicenseVerifier {
-    public static let embeddedPublicKeyHex = "6dd877795679418e21f4e19c116e5c02c68c7d58808cd3b330bc0c5b2e3c3bac"
+    /// Rotada el 2026-11-09: la anterior (6dd87779…) quedó comprometida (su privada estaba en el repo).
+    /// Debe coincidir con FINDARO_ED25519_PUBLIC_KEY_HEX en web/src/lib/license.ts.
+    public static let embeddedPublicKeyHex = "c86b663a1d94a3f69bee0b189b00c541c0c8e55b71c4ffdc166052ff57feb5dd"
 
     public static func hexToData(_ hex: String) -> Data? {
         var data = Data()
@@ -170,7 +172,8 @@ public enum FindaroLicenseVerifier {
         _ token: String,
         publicKeyHex: String = embeddedPublicKeyHex,
         expectedMachineId: String? = HardwareID.current(),
-        currentDate: Date = Date()
+        currentDate: Date = Date(),
+        allowExpired: Bool = false
     ) -> SignedLicensePayload? {
         let parts = token.split(separator: ".")
         guard parts.count == 3, (parts[0] == "F1" || parts[0] == "F2") else { return nil }
@@ -185,15 +188,19 @@ public enum FindaroLicenseVerifier {
         guard let payloadData = base64urlToData(bodyString) else { return nil }
         guard let payload = try? JSONDecoder().decode(SignedLicensePayload.self, from: payloadData) else { return nil }
 
-        // Si el payload contiene machineId, debe coincidir con este equipo
-        if let tokenMachineId = payload.machineId, !tokenMachineId.isEmpty, let expected = expectedMachineId, !expected.isEmpty {
-            if tokenMachineId != expected {
-                return nil
-            }
+        // El token DEBE estar ligado a este Mac. Antes un token sin machineId (p. ej. el que se
+        // emite en la página de gracias) servía en Macs ilimitadas copiándolo con `defaults write`.
+        guard let tokenMachineId = payload.machineId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !tokenMachineId.isEmpty,
+              let expected = expectedMachineId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !expected.isEmpty,
+              expected != "UNKNOWN-MAC",
+              tokenMachineId.caseInsensitiveCompare(expected) == .orderedSame else {
+            return nil
         }
 
         // Si el payload contiene exp, verificar que no haya expirado
-        if let exp = payload.exp {
+        if !allowExpired, let exp = payload.exp {
             let expirationDate = Date(timeIntervalSince1970: TimeInterval(exp))
             if expirationDate < currentDate {
                 return nil
@@ -219,6 +226,7 @@ public final class LicenseStore: ObservableObject {
     private let defaults: UserDefaults
     private let keychain: KeychainStoreProtocol
     private let dateProvider: @Sendable () -> Date
+    private let publicKeyHex: String
     private let serverURL = URL(string: "https://findaro.iareal.net")!
     private var periodicTask: Task<Void, Never>?
 
@@ -231,16 +239,22 @@ public final class LicenseStore: ObservableObject {
         public static let activeCount = "findaro.license.active_count"
         public static let revoked = "findaro.license.revoked"
         public static let lastVerifiedAt = "findaro.license.last_verified_at"
+        /// Fecha más reciente observada (anti "atrasar el reloj" para alargar la prueba).
+        public static let trialLastSeen = "findaro.trial.last_seen"
     }
+
+    public static let trialDuration: TimeInterval = 5 * 24 * 60 * 60
 
     public init(
         defaults: UserDefaults = .standard,
         keychain: KeychainStoreProtocol = SystemKeychainStore(),
-        dateProvider: @escaping @Sendable () -> Date = { Date() }
+        dateProvider: @escaping @Sendable () -> Date = { Date() },
+        publicKeyHex: String = FindaroLicenseVerifier.embeddedPublicKeyHex
     ) {
         self.defaults = defaults
         self.keychain = keychain
         self.dateProvider = dateProvider
+        self.publicKeyHex = publicKeyHex
         evaluateLocalState()
         LicenseGate.setWriteAllowed(state.isUsable)
     }
@@ -262,7 +276,7 @@ public final class LicenseStore: ObservableObject {
         // 1. Verificar si existe token firmado en UserDefaults o Keychain
         let tokenCandidate = defaults.string(forKey: Keys.signedToken) ?? keychain.get(Keys.signedToken)
         if let token = tokenCandidate,
-           let payload = FindaroLicenseVerifier.verifyToken(token, expectedMachineId: HardwareID.current(), currentDate: now) {
+           let payload = FindaroLicenseVerifier.verifyToken(token, publicKeyHex: publicKeyHex, expectedMachineId: HardwareID.current(), currentDate: now) {
             // Asegurar sincronización en Keychain y UserDefaults
             defaults.set(token, forKey: Keys.signedToken)
             keychain.set(token, for: Keys.signedToken)
@@ -292,6 +306,14 @@ public final class LicenseStore: ObservableObject {
             keychain.delete(Keys.signedToken)
         }
 
+        // Hay clave Pro guardada pero su token caducó (más de 30 días sin conexión) o es de la
+        // clave de firma anterior: pedir conexión para revalidar (checkServerStatus lo renueva solo).
+        let storedKey = defaults.string(forKey: Keys.licenseKey) ?? keychain.get(Keys.licenseKey)
+        if storedKey != nil, defaults.string(forKey: Keys.tier) != "trial" {
+            state = .revoked(message: "Tu licencia necesita revalidarse. Conéctate a internet y Findaro la renovará automáticamente.")
+            return
+        }
+
         // 2. Si no hay token de licencia, evaluar período de prueba local de 5 días
         // El inicio de prueba se guarda en Keychain para que borrar preferencias no lo reinicie
         var trialStart: Date?
@@ -311,15 +333,67 @@ public final class LicenseStore: ObservableObject {
             defaults.set(trialStart!, forKey: Keys.trialStart)
         }
 
-        let trialDuration: TimeInterval = 5 * 24 * 60 * 60
-        let expiresAt = trialStart!.addingTimeInterval(trialDuration)
+        let expiresAt = trialStart!.addingTimeInterval(Self.trialDuration)
 
-        if now < expiresAt {
-            let diff = Calendar.current.dateComponents([.day], from: now, to: expiresAt).day ?? 0
+        // Anti-retroceso de reloj: usar la fecha más reciente que este Mac haya visto.
+        var trialNow = now
+        if let lastRaw = keychain.get(Keys.trialLastSeen), let last = Double(lastRaw) {
+            let lastSeen = Date(timeIntervalSince1970: last)
+            if lastSeen > trialNow { trialNow = lastSeen }
+        }
+        keychain.set(String(trialNow.timeIntervalSince1970), for: Keys.trialLastSeen)
+
+        if trialNow < expiresAt {
+            let diff = Calendar.current.dateComponents([.day], from: trialNow, to: expiresAt).day ?? 0
             state = .trial(daysRemaining: max(1, diff), expiresAt: expiresAt)
         } else {
             state = .trialExpired
         }
+    }
+
+    // MARK: - Prueba anclada en el servidor
+
+    /// Pide al servidor la fecha real de inicio de la prueba de ESTE Mac (por hash de hardware).
+    /// Si el usuario borró el Llavero o reinstaló, el servidor devuelve la fecha original y la
+    /// prueba no se reinicia. Sin conexión, se mantiene la prueba local (offline-first).
+    public func syncDeviceTrial() async {
+        if state.isPro { return }
+        if (defaults.string(forKey: Keys.licenseKey) ?? keychain.get(Keys.licenseKey)) != nil { return }
+
+        let machineId = HardwareID.current()
+        guard machineId != "UNKNOWN-MAC" else { return }
+
+        var req = URLRequest(url: serverURL.appendingPathComponent("api/trial/device"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["machineId": machineId])
+        req.timeoutInterval = 10
+
+        guard let (data, response) = try? await URLSession.shared.data(for: req),
+              let http = response as? HTTPURLResponse, http.statusCode == 200,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let payloadJSON = json["data"] as? [String: Any],
+              let signed = payloadJSON["signed"] as? String,
+              let payload = FindaroLicenseVerifier.verifyToken(
+                signed,
+                publicKeyHex: publicKeyHex,
+                expectedMachineId: machineId,
+                currentDate: dateProvider(),
+                allowExpired: true
+              ),
+              payload.plan == "trial",
+              let exp = payload.exp else { return }
+
+        // Inicio según el servidor; nos quedamos con el MÁS ANTIGUO entre local y servidor.
+        let serverStart = Date(timeIntervalSince1970: TimeInterval(exp)).addingTimeInterval(-Self.trialDuration)
+        var localStart: Date?
+        if let kcVal = keychain.get(Keys.trialStart), let ts = Double(kcVal) {
+            localStart = Date(timeIntervalSince1970: ts)
+        }
+        let effectiveStart = min(localStart ?? serverStart, serverStart)
+        keychain.set(String(effectiveStart.timeIntervalSince1970), for: Keys.trialStart)
+        defaults.set(effectiveStart, forKey: Keys.trialStart)
+        evaluateLocalState()
     }
 
     // MARK: - Periodic Background Status Check (Every 24h with 14d offline tolerance)
@@ -382,7 +456,7 @@ public final class LicenseStore: ObservableObject {
         let plan = responseData["plan"] as? String ?? "pro"
 
         // Verificar criptográficamente el token antes de aceptarlo y persistirlo
-        guard let _ = FindaroLicenseVerifier.verifyToken(signed, expectedMachineId: machineId, currentDate: dateProvider()) else {
+        guard let _ = FindaroLicenseVerifier.verifyToken(signed, publicKeyHex: publicKeyHex, expectedMachineId: machineId, currentDate: dateProvider()) else {
             let errorMsg = "La firma de la licencia devuelta por el servidor no es válida."
             lastErrorMessage = errorMsg
             throw NSError(domain: "FindaroLicense", code: 400, userInfo: [NSLocalizedDescriptionKey: errorMsg])
@@ -470,12 +544,25 @@ public final class LicenseStore: ObservableObject {
             return
         }
 
-        if http.statusCode == 404 || http.statusCode == 403 {
-            let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+        // Solo el JSON de NUESTRA API cuenta (un 403/404 de un proxy, WAF o portal Wi-Fi
+        // no debe revocar la licencia de un cliente que pagó).
+        let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+        let isOurAPI = json["ok"] is Bool
+
+        if http.statusCode == 404, isOurAPI {
+            // Licencia inexistente o revocada en el servidor (reembolso, clave filtrada).
             let msg = (json["error"] as? String) ?? "Licencia revocada o no disponible."
             defaults.set(true, forKey: Keys.revoked)
             defaults.removeObject(forKey: Keys.signedToken)
             keychain.delete(Keys.signedToken)
+            state = .revoked(message: msg)
+        } else if (http.statusCode == 403 || http.statusCode == 402), isOurAPI {
+            // Límite de Macs alcanzado o prueba terminada: sin marca permanente de "revocada";
+            // el usuario puede liberar un asiento y volver a activar.
+            let msg = (json["error"] as? String) ?? "Esta Mac no está activada para esta licencia."
+            defaults.removeObject(forKey: Keys.signedToken)
+            keychain.delete(Keys.signedToken)
+            lastErrorMessage = msg
             state = .revoked(message: msg)
         } else if http.statusCode == 200 {
             let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
@@ -485,9 +572,10 @@ public final class LicenseStore: ObservableObject {
                 let activeCount = responseData["activeCount"] as? Int ?? 1
                 let tier = responseData["tier"] as? String ?? "personal"
                 let signed = responseData["signed"] as? String ?? ""
+                defaults.set(false, forKey: Keys.revoked)
 
                 // Validar token firmado si se devuelve
-                if !signed.isEmpty, let _ = FindaroLicenseVerifier.verifyToken(signed, expectedMachineId: machineId, currentDate: dateProvider()) {
+                if !signed.isEmpty, let _ = FindaroLicenseVerifier.verifyToken(signed, publicKeyHex: publicKeyHex, expectedMachineId: machineId, currentDate: dateProvider()) {
                     defaults.set(signed, forKey: Keys.signedToken)
                     keychain.set(signed, for: Keys.signedToken)
                 }

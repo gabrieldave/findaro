@@ -55,6 +55,7 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <string>Findaro usa reconocimiento de voz local para el asistente push-to-talk.</string>
   <key>NSMicrophoneUsageDescription</key>
   <string>Findaro usa el micrófono solo mientras mantienes el botón de dictado.</string>
+  <key>NSAppleEventsUsageDescription</key><string>Findaro asks Finder to empty the Trash and restore items from it.</string>
   <key>NSPrincipalClass</key><string>NSApplication</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleIconName</key><string>AppIcon</string>

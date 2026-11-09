@@ -67,6 +67,39 @@ export const POST = handle(async (req) => {
     }
   }
 
+  // Si algo falla después de registrar el evento, lo liberamos para que el reintento de Stripe
+  // no se descarte como "duplicado" (antes un fallo dejaba el pedido sin licencia para siempre).
+  const releaseEvent = async () => {
+    if (!event.id) return;
+    const { query } = await import("@/lib/db");
+    await query(`DELETE FROM stripe_events WHERE event_id = $1`, [event.id]).catch(() => undefined);
+  };
+
+  // Reembolso total → revocar la licencia Pro del pedido (lo que promete /reembolso).
+  if (event.type === "charge.refunded") {
+    try {
+      const charge = event.data?.object || {};
+      const amount = typeof charge.amount === "number" ? charge.amount : 0;
+      const refunded = typeof charge.amount_refunded === "number" ? charge.amount_refunded : 0;
+      const pi = typeof charge.payment_intent === "string" ? charge.payment_intent : null;
+      if (!pi || amount <= 0 || refunded < amount) {
+        return ok({ ignored: true, reason: "partial_or_unknown_refund" });
+      }
+      const { query } = await import("@/lib/db");
+      const res = await query<{ id: string }>(
+        `UPDATE licenses SET revoked = true
+         WHERE plan = 'pro' AND revoked = false
+           AND order_id IN (SELECT id FROM orders WHERE stripe_payment_intent = $1)
+         RETURNING id`,
+        [pi],
+      );
+      return ok({ revoked: res.rows.length });
+    } catch (err) {
+      await releaseEvent();
+      throw err;
+    }
+  }
+
   if (event.type !== "checkout.session.completed") {
     return ok({ ignored: true });
   }
@@ -87,7 +120,9 @@ export const POST = handle(async (req) => {
     metadata.customer_name ||
     null;
 
-  const result = await fulfillPaidOrder({
+  let result: Awaited<ReturnType<typeof fulfillPaidOrder>>;
+  try {
+    result = await fulfillPaidOrder({
     sessionId,
     paymentIntent,
     email,
@@ -96,7 +131,11 @@ export const POST = handle(async (req) => {
     amountTotal: typeof session.amount_total === "number" ? session.amount_total : null,
     currency: typeof session.currency === "string" ? session.currency : null,
     appId: metadata.app_id || metadata.tradingAppSlug || null,
-  });
+    });
+  } catch (err) {
+    await releaseEvent();
+    throw err;
+  }
 
   return ok({ fulfilled: Boolean(result), orderId: result?.orderId ?? null });
 });

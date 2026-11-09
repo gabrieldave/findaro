@@ -466,6 +466,16 @@ final class AppUpdateChecker: ObservableObject {
         [ -x "$STAGE/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$STAGE/Contents/Info.plist")" ] \
           || fail_restore "Ejecutable ausente en staging"
 
+        # Firma de código: el paquete descargado debe estar firmado e intacto.
+        codesign --verify --deep --strict "$STAGE" || fail_restore "Firma de código inválida en la actualización"
+        # Si la app instalada está firmada por un equipo (Developer ID), la nueva DEBE ser del mismo equipo.
+        # Así, aunque alguien comprometiera el servidor de actualizaciones, no podría colar otra app.
+        CUR_TEAM=$(codesign -dv \(shellEscape(Bundle.main.bundleURL.path)) 2>&1 | awk -F= '/^TeamIdentifier=/{print $2}' || true)
+        NEW_TEAM=$(codesign -dv "$STAGE" 2>&1 | awk -F= '/^TeamIdentifier=/{print $2}' || true)
+        if [ -n "$CUR_TEAM" ] && [ "$CUR_TEAM" != "not set" ]; then
+          [ "$NEW_TEAM" = "$CUR_TEAM" ] || fail_restore "Team ID de la actualización ($NEW_TEAM) ≠ app instalada ($CUR_TEAM)"
+        fi
+
         if [ -d "$DEST" ]; then
           rm -rf "$BACKUP"
           mv "$DEST" "$BACKUP" || fail_restore "No pude respaldar la app actual"

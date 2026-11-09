@@ -15,6 +15,12 @@ public struct FindaroLicenseSheet: View {
         return false
     }
 
+    /// Mensaje concreto del servidor/estado (revocada, revalidar, límite de Macs…).
+    private var revokedMessage: String? {
+        if case .revoked(let message) = licenseStore.state, !message.isEmpty { return message }
+        return nil
+    }
+
     public var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -24,12 +30,12 @@ public struct FindaroLicenseSheet: View {
                     .foregroundStyle(isRevoked ? Color.red : Color.orange)
 
                 Text(isRevoked
-                     ? L10n.s("Licencia revocada", "License Revoked")
+                     ? L10n.s("Licencia no disponible", "License Unavailable")
                      : L10n.s("Período de prueba finalizado", "Free Trial Expired"))
                     .font(.title2.weight(.bold))
 
                 Text(isRevoked
-                     ? L10n.s("Esta licencia ha sido revocada o desactivada. Adquiere una nueva licencia para reactivar las operaciones de escritura.", "This license has been revoked or deactivated. Purchase a new license to restore write operations.")
+                     ? (revokedMessage ?? L10n.s("Esta licencia ha sido revocada o desactivada. Adquiere una nueva licencia para reactivar las operaciones de escritura.", "This license has been revoked or deactivated. Purchase a new license to restore write operations."))
                      : L10n.s("Tu período de prueba de 5 días ha terminado. Las funciones de escritura (mover, copiar, renombrar, borrar, Smart Merge y bandeja) requieren una licencia Pro.", "Your 5-day trial has ended. Write operations (move, copy, rename, delete, Smart Merge and tray) require a Pro license."))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

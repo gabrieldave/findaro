@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import OrdenCore
 
-/// Monitor AppKit solo para ⌘+clic (modo naranja).
+/// Monitor AppKit que registra las teclas (⌘/⇧) de cada clic para la selección múltiple.
 /// El doble clic para abrir lo maneja SwiftUI en cada fila (`fileOpenOnDoubleClick`):
 /// los frames AppKit del LazyVStack se quedan stale tras scroll y abrían la fila equivocada.
 @MainActor
@@ -46,43 +46,37 @@ final class FileDragArmMonitor {
         rowFrames.removeValue(forKey: path)
     }
 
-    /// Solo ⌘+clic. Doble clic NO se maneja aquí (ver comentario de clase).
+    /// Teclas pulsadas en el último mouseDown (ver `ClickModifierMemory`).
+    private(set) var clickMemory = ClickModifierMemory()
+
+    /// Teclas efectivas del clic que SwiftUI está procesando ahora.
+    func effectiveClickModifiers() -> ClickModifierMemory.Modifiers {
+        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let current = ClickModifierMemory.Modifiers(
+            command: flags.contains(.command),
+            shift: flags.contains(.shift),
+            option: flags.contains(.option)
+        )
+        return clickMemory.resolve(now: ProcessInfo.processInfo.systemUptime, current: current)
+    }
+
+    /// Solo REGISTRA las teclas del clic; nunca se come el evento.
+    /// Antes este monitor resolvía ⌘+clic con frames AppKit de las filas: tras hacer scroll los
+    /// frames quedaban viejos (o eran de otra ventana con la misma carpeta) y el ⌘+clic se
+    /// aplicaba a otro archivo o se perdía. Ahora la selección la decide SIEMPRE la fila SwiftUI
+    /// pulsada, con las teclas capturadas aquí en el mouseDown.
     private func handle(_ event: NSEvent) -> NSEvent? {
-        guard let browser, event.type == .leftMouseDown else { return event }
-
-        // Dejar el doble clic a SwiftUI (entry ligado a la fila, no a frames).
-        if event.clickCount >= 2 {
-            return event
-        }
-
-        pruneStaleFrames()
+        guard event.type == .leftMouseDown else { return event }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let cmd = flags.contains(.command)
-        let shift = flags.contains(.shift)
-        let opt = flags.contains(.option)
-
-        guard cmd, !shift, !opt else { return event }
-
-        let path = pathAt(event.locationInWindow)
-        guard let path else {
-            // Sin hit fiable: pasar a SwiftUI (`clickSelect` ya entiende ⌘).
-            return event
-        }
-        let pane = browser.paneForPath(path)
-        let entry: FileEntry?
-        switch pane {
-        case .secondary:
-            entry = browser.secondaryEntries.first(where: { $0.path == path })
-                ?? browser.visibleEntries.first(where: { $0.path == path })
-        case .primary:
-            entry = browser.visibleEntries.first(where: { $0.path == path })
-                ?? browser.secondaryEntries.first(where: { $0.path == path })
-        }
-        guard let entry else { return event }
-
-        browser.commandToggleSelect(to: entry.id, pane: pane)
-        browser.noteCommandClickHandled()
-        return nil
+        clickMemory.recordMouseDown(
+            ClickModifierMemory.Modifiers(
+                command: flags.contains(.command),
+                shift: flags.contains(.shift),
+                option: flags.contains(.option)
+            ),
+            at: event.timestamp
+        )
+        return event
     }
 
     private func pruneStaleFrames() {

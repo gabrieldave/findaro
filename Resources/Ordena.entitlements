@@ -4,5 +4,8 @@
 <dict>
   <key>com.apple.security.device.audio-input</key>
   <true/>
+  <!-- Necesario con Hardened Runtime para enviar Apple Events a Finder (vaciar/restaurar Papelera). -->
+  <key>com.apple.security.automation.apple-events</key>
+  <true/>
 </dict>
 </plist>

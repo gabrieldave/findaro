@@ -10,22 +10,31 @@ export function hashHardwareId(machineId: string): string {
   return createHash("sha256").update(`${salt}:${machineId.trim().toUpperCase()}`).digest("hex");
 }
 
-// Clave pública canónica Ed25519 embebida en la app Findaro (32 bytes raw hex)
+// Clave pública canónica Ed25519 embebida en la app Findaro (32 bytes raw hex).
+// ROTADA el 2026-11-09: la clave anterior (6dd87779…) quedó comprometida porque su clave
+// privada estaba escrita en este repositorio. Debe coincidir con
+// FindaroLicenseVerifier.embeddedPublicKeyHex en Sources/OrdenCore/LicenseStore.swift.
 export const FINDARO_ED25519_PUBLIC_KEY_HEX =
-  "6dd877795679418e21f4e19c116e5c02c68c7d58808cd3b330bc0c5b2e3c3bac";
+  "c86b663a1d94a3f69bee0b189b00c541c0c8e55b71c4ffdc166052ff57feb5dd";
 
-// Clave privada canónica Ed25519 (DER PKCS#8) para desarrollo y respaldo si no se define LICENSE_SIGNING_PRIVATE_KEY
-const DEFAULT_PRIVATE_KEY_PEM = `-----BEGIN PRIVATE KEY-----
-MC4CAQAwBQYDK2VwBCIEIMHjWGCrFSk7cCF7Q2lXf2Ux840IBDI/0fdg/aCzzibo
------END PRIVATE KEY-----`;
+/**
+ * Días de validez del token Pro firmado ("lease"). La app lo renueva sola al abrir y cada 24 h;
+ * si una Mac pasa más de estos días sin conectarse, se le pide conectarse para revalidar.
+ * Esto hace efectivas las revocaciones (reembolsos, claves filtradas).
+ */
+export const PRO_LEASE_DAYS = Math.max(7, Number(process.env.LICENSE_LEASE_DAYS || 30));
 
+/**
+ * La clave privada SOLO vive en la variable de entorno LICENSE_SIGNING_PRIVATE_KEY del servidor.
+ * Nunca en el repositorio. Si falta, se falla en cerrado (no se emiten licencias).
+ */
 function getSigningPrivateKey() {
-  const raw = process.env.LICENSE_SIGNING_PRIVATE_KEY;
+  const raw = (process.env.LICENSE_SIGNING_PRIVATE_KEY || "").trim();
   if (!raw) {
-    return createPrivateKey(DEFAULT_PRIVATE_KEY_PEM);
+    throw new Error("LICENSE_SIGNING_PRIVATE_KEY no configurada: no se pueden firmar licencias");
   }
   if (raw.includes("BEGIN PRIVATE KEY")) {
-    return createPrivateKey(raw);
+    return createPrivateKey(raw.replace(/\\n/g, "\n"));
   }
   let buf: Buffer;
   if (raw.length === 64 && /^[0-9a-fA-F]+$/.test(raw)) {
@@ -78,6 +87,12 @@ export function mintReferralCode(seed?: string): string {
 export function signLicensePayload(payload: Record<string, unknown>, version: "F1" | "F2" = "F2"): string {
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const privateKey = getSigningPrivateKey();
+  // Comprobación de coherencia: la privada configurada debe corresponder a la pública que lleva la app.
+  const derived = createPublicKey(privateKey).export({ type: "spki", format: "der" }).subarray(12).toString("hex");
+  const expected = (process.env.LICENSE_SIGNING_PUBLIC_KEY || FINDARO_ED25519_PUBLIC_KEY_HEX).trim().toLowerCase();
+  if (expected.length === 64 && derived !== expected) {
+    throw new Error("LICENSE_SIGNING_PRIVATE_KEY no corresponde a la clave pública embebida en la app");
+  }
   const sig = sign(null, Buffer.from(body), privateKey);
   return `${version}.${body}.${sig.toString("base64url")}`;
 }
@@ -283,6 +298,36 @@ export async function removeActivation(licenseId: string, machineId: string) {
   );
   const remaining = await getActivations(licenseId);
   return { deleted: res.rows.length > 0, activeCount: remaining.length };
+}
+
+/**
+ * Prueba por equipo (sin correo): el reloj de 5 días vive en el SERVIDOR, ligado al hash del
+ * hardware. Borrar el Llavero o reinstalar ya no reinicia la prueba (si la Mac tiene internet).
+ */
+export async function getOrStartDeviceTrial(machineId: string): Promise<{ startedAt: Date; expiresAt: Date }> {
+  const hwHash = hashHardwareId(machineId);
+  const trialMs = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+  await query(
+    `INSERT INTO trial_devices (hardware_hash, license_id, first_seen_at, expires_at)
+     VALUES ($1, NULL, now(), now() + make_interval(days => $2))
+     ON CONFLICT (hardware_hash) DO NOTHING`,
+    [hwHash, TRIAL_DAYS],
+  );
+  const { rows } = await query<{ first_seen_at: Date; expires_at: Date | null; license_expires_at: Date | null }>(
+    `SELECT d.first_seen_at, d.expires_at, l.expires_at AS license_expires_at
+     FROM trial_devices d
+     LEFT JOIN licenses l ON l.id = d.license_id
+     WHERE d.hardware_hash = $1`,
+    [hwHash],
+  );
+  const row = rows[0];
+  const startedAt = row ? new Date(row.first_seen_at) : new Date();
+  const candidates = [
+    row?.expires_at ? new Date(row.expires_at).getTime() : null,
+    row?.license_expires_at ? new Date(row.license_expires_at).getTime() : null,
+    startedAt.getTime() + trialMs,
+  ].filter((v): v is number => typeof v === "number");
+  return { startedAt, expiresAt: new Date(Math.min(...candidates)) };
 }
 
 export { TRIAL_DAYS };

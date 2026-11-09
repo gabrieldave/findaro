@@ -689,8 +689,8 @@ private struct ColumnRow: View {
     }
 
     private func handleClick() {
-        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let keepingMulti = flags.contains(.command) || flags.contains(.shift) || browser.multiSelectMode
+        let mods = FileDragArmMonitor.shared.effectiveClickModifiers()
+        let keepingMulti = mods.command || mods.shift || browser.multiSelectMode
         browser.clickSelect(entry.id)
         // En columnas, clic simple en carpeta también abre; ⌘/⇧/Varios solo seleccionan.
         if !keepingMulti, entry.isDirectory {

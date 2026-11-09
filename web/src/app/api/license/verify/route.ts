@@ -5,6 +5,7 @@ import {
   hashHardwareId,
   lookupLicense,
   registerActivation,
+  PRO_LEASE_DAYS,
   signLicensePayload,
   TRIAL_DAYS,
 } from "@/lib/license";
@@ -85,6 +86,12 @@ export const POST = handle(async (req) => {
     return fail(activation.error || "No se pudo activar en esta Mac", 403);
   }
 
+  // Pro: el token firmado caduca a los PRO_LEASE_DAYS y la app lo renueva sola (cada 24 h).
+  // Así una licencia revocada/reembolsada deja de funcionar aunque bloqueen la red.
+  const tokenExpiry = row.plan === "pro"
+    ? new Date(Date.now() + PRO_LEASE_DAYS * 24 * 60 * 60 * 1000)
+    : effectiveExpiresAt;
+
   const tokenPayload = {
     v: 2,
     plan: row.plan,
@@ -92,7 +99,7 @@ export const POST = handle(async (req) => {
     key: row.license_key,
     seats: row.seats,
     machineId,
-    exp: effectiveExpiresAt ? Math.floor(effectiveExpiresAt.getTime() / 1000) : null,
+    exp: tokenExpiry ? Math.floor(tokenExpiry.getTime() / 1000) : null,
   };
 
   const signed = signLicensePayload(tokenPayload, "F1");

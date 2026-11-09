@@ -496,11 +496,12 @@ final class BrowserModel: ObservableObject {
             focusedPane = .primary
         }
         isAssistantFocused = false
-        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if flags.contains(.shift) {
+        // Teclas del momento del clic (no del momento en que SwiftUI dispara el gesto).
+        let mods = FileDragArmMonitor.shared.effectiveClickModifiers()
+        if mods.shift {
             selectRange(to: id)
             if hasArmedFileDrag { syncArmedWithSelection() }
-        } else if flags.contains(.command) {
+        } else if mods.command {
             commandToggleSelect(to: id)
         } else if multiSelectMode {
             toggleSelection(id)
@@ -964,8 +965,8 @@ final class BrowserModel: ObservableObject {
         if let pane, dualPaneEnabled {
             focusPane(pane)
         }
-        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if flags.contains(.command) || flags.contains(.shift) { return }
+        let mods = FileDragArmMonitor.shared.effectiveClickModifiers()
+        if mods.command || mods.shift { return }
         if dualPaneEnabled, focusedPane == .secondary {
             clearSecondarySelection()
             selectionCancelToken &+= 1
@@ -1212,11 +1213,11 @@ final class BrowserModel: ObservableObject {
     func clickSelectSecondary(_ id: String) {
         focusedPane = .secondary
         isAssistantFocused = false
-        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if flags.contains(.shift) {
+        let mods = FileDragArmMonitor.shared.effectiveClickModifiers()
+        if mods.shift {
             selectSecondaryRange(to: id)
             if hasArmedFileDrag { syncArmedWithSelection() }
-        } else if flags.contains(.command) {
+        } else if mods.command {
             commandToggleSelect(to: id, pane: .secondary)
         } else if multiSelectMode {
             toggleSecondarySelection(id)
@@ -3560,48 +3561,69 @@ final class BrowserModel: ObservableObject {
         }
         statusMessage = L10n.s("Vaciando Papelera…", "Emptying Trash…")
         Task {
-            let result: (ok: Int, failures: [String]) = await Task.detached(priority: .userInitiated) {
+            // Una sola orden a Finder; sin bucles por archivo (antes: un aviso de permisos por ítem).
+            let outcome: TrashOps.EmptyTrashOutcome = await Task.detached(priority: .userInitiated) {
                 do {
-                    return try TrashOps.emptyUserTrash()
+                    return try TrashOps.emptyTrash()
                 } catch {
-                    // Sin Acceso completo al disco: pedir a Finder.
-                    if TrashOps.isPermissionError(error) {
-                        let script = """
-                        tell application "Finder"
-                          empty the trash
-                        end tell
-                        """
-                        var err: NSDictionary?
-                        if let apple = NSAppleScript(source: script) {
-                            _ = apple.executeAndReturnError(&err)
-                            if err == nil {
-                                return (ok: -1, failures: [])
-                            }
-                            let msg = (err?[NSAppleScript.errorMessage] as? String)
-                                ?? error.localizedDescription
-                            return (ok: 0, failures: [msg])
-                        }
-                    }
-                    return (ok: 0, failures: [error.localizedDescription])
+                    return .needsPermission(message: error.localizedDescription)
                 }
             }.value
             await MainActor.run {
                 self.reload()
-                if result.ok < 0 {
-                    self.statusMessage = L10n.s("Papelera vaciada (Finder)", "Trash emptied (Finder)")
-                } else if result.ok == 0, result.failures.isEmpty {
-                    self.statusMessage = L10n.s("La Papelera ya estaba vacía", "Trash was already empty")
-                } else {
-                    var parts: [String] = []
-                    if result.ok > 0 {
-                        parts.append(L10n.s("Papelera: \(result.ok) eliminados", "Trash: \(result.ok) permanently deleted"))
+                switch outcome {
+                case .emptiedByFinder:
+                    self.statusMessage = L10n.s("Papelera vaciada", "Trash emptied")
+                case .deletedDirectly(let ok, let failures):
+                    if ok == 0, failures.isEmpty {
+                        self.statusMessage = L10n.s("La Papelera ya estaba vacía", "Trash was already empty")
+                    } else {
+                        var parts: [String] = []
+                        if ok > 0 {
+                            parts.append(L10n.s("Papelera: \(ok) eliminados", "Trash: \(ok) permanently deleted"))
+                        }
+                        if !failures.isEmpty {
+                            parts.append(L10n.s("Fallaron \(failures.count): ", "Failed \(failures.count): ")
+                                + failures.prefix(2).joined(separator: "; "))
+                        }
+                        self.statusMessage = parts.joined(separator: " · ")
                     }
-                    if !result.failures.isEmpty {
-                        parts.append(result.failures.prefix(2).joined(separator: "; "))
-                    }
-                    self.statusMessage = parts.joined(separator: " · ")
+                case .needsPermission(let message):
+                    self.statusMessage = L10n.s("No se pudo vaciar la Papelera", "Could not empty Trash")
+                    self.presentTrashPermissionAlert(message: message)
                 }
             }
+        }
+    }
+
+    /// Un único aviso claro con accesos directos a los dos ajustes que lo resuelven.
+    private func presentTrashPermissionAlert(message: String) {
+        let alert = NSAlert()
+        alert.messageText = L10n.s("Findaro necesita un permiso para vaciar la Papelera", "Findaro needs one permission to empty the Trash")
+        alert.informativeText = L10n.isEnglish
+            ? "Allow Findaro to control Finder (System Settings → Privacy & Security → Automation → Findaro → Finder), or grant Full Disk Access. You only need to do this once."
+            : message
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L10n.s("Abrir Automatización", "Open Automation"))
+        alert.addButton(withTitle: L10n.s("Abrir Acceso completo al disco", "Open Full Disk Access"))
+        alert.addButton(withTitle: L10n.s("Cancelar", "Cancel"))
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            openAutomationSettings()
+        case .alertSecondButtonReturn:
+            openFullDiskAccessSettings()
+        default:
+            break
+        }
+    }
+
+    func openAutomationSettings() {
+        let urls = [
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Automation",
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation"
+        ]
+        for raw in urls {
+            if let url = URL(string: raw), NSWorkspace.shared.open(url) { return }
         }
     }
 
