@@ -2,7 +2,7 @@
 
 **Findaro** es un explorador avanzado para macOS: doble panel, bandeja, Smart Merge con verificación SHA-256, FSEvents y asistente local opcional (Ollama).
 
-**Versión:** `0.1.110` · **Bundle ID:** `app.findaro.files` · **Apple Silicon** · **macOS 15+**
+**Versión:** `0.1.111` · **Bundle ID:** `app.findaro.files` · **Apple Silicon** · **macOS 15+**
 
 ## Instalar (beta privada)
 
@@ -10,7 +10,7 @@
 ./scripts/package-beta.sh
 ```
 
-Genera `dist/beta/Findaro-0.1.110-arm64-beta.dmg` + SHA-256 + instrucciones.  
+Genera `dist/beta/Findaro-0.1.111-arm64-beta.dmg` + SHA-256 + instrucciones.  
 No publica al servidor ni sustituye tu instalación local.
 
 Instrucciones para testers: `docs/BETA_PRIVADA.md`.
