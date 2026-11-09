@@ -5,6 +5,7 @@
     document.getElementById("comparar") ||
     document.querySelector(".findaro-compare-embed");
   if (!root) return;
+  const isEn = document.documentElement.lang.toLowerCase().startsWith("en");
 
   const names = {
     forklift: "ForkLift 4",
@@ -12,7 +13,7 @@
     qspace: "QSpace Pro",
     pathfinder: "Path Finder",
     commander: "Commander One",
-    finder: "Finder",
+    finder: isEn ? "Apple Finder" : "Finder de Apple",
   };
   const selections = {
     esencial: [13, 11, 12, 15, 17, 18, 8, 3, 22, 34],
@@ -52,6 +53,11 @@
     46: "Una fortaleza de varios rivales que no figura en el inventario de FINDARO.",
   };
 
+  if (isEn) {
+    Object.assign(newNames, {"3":"Source / Destination dual panes","8":"Cut ⌘X and paste ⌘V","11":"SHA-256 transfer integrity","12":"Batch recovery after transfer failure","13":"Smart Merge with conflict preview","15":"Approval before AI changes files","17":"Optional local AI with Ollama","18":"Local push-to-talk voice","22":"Search inside subfolders","34":"Windows-style keyboard shortcuts","46":"FTP / SFTP / remote connections"});
+    Object.assign(descriptions, {"3":"Keep source and destination folders visible together.","8":"A visible tray for familiar Windows-style file cutting.","11":"Checks that transferred files retain their contents.","12":"Attempts to roll back the transfer batch after an error.","13":"Previews new, identical and conflicting items before merging.","15":"The assistant requests approval before writing changes.","17":"Optional local AI. All file management works without it.","18":"Dictation and commands without a remote voice server.","22":"Recursive filename search across nested folders.","34":"Helpful controls for people coming from Windows.","46":"An advantage of several alternatives not offered by FINDARO."});
+  }
+
   const rival = root.querySelector("#rival");
   const rivalLabel = root.querySelector("#rival-label");
   const rows = root.querySelector("#comparison-rows");
@@ -68,21 +74,14 @@
     return n;
   }
 
-  function status(raw, primary, undocumented) {
-    const key = raw === "Sí" ? "yes" : raw === "Similar" ? "similar" : "nd";
-    const lbl =
-      raw === "Sí"
-        ? "Incluido"
-        : raw === "Similar"
-          ? "Similar"
-          : primary && undocumented
-            ? "No documentado"
-            : "No incluye";
-    return el(
-      "span",
-      "status " + key + (primary && key === "yes" ? " findaro" : ""),
-      lbl,
-    );
+  function status(raw, primary) {
+    const key = raw === "Sí" || raw === "Yes" ? "yes" : raw === "Similar" ? "similar" : "nd";
+    const label = key === "yes"
+      ? (isEn ? "Included" : "Incluido")
+      : key === "similar"
+        ? "Similar"
+        : (isEn ? "Not documented" : "No documentado");
+    return el("span", "status " + key + (primary && key === "yes" ? " findaro" : ""), label);
   }
 
   function render() {
@@ -113,10 +112,10 @@
       rows.appendChild(item);
     }
     count.textContent =
-      subset.length + " de 50 características de la matriz documental";
+      subset.length + (isEn ? " of 50 documented features" : " de 50 características de la matriz documental");
     fullButton.textContent = expanded
-      ? "Volver a la comparación resumida"
-      : "Ver las 50 características";
+      ? (isEn ? "Back to summary" : "Volver a la comparación resumida")
+      : (isEn ? "View all 50 features" : "Ver las 50 características");
     fullButton.setAttribute("aria-pressed", String(expanded));
     fullButton.setAttribute("aria-expanded", String(expanded));
     root.querySelectorAll("[data-cat]").forEach((btn) => {
@@ -162,6 +161,6 @@
     .then(boot)
     .catch(() => {
       rows.textContent =
-        "No se pudo cargar la matriz de comparación. Recarga la página.";
+        isEn ? "The comparison could not be loaded. Reload the page." : "No se pudo cargar la matriz de comparación. Recarga la página.";
     });
 })();
