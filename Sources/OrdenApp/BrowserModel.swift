@@ -148,7 +148,7 @@ final class BrowserModel: ObservableObject {
 
     @discardableResult
     public func ensureLicenseAllowsWrite() -> Bool {
-        if LicenseStore.shared.state.isUsable {
+        if LicenseStore.shared.state.isUsable && LicenseGate.allowsWrite() {
             return true
         }
         statusMessage = L10n.s(
@@ -280,6 +280,11 @@ final class BrowserModel: ObservableObject {
         secondaryFolderWatcher.onChange = { [weak self] in
             Task { @MainActor in
                 self?.handleSecondaryFolderWatcherEvent()
+            }
+        }
+        LicenseGate.setWriteAllowed(LicenseStore.shared.state.isUsable) { [weak self] in
+            Task { @MainActor in
+                self?.showLicenseSheet = true
             }
         }
         reload()
@@ -2446,6 +2451,7 @@ final class BrowserModel: ObservableObject {
     }
 
     private func executeRename(_ step: AgentToolCall) {
+        guard ensureLicenseAllowsWrite() else { return }
         let newName = (step.arguments["newName"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let path = step.arguments["path"] ?? step.pathsArgument.first ?? selectedEntries.first?.path
         guard let path, !newName.isEmpty else {

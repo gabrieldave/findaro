@@ -12,6 +12,24 @@ export const POST = handle(async (req) => {
   const sessionId = (body?.sessionId || "").trim();
   if (!sessionId) return fail("sessionId requerido", 400);
 
+  // Recuperación idempotente directa si la orden ya está marcada como 'paid' (ADR-04)
+  const { query } = await import("@/lib/db");
+  const existingOrder = await query<{ id: string; status: string }>(
+    `SELECT id, status FROM orders WHERE stripe_session_id = $1 LIMIT 1`,
+    [sessionId],
+  );
+
+  if (existingOrder.rows[0]?.status === "paid") {
+    const recoveryResult = await fulfillPaidOrder({
+      sessionId,
+      orderId: existingOrder.rows[0].id,
+      appId: "findaro",
+    });
+    if (recoveryResult) {
+      return ok(recoveryResult);
+    }
+  }
+
   const secret = process.env.FINDARO_GATEWAY_SECRET || process.env.GATEWAY_SECRET || "";
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (secret) {

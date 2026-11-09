@@ -173,7 +173,7 @@ public enum FindaroLicenseVerifier {
         currentDate: Date = Date()
     ) -> SignedLicensePayload? {
         let parts = token.split(separator: ".")
-        guard parts.count == 3, parts[0] == "F1" else { return nil }
+        guard parts.count == 3, (parts[0] == "F1" || parts[0] == "F2") else { return nil }
         let bodyString = String(parts[1])
         guard let sigData = base64urlToData(String(parts[2])), sigData.count == 64 else { return nil }
         guard let bodyData = bodyString.data(using: .utf8) else { return nil }
@@ -208,7 +208,11 @@ public enum FindaroLicenseVerifier {
 public final class LicenseStore: ObservableObject {
     public static let shared = LicenseStore()
 
-    @Published public private(set) var state: LicenseState = .trialExpired
+    @Published public private(set) var state: LicenseState = .trialExpired {
+        didSet {
+            LicenseGate.setWriteAllowed(state.isUsable)
+        }
+    }
     @Published public private(set) var isBusy: Bool = false
     @Published public private(set) var lastErrorMessage: String?
 
@@ -238,6 +242,7 @@ public final class LicenseStore: ObservableObject {
         self.keychain = keychain
         self.dateProvider = dateProvider
         evaluateLocalState()
+        LicenseGate.setWriteAllowed(state.isUsable)
     }
 
     deinit {

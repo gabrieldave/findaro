@@ -41,6 +41,7 @@ final class LicenseStoreTests: XCTestCase {
     }
 
     override func tearDown() {
+        LicenseGate.setWriteAllowed(true)
         tempDefaults.removePersistentDomain(forName: suiteName)
         super.tearDown()
     }
@@ -214,5 +215,54 @@ final class LicenseStoreTests: XCTestCase {
 
         XCTAssertEqual(store2.state, .trialExpired, "Borrar preferencias no debe reiniciar el período de prueba")
         XCTAssertFalse(store2.state.isUsable)
+    }
+
+    // TP-20: LicenseGate bloquea todas las rutas del inventario de escritura en solo lectura
+    func testLicenseGateBlocksWriteAndThrowsWhenNotAllowed() {
+        LicenseGate.setWriteAllowed(false)
+        XCTAssertFalse(LicenseGate.allowsWrite())
+
+        XCTAssertThrowsError(try LicenseGate.requireWrite()) { error in
+            guard let gateError = error as? LicenseGateError,
+                  case .writeNotAllowed = gateError else {
+                XCTFail("Se esperaba error writeNotAllowed, recibido: \(error)")
+                return
+            }
+        }
+    }
+
+    func testWriteInventoryMethodsBlockedWhenLicenseGateIsClosed() throws {
+        LicenseGate.setWriteAllowed(false)
+        let fm = FileManager.default
+        let tempDir = fm.temporaryDirectory.appendingPathComponent("test-gate-\(UUID().uuidString)")
+        try fm.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: tempDir) }
+
+        let testFile = tempDir.appendingPathComponent("sample.txt")
+        try "test".write(to: testFile, atomically: true, encoding: .utf8)
+
+        // 1. FileOps.transfer bloqueado
+        XCTAssertThrowsError(try FileOps.transfer(paths: [testFile.path], toDirectory: tempDir.path, move: false))
+
+        // 2. FileOps.createFolder bloqueado
+        XCTAssertThrowsError(try FileOps.createFolder(named: "subfolder", in: tempDir.path))
+
+        // 3. FileOps.createFile bloqueado
+        XCTAssertThrowsError(try FileOps.createFile(named: "newfile.txt", in: tempDir.path))
+
+        // 4. FileOps.rename bloqueado
+        XCTAssertThrowsError(try FileOps.rename(path: testFile.path, to: "renamed.txt"))
+
+        // 5. FileOps.duplicate bloqueado
+        XCTAssertThrowsError(try FileOps.duplicate(path: testFile.path))
+
+        // 6. TrashOps.permanentlyDelete bloqueado
+        XCTAssertThrowsError(try TrashOps.permanentlyDelete(paths: [testFile.path]))
+
+        // 7. TrashOps.emptyUserTrash bloqueado
+        XCTAssertThrowsError(try TrashOps.emptyUserTrash())
+
+        // 8. ArchiveOps.extract bloqueado
+        XCTAssertThrowsError(try ArchiveOps.extract(archivePath: testFile.path))
     }
 }

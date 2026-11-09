@@ -179,6 +179,7 @@ public enum TrashOps {
 
     /// Borra permanentemente rutas (ya están en la Papelera o confirmado).
     public static func permanentlyDelete(paths: [String]) throws -> (ok: Int, failures: [String]) {
+        try LicenseGate.requireWrite()
         let fm = FileManager.default
         var ok = 0
         var failures: [String] = []
@@ -201,6 +202,7 @@ public enum TrashOps {
 
     /// Vacía la Papelera del usuario listando y borrando (con fallback a Finder).
     public static func emptyUserTrash() throws -> (ok: Int, failures: [String]) {
+        try LicenseGate.requireWrite()
         let path = userTrashPath
         do {
             let entries = try DirectoryLoader.load(path: path, includeHidden: true)

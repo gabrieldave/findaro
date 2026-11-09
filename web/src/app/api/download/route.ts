@@ -15,12 +15,11 @@ export const GET = handle(async (req) => {
   if (!row) return fail("Enlace inválido o agotado", 403);
 
   // Registrar evento download_click deduplicado por token_id + día (T-06)
-  const today = new Date().toISOString().slice(0, 10);
   await recordEvent({
-    name: "download_click",
+    name: "download_requested",
     subjectType: "download_token",
     subjectId: row.id,
-    dedupKey: `download_click:${row.id}:${today}`,
+    occurrenceKey: String(row.used_count),
     props: { usedCount: row.used_count },
   });
 

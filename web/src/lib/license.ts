@@ -74,18 +74,18 @@ export function mintReferralCode(seed?: string): string {
   return `${prefix}-${suffix}`;
 }
 
-/** Firma asimétrica Ed25519 de licencias para Findaro */
-export function signLicensePayload(payload: Record<string, unknown>): string {
+/** Firma asimétrica Ed25519 de licencias para Findaro (F1 y F2 / ADR-01) */
+export function signLicensePayload(payload: Record<string, unknown>, version: "F1" | "F2" = "F2"): string {
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const privateKey = getSigningPrivateKey();
   const sig = sign(null, Buffer.from(body), privateKey);
-  return `F1.${body}.${sig.toString("base64url")}`;
+  return `${version}.${body}.${sig.toString("base64url")}`;
 }
 
 /** Verificación asimétrica Ed25519 del token de licencia */
 export function verifySignedLicense(token: string): Record<string, unknown> | null {
   const parts = token.split(".");
-  if (parts.length !== 3 || parts[0] !== "F1") return null;
+  if (parts.length !== 3 || (parts[0] !== "F1" && parts[0] !== "F2")) return null;
   const [, body, sigB64] = parts;
   try {
     const publicKey = getSigningPublicKey();

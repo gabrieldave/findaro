@@ -61,14 +61,13 @@ export const POST = handle(async (req) => {
         [hwHash, row.id],
       );
 
-      // Evento trial_started (T-04 y T-06)
+      // Evento trial_started (T-04 y T-06 / ADR-05)
       await recordEvent({
         name: "trial_started",
         subjectType: "license",
         subjectId: row.id,
-        dedupKey: `trial_started:${row.id}`,
+        occurrenceKey: "once",
         props: {
-          email: row.email,
           tier: "trial",
           machineName: machineName || "Mac",
         },
@@ -86,16 +85,18 @@ export const POST = handle(async (req) => {
     return fail(activation.error || "No se pudo activar en esta Mac", 403);
   }
 
-  const signed = signLicensePayload({
-    v: 1,
+  const tokenPayload = {
+    v: 2,
     plan: row.plan,
     tier: row.tier || "personal",
-    email: row.email,
     key: row.license_key,
     seats: row.seats,
     machineId,
     exp: effectiveExpiresAt ? Math.floor(effectiveExpiresAt.getTime() / 1000) : null,
-  });
+  };
+
+  const signed = signLicensePayload(tokenPayload, "F1");
+  const token = signLicensePayload(tokenPayload, "F2");
 
   return ok({
     plan: row.plan,
@@ -105,6 +106,7 @@ export const POST = handle(async (req) => {
     activeCount: activation.activeCount,
     expiresAt: effectiveExpiresAt,
     signed,
+    token,
     licenseKey: row.license_key,
   });
 });

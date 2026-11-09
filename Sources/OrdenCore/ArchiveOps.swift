@@ -32,6 +32,7 @@ public enum ArchiveOps {
 
     /// Extrae junto al archivo. Devuelve la carpeta o el ítem principal resultante.
     public static func extract(archivePath: String) throws -> String {
+        try LicenseGate.requireWrite()
         let fm = FileManager.default
         guard fm.fileExists(atPath: archivePath) else {
             throw Error.failed("No existe el archivo")

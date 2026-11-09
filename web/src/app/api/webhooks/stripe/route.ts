@@ -50,9 +50,22 @@ export const POST = handle(async (req) => {
   }
 
   const event = JSON.parse(rawBody) as {
+    id?: string;
     type?: string;
     data?: { object?: Record<string, unknown> };
   };
+
+  // Deduplicación en tabla stripe_events (ADR-04)
+  if (event.id) {
+    const { query } = await import("@/lib/db");
+    const inserted = await query<{ event_id: string }>(
+      `INSERT INTO stripe_events (event_id) VALUES ($1) ON CONFLICT (event_id) DO NOTHING RETURNING event_id`,
+      [event.id],
+    );
+    if (inserted.rows.length === 0) {
+      return ok({ ignored: true, reason: "duplicate_event" });
+    }
+  }
 
   if (event.type !== "checkout.session.completed") {
     return ok({ ignored: true });

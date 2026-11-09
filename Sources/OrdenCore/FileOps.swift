@@ -49,6 +49,7 @@ public enum FileOps {
     /// elimina las copias parciales e intenta revertir los movimientos ya realizados.
     @discardableResult
     public static func transfer(paths: [String], toDirectory destinationDir: String, move: Bool) throws -> [TransferPair] {
+        try LicenseGate.requireWrite()
         let fm = FileManager.default
         let destinationURL = URL(fileURLWithPath: destinationDir)
             .standardizedFileURL.resolvingSymlinksInPath()
@@ -193,6 +194,7 @@ public enum FileOps {
 
     @discardableResult
     public static func createFolder(named name: String, in parent: String) throws -> String {
+        try LicenseGate.requireWrite()
         let cleaned = try validatedName(name)
         let fm = FileManager.default
         var parentIsDirectory: ObjCBool = false
@@ -206,6 +208,7 @@ public enum FileOps {
 
     @discardableResult
     public static func createFile(named name: String, in parent: String, contents: String = "") throws -> String {
+        try LicenseGate.requireWrite()
         let cleaned = try validatedName(name)
         let fm = FileManager.default
         var parentIsDirectory: ObjCBool = false
@@ -221,6 +224,7 @@ public enum FileOps {
 
     @discardableResult
     public static func rename(path: String, to newName: String) throws -> String {
+        try LicenseGate.requireWrite()
         let cleaned = try validatedName(newName)
         let fm = FileManager.default
         let source = URL(fileURLWithPath: path).standardizedFileURL
@@ -238,6 +242,7 @@ public enum FileOps {
 
     @discardableResult
     public static func duplicate(path: String) throws -> String {
+        try LicenseGate.requireWrite()
         let fm = FileManager.default
         let source = URL(fileURLWithPath: path).standardizedFileURL
         guard fm.fileExists(atPath: source.path) else {

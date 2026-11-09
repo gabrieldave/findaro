@@ -65,6 +65,7 @@ public actor TransferQueue {
             try await Task.sleep(nanoseconds: 40_000_000)
             try Task.checkCancellation()
         }
+        try LicenseGate.requireWrite()
         running = true
         defer { running = false }
 

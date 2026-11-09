@@ -3,6 +3,11 @@ import OrdenCore
 import Foundation
 
 final class TransferQueueTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        LicenseGate.setWriteAllowed(true)
+    }
+
     func testCopyVerifiesSizeAndSHA256() async throws {
         let fm = FileManager.default
         let srcDir = fm.temporaryDirectory.appendingPathComponent("findaro-tq-src-\(UUID().uuidString)", isDirectory: true)

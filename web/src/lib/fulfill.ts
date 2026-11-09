@@ -77,16 +77,21 @@ export async function fulfillPaidOrder(opts: {
     ]);
   }
 
-  // Transición atómica de estado: sólo actualiza y retorna si el estado no era 'paid'
+  // Transición atómica de estado: solo de 'pending' a 'paid' (ADR-04)
   let newlyPaid = false;
   if (order.status !== "paid") {
+    if (order.status === "failed" || order.status === "refunded") {
+      console.warn(`[fulfill] Orden ${order.id} en estado ${order.status}; ignorando intento de cumplimiento.`);
+      return null;
+    }
+
     const updateRes = await query<{ id: string }>(
       `UPDATE orders
        SET status = 'paid',
            paid_at = now(),
            stripe_payment_intent = COALESCE($2, stripe_payment_intent),
            stripe_session_id = COALESCE(stripe_session_id, $1)
-       WHERE id = $3 AND status <> 'paid'
+       WHERE id = $3 AND status = 'pending'
        RETURNING id`,
       [opts.sessionId, opts.paymentIntent || null, order.id],
     );
@@ -99,12 +104,12 @@ export async function fulfillPaidOrder(opts: {
         await incrementPromoIfEligible();
       }
 
-      // Registrar evento purchase_confirmed con deduplicación por order_id (T-06)
+      // Registrar evento purchase_confirmed con deduplicación por orden (ADR-05)
       await recordEvent({
         name: "purchase_confirmed",
         subjectType: "order",
         subjectId: order.id,
-        dedupKey: `purchase_confirmed:${order.id}`,
+        occurrenceKey: "once",
         props: {
           tier: order.tier,
           amountUsd: order.amount_usd,
@@ -112,7 +117,7 @@ export async function fulfillPaidOrder(opts: {
         },
       });
 
-      // Registrar cashback de referido ($10 USD para el referente)
+      // Registrar cashback de referido si aplica
       if (order.referral_code) {
         const referrer = await query<{ id: string; email: string }>(
           `SELECT id, email FROM customers WHERE UPPER(referral_code) = UPPER($1) LIMIT 1`,
@@ -126,6 +131,13 @@ export async function fulfillPaidOrder(opts: {
             [referrer.rows[0].id, order.id, order.referral_code.trim().toUpperCase()],
           );
         }
+      }
+    } else {
+      // Releer estado tras concurrencia (ADR-04)
+      const current = await query<{ status: string }>(`SELECT status FROM orders WHERE id = $1`, [order.id]);
+      if (current.rows[0]?.status !== "paid") {
+        console.warn(`[fulfill] Orden ${order.id} no está en estado paid tras reintento:`, current.rows[0]?.status);
+        return null;
       }
     }
   }
@@ -153,12 +165,18 @@ export async function fulfillPaidOrder(opts: {
   const downloadUrl = `${PUBLIC_APP_URL}/api/download?token=${token}`;
   const referralLink = `${PUBLIC_APP_URL}/?ref=${customerRefCode}`;
 
-  // Enviar correo de confirmación y respaldo si no se ha enviado aún
-  const orderCheck = await query<{ email_sent_at: Date | null }>(
-    `SELECT email_sent_at FROM orders WHERE id = $1`,
+  // Reclamar correo antes de enviar para evitar duplicados concurrentes (ADR-04)
+  const claim = await query<{ id: string }>(
+    `UPDATE orders
+     SET email_claimed_at = now()
+     WHERE id = $1
+       AND email_sent_at IS NULL
+       AND (email_claimed_at IS NULL OR email_claimed_at < now() - interval '10 minutes')
+     RETURNING id`,
     [order.id],
   );
-  if (!orderCheck.rows[0]?.email_sent_at) {
+
+  if (claim.rows.length > 0) {
     try {
       const emailRes = await sendPurchaseConfirmationEmail({
         to: order.email,

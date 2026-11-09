@@ -333,11 +333,13 @@ v.addEventListener('play',s);v.addEventListener('pause',s);if(b)b.addEventListen
     var expires = new Date(Date.now() + 30*24*60*60*1000).toUTCString();
     document.cookie = 'findaro_utm=' + encodeURIComponent(JSON.stringify(utmData)) + '; path=/; expires=' + expires + '; SameSite=Lax';
 
+    var pageviewId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : ('pv-' + Date.now() + '-' + Math.random().toString(36).slice(2));
     try {
       fetch('/api/v', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          visit_id: pageviewId,
           utm_source: utmData.utm_source,
           utm_medium: utmData.utm_medium,
           utm_campaign: utmData.utm_campaign,

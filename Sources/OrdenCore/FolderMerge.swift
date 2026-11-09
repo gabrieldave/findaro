@@ -306,6 +306,7 @@ public enum FolderMerge {
         overwriteConflicts: Bool = false,
         maxItems: Int = defaultMaxItems
     ) throws -> MergeResult {
+        try LicenseGate.requireWrite()
         let diff = preview(source: source, dest: dest, maxItems: maxItems)
         guard diff.canMerge, let expectedFingerprint = diff.sourceFingerprint else {
             throw MergeError.incompletePreview(diff.warnings.first ?? "La comparación no está completa.")
@@ -496,6 +497,7 @@ public enum FolderMerge {
     /// que se comparó y copió. Primero lo renombra en su mismo volumen y verifica de nuevo.
     @discardableResult
     public static func trashSourceAfterVerifiedMerge(_ result: MergeResult) throws -> String? {
+        try LicenseGate.requireWrite()
         let fm = FileManager.default
         let sourceURL = URL(fileURLWithPath: result.sourcePath, isDirectory: true)
         let current = enumerate(root: sourceURL, maxItems: result.maxItems)

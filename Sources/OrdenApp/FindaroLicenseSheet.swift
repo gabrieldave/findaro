@@ -52,7 +52,7 @@ public struct FindaroLicenseSheet: View {
                     } label: {
                         HStack {
                             Image(systemName: "cart.fill")
-                            Text(L10n.s("Comprar licencia Pro ($39 USD · 2 Macs)", "Purchase Pro License ($39 USD · 2 Macs)"))
+                            Text(L10n.s("Comprar o activar licencia", "Purchase or Activate License"))
                                 .fontWeight(.semibold)
                         }
                         .frame(maxWidth: .infinity)
