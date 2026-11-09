@@ -38,6 +38,10 @@ public enum L10n {
         activeLanguage.isEnglish ? en : es
     }
 
+    public static var isEnglish: Bool {
+        activeLanguage.isEnglish
+    }
+
     // MARK: - Strings comunes
     public static var appTitle: String { s("Findaro", "Findaro") }
     public static var searchPlaceholder: String { s("Buscar archivos o atajos…", "Search files or shortcuts…") }

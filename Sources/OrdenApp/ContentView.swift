@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 import OrdenCore
 
 struct ContentView: View {
+    @AppStorage("findaro_app_language") private var appLangStorage: String = "auto"
     @EnvironmentObject private var browser: BrowserModel
     @EnvironmentObject private var session: BrowserWindowSession
 
@@ -218,7 +219,7 @@ struct ContentView: View {
                     Text("Suelta para meter en «\(URL(fileURLWithPath: dest).lastPathComponent)»")
                         .font(.subheadline.weight(.semibold))
                     Spacer(minLength: 0)
-                    Text("⌥ copia · ⌘Z deshace")
+                    Text(L10n.s("⌥ copia · ⌘Z deshace", "⌥ copies · ⌘Z undos"))
                         .font(.caption)
                         .opacity(0.85)
                 }
@@ -239,23 +240,23 @@ struct ContentView: View {
                         VStack(spacing: 0) {
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack(spacing: 8) {
-                                    Text("Origen")
+                                    Text(L10n.s("Origen", "Origin"))
                                         .font(.system(size: 12, weight: .semibold))
                                     if browser.focusedPane == .primary {
-                                        FindaroStatusPill(title: "activo", kind: .processing)
+                                        FindaroStatusPill(title: L10n.s("activo", "active"), kind: .processing)
                                     }
                                     Spacer(minLength: 4)
                                     if browser.focusedPane != .primary {
                                         Button {
                                             browser.focusOriginPane()
                                         } label: {
-                                            Label("Activar", systemImage: "arrow.left.circle.fill")
+                                            Label(L10n.s("Activar", "Activate"), systemImage: "arrow.left.circle.fill")
                                                 .font(.caption.weight(.semibold))
                                         }
                                         .buttonStyle(.borderedProminent)
                                         .tint(OrdenTheme.accent)
                                         .controlSize(.small)
-                                        .help("Enfoca el panel izquierdo · Tab · ⌘⇧← · o clic en vacío")
+                                        .help(L10n.s("Enfoca el panel izquierdo · Tab · ⌘⇧← · o clic en vacío", "Focus left pane · Tab · ⌘⇧← · or click in empty space"))
                                     }
                                     Button {
                                         browser.swapPaneFolders()
@@ -263,7 +264,7 @@ struct ContentView: View {
                                         Image(systemName: "arrow.left.arrow.right")
                                     }
                                     .buttonStyle(.borderless)
-                                    .help("Intercambiar carpetas Origen ↔ Destino")
+                                    .help(L10n.s("Intercambiar carpetas Origen ↔ Destino", "Swap folders Origin ↔ Destination"))
                                     Button {
                                         browser.goUp()
                                     } label: {
@@ -454,13 +455,13 @@ struct SortBar: View {
             Spacer(minLength: 8)
 
             Menu {
-                Button("Todos · \(browser.entries.count)") {
+                Button("\(L10n.s("Todos", "All")) · \(browser.entries.count)") {
                     browser.clearCategoryFilter()
                 }
                 if !browser.categoryCounts.isEmpty {
                     Divider()
                     ForEach(browser.categoryCounts, id: \.category) { row in
-                        Button("\(row.category.labelSpanish) · \(row.count)") {
+                        Button("\(row.category.labelLocalized) · \(row.count)") {
                             browser.categoryFilter = row.category
                         }
                     }
@@ -470,7 +471,7 @@ struct SortBar: View {
             }
             .menuStyle(.borderedButton)
             .tint(browser.categoryFilter == nil ? nil : OrdenTheme.accent)
-            .help("Filtra por tipo: imágenes, vídeos, zips…")
+            .help(L10n.s("Filtra por tipo: imágenes, vídeos, zips…", "Filter by type: images, videos, archives…"))
 
             Button {
                 browser.toggleDownloadsTodayMode()
@@ -840,6 +841,7 @@ private struct SidebarItem: Identifiable, Hashable {
 }
 
 struct SidebarView: View {
+    @AppStorage("findaro_app_language") private var appLangStorage: String = "auto"
     @EnvironmentObject private var browser: BrowserModel
     /// Se incrementa al montar/desmontar discos para refrescar Ubicaciones.
     @State private var volumesTick: Int = 0
@@ -855,7 +857,7 @@ struct SidebarView: View {
 
                 favoritesDropZone
 
-                sectionHeader("Ubicaciones")
+                sectionHeader(L10n.s("Ubicaciones", "Locations"))
                     .padding(.top, 12)
                 ForEach(locationItems) { item in
                     sidebarButton(item, isFavoriteSlot: false)
@@ -889,9 +891,32 @@ struct SidebarView: View {
 
     private var favoriteItems: [SidebarItem] {
         browser.store.preferences.favorites.map { path in
-            SidebarItem(
+            let rawName = URL(fileURLWithPath: path).lastPathComponent
+            let localizedTitle: String
+            if L10n.isEnglish {
+                switch rawName.lowercased() {
+                case "descargas", "downloads": localizedTitle = "Downloads"
+                case "escritorio", "desktop": localizedTitle = "Desktop"
+                case "documentos", "documents": localizedTitle = "Documents"
+                case "imágenes", "imagenes", "pictures": localizedTitle = "Pictures"
+                case "música", "musica", "music": localizedTitle = "Music"
+                case "películas", "peliculas", "movies": localizedTitle = "Movies"
+                default: localizedTitle = rawName
+                }
+            } else {
+                switch rawName.lowercased() {
+                case "descargas", "downloads": localizedTitle = "Descargas"
+                case "escritorio", "desktop": localizedTitle = "Escritorio"
+                case "documentos", "documents": localizedTitle = "Documentos"
+                case "imágenes", "imagenes", "pictures": localizedTitle = "Imágenes"
+                case "música", "musica", "music": localizedTitle = "Música"
+                case "películas", "peliculas", "movies": localizedTitle = "Películas"
+                default: localizedTitle = rawName
+                }
+            }
+            return SidebarItem(
                 id: "fav-\(path)",
-                title: URL(fileURLWithPath: path).lastPathComponent,
+                title: localizedTitle,
                 path: path,
                 systemImage: favoriteIcon(for: path)
             )
@@ -943,7 +968,7 @@ struct SidebarView: View {
     private var favoritesDropZone: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
-                Text("FAVORITOS")
+                Text(L10n.s("FAVORITOS", "FAVORITES"))
                     .font(.system(size: 10, weight: .bold))
                     .tracking(0.6)
                     .foregroundStyle(OrdenTheme.textMuted)
@@ -956,7 +981,7 @@ struct SidebarView: View {
                         .foregroundStyle(OrdenTheme.accent)
                 }
                 .buttonStyle(.plain)
-                .help("Añadir la carpeta actual a Favoritos")
+                .help(L10n.s("Añadir la carpeta actual a Favoritos", "Add current folder to Favorites"))
                 Button {
                     browser.pickFolderAsFavorite()
                 } label: {
@@ -965,7 +990,7 @@ struct SidebarView: View {
                         .foregroundStyle(OrdenTheme.accent)
                 }
                 .buttonStyle(.plain)
-                .help("Elegir otra carpeta…")
+                .help(L10n.s("Elegir otra carpeta…", "Choose another folder…"))
             }
             .padding(.horizontal, 14)
             .padding(.top, 14)
@@ -975,7 +1000,7 @@ struct SidebarView: View {
                 sidebarButton(item, isFavoriteSlot: true)
             }
 
-            Text(favoritesDropTargeted ? "Suelta para fijar" : "Usa «A Favoritos» o suelta desde Finder")
+            Text(favoritesDropTargeted ? L10n.s("Suelta para fijar", "Drop to pin") : L10n.s("Usa «A Favoritos» o suelta desde Finder", "Use «Add to Favorites» or drop from Finder"))
                 .font(.caption2)
                 .foregroundStyle(favoritesDropTargeted ? OrdenTheme.accent : .secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1050,23 +1075,23 @@ struct SidebarView: View {
         .accessibilityAddTraits(active ? [.isSelected] : [])
         .contextMenu {
             if isFavoriteSlot {
-                Button("Mover arriba en Favoritos") {
+                Button(L10n.s("Mover arriba en Favoritos", "Move Up in Favorites")) {
                     browser.moveFavorite(path: item.path, direction: -1)
                 }
                 .disabled(browser.store.preferences.favorites.first == item.path)
 
-                Button("Mover abajo en Favoritos") {
+                Button(L10n.s("Mover abajo en Favoritos", "Move Down in Favorites")) {
                     browser.moveFavorite(path: item.path, direction: 1)
                 }
                 .disabled(browser.store.preferences.favorites.last == item.path)
 
                 Divider()
 
-                Button("Quitar de Favoritos", role: .destructive) {
+                Button(L10n.s("Quitar de Favoritos", "Remove from Favorites"), role: .destructive) {
                     browser.removeFavorite(item.path)
                 }
             } else {
-                Button("Añadir a Favoritos") {
+                Button(L10n.s("Añadir a Favoritos", "Add to Favorites")) {
                     browser.addFavorite(item.path)
                 }
             }
@@ -1435,18 +1460,18 @@ struct FileBrowserPane: View {
                     .frame(width: 22)
             }
             .buttonStyle(.plain)
-            .help("Seleccionar / quitar todos")
+            .help(L10n.s("Seleccionar / quitar todos", "Select / deselect all"))
 
-            Text("Nombre / ruta")
+            Text(L10n.s("Nombre / ruta", "Name / Path"))
                 .frame(maxWidth: .infinity, alignment: .leading)
             if !metrics.isCompact {
-                Text("Tipo")
+                Text(L10n.s("Tipo", "Type"))
                     .frame(width: 100, alignment: .leading)
             }
             // Siempre visible: al filtrar ordenamos por esto (más nuevo arriba).
-            Text("Agregado")
+            Text(L10n.s("Agregado", "Date Added"))
                 .frame(width: metrics.isCompact ? 108 : 130, alignment: .trailing)
-            Text("Tamaño")
+            Text(L10n.s("Tamaño", "Size"))
                 .frame(width: metrics.isCompact ? 72 : 84, alignment: .trailing)
             Color.clear.frame(width: 28)
         }
@@ -1521,7 +1546,7 @@ struct FileRowButton: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 if !metrics.isCompact {
-                    Text(entry.category.labelSpanish)
+                    Text(entry.category.labelLocalized)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(width: 100, alignment: .leading)
@@ -1572,7 +1597,7 @@ struct FileRowButton: View {
         .folderDropTarget(entry: entry)
         .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu {
-            Button("Abrir") {
+            Button(L10n.s("Abrir", "Open")) {
                 ensureSelectedAlone()
                 if isSecondary {
                     browser.openSecondaryEntry(entry)
@@ -1581,92 +1606,92 @@ struct FileRowButton: View {
                 }
             }
             OpenWithMenu(entry: entry)
-            Button("Obtener información") {
+            Button(L10n.s("Obtener información", "Get Info")) {
                 ensureSelectedAlone()
                 browser.showInfo(entry)
             }
             if entry.isDirectory {
                 if browser.isFavorite(entry.path) {
-                    Button("Quitar de Favoritos") {
+                    Button(L10n.s("Quitar de Favoritos", "Remove from Favorites")) {
                         browser.removeFavorite(entry.path)
                     }
                 } else {
-                    Button("Añadir a Favoritos") {
+                    Button(L10n.s("Añadir a Favoritos", "Add to Favorites")) {
                         browser.addFavorite(entry.path)
                     }
                 }
             }
-            Button("Renombrar") {
+            Button(L10n.s("Renombrar", "Rename")) {
                 ensureSelectedAlone()
                 browser.promptRename()
             }
-            Button("Duplicar") {
+            Button(L10n.s("Duplicar", "Duplicate")) {
                 ensureInSelection()
                 browser.duplicateSelection()
             }
-            Button("Comprimir") {
+            Button(L10n.s("Comprimir", "Compress")) {
                 ensureInSelection()
                 browser.compressSelection()
             }
             if ArchiveOps.isExtractable(entry.path) {
-                Button("Descomprimir aquí") {
+                Button(L10n.s("Descomprimir aquí", "Extract here")) {
                     ensureSelectedAlone()
                     browser.extractArchive(entry, intoSecondary: isSecondary)
                 }
             }
-            Button("A bandeja") {
+            Button(L10n.s("A bandeja", "To Tray")) {
                 ensureInSelection()
                 browser.addSelectionToShelf()
             }
-            Button("Vista rápida") {
+            Button(L10n.s("Vista rápida", "Quick Look")) {
                 ensureSelectedAlone()
                 browser.quickLookSelection()
             }
-            Button("Mostrar en Finder") { browser.revealInFinder(entry) }
-            Button("Copiar") {
+            Button(L10n.s("Mostrar en Finder", "Show in Finder")) { browser.revealInFinder(entry) }
+            Button(L10n.s("Copiar", "Copy")) {
                 ensureInSelection()
                 browser.copySelectionToPasteboard()
             }
-            Button("Copiar ruta completa") { browser.copyPath(entry) }
+            Button(L10n.s("Copiar ruta completa", "Copy Full Path")) { browser.copyPath(entry) }
             if browser.dualPaneEnabled {
                 Divider()
                 if isSecondary {
-                    Button("Mover a Origen") {
+                    Button(L10n.s("Mover a Origen", "Move to Origin")) {
                         ensureInSelection()
                         browser.transferSecondarySelectionToPrimary(copy: false)
                     }
-                    Button("Copiar a Origen") {
+                    Button(L10n.s("Copiar a Origen", "Copy to Origin")) {
                         ensureInSelection()
                         browser.transferSecondarySelectionToPrimary(copy: true)
                     }
                 } else {
-                    Button("Mover a Destino") {
+                    Button(L10n.s("Mover a Destino", "Move to Destination")) {
                         ensureInSelection()
                         browser.transferPrimarySelectionToSecondary(copy: false)
                     }
-                    Button("Copiar a Destino") {
+                    Button(L10n.s("Copiar a Destino", "Copy to Destination")) {
                         ensureInSelection()
                         browser.transferPrimarySelectionToSecondary(copy: true)
                     }
                 }
             }
             Divider()
-            Button("Nueva carpeta aquí") {
+            Button(L10n.s("Nueva carpeta aquí", "New Folder here")) {
                 browser.focusPane(pane)
                 browser.promptNewFolder()
             }
-            Button("Nuevo archivo aquí") {
+            Button(L10n.s("Nuevo archivo aquí", "New File here")) {
                 browser.focusPane(pane)
                 browser.promptNewFile()
             }
-            Button("Seleccionar todos") {
+            Button(L10n.s("Seleccionar todos", "Select All")) {
                 if isSecondary {
                     browser.selectAllSecondaryVisible()
                 } else {
                     browser.selectAllVisible()
                 }
             }
-            Button("Quitar selección") {
+            Button(L10n.s("Quitar selección", "Deselect All")) {
                 if isSecondary {
                     browser.clearSecondarySelection()
                 } else {
@@ -1674,7 +1699,7 @@ struct FileRowButton: View {
                 }
             }
             Divider()
-            Button("Mover a la Papelera", role: .destructive) {
+            Button(L10n.s("Mover a la Papelera", "Move to Trash"), role: .destructive) {
                 ensureInSelection()
                 browser.moveSelectionToTrash()
             }
@@ -1968,17 +1993,17 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             settingsGeneral
-                .tabItem { Label("General", systemImage: "slider.horizontal.3") }
+                .tabItem { Label(L10n.s("General", "General"), systemImage: "slider.horizontal.3") }
             settingsAssistant
-                .tabItem { Label("Asistente", systemImage: "sparkles") }
+                .tabItem { Label(L10n.s("Asistente", "Assistant"), systemImage: "sparkles") }
             settingsShortcuts
-                .tabItem { Label("Atajos", systemImage: "keyboard") }
+                .tabItem { Label(L10n.s("Atajos", "Shortcuts"), systemImage: "keyboard") }
             settingsSearch
-                .tabItem { Label("Búsqueda", systemImage: "magnifyingglass") }
+                .tabItem { Label(L10n.s("Búsqueda", "Search"), systemImage: "magnifyingglass") }
             settingsMaintenance
-                .tabItem { Label("Mantenimiento", systemImage: "wrench.and.screwdriver") }
+                .tabItem { Label(L10n.s("Mantenimiento", "Maintenance"), systemImage: "wrench.and.screwdriver") }
             settingsLicense
-                .tabItem { Label("Licencia", systemImage: "key.fill") }
+                .tabItem { Label(L10n.s("Licencia", "License"), systemImage: "key.fill") }
         }
         .frame(width: 560, height: 520)
         .sheet(isPresented: $browser.showOllamaSetupDialog) {
@@ -2037,8 +2062,8 @@ struct SettingsView: View {
                 settingsRow(
                     icon: "keyboard",
                     tint: OrdenTheme.accent,
-                    title: "Atajo global",
-                    subtitle: "Abre Findaro en «\(browser.globalHotkeyFolderDisplayName)»"
+                    title: L10n.s("Atajo global", "Global Hotkey"),
+                    subtitle: L10n.s("Abre Findaro en «\(browser.globalHotkeyFolderDisplayName)»", "Opens Findaro in «\(browser.globalHotkeyFolderDisplayName)»")
                 ) {
                     HStack(spacing: 6) {
                         let globalChord = browser.chord(forHotkey: "nav.globalOpen")
@@ -2060,7 +2085,7 @@ struct SettingsView: View {
                             .foregroundStyle(OrdenTheme.accent)
                         }
                         .buttonStyle(.plain)
-                        .help("Cambiar teclas del atajo global")
+                        .help(L10n.s("Cambiar teclas del atajo global", "Change global hotkey"))
 
                         Button {
                             browser.pickGlobalHotkeyFolder()
@@ -2070,7 +2095,7 @@ struct SettingsView: View {
                                 .foregroundStyle(OrdenTheme.accent)
                         }
                         .buttonStyle(.plain)
-                        .help("Elegir carpeta que abre el atajo")
+                        .help(L10n.s("Elegir carpeta que abre el atajo", "Choose folder to open with hotkey"))
 
                         if browser.usesCustomGlobalHotkeyFolder {
                             Button {
@@ -2081,7 +2106,7 @@ struct SettingsView: View {
                                     .foregroundStyle(.secondary)
                             }
                             .buttonStyle(.plain)
-                            .help("Volver a Descargas")
+                            .help(L10n.s("Volver a Descargas", "Reset to Downloads"))
                         }
                     }
                 }
@@ -2089,26 +2114,26 @@ struct SettingsView: View {
                 settingsRow(
                     icon: "folder.badge.gearshape",
                     tint: .orange,
-                    title: "Abrir carpetas con Findaro",
+                    title: L10n.s("Abrir carpetas con Findaro", "Open folders with Findaro"),
                     subtitle: OpenFolderBridge.isDefaultFolderHandler()
-                        ? "Findaro es la app por defecto"
-                        : "macOS obliga un paso manual (Abrir con → Siempre)"
+                        ? L10n.s("Findaro es la app por defecto", "Findaro is default folder handler")
+                        : L10n.s("macOS obliga un paso manual (Abrir con → Siempre)", "macOS requires manual step (Open With → Always)")
                 ) {
-                    Button(OpenFolderBridge.isDefaultFolderHandler() ? "Ver cómo" : "Preparar…") {
+                    Button(OpenFolderBridge.isDefaultFolderHandler() ? L10n.s("Ver cómo", "See how") : L10n.s("Preparar…", "Setup…")) {
                         browser.runFolderHandlerSetup()
                     }
                 }
             } header: {
-                Text("Inicio rápido")
+                Text(L10n.s("Inicio rápido", "Quick Start"))
             } footer: {
-                Text("Lapicito = cambiar teclas · carpeta = a dónde abre. «Abrir con → Siempre» es aparte.")
+                Text(L10n.s("Lapicito = cambiar teclas · carpeta = a dónde abre. «Abrir con → Siempre» es aparte.", "Pencil = change keys · folder = open location. «Open With → Always» is separate."))
             }
 
             Section {
                 settingsRow(
                     icon: "arrow.up.arrow.down",
                     tint: OrdenTheme.accent,
-                    title: "Orden de esta sesión",
+                    title: L10n.s("Orden de esta sesión", "Sort Order for Session"),
                     subtitle: browser.rule.summarySpanish
                 ) {
                     Text(browser.scopeBadge)
@@ -2121,8 +2146,8 @@ struct SettingsView: View {
                     set: { browser.setExplorerKeyboardProfile($0) }
                 )) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Teclado tipo Explorer")
-                        Text("Enter abre · F2 renombra (si no, Enter renombra como Finder)")
+                        Text(L10n.s("Teclado tipo Explorer", "Explorer Keyboard Profile"))
+                        Text(L10n.s("Enter abre · F2 renombra (si no, Enter renombra como Finder)", "Enter opens · F2 renames (otherwise Enter renames like Finder)"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -2133,8 +2158,8 @@ struct SettingsView: View {
                     set: { browser.setShowHiddenFiles($0) }
                 )) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Mostrar ocultos")
-                        Text("Archivos con punto o flag hidden · ⌘⇧.")
+                        Text(L10n.s("Mostrar ocultos", "Show Hidden Files"))
+                        Text(L10n.s("Archivos con punto o flag hidden · ⌘⇧.", "Files starting with dot or hidden flag · ⌘⇧."))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -2145,14 +2170,14 @@ struct SettingsView: View {
                     set: { browser.setFlattenFolderView($0) }
                 )) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Vista plana")
-                        Text("Lista archivos de subcarpetas sin jerarquía")
+                        Text(L10n.s("Vista plana", "Flat Folder View"))
+                        Text(L10n.s("Lista archivos de subcarpetas sin jerarquía", "Lists files in subfolders without hierarchy"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
             } header: {
-                Text("Lista de archivos")
+                Text(L10n.s("Lista de archivos", "File List"))
             }
         }
         .formStyle(.grouped)
@@ -2174,7 +2199,7 @@ struct SettingsView: View {
                             .foregroundStyle(ollama.isReady ? .green : OrdenTheme.accent)
                     }
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Inteligencia local")
+                        Text(L10n.s("Inteligencia local", "On-Device AI"))
                             .font(.headline)
                         Text(ollamaStatusLabel)
                             .font(.subheadline)
@@ -2187,16 +2212,16 @@ struct SettingsView: View {
                 Button {
                     browser.showOllamaSetupDialog = true
                 } label: {
-                    Label("Configurar / detectar Ollama…", systemImage: "waveform.badge.magnifyingglass")
+                    Label(L10n.s("Configurar / detectar Ollama…", "Configure / detect Ollama…"), systemImage: "waveform.badge.magnifyingglass")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(OrdenTheme.accent)
                 .controlSize(.large)
             } header: {
-                Text("Ollama (opcional)")
+                Text(L10n.s("Ollama (opcional)", "Ollama (Optional)"))
             } footer: {
-                Text("Si no quieres IA, no pasa nada: el asistente sigue con atajos y reglas. Nada se sube a internet.")
+                Text(L10n.s("Si no quieres IA, no pasa nada: el asistente sigue con atajos y reglas. Nada se sube a internet.", "If you don't want AI, shortcuts and rules still work. Nothing is uploaded to internet."))
             }
 
             Section {
@@ -2399,14 +2424,14 @@ struct SettingsView: View {
     private var settingsSearch: some View {
         Form {
             Section {
-                tipLine(icon: "doc.text.magnifyingglass", title: "Filtro de arriba", detail: "Solo nombres en esta carpeta")
-                tipLine(icon: "magnifyingglass.circle.fill", title: "Subcarpetas · ⌘4", detail: "Esta carpeta y todo lo de adentro")
-                tipLine(icon: "checkmark.circle.fill", title: "Coincide por parte del nombre", detail: "vibe encuentra vibesystems…")
-                tipLine(icon: "xmark.circle.fill", title: "No lee el contenido", detail: "Eso es del asistente / Ollama")
+                tipLine(icon: "doc.text.magnifyingglass", title: L10n.s("Filtro de arriba", "Top Filter"), detail: L10n.s("Solo nombres en esta carpeta", "Only file names in current folder"))
+                tipLine(icon: "magnifyingglass.circle.fill", title: L10n.s("Subcarpetas · ⌘4", "Subfolders · ⌘4"), detail: L10n.s("Esta carpeta y todo lo de adentro", "Current folder and all nested contents"))
+                tipLine(icon: "checkmark.circle.fill", title: L10n.s("Coincide por parte del nombre", "Matches partial file names"), detail: L10n.s("vibe encuentra vibesystems…", "e.g. vibe matches vibesystems…"))
+                tipLine(icon: "xmark.circle.fill", title: L10n.s("No lee el contenido", "Does not read file content"), detail: L10n.s("Eso es del asistente / Ollama", "Use AI Assistant / Ollama for content queries"))
             } header: {
-                Text("Cómo busca Findaro")
+                Text(L10n.s("Cómo busca Findaro", "How Findaro Searches"))
             } footer: {
-                Text("Sin comodines (* ?) y sin Spotlight. El asistente (⌘5) es aparte.")
+                Text(L10n.s("Sin comodines (* ?) y sin Spotlight. El asistente (⌘5) es aparte.", "No wildcard syntax required and no Spotlight indexing lag. Assistant (⌘5) handles deep natural queries."))
             }
         }
         .formStyle(.grouped)
@@ -2421,8 +2446,8 @@ struct SettingsView: View {
                 settingsRow(
                     icon: "app.badge",
                     tint: OrdenTheme.accent,
-                    title: "Versión",
-                    subtitle: "ordena.iareal.net"
+                    title: L10n.s("Versión", "Version"),
+                    subtitle: "findaro.iareal.net"
                 ) {
                     Text(AppUpdateChecker.currentVersion())
                         .font(.body.monospaced().weight(.semibold))
@@ -2430,28 +2455,28 @@ struct SettingsView: View {
                 Button {
                     Task { await AppUpdateChecker.shared.check(interactive: true) }
                 } label: {
-                    Label("Buscar actualizaciones…", systemImage: "arrow.triangle.2.circlepath")
+                    Label(L10n.s("Buscar actualizaciones…", "Check for Updates…"), systemImage: "arrow.triangle.2.circlepath")
                         .frame(maxWidth: .infinity)
                 }
                 .controlSize(.large)
             } header: {
-                Text("Actualizaciones")
+                Text(L10n.s("Actualizaciones", "Updates"))
             }
 
             Section {
                 Button(role: .none) {
                     ThumbnailStore.shared.clearAll()
                     browser.reload()
-                    browser.statusMessage = "Caché de miniaturas limpia"
+                    browser.statusMessage = L10n.s("Caché de miniaturas limpia", "Thumbnail cache cleared")
                 } label: {
-                    Label("Limpiar miniaturas", systemImage: "photo.on.rectangle.angled")
+                    Label(L10n.s("Limpiar miniaturas", "Clear Thumbnails"), systemImage: "photo.on.rectangle.angled")
                         .frame(maxWidth: .infinity)
                 }
                 .controlSize(.large)
             } header: {
-                Text("Caché")
+                Text(L10n.s("Caché", "Cache"))
             } footer: {
-                Text("Si un icono de vídeo o imagen se ve raro, limpia aquí. Al actualizar la app también se limpia.")
+                Text(L10n.s("Si un icono de vídeo o imagen se ve raro, limpia aquí. Al actualizar la app también se limpia.", "If an image or video preview appears corrupted, clear cache here."))
             }
         }
         .formStyle(.grouped)
@@ -2459,10 +2484,10 @@ struct SettingsView: View {
     }
 
     private var ollamaStatusLabel: String {
-        if ollama.isReady { return "Activo · \(ollama.selectedModel)" }
-        if ollama.enabled && !ollama.available { return "Activado, pero Ollama no responde" }
-        if ollama.available { return "Detectado — aún no activado" }
-        return "Apagado · solo reglas y atajos"
+        if ollama.isReady { return L10n.s("Activo · \(ollama.selectedModel)", "Active · \(ollama.selectedModel)") }
+        if ollama.enabled && !ollama.available { return L10n.s("Activado, pero Ollama no responde", "Enabled, but Ollama is not responding") }
+        if ollama.available { return L10n.s("Detectado — aún no activado", "Detected — not enabled yet") }
+        return L10n.s("Apagado · solo reglas y atajos", "Off · rules & shortcuts only")
     }
 
     private func settingsRow<Trailing: View>(
@@ -2525,7 +2550,7 @@ struct SettingsView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("FINDARO PRO")
                                     .font(.headline.weight(.bold))
-                                Text("Licencia de por vida activa en este equipo")
+                                Text(L10n.s("Licencia de por vida activa en este equipo", "Lifetime license active on this device"))
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
@@ -2534,23 +2559,23 @@ struct SettingsView: View {
                         Divider()
 
                         HStack {
-                            Text("Plan:")
+                            Text(L10n.s("Plan:", "Plan:"))
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text(tier == "family" ? "Familiar (hasta 5 Macs)" : "Personal (hasta 2 Macs)")
+                            Text(tier == "family" ? L10n.s("Familiar (hasta 5 Macs)", "Family (up to 5 Macs)") : L10n.s("Personal (hasta 2 Macs)", "Personal (up to 2 Macs)"))
                                 .fontWeight(.semibold)
                         }
 
                         HStack {
-                            Text("Equipos activos:")
+                            Text(L10n.s("Equipos activos:", "Active devices:"))
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text("\(activeCount) de \(seats) Macs registradas")
+                            Text(L10n.s("\(activeCount) de \(seats) Macs registradas", "\(activeCount) of \(seats) Macs registered"))
                                 .fontWeight(.semibold)
                         }
 
                         HStack {
-                            Text("Clave:")
+                            Text(L10n.s("Clave:", "Key:"))
                                 .foregroundStyle(.secondary)
                             Spacer()
                             Text(key)
@@ -2558,7 +2583,7 @@ struct SettingsView: View {
                         }
 
                         HStack {
-                            Text("ID de Hardware (este Mac):")
+                            Text(L10n.s("ID de Hardware (este Mac):", "Hardware ID (this Mac):"))
                                 .foregroundStyle(.secondary)
                             Spacer()
                             Text(HardwareID.current())
@@ -2568,7 +2593,7 @@ struct SettingsView: View {
 
                         HStack {
                             Spacer()
-                            Button("Desactivar esta Mac", role: .destructive) {
+                            Button(L10n.s("Desactivar esta Mac", "Deactivate this Mac"), role: .destructive) {
                                 showDeactivateConfirm = true
                             }
                             .buttonStyle(.bordered)
@@ -2583,15 +2608,15 @@ struct SettingsView: View {
                                 .font(.title)
                                 .foregroundStyle(Color.blue)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Período de prueba activo")
+                                Text(L10n.s("Período de prueba activo", "Free trial active"))
                                     .font(.headline.weight(.bold))
-                                Text("\(daysRemaining) días restantes (hasta el \(expiresAt.formatted(date: .abbreviated, time: .shortened)))")
+                                Text(L10n.s("\(daysRemaining) días restantes (hasta el \(expiresAt.formatted(date: .abbreviated, time: .shortened)))", "\(daysRemaining) days remaining (until \(expiresAt.formatted(date: .abbreviated, time: .shortened)))"))
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
                         }
 
-                        Text("Disfruta de todas las funciones de Findaro. Cuando estés listo, adquiere tu licencia de por vida.")
+                        Text(L10n.s("Disfruta de todas las funciones de Findaro. Cuando estés listo, adquiere tu licencia de por vida.", "Enjoy all Findaro features without limits. When ready, upgrade to a lifetime license."))
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
@@ -2601,7 +2626,7 @@ struct SettingsView: View {
                                     NSWorkspace.shared.open(url)
                                 }
                             } label: {
-                                Label("Comprar licencia ($39 USD · 2 Macs)", systemImage: "cart.fill")
+                                Label(L10n.s("Comprar licencia ($39 USD · 2 Macs)", "Buy License ($39 USD · 2 Macs)"), systemImage: "cart.fill")
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(OrdenTheme.accent)
@@ -2616,9 +2641,9 @@ struct SettingsView: View {
                                 .font(.title)
                                 .foregroundStyle(Color.orange)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Prueba de 5 días finalizada")
+                                Text(L10n.s("Prueba de 5 días finalizada", "5-day trial expired"))
                                     .font(.headline.weight(.bold))
-                                Text("Adquiere tu licencia de por vida para seguir usando Findaro.")
+                                Text(L10n.s("Adquiere tu licencia de por vida para seguir usando Findaro.", "Purchase your lifetime license to continue using Findaro."))
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
@@ -2630,7 +2655,7 @@ struct SettingsView: View {
                                     NSWorkspace.shared.open(url)
                                 }
                             } label: {
-                                Label("Comprar licencia de por vida ($39 USD)", systemImage: "cart.fill")
+                                Label(L10n.s("Comprar licencia de por vida ($39 USD)", "Buy lifetime license ($39 USD)"), systemImage: "cart.fill")
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(OrdenTheme.accent)
@@ -2645,7 +2670,7 @@ struct SettingsView: View {
                                 .font(.title)
                                 .foregroundStyle(Color.red)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Licencia no válida o revocada")
+                                Text(L10n.s("Licencia no válida o revocada", "Invalid or revoked license"))
                                     .font(.headline.weight(.bold))
                                 Text(message)
                                     .font(.subheadline)
@@ -2656,13 +2681,13 @@ struct SettingsView: View {
                     .padding(.vertical, 6)
                 }
             } header: {
-                Text("Estado de activación")
+                Text(L10n.s("Estado de activación", "Activation Status"))
             }
 
             if !licenseStore.state.isPro {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Si ya compraste tu licencia o recibiste una clave, ingrésala a continuación:")
+                        Text(L10n.s("Si ya compraste tu licencia o recibiste una clave, ingrésala a continuación:", "If you purchased a license or received a key, enter it below:"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
@@ -2685,7 +2710,7 @@ struct SettingsView: View {
                                 if licenseStore.isBusy {
                                     ProgressView().controlSize(.small)
                                 } else {
-                                    Text("Activar")
+                                    Text(L10n.s("Activar", "Activate"))
                                 }
                             }
                             .buttonStyle(.borderedProminent)
@@ -2701,33 +2726,33 @@ struct SettingsView: View {
                     }
                     .padding(.vertical, 4)
                 } header: {
-                    Text("Activar con clave")
+                    Text(L10n.s("Activar con clave", "Activate with Key"))
                 }
             }
 
             Section {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("• Plan Personal: incluye 2 Macs por $39 USD (pago único de por vida).")
-                    Text("• Plan Familiar: incluye 5 Macs por $59 USD.")
-                    Text("• Validación offline: tu licencia funciona permanentemente sin requerir conexión constante a internet.")
+                    Text(L10n.s("• Plan Personal: incluye 2 Macs por $39 USD (pago único de por vida).", "• Personal Plan: includes 2 Macs for $39 USD (one-time lifetime payment)."))
+                    Text(L10n.s("• Plan Familiar: incluye 5 Macs por $59 USD.", "• Family Plan: includes 5 Macs for $59 USD."))
+                    Text(L10n.s("• Validación offline: tu licencia funciona permanentemente sin requerir conexión constante a internet.", "• Offline validation: your license works offline without requiring constant internet connection."))
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
             } header: {
-                Text("Información de licenciamiento")
+                Text(L10n.s("Información de licenciamiento", "Licensing Information"))
             }
         }
         .formStyle(.grouped)
         .padding(8)
-        .confirmationDialog("¿Desactivar esta Mac?", isPresented: $showDeactivateConfirm) {
-            Button("Desactivar esta Mac", role: .destructive) {
+        .confirmationDialog(L10n.s("¿Desactivar esta Mac?", "Deactivate this Mac?"), isPresented: $showDeactivateConfirm) {
+            Button(L10n.s("Desactivar esta Mac", "Deactivate this Mac"), role: .destructive) {
                 Task {
                     try? await licenseStore.deactivate()
                 }
             }
-            Button("Cancelar", role: .cancel) {}
+            Button(L10n.s("Cancelar", "Cancel"), role: .cancel) {}
         } message: {
-            Text("Esta Mac dejará de tener la licencia activa y se liberará el asiento para otro equipo.")
+            Text(L10n.s("Esta Mac dejará de tener la licencia activa y se liberará el asiento para otro equipo.", "This Mac will no longer have an active license, freeing up a seat for another Mac."))
         }
     }
 }

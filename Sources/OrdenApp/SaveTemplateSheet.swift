@@ -1,4 +1,5 @@
 import SwiftUI
+import OrdenCore
 
 /// Guardar la vista actual (orden + lista/iconos + filtro) como plantilla con nombre.
 struct SaveTemplateSheet: View {
@@ -9,30 +10,30 @@ struct SaveTemplateSheet: View {
         OrdenDialogShell {
             OrdenDialogHeader(
                 systemImage: "rectangle.stack.badge.plus",
-                title: "Nueva plantilla",
-                subtitle: "Guarda cómo estás viendo los archivos para volver a esa vista cuando quieras."
+                title: L10n.s("Nueva plantilla", "New Template"),
+                subtitle: L10n.s("Guarda cómo estás viendo los archivos para volver a esa vista cuando quieras.", "Save current layout and sorting to quickly restore it anytime.")
             )
         } content: {
             VStack(alignment: .leading, spacing: 16) {
-                OrdenDialogSection(title: "Nombre") {
-                    TextField("Ej. Más pesados", text: $browser.templateNameDraft)
+                OrdenDialogSection(title: L10n.s("Nombre", "Name")) {
+                    TextField(L10n.s("Ej. Más pesados", "e.g. Heaviest files"), text: $browser.templateNameDraft)
                         .textFieldStyle(.roundedBorder)
                         .focused($fieldFocused)
                         .onSubmit { browser.confirmSaveViewTemplate() }
                 }
 
                 OrdenDialogHintBox(rows: [
-                    .init(icon: "checkmark.circle.fill", tint: .green, text: "Incluye el orden actual (pesados, tipo, nombre…)."),
-                    .init(icon: "checkmark.circle.fill", tint: .green, text: "También lista/iconos/columnas y el filtro de tipo si hay uno."),
-                    .init(icon: "checkmark.circle.fill", tint: .green, text: "Luego eliges la plantilla en el menú Plantillas.")
+                    .init(icon: "checkmark.circle.fill", tint: .green, text: L10n.s("Incluye el orden actual (pesados, tipo, nombre…).", "Includes current sorting (heaviest, type, name…).")),
+                    .init(icon: "checkmark.circle.fill", tint: .green, text: L10n.s("También lista/iconos/columnas y el filtro de tipo si hay uno.", "Also list/icons/columns and active type filter.")),
+                    .init(icon: "checkmark.circle.fill", tint: .green, text: L10n.s("Luego eliges la plantilla en el menú Plantillas.", "Access saved templates anytime from the Templates menu."))
                 ])
             }
             .padding(16)
         } footer: {
             OrdenDialogFooter(
                 shortcutHint: nil,
-                cancelTitle: "Cancelar",
-                actionTitle: "Guardar plantilla",
+                cancelTitle: L10n.s("Cancelar", "Cancel"),
+                actionTitle: L10n.s("Guardar plantilla", "Save Template"),
                 actionDisabled: browser.templateNameDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                 onCancel: { browser.showSaveTemplateDialog = false },
                 onAction: { browser.confirmSaveViewTemplate() }
@@ -49,10 +50,10 @@ struct SaveTemplateSheet: View {
     }
 
     private var suggestedName: String {
-        if browser.cleanupMode || browser.rule == .heaviestFirst { return "Más pesados" }
-        if browser.rule == .downloads { return "Estilo Descargas" }
-        if browser.rule == .byType { return "Por tipo" }
-        if browser.rule == .newestAddedFirst { return "Más nuevos" }
-        return "Mi vista"
+        if browser.cleanupMode || browser.rule == .heaviestFirst { return L10n.s("Más pesados", "Heaviest files") }
+        if browser.rule == .downloads { return L10n.s("Estilo Descargas", "Downloads style") }
+        if browser.rule == .byType { return L10n.s("Por tipo", "By type") }
+        if browser.rule == .newestAddedFirst { return L10n.s("Más nuevos", "Newest first") }
+        return L10n.s("Mi vista", "My view")
     }
 }

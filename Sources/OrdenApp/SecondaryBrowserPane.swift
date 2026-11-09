@@ -38,23 +38,23 @@ struct SecondaryBrowserPane: View {
             HStack(spacing: 8) {
                 Image(systemName: "rectangle.split.2x1.fill")
                     .foregroundStyle(OrdenTheme.accent)
-                Text("Destino")
+                Text(L10n.s("Destino", "Destination"))
                     .font(.subheadline.weight(.semibold))
                 if focused {
-                    FindaroStatusPill(title: "activo", kind: .processing)
+                    FindaroStatusPill(title: L10n.s("activo", "active"), kind: .processing)
                 }
                 Spacer(minLength: 0)
                 if !focused {
                     Button {
                         browser.focusDestinationPane()
                     } label: {
-                        Label("Activar", systemImage: "arrow.right.circle.fill")
+                        Label(L10n.s("Activar", "Activate"), systemImage: "arrow.right.circle.fill")
                             .font(.caption.weight(.semibold))
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(OrdenTheme.accent)
                     .controlSize(.small)
-                    .help("Enfoca Destino · Tab · ⌘⇧→ · o clic en vacío")
+                    .help(L10n.s("Enfoca Destino · Tab · ⌘⇧→ · o clic en vacío", "Focus Destination · Tab · ⌘⇧→ · or click in empty space"))
                 }
                 Button {
                     browser.swapPaneFolders()
@@ -62,7 +62,7 @@ struct SecondaryBrowserPane: View {
                     Image(systemName: "arrow.left.arrow.right")
                 }
                 .buttonStyle(.borderless)
-                .help("Intercambiar carpetas Origen ↔ Destino")
+                .help(L10n.s("Intercambiar carpetas Origen ↔ Destino", "Swap folders Origin ↔ Destination"))
                 Button {
                     browser.goUpSecondary()
                 } label: {

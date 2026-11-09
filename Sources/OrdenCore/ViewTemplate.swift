@@ -28,12 +28,36 @@ public struct ViewTemplate: Codable, Equatable, Identifiable, Sendable, Hashable
         self.createdAt = createdAt
     }
 
+    public var displayName: String {
+        guard L10n.isEnglish else { return name }
+        switch name {
+        case "Más pesados": return "Heaviest files"
+        case "Estilo Descargas": return "Downloads style"
+        case "Más nuevos": return "Newest first"
+        case "Por tipo": return "By type"
+        case "Nombre A→Z": return "Name A→Z"
+        default: return name
+        }
+    }
+
     public var summarySpanish: String {
         var parts = [rule.summarySpanish, viewMode.labelSpanish.lowercased()]
         if let categoryFilter {
             parts.append("solo \(categoryFilter.labelSpanish)")
         }
         return parts.joined(separator: " · ")
+    }
+
+    public var summaryEnglish: String {
+        var parts = [rule.summaryEnglish, viewMode.labelEnglish.lowercased()]
+        if let categoryFilter {
+            parts.append("only \(categoryFilter.labelEnglish)")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    public var summaryLocalized: String {
+        L10n.isEnglish ? summaryEnglish : summarySpanish
     }
 
     /// Plantillas de fábrica (el usuario puede borrarlas o crear las suyas).

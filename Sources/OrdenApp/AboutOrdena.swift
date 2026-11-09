@@ -1,4 +1,5 @@
 import AppKit
+import OrdenCore
 
 /// Findaro about panel; internal type name retained for compatibility.
 @MainActor
@@ -10,12 +11,20 @@ enum AboutOrdena {
 
             let alert = NSAlert()
             alert.messageText = "FINDARO"
-            alert.informativeText = """
-            Versión \(version)
-            Tus archivos, bajo control.
-            Encuentra. Organiza. Avanza.
-            \(status.line)
-            """
+            alert.informativeText = L10n.s(
+                """
+                Versión \(version)
+                Tus archivos, bajo control.
+                Encuentra. Organiza. Avanza.
+                \(status.line)
+                """,
+                """
+                Version \(version)
+                Your files, under control.
+                Find. Organize. Advance.
+                \(status.line)
+                """
+            )
             alert.alertStyle = .informational
             if let icon = NSApp.applicationIconImage {
                 alert.icon = icon
@@ -23,17 +32,17 @@ enum AboutOrdena {
 
             switch status {
             case .upToDate:
-                alert.addButton(withTitle: "Listo")
+                alert.addButton(withTitle: L10n.s("Listo", "OK"))
                 _ = alert.runModal()
             case .updateAvailable(let latest):
-                alert.addButton(withTitle: "Instalar \(latest)")
-                alert.addButton(withTitle: "Después")
+                alert.addButton(withTitle: L10n.s("Instalar \(latest)", "Install \(latest)"))
+                alert.addButton(withTitle: L10n.s("Después", "Later"))
                 if alert.runModal() == .alertFirstButtonReturn {
                     await AppUpdateChecker.shared.check(interactive: true)
                 }
             case .unreachable:
-                alert.addButton(withTitle: "Reintentar")
-                alert.addButton(withTitle: "Cerrar")
+                alert.addButton(withTitle: L10n.s("Reintentar", "Retry"))
+                alert.addButton(withTitle: L10n.s("Cerrar", "Close"))
                 if alert.runModal() == .alertFirstButtonReturn {
                     await AppUpdateChecker.shared.check(interactive: true)
                 }

@@ -12,23 +12,23 @@ struct OllamaSetupSheet: View {
         OrdenDialogShell {
             OrdenDialogHeader(
                 systemImage: "brain.head.profile",
-                title: "Inteligencia local (Ollama)",
-                subtitle: "Opcional. Si no la quieres, el asistente sigue con atajos y reglas."
+                title: L10n.s("Inteligencia local (Ollama)", "Local AI (Ollama)"),
+                subtitle: L10n.s("Opcional. Si no la quieres, el asistente sigue con atajos y reglas.", "Optional. If disabled, the assistant continues with shortcuts and rule matching.")
             )
         } content: {
             VStack(alignment: .leading, spacing: 16) {
                 statusCard
 
-                OrdenDialogSection(title: "Qué hace") {
-                    Text("Con Ollama en este Mac, el asistente puede entender frases más libres. Todo queda en tu computadora: no se manda a la nube.")
+                OrdenDialogSection(title: L10n.s("Qué hace", "What it does")) {
+                    Text(L10n.s("Con Ollama en este Mac, el asistente puede entender frases más libres. Todo queda en tu computadora: no se manda a la nube.", "With Ollama on this Mac, the assistant can understand natural language queries. Everything stays on your computer: zero cloud transmission."))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if ollama.available && !ollama.models.isEmpty {
-                    OrdenDialogSection(title: "Modelo") {
-                        Picker("Modelo", selection: Binding(
+                    OrdenDialogSection(title: L10n.s("Modelo", "Model")) {
+                        Picker(L10n.s("Modelo", "Model"), selection: Binding(
                             get: { ollama.selectedModel },
                             set: { browser.setOllamaModel($0) }
                         )) {
@@ -46,15 +46,15 @@ struct OllamaSetupSheet: View {
                     Button {
                         Task { await detect() }
                     } label: {
-                        Label(checking ? "Detectando…" : "Detectar otra vez", systemImage: "arrow.clockwise")
+                        Label(checking ? L10n.s("Detectando…", "Detecting…") : L10n.s("Detectar otra vez", "Detect Again"), systemImage: "arrow.clockwise")
                     }
                     .disabled(checking)
 
                     if !ollama.available {
-                        Button("Abrir Ollama") {
+                        Button(L10n.s("Abrir Ollama", "Open Ollama")) {
                             openOllamaApp()
                         }
-                        Button("Bajar Ollama…") {
+                        Button(L10n.s("Bajar Ollama…", "Download Ollama…")) {
                             if let url = URL(string: "https://ollama.com/download") {
                                 NSWorkspace.shared.open(url)
                             }
@@ -103,37 +103,37 @@ struct OllamaSetupSheet: View {
     }
 
     private var statusTitle: String {
-        if checking { return "Buscando Ollama…" }
+        if checking { return L10n.s("Buscando Ollama…", "Searching for Ollama…") }
         if ollama.available {
-            return ollama.enabled ? "Ollama listo y activado" : "Ollama detectado"
+            return ollama.enabled ? L10n.s("Ollama listo y activado", "Ollama ready and enabled") : L10n.s("Ollama detectado", "Ollama detected")
         }
-        return "No encuentro Ollama"
+        return L10n.s("No encuentro Ollama", "Ollama not found")
     }
 
     private var statusDetail: String {
-        if checking { return "Mirando http://127.0.0.1:11434" }
+        if checking { return L10n.s("Mirando http://127.0.0.1:11434", "Checking http://127.0.0.1:11434") }
         if ollama.available {
             let n = ollama.models.count
             return n == 1
-                ? "Hay 1 modelo instalado. Puedes activarlo abajo."
-                : "Hay \(n) modelos. Elige uno y actívalo, o sigue sin IA."
+                ? L10n.s("Hay 1 modelo instalado. Puedes activarlo abajo.", "1 model installed. You can enable it below.")
+                : L10n.s("Hay \(n) modelos. Elige uno y actívalo, o sigue sin IA.", "\(n) models found. Choose one and enable it, or continue without AI.")
         }
         return ollama.lastError
-            ?? "No pasa nada: el asistente usa atajos y reglas. Si instalas Ollama después, vuelve a detectar."
+            ?? L10n.s("No pasa nada: el asistente usa atajos y reglas. Si instalas Ollama después, vuelve a detectar.", "No problem: assistant uses rules and shortcuts. If you install Ollama later, detect again.")
     }
 
     private var hintRows: [OrdenDialogHintBox.Row] {
         if ollama.available {
             return [
-                .init(icon: "checkmark.circle.fill", tint: .green, text: "Activar = el asistente usa el modelo cuando hace falta."),
-                .init(icon: "checkmark.circle.fill", tint: .green, text: "Si Ollama se apaga, Findaro cae solo a reglas (no se rompe)."),
-                .init(icon: "xmark.circle.fill", tint: .secondary, text: "No es obligatorio. Sin IA también funcionan atajos y búsquedas.")
+                .init(icon: "checkmark.circle.fill", tint: .green, text: L10n.s("Activar = el asistente usa el modelo cuando hace falta.", "Enable = assistant uses local model when helpful.")),
+                .init(icon: "checkmark.circle.fill", tint: .green, text: L10n.s("Si Ollama se apaga, Findaro cae solo a reglas (no se rompe).", "If Ollama shuts down, Findaro falls back smoothly to rules.")),
+                .init(icon: "xmark.circle.fill", tint: .secondary, text: L10n.s("No es obligatorio. Sin IA también funcionan atajos y búsquedas.", "Optional. Shortcuts and recursive searches work without AI."))
             ]
         }
         return [
-            .init(icon: "checkmark.circle.fill", tint: .green, text: "Sin Ollama: atajos (imágenes de hoy…) y frases sencillas siguen."),
-            .init(icon: "arrow.down.circle.fill", tint: OrdenTheme.accent, text: "Si quieres IA: instala Ollama, ábrelo, y dale a Detectar otra vez."),
-            .init(icon: "lock.fill", tint: .secondary, text: "Todo es local en tu Mac. Findaro no sube tus archivos.")
+            .init(icon: "checkmark.circle.fill", tint: .green, text: L10n.s("Sin Ollama: atajos (imágenes de hoy…) y frases sencillas siguen.", "Without Ollama: shortcuts (today's images…) and simple patterns work.")),
+            .init(icon: "arrow.down.circle.fill", tint: OrdenTheme.accent, text: L10n.s("Si quieres IA: instala Ollama, ábrelo, y dale a Detectar otra vez.", "For local AI: install Ollama, launch it, and click Detect Again.")),
+            .init(icon: "lock.fill", tint: .secondary, text: L10n.s("Todo es local en tu Mac. Findaro no sube tus archivos.", "100% on-device on your Mac. Findaro never uploads files."))
         ]
     }
 
@@ -142,13 +142,13 @@ struct OllamaSetupSheet: View {
         if ollama.available {
             OrdenDialogFooter(
                 shortcutHint: "Local · :11434",
-                cancelTitle: "Seguir sin IA",
-                actionTitle: ollama.enabled ? "Listo" : "Activar Ollama",
+                cancelTitle: L10n.s("Seguir sin IA", "Continue without AI"),
+                actionTitle: ollama.enabled ? L10n.s("Listo", "Done") : L10n.s("Activar Ollama", "Enable Ollama"),
                 onCancel: {
                     browser.setOllamaEnabled(false)
                     browser.showOllamaSetupDialog = false
                     browser.appendAgentReply(
-                        "De acuerdo: sigo con atajos y reglas. Si más tarde quieres IA, abre Configurar Ollama."
+                        L10n.s("De acuerdo: sigo con atajos y reglas. Si más tarde quieres IA, abre Configurar Ollama.", "Understood: continuing with shortcuts and rules. Open Configure Ollama anytime.")
                     )
                 },
                 onAction: {
@@ -156,7 +156,7 @@ struct OllamaSetupSheet: View {
                         browser.setOllamaEnabled(true)
                         browser.setOllamaModel(ollama.selectedModel)
                         browser.appendAgentReply(
-                            "Ollama activado con «\(ollama.selectedModel)». Ya puedo usar IA cuando esté corriendo."
+                            L10n.s("Ollama activado con «\(ollama.selectedModel)». Ya puedo usar IA cuando esté corriendo.", "Ollama enabled with «\(ollama.selectedModel)». Ready to use local AI.")
                         )
                     }
                     browser.showOllamaSetupDialog = false
@@ -164,15 +164,15 @@ struct OllamaSetupSheet: View {
             )
         } else {
             OrdenDialogFooter(
-                shortcutHint: "Opcional",
-                cancelTitle: "Cerrar",
-                actionTitle: "Seguir sin IA",
+                shortcutHint: L10n.s("Opcional", "Optional"),
+                cancelTitle: L10n.s("Cerrar", "Close"),
+                actionTitle: L10n.s("Seguir sin IA", "Continue without AI"),
                 onCancel: { browser.showOllamaSetupDialog = false },
                 onAction: {
                     browser.setOllamaEnabled(false)
                     browser.showOllamaSetupDialog = false
                     browser.appendAgentReply(
-                        "Sin problema: trabajo con atajos y reglas. Cuando tengas Ollama, Configurar Ollama → Detectar."
+                        L10n.s("Sin problema: trabajo con atajos y reglas. Cuando tengas Ollama, Configurar Ollama → Detectar.", "No problem: working with shortcuts and rules. When you have Ollama, click Detect Again.")
                     )
                 }
             )

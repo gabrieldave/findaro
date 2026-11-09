@@ -13,15 +13,17 @@ struct TrashActionsBar: View {
                 .foregroundStyle(.white)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Papelera")
+                Text(L10n.s("Papelera", "Trash"))
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.white)
                 Text(
                     browser.errorMessage == nil
                         ? (browser.entries.isEmpty
-                            ? "Vacía"
-                            : "\(browser.entries.count) elemento(s) · selección → Eliminar para siempre")
-                        : "Activa Acceso completo al disco para listar aquí"
+                            ? L10n.s("Vacía", "Empty")
+                            : (L10n.isEnglish
+                                ? "\(browser.entries.count) item(s) · selection → Delete permanently"
+                                : "\(browser.entries.count) elemento(s) · selección → Eliminar para siempre"))
+                        : L10n.s("Activa Acceso completo al disco para listar aquí", "Enable Full Disk Access to list here")
                 )
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.85))
@@ -35,38 +37,38 @@ struct TrashActionsBar: View {
                     Button {
                         browser.restoreSelectionFromTrash()
                     } label: {
-                        Label("Restaurar", systemImage: "arrow.uturn.backward.circle.fill")
+                        Label(L10n.s("Restaurar", "Restore"), systemImage: "arrow.uturn.backward.circle.fill")
                             .font(.subheadline.weight(.semibold))
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.white)
                     .foregroundStyle(Color(findaroHex: "#0F766E"))
-                    .help("Restaura los archivos seleccionados fuera de la Papelera (atajo ⌥⌘⌫)")
+                    .help(L10n.s("Restaura los archivos seleccionados fuera de la Papelera (atajo ⌥⌘⌫)", "Restores selected files out of Trash (shortcut ⌥⌘⌫)"))
 
                     Menu {
                         if browser.dualPaneEnabled && !TrashOps.isTrashPath(browser.secondaryPath) {
                             Button {
                                 browser.restoreSelectionFromTrash(targetDirectory: browser.secondaryPath)
                             } label: {
-                                Label("Sacar al panel destino (\(URL(fileURLWithPath: browser.secondaryPath).lastPathComponent))", systemImage: "rectangle.split.2x1")
+                                Label(L10n.s("Sacar al panel destino (\(URL(fileURLWithPath: browser.secondaryPath).lastPathComponent))", "Move to Destination pane (\(URL(fileURLWithPath: browser.secondaryPath).lastPathComponent))"), systemImage: "rectangle.split.2x1")
                             }
                         }
                         Button {
                             let desktop = (FileManager.default.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Desktop")
                             browser.restoreSelectionFromTrash(targetDirectory: desktop)
                         } label: {
-                            Label("Sacar al Escritorio", systemImage: "menubar.dock.rectangle")
+                            Label(L10n.s("Sacar al Escritorio", "Move to Desktop"), systemImage: "menubar.dock.rectangle")
                         }
                         Button {
                             browser.restoreSelectionFromTrash(targetDirectory: GlobalHotKey.defaultDownloadsPath())
                         } label: {
-                            Label("Sacar a Descargas", systemImage: "arrow.down.circle")
+                            Label(L10n.s("Sacar a Descargas", "Move to Downloads"), systemImage: "arrow.down.circle")
                         }
                         Divider()
                         Button {
                             browser.restoreSelectionFromTrashPromptFolder()
                         } label: {
-                            Label("Elegir otra carpeta…", systemImage: "folder.badge.plus")
+                            Label(L10n.s("Elegir otra carpeta…", "Choose another folder…"), systemImage: "folder.badge.plus")
                         }
                     } label: {
                         Image(systemName: "chevron.down")
@@ -75,42 +77,42 @@ struct TrashActionsBar: View {
                     .menuStyle(.borderlessButton)
                     .buttonStyle(.bordered)
                     .tint(.white)
-                    .help("Elegir dónde restaurar la selección")
+                    .help(L10n.s("Elegir dónde restaurar la selección", "Choose where to restore selection"))
                 }
             }
 
             Button {
                 browser.permanentlyDeleteSelection(confirm: true)
             } label: {
-                Label("Eliminar para siempre", systemImage: "xmark.circle.fill")
+                Label(L10n.s("Eliminar para siempre", "Delete Permanently"), systemImage: "xmark.circle.fill")
                     .font(.subheadline.weight(.semibold))
             }
             .buttonStyle(.borderedProminent)
             .tint(.white)
             .foregroundStyle(OrdenTheme.danger)
             .disabled(browser.selectedIDs.isEmpty || browser.errorMessage != nil)
-            .help("Borra de verdad lo seleccionado (no se puede recuperar)")
+            .help(L10n.s("Borra de verdad lo seleccionado (no se puede recuperar)", "Permanently deletes selected items (cannot be recovered)"))
 
             Button {
                 browser.emptyTrash(confirm: true)
             } label: {
-                Label("Vaciar Papelera", systemImage: "trash.slash.fill")
+                Label(L10n.s("Vaciar Papelera", "Empty Trash"), systemImage: "trash.slash.fill")
                     .font(.subheadline.weight(.semibold))
             }
             .buttonStyle(.bordered)
             .tint(.white)
-            .help("Elimina todo lo de la Papelera")
+            .help(L10n.s("Elimina todo lo de la Papelera", "Deletes everything in Trash"))
 
             if browser.errorMessage != nil {
                 Button {
                     browser.openFullDiskAccessSettings()
                 } label: {
-                    Label("Dar acceso", systemImage: "lock.open.fill")
+                    Label(L10n.s("Dar acceso", "Grant Access"), systemImage: "lock.open.fill")
                         .font(.caption.weight(.semibold))
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
-                .help("Ajustes → Privacidad → Acceso completo al disco → Findaro")
+                .help(L10n.s("Ajustes → Privacidad → Acceso completo al disco → Findaro", "Settings → Privacy → Full Disk Access → Findaro"))
             }
         }
         .padding(.horizontal, 14)

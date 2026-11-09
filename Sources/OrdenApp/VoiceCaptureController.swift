@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import Speech
 import AppKit
+import OrdenCore
 
 /// Push-to-talk local.
 /// Sin `@MainActor` en la clase: el tap de audio corre en realtime y no puede
@@ -36,10 +37,10 @@ final class VoiceCaptureController: ObservableObject, @unchecked Sendable {
 
     var statusLabel: String {
         switch phase {
-        case .idle: return "Mantén el micrófono o ⌃Espacio"
-        case .requestingPermission: return "Pidiendo permiso…"
-        case .listening: return transcript.isEmpty ? "Escuchando…" : transcript
-        case .processing: return "Procesando…"
+        case .idle: return L10n.s("Mantén el micrófono o ⌃Espacio", "Hold microphone or ⌃Space")
+        case .requestingPermission: return L10n.s("Pidiendo permiso…", "Requesting permission…")
+        case .listening: return transcript.isEmpty ? L10n.s("Escuchando…", "Listening…") : transcript
+        case .processing: return L10n.s("Procesando…", "Processing…")
         case .error(let msg): return msg
         }
     }

@@ -17,12 +17,12 @@ struct ShortcutEditorSheet: View {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .images: return "Imágenes"
-            case .documents: return "Documentos"
-            case .audio: return "Música / audio"
-            case .video: return "Vídeos"
+            case .images: return L10n.s("Imágenes", "Images")
+            case .documents: return L10n.s("Documentos", "Documents")
+            case .audio: return L10n.s("Música / audio", "Music / Audio")
+            case .video: return L10n.s("Vídeos", "Videos")
             case .pdf: return "PDF"
-            case .any: return "Cualquier tipo"
+            case .any: return L10n.s("Cualquier tipo", "Any type")
             }
         }
         var categories: [FileCategory] {
@@ -52,12 +52,12 @@ struct ShortcutEditorSheet: View {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .today: return "Hoy"
-            case .yesterday: return "Ayer"
-            case .days3: return "Últimos 3 días"
-            case .days7: return "Última semana"
-            case .days30: return "Últimos 30 días"
-            case .custom: return "Personalizado…"
+            case .today: return L10n.s("Hoy", "Today")
+            case .yesterday: return L10n.s("Ayer", "Yesterday")
+            case .days3: return L10n.s("Últimos 3 días", "Last 3 days")
+            case .days7: return L10n.s("Última semana", "Last week")
+            case .days30: return L10n.s("Últimos 30 días", "Last 30 days")
+            case .custom: return L10n.s("Personalizado…", "Custom…")
             }
         }
 
@@ -89,37 +89,37 @@ struct ShortcutEditorSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(existing == nil ? "Nuevo atajo" : "Editar atajo")
+            Text(existing == nil ? L10n.s("Nuevo atajo", "New Shortcut") : L10n.s("Editar atajo", "Edit Shortcut"))
                 .font(.title2.weight(.semibold))
-            Text("Nombre, tipo de archivo y rango de fechas. Queda en el asistente y en Ajustes → Atajos.")
+            Text(L10n.s("Nombre, tipo de archivo y rango de fechas. Queda en el asistente y en Ajustes → Atajos.", "Name, file type, and date range. Available in assistant and in Settings → Shortcuts."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            TextField("Nombre", text: $title)
+            TextField(L10n.s("Nombre", "Name"), text: $title)
                 .textFieldStyle(.roundedBorder)
 
-            Picker("Tipo", selection: $kind) {
+            Picker(L10n.s("Tipo", "Type"), selection: $kind) {
                 ForEach(Kind.allCases) { Text($0.label).tag($0) }
             }
             .pickerStyle(.menu)
 
-            Picker("Cuándo", selection: $window) {
+            Picker(L10n.s("Cuándo", "When"), selection: $window) {
                 ForEach(WindowChoice.allCases) { Text($0.label).tag($0) }
             }
             .pickerStyle(.menu)
 
             if window == .custom {
                 Stepper(value: $customDays, in: 1...365) {
-                    Text("Últimos \(customDays) días")
+                    Text(L10n.s("Últimos \(customDays) días", "Last \(customDays) days"))
                 }
             }
 
             HStack {
-                Button("Cancelar") { dismiss() }
+                Button(L10n.s("Cancelar", "Cancel")) { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Spacer()
-                Button(existing == nil ? "Crear" : "Guardar") {
+                Button(existing == nil ? L10n.s("Crear", "Create") : L10n.s("Guardar", "Save")) {
                     save()
                 }
                 .buttonStyle(.borderedProminent)
@@ -146,11 +146,11 @@ struct ShortcutEditorSheet: View {
         let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let auto: String
         if kind == .documents {
-            auto = "Documentos \(win.labelSpanish)"
+            auto = L10n.s("Documentos \(win.labelSpanish)", "Documents \(win.labelEnglish)")
         } else if kind == .any {
-            auto = "Archivos \(win.labelSpanish)"
+            auto = L10n.s("Archivos \(win.labelSpanish)", "Files \(win.labelEnglish)")
         } else {
-            auto = "\(kind.label) \(win.labelSpanish)"
+            auto = "\(kind.label) \(win.labelLocalized)"
         }
         let shortcut = AssistantShortcut(
             id: existing?.id ?? UUID(),

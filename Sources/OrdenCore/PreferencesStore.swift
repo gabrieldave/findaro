@@ -120,6 +120,8 @@ public enum SortSaveScope: String, Sendable {
 }
 
 public final class PreferencesStore: @unchecked Sendable {
+    public static let shared = PreferencesStore()
+
     private let url: URL
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()

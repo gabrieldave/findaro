@@ -10,20 +10,20 @@ struct DropShelfView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Label("Bandeja", systemImage: "tray.and.arrow.down.fill")
+                Label(L10n.s("Bandeja", "Tray"), systemImage: "tray.and.arrow.down.fill")
                     .font(.system(.subheadline).weight(.semibold))
                     .foregroundStyle(OrdenTheme.accent)
 
                 if browser.shelf.isEmpty {
-                    Text("⌘C copia · ⌘X mueve · o arrastra aquí")
+                    Text(L10n.s("⌘C copia · ⌘X mueve · o arrastra aquí", "⌘C copy · ⌘X move · or drag here"))
                         .font(.caption)
                         .foregroundStyle(OrdenTheme.textSecondary)
                 } else {
                     FindaroStatusPill(
-                        title: "\(browser.shelf.count) en bandeja",
+                        title: L10n.s("\(browser.shelf.count) en bandeja", "\(browser.shelf.count) in tray"),
                         kind: .processing
                     )
-                    Text("⌘V suelta aquí")
+                    Text(L10n.s("⌘V suelta aquí", "⌘V paste here"))
                         .font(.caption)
                         .foregroundStyle(OrdenTheme.textMuted)
                 }
@@ -33,7 +33,7 @@ struct DropShelfView: View {
                 Button {
                     browser.addSelectionToShelf(intent: .copy)
                 } label: {
-                    Label("Copiar", systemImage: "doc.on.doc")
+                    Label(L10n.s("Copiar", "Copy"), systemImage: "doc.on.doc")
                 }
                 .controlSize(.small)
                 .disabled(browser.selectedIDs.isEmpty)
@@ -42,7 +42,7 @@ struct DropShelfView: View {
                 Button {
                     browser.addSelectionToShelf(intent: .move)
                 } label: {
-                    Label("Cortar", systemImage: "scissors")
+                    Label(L10n.s("Cortar", "Cut"), systemImage: "scissors")
                 }
                 .controlSize(.small)
                 .disabled(browser.selectedIDs.isEmpty)
@@ -51,13 +51,13 @@ struct DropShelfView: View {
                 Button {
                     browser.depositShelfHere()
                 } label: {
-                    Label("Soltar aquí", systemImage: "arrow.down.doc")
+                    Label(L10n.s("Soltar aquí", "Paste here"), systemImage: "arrow.down.doc")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(OrdenTheme.accent)
                 .controlSize(.small)
                 .disabled(browser.shelf.isEmpty)
-                .help("⌘V — copia o mueve según cada ítem")
+                .help(L10n.s("⌘V — copia o mueve según cada ítem", "⌘V — copy or move per item intent"))
 
                 Button {
                     browser.sendOutboundToDropover()
@@ -66,7 +66,7 @@ struct DropShelfView: View {
                 }
                 .controlSize(.small)
                 .disabled(browser.outboundPaths.isEmpty)
-                .help("Manda selección/bandeja a una burbuja de Dropover")
+                .help(L10n.s("Manda selección/bandeja a una burbuja de Dropover", "Send selection/tray to Dropover bubble"))
 
                 Button(role: .destructive) {
                     browser.clearShelf()
@@ -89,7 +89,7 @@ struct DropShelfView: View {
                     )
                     .frame(height: 36)
                     .overlay {
-                        Text("Suelta archivos · también a Dropover")
+                        Text(L10n.s("Suelta archivos · también a Dropover", "Drop files · also to Dropover"))
                             .font(.caption)
                             .foregroundStyle(OrdenTheme.textSecondary)
                     }
@@ -126,7 +126,7 @@ struct DropShelfView: View {
             Text(item.name)
                 .font(.caption)
                 .lineLimit(1)
-            Text(item.intent == .move ? "mover" : "copiar")
+            Text(item.intent == .move ? L10n.s("mover", "move") : L10n.s("copiar", "copy"))
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(item.intent == .move ? OrdenTheme.warning : OrdenTheme.accent)
             Button {
@@ -137,7 +137,7 @@ struct DropShelfView: View {
                     .foregroundStyle(OrdenTheme.textMuted)
             }
             .buttonStyle(.plain)
-            .help("Quitar de la bandeja")
+            .help(L10n.s("Quitar de la bandeja", "Remove from tray"))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)

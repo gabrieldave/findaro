@@ -9,8 +9,8 @@ struct RecursiveSearchPanel: View {
             HStack(alignment: .center, spacing: 10) {
                 Label(
                     browser.deepSearchQuery.isEmpty
-                        ? "Búsqueda en subcarpetas"
-                        : "«\(browser.deepSearchQuery)» en subcarpetas",
+                        ? L10n.s("Búsqueda en subcarpetas", "Subfolder Search")
+                        : (L10n.isEnglish ? "«\(browser.deepSearchQuery)» in subfolders" : "«\(browser.deepSearchQuery)» en subcarpetas"),
                     systemImage: "magnifyingglass"
                 )
                 .font(.subheadline.weight(.semibold))
@@ -19,35 +19,35 @@ struct RecursiveSearchPanel: View {
                 if browser.deepSearchRunning {
                     ProgressView()
                         .controlSize(.small)
-                    Button("Detener") { browser.cancelDeepSearch() }
+                    Button(L10n.s("Detener", "Stop")) { browser.cancelDeepSearch() }
                         .controlSize(.small)
                 }
                 Button {
                     browser.clearDeepSearch()
                 } label: {
-                    Label("Salir de búsqueda", systemImage: "xmark.circle.fill")
+                    Label(L10n.s("Salir de búsqueda", "Exit Search"), systemImage: "xmark.circle.fill")
                         .font(.subheadline.weight(.semibold))
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
                 .controlSize(.regular)
-                .help("Vuelve al orden normal de la carpeta · Esc")
+                .help(L10n.s("Vuelve al orden normal de la carpeta · Esc", "Return to normal folder order · Esc"))
             }
 
-            Text("Por nombre (parcial). `*.png` = .png. Clic en un resultado → va a la fila. Esc o «Salir» para volver al orden normal.")
+            Text(L10n.s("Por nombre (parcial). `*.png` = .png. Clic en un resultado → va a la fila. Esc o «Salir» para volver al orden normal.", "By partial name. `*.png` = .png. Click a result to jump to row. Esc or «Exit» to return to normal view."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
             if let p = browser.deepSearchProgress {
                 Text(
                     p.done
-                        ? "Listo · \(p.matched) resultados · \(p.visitedFolders) carpetas"
-                        : "Revisando \(p.visitedFolders) carpetas · \(p.matched) hallazgos…"
+                        ? L10n.s("Listo · \(p.matched) resultados · \(p.visitedFolders) carpetas", "Done · \(p.matched) results · \(p.visitedFolders) folders")
+                        : L10n.s("Revisando \(p.visitedFolders) carpetas · \(p.matched) hallazgos…", "Scanning \(p.visitedFolders) folders · \(p.matched) matches…")
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 if !browser.deepSearchRoot.isEmpty {
-                    Text("Ámbito: \(shortPath(browser.deepSearchRoot)) ↓")
+                    Text("\(L10n.s("Ámbito", "Scope")): \(shortPath(browser.deepSearchRoot)) ↓")
                         .font(.caption2.monospaced())
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -63,7 +63,7 @@ struct RecursiveSearchPanel: View {
             }
 
             if browser.deepSearchHits.isEmpty, browser.deepSearchProgress?.done == true {
-                Text("Sin coincidencias de nombre bajo esta carpeta")
+                Text(L10n.s("Sin coincidencias de nombre bajo esta carpeta", "No matching names found in this folder hierarchy"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

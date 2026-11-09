@@ -56,6 +56,29 @@ public enum FileCategory: String, Codable, Sendable, CaseIterable, Comparable {
         }
     }
 
+    public var labelEnglish: String {
+        switch self {
+        case .folder: return "Folder"
+        case .video: return "Video"
+        case .audio: return "Audio"
+        case .image: return "Image"
+        case .pdf: return "PDF"
+        case .word: return "Word"
+        case .excel: return "Excel"
+        case .powerpoint: return "PowerPoint"
+        case .text: return "Text"
+        case .code: return "Code"
+        case .archive: return "Archive"
+        case .diskImage: return "Disk Image"
+        case .app: return "Application"
+        case .other: return "Other"
+        }
+    }
+
+    public var labelLocalized: String {
+        L10n.isEnglish ? labelEnglish : labelSpanish
+    }
+
     /// Nombre de carpeta al organizar por tipo (fase 5).
     public var organizeFolderName: String {
         switch self {

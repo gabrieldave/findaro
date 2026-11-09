@@ -26,35 +26,35 @@ enum FileInfoPanel {
         }()
 
         let df = DateFormatter()
-        df.locale = Locale(identifier: "es_MX")
+        df.locale = Locale(identifier: L10n.isEnglish ? "en_US" : "es_MX")
         df.dateStyle = .medium
         df.timeStyle = .medium
 
-        let kind = entry.isDirectory ? "Carpeta" : entry.category.labelSpanish
+        let kind = entry.isDirectory ? L10n.s("Carpeta", "Folder") : entry.category.labelLocalized
         let lines = [
-            "Nombre: \(entry.name)",
-            "Tipo: \(kind)",
-            "Tamaño: \(sizeText)",
-            "Agregado: \(df.string(from: entry.dateAdded))",
-            "Modificado: \(df.string(from: modified))",
-            "Creado: \(df.string(from: created))",
-            "Permisos: \(permText)",
+            "\(L10n.s("Nombre", "Name")): \(entry.name)",
+            "\(L10n.s("Tipo", "Type")): \(kind)",
+            "\(L10n.s("Tamaño", "Size")): \(sizeText)",
+            "\(L10n.s("Agregado", "Date Added")): \(df.string(from: entry.dateAdded))",
+            "\(L10n.s("Modificado", "Modified")): \(df.string(from: modified))",
+            "\(L10n.s("Creado", "Created")): \(df.string(from: created))",
+            "\(L10n.s("Permisos", "Permissions")): \(permText)",
             "",
-            "Ubicación:",
+            "\(L10n.s("Ubicación", "Location")):",
             url.deletingLastPathComponent().path,
             "",
             entry.path
         ]
 
         let alert = NSAlert()
-        alert.messageText = "Información"
+        alert.messageText = L10n.s("Información", "Information")
         alert.informativeText = lines.joined(separator: "\n")
         alert.alertStyle = .informational
         let icon = NSWorkspace.shared.icon(forFile: entry.path)
         icon.size = NSSize(width: 64, height: 64)
         alert.icon = icon
-        alert.addButton(withTitle: "Listo")
-        alert.addButton(withTitle: "Mostrar en Finder")
+        alert.addButton(withTitle: L10n.s("Listo", "Done"))
+        alert.addButton(withTitle: L10n.s("Mostrar en Finder", "Show in Finder"))
         if alert.runModal() == .alertSecondButtonReturn {
             NSWorkspace.shared.activateFileViewerSelecting([url])
         }

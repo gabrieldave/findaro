@@ -120,7 +120,7 @@ public enum SidebarLocations {
             push(
                 SidebarLocation(
                     id: "loc-trash",
-                    title: "Basurero",
+                    title: L10n.s("Papelera", "Trash"),
                     path: trashPath,
                     systemImage: "trash.fill"
                 ),

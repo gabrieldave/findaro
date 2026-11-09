@@ -249,6 +249,7 @@ final class BrowserModel: ObservableObject {
         self.assistantShortcuts = store.preferences.assistantShortcuts
         self.viewTemplates = store.preferences.viewTemplates
         L10n.activeLanguage = store.preferences.appLanguage
+        UserDefaults.standard.set(store.preferences.appLanguage.rawValue, forKey: "findaro_app_language")
         self.columnPaths = [start]
         self.secondaryPath = start
         OllamaClient.shared.applyPreferences(store.preferences)
@@ -294,6 +295,8 @@ final class BrowserModel: ObservableObject {
         }
         self.store.reloadFromDisk()
         let prefs = self.store.preferences
+        L10n.activeLanguage = prefs.appLanguage
+        UserDefaults.standard.set(prefs.appLanguage.rawValue, forKey: "findaro_app_language")
         self.assistantShortcuts = prefs.assistantShortcuts
         self.viewTemplates = prefs.viewTemplates
         self.showRowPaths = prefs.showRowPaths
@@ -680,9 +683,9 @@ final class BrowserModel: ObservableObject {
     var categoryFilterLabel: String {
         if let categoryFilter {
             let n = entries.filter { $0.category == categoryFilter }.count
-            return "\(categoryFilter.labelSpanish) · \(n)"
+            return "\(categoryFilter.labelLocalized) · \(n)"
         }
-        return "Todos · \(entries.count)"
+        return "\(L10n.s("Todos", "All")) · \(entries.count)"
     }
 
     func clearCategoryFilter() {
@@ -2977,21 +2980,22 @@ final class BrowserModel: ObservableObject {
     func setAppLanguage(_ lang: AppLanguage) {
         store.update { $0.appLanguage = lang }
         L10n.activeLanguage = lang
+        UserDefaults.standard.set(lang.rawValue, forKey: "findaro_app_language")
         objectWillChange.send()
     }
 
     private func defaultTitle(for shortcut: AssistantShortcut) -> String {
         let typePart: String
         if shortcut.categories == AssistantShortcut.documentCategories {
-            typePart = "Documentos"
+            typePart = L10n.s("Documentos", "Documents")
         } else if shortcut.categories.count == 1, let only = shortcut.categories.first {
-            typePart = only.labelSpanish + "s"
+            typePart = L10n.isEnglish ? only.labelEnglish + "s" : only.labelSpanish + "s"
         } else if shortcut.categories.isEmpty {
-            typePart = "Archivos"
+            typePart = L10n.s("Archivos", "Files")
         } else {
-            typePart = "Varios"
+            typePart = L10n.s("Varios", "Mixed")
         }
-        return "\(typePart) \(shortcut.dateWindow.labelSpanish)"
+        return "\(typePart) \(shortcut.dateWindow.labelLocalized)"
     }
 
     /// Si el texto coincide con un atajo guardado o una frase tipo+fecha, lo aplica.

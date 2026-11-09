@@ -18,7 +18,7 @@ final class SidebarLocationsTests: XCTestCase {
         XCTAssertEqual(titles.filter { $0 == "Macintosh HD" }.count, 1)
         XCTAssertTrue(titles.contains("Ordena 0.1.2-arm64"))
         XCTAssertEqual(titles.filter { $0 == "iCloud Drive" }.count, 1)
-        XCTAssertEqual(titles.last, "Basurero")
+        XCTAssertEqual(titles.last, L10n.s("Papelera", "Trash"))
     }
 
     func testTwoGoogleAccountsGetDistinctTitles() {

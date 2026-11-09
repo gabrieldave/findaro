@@ -18,6 +18,19 @@ public enum BrowserViewMode: String, Codable, CaseIterable, Sendable, Identifiab
         }
     }
 
+    public var labelEnglish: String {
+        switch self {
+        case .icons: return "Icons"
+        case .list: return "List"
+        case .columns: return "Columns"
+        case .gallery: return "Gallery"
+        }
+    }
+
+    public var labelLocalized: String {
+        L10n.isEnglish ? labelEnglish : labelSpanish
+    }
+
     /// SF Symbol aproximado al control de Finder.
     public var symbolName: String {
         switch self {

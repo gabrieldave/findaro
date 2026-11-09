@@ -10,7 +10,7 @@ struct OpenWithMenu: View {
         if !entry.isDirectory {
             let apps = browser.appsForOpening(entry)
             if !apps.isEmpty {
-                Menu("Abrir con") {
+                Menu(L10n.s("Abrir con", "Open With")) {
                     ForEach(apps) { app in
                         Button(app.name) {
                             browser.selectOnly(entry.id)
@@ -18,7 +18,7 @@ struct OpenWithMenu: View {
                         }
                     }
                     Divider()
-                    Menu("Siempre con…") {
+                    Menu(L10n.s("Siempre con…", "Always Open With…")) {
                         ForEach(apps) { app in
                             Button(app.name) {
                                 browser.selectOnly(entry.id)

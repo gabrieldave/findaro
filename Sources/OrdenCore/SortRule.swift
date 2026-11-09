@@ -122,6 +122,47 @@ public struct SortRule: Codable, Equatable, Sendable, Hashable {
         return parts.joined(separator: " · ")
     }
 
+    public var summaryEnglish: String {
+        var parts: [String] = []
+        if foldersFirst {
+            parts.append("Folders on top")
+        }
+
+        if usesSplitKeys {
+            let folders = (folderKeys ?? keys).map(\.summaryEnglish).joined(separator: ", ")
+            let files = (fileKeys ?? keys).map(\.summaryEnglish).joined(separator: ", ")
+            parts.append("folders \(folders)")
+            parts.append("files \(files)")
+            if (folderKeys ?? []).contains(where: { if case .name = $0 { return true }; return false }) {
+                parts.append("natural numbers")
+            }
+        } else {
+            for key in keys {
+                parts.append(key.summaryEnglish)
+            }
+            if keys.contains(where: {
+                if case .name = $0 { return true }
+                return false
+            }) {
+                parts.append("natural numbers")
+            }
+        }
+
+        if orderCategoriesByRecency {
+            parts.append("types grouped (recent first)")
+            parts.append("within Added ↓")
+        }
+
+        if let groupBy {
+            parts.append("grouped by \(groupBy.summaryEnglish)")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    public var summaryLocalized: String {
+        L10n.isEnglish ? summaryEnglish : summarySpanish
+    }
+
     enum CodingKeys: String, CodingKey {
         case keys, folderKeys, fileKeys, foldersFirst, groupBy, orderCategoriesByRecency
     }
@@ -175,6 +216,29 @@ public enum SortKey: Codable, Equatable, Sendable, Hashable {
         }
     }
 
+    public var summaryEnglish: String {
+        switch self {
+        case .name(let ascending):
+            return ascending ? "Name A→Z" : "Name Z→A"
+        case .dateModified(let ascending):
+            return ascending ? "Modified ↑" : "Modified ↓"
+        case .dateCreated(let ascending):
+            return ascending ? "Created ↑" : "Created ↓"
+        case .dateAdded(let ascending):
+            return ascending ? "Added ↑" : "Added ↓ (recent first)"
+        case .size(let ascending):
+            return ascending ? "Size ↑" : "Size ↓"
+        case .kind(let ascending):
+            return ascending ? "Kind A→Z" : "Kind Z→A"
+        case .category(let ascending):
+            return ascending ? "Type (video, Excel…)" : "Type Z→A"
+        }
+    }
+
+    public var summaryLocalized: String {
+        L10n.isEnglish ? summaryEnglish : summarySpanish
+    }
+
     public var isAscending: Bool {
         switch self {
         case .name(let a), .dateModified(let a), .dateCreated(let a),
@@ -193,5 +257,16 @@ public enum GroupBy: String, Codable, Equatable, Sendable, Hashable {
         case .kind: return "clase"
         case .dayModified: return "día de modificación"
         }
+    }
+
+    public var summaryEnglish: String {
+        switch self {
+        case .kind: return "kind"
+        case .dayModified: return "modification date"
+        }
+    }
+
+    public var summaryLocalized: String {
+        L10n.isEnglish ? summaryEnglish : summarySpanish
     }
 }

@@ -3,6 +3,7 @@ import OrdenCore
 
 /// Asistente del explorador: chat + atajos (muchos) + Ollama opt-in (fase 3).
 struct AssistantPanel: View {
+    @AppStorage("findaro_app_language") private var appLangStorage: String = "auto"
     @EnvironmentObject private var browser: BrowserModel
     @StateObject private var ollama = OllamaClient.shared
     @StateObject private var voice = VoiceCaptureController.shared
@@ -13,12 +14,14 @@ struct AssistantPanel: View {
     @State private var showShortcuts = false
     @FocusState private var composerFocused: Bool
 
-    private let quickActions = [
-        "busca pdf",
-        "qué pesa más",
-        "hay duplicados",
-        "lista esta carpeta"
-    ]
+    private var quickActions: [String] {
+        [
+            L10n.s("busca pdf", "find pdfs"),
+            L10n.s("qué pesa más", "largest files"),
+            L10n.s("hay duplicados", "any duplicates"),
+            L10n.s("lista esta carpeta", "list this folder")
+        ]
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -31,7 +34,7 @@ struct AssistantPanel: View {
             DisclosureGroup(isExpanded: $showShortcuts) {
                 shortcutsSection
             } label: {
-                Text("Atajos y acciones rápidas")
+                Text(L10n.s("Atajos y acciones rápidas", "Shortcuts & Quick Actions"))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
@@ -199,16 +202,16 @@ struct AssistantPanel: View {
 
     private var headerSubtitle: String {
         if browser.agentBusy {
-            let base = browser.agentProgressLabel.isEmpty ? "Trabajando" : browser.agentProgressLabel
+            let base = browser.agentProgressLabel.isEmpty ? L10n.s("Trabajando", "Working") : browser.agentProgressLabel
             return base + String(repeating: ".", count: busyDotCount)
         }
         if ollama.isReady {
-            return "Chat local · \(ollama.selectedModel) · ⌘5"
+            return "\(L10n.s("Chat local", "Local chat")) · \(ollama.selectedModel) · ⌘5"
         }
         if ollama.enabled {
-            return "Ollama activado pero no responde · reglas · ⌘5"
+            return L10n.s("Ollama activado pero no responde · reglas · ⌘5", "Ollama enabled but not responding · rules · ⌘5")
         }
-        return "Atajos + reglas · cerebro = Ollama · ⌘5"
+        return L10n.s("Atajos + reglas · cerebro = Ollama · ⌘5", "Shortcuts + rules · AI engine = Ollama · ⌘5")
     }
 
     private var chatArea: some View {
@@ -252,21 +255,27 @@ struct AssistantPanel: View {
 
     private var welcomeCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(ollama.isReady ? "Chat con \(ollama.selectedModel)" : "Hola")
+            Text(ollama.isReady ? "\(L10n.s("Chat con", "Chat with")) \(ollama.selectedModel)" : L10n.s("Hola", "Hello"))
                 .font(.title2.weight(.semibold))
             if ollama.isReady {
                 Text(
-                    "Escribe abajo, como en ChatGPT. Verás tus mensajes y las respuestas aquí. Mientras piensa, aparece «Trabajando…»."
+                    L10n.s(
+                        "Escribe abajo, como en ChatGPT. Verás tus mensajes y las respuestas aquí. Mientras piensa, aparece «Trabajando…».",
+                        "Type below, just like in ChatGPT. You will see your messages and answers here. While thinking, «Working…» appears."
+                    )
                 )
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-                Text("Prueba: «qué pesa más y si hay pdfs» · «crea carpeta Facturas»")
+                Text(L10n.s("Prueba: «qué pesa más y si hay pdfs» · «crea carpeta Facturas»", "Try: «largest files and any pdfs» · «create folder Invoices»"))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             } else {
                 Text(
-                    "Atajos, texto o voz. Sin Ollama: reglas básicas. Con Ollama (cerebro arriba): frases libres con más calidad."
+                    L10n.s(
+                        "Atajos, texto o voz. Sin Ollama: reglas básicas. Con Ollama (cerebro arriba): frases libres con más calidad.",
+                        "Shortcuts, text, or voice. Without Ollama: basic rules. With Ollama: flexible natural language with higher quality."
+                    )
                 )
                 .font(.body)
                 .foregroundStyle(.secondary)
@@ -274,7 +283,7 @@ struct AssistantPanel: View {
                 Button {
                     browser.showOllamaSetupDialog = true
                 } label: {
-                    Label("Activar Ollama…", systemImage: "brain.head.profile")
+                    Label(L10n.s("Activar Ollama…", "Enable Ollama…"), systemImage: "brain.head.profile")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -380,14 +389,14 @@ struct AssistantPanel: View {
     private var shortcutsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Mis atajos")
+                Text(L10n.s("Mis atajos", "My Shortcuts"))
                     .font(.caption.weight(.semibold))
                 Text("\(browser.assistantShortcuts.count)/\(AssistantShortcut.maxCount)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer()
                 if browser.activeAssistantShortcut != nil {
-                    Button("Quitar filtro") {
+                    Button(L10n.s("Quitar filtro", "Clear filter")) {
                         browser.clearAssistantShortcutFilter()
                     }
                     .font(.caption)
@@ -395,11 +404,11 @@ struct AssistantPanel: View {
                 Button {
                     showNewShortcut = true
                 } label: {
-                    Label("Nuevo", systemImage: "plus")
+                    Label(L10n.s("Nuevo", "New"), systemImage: "plus")
                         .font(.caption.weight(.semibold))
                 }
                 .disabled(browser.assistantShortcuts.count >= AssistantShortcut.maxCount)
-                .help("Crear atajo: tipo + fechas (imágenes de hoy, etc.)")
+                .help(L10n.s("Crear atajo: tipo + fechas (imágenes de hoy, etc.)", "Create shortcut: type + dates (today's images, etc.)"))
             }
 
             ScrollView {
@@ -408,7 +417,7 @@ struct AssistantPanel: View {
                         shortcutRow(shortcut)
                     }
                     if browser.assistantShortcuts.isEmpty {
-                        Text("Sin atajos aún. Crea uno: p. ej. imágenes de hoy.")
+                        Text(L10n.s("Sin atajos aún. Crea uno: p. ej. imágenes de hoy.", "No shortcuts yet. Create one: e.g. today's images."))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .padding(.vertical, 4)
@@ -417,7 +426,7 @@ struct AssistantPanel: View {
             }
             .frame(maxHeight: 120)
 
-            Text("Acciones rápidas")
+            Text(L10n.s("Acciones rápidas", "Quick Actions"))
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
             FlowTips(tips: quickActions) { tip in
@@ -437,7 +446,7 @@ struct AssistantPanel: View {
             HStack(spacing: 8) {
                 Image(systemName: shortcutIcon(shortcut))
                     .foregroundStyle(active ? .orange : OrdenTheme.accent)
-                Text(shortcut.title)
+                Text(shortcut.displayTitle)
                     .font(.subheadline)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -487,8 +496,8 @@ struct AssistantPanel: View {
                 if draft.isEmpty {
                     Text(
                         ollama.isReady
-                            ? "Escribe aquí como en ChatGPT…\nej: qué pesa más y si hay pdfs"
-                            : "Escribe aquí… (sin Ollama = reglas / atajos)"
+                            ? L10n.s("Escribe aquí como en ChatGPT…\nej: qué pesa más y si hay pdfs", "Type here like in ChatGPT…\ne.g.: largest files and any pdfs")
+                            : L10n.s("Escribe aquí… (sin Ollama = reglas / atajos)", "Type here… (without Ollama = rules / shortcuts)")
                     )
                     .font(.body)
                     .foregroundStyle(.tertiary)
@@ -526,8 +535,8 @@ struct AssistantPanel: View {
                 } label: {
                     Label(
                         browser.agentBusy
-                            ? "Trabajando…"
-                            : (ollama.isReady ? "Enviar a \(ollama.selectedModel)" : "Enviar"),
+                            ? L10n.s("Trabajando…", "Working…")
+                            : (ollama.isReady ? "\(L10n.s("Enviar a", "Send to")) \(ollama.selectedModel)" : L10n.s("Enviar", "Send")),
                         systemImage: browser.agentBusy ? "hourglass" : "arrow.up.circle.fill"
                     )
                     .font(.body.weight(.semibold))
@@ -546,8 +555,8 @@ struct AssistantPanel: View {
 
             Text(
                 ollama.isReady
-                    ? "↩ enviar · ⇧↩ nueva línea · micrófono o ⌃Espacio = dictar. Respuestas arriba, en el chat."
-                    : "↩ enviar · micrófono o ⌃Espacio = dictar. Sin Ollama solo atajos/reglas."
+                    ? L10n.s("↩ enviar · ⇧↩ nueva línea · micrófono o ⌃Espacio = dictar. Respuestas arriba, en el chat.", "↩ send · ⇧↩ new line · mic or ⌃Space = dictate. Responses above in chat.")
+                    : L10n.s("↩ enviar · micrófono o ⌃Espacio = dictar. Sin Ollama solo atajos/reglas.", "↩ send · mic or ⌃Space = dictate. Without Ollama shortcuts/rules only.")
             )
             .font(.caption2)
             .foregroundStyle(.tertiary)
@@ -597,10 +606,10 @@ private struct FlowTips: View {
 
     private func tipHelp(_ tip: String) -> String {
         switch tip {
-        case "busca pdf": return "Busca archivos .pdf bajo la carpeta actual"
-        case "qué pesa más": return "Ordena la lista: lo más pesado arriba"
-        case "hay duplicados": return "Marca posibles duplicados (mismo nombre y tamaño)"
-        case "lista esta carpeta": return "Recarga y muestra el contenido actual"
+        case "busca pdf", "find pdfs": return L10n.s("Busca archivos .pdf bajo la carpeta actual", "Search for .pdf files in active folder")
+        case "qué pesa más", "largest files": return L10n.s("Ordena la lista: lo más pesado arriba", "Sort list: largest files on top")
+        case "hay duplicados", "any duplicates": return L10n.s("Marca posibles duplicados (mismo nombre y tamaño)", "Flag possible duplicates (matching name & size)")
+        case "lista esta carpeta", "list this folder": return L10n.s("Recarga y muestra el contenido actual", "Reload and show current contents")
         default: return tip
         }
     }

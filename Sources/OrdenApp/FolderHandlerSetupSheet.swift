@@ -17,11 +17,11 @@ struct FolderHandlerSetupSheet: View {
             VStack(alignment: .leading, spacing: 16) {
                 statusCard
 
-                OrdenDialogSection(title: "Cómo dejarlo fijo") {
+                OrdenDialogSection(title: L10n.s("Cómo dejarlo fijo", "How to set as default")) {
                     VStack(alignment: .leading, spacing: 8) {
-                        step(1, "Clic derecho en cualquier carpeta")
-                        step(2, "Abrir con → Findaro")
-                        step(3, "Vuelve a clic derecho → Abrir con → Siempre")
+                        step(1, L10n.s("Clic derecho en cualquier carpeta", "Right-click any folder"))
+                        step(2, L10n.s("Abrir con → Findaro", "Open With → Findaro"))
+                        step(3, L10n.s("Vuelve a clic derecho → Abrir con → Siempre", "Right-click again → Open With → Always"))
                     }
                 }
 
@@ -29,26 +29,26 @@ struct FolderHandlerSetupSheet: View {
                     .init(
                         icon: "checkmark.circle.fill",
                         tint: .green,
-                        text: "Después, al hacer doble clic en una carpeta, puede abrir Findaro."
+                        text: L10n.s("Después, al hacer doble clic en una carpeta, puede abrir Findaro.", "Afterwards, double-clicking a folder opens Findaro.")
                     ),
                     .init(
                         icon: "xmark.circle.fill",
                         tint: .secondary,
-                        text: "Apple no deja borrar Finder. El ▼ de Descargas en el Dock sigue siendo Finder."
+                        text: L10n.s("Apple no deja borrar Finder. El ▼ de Descargas en el Dock sigue siendo Finder.", "Apple does not allow deleting Finder. The Dock folder stack remains Finder.")
                     ),
                     .init(
                         icon: "dock.rectangle",
                         tint: OrdenTheme.accent,
-                        text: "Truco: arrastra una carpeta al icono de Findaro en el Dock."
+                        text: L10n.s("Truco: arrastra una carpeta al icono de Findaro en el Dock.", "Tip: drag any folder onto the Findaro Dock icon.")
                     )
                 ])
             }
             .padding(20)
         } footer: {
             OrdenDialogFooter(
-                shortcutHint: "Atajo ⌃⌥O",
-                cancelTitle: "Cerrar",
-                actionTitle: "Ir a Descargas",
+                shortcutHint: L10n.s("Atajo ⌃⌥O", "Shortcut ⌃⌥O"),
+                cancelTitle: L10n.s("Cerrar", "Close"),
+                actionTitle: L10n.s("Ir a Descargas", "Go to Downloads"),
                 onCancel: { browser.showFolderHandlerSetupDialog = false },
                 onAction: {
                     browser.navigateToDownloads()
@@ -60,20 +60,20 @@ struct FolderHandlerSetupSheet: View {
 
     private var title: String {
         switch result {
-        case .alreadyDefault: return "Findaro ya abre carpetas"
-        case .readyForOpenWith: return "Un paso más (límite de Apple)"
-        case .appMissing: return "No encuentro Findaro.app"
+        case .alreadyDefault: return L10n.s("Findaro ya abre carpetas", "Findaro already opens folders")
+        case .readyForOpenWith: return L10n.s("Un paso más (límite de Apple)", "One more step (Apple restriction)")
+        case .appMissing: return L10n.s("No encuentro Findaro.app", "Findaro.app not found")
         }
     }
 
     private var subtitle: String {
         switch result {
         case .alreadyDefault:
-            return "macOS ya te tiene como app de carpetas."
+            return L10n.s("macOS ya te tiene como app de carpetas.", "macOS is already using Findaro for folders.")
         case .readyForOpenWith:
-            return "Registré Findaro. macOS no deja cambiar el default solo con un botón."
+            return L10n.s("Registré Findaro. macOS no deja cambiar el default solo con un botón.", "Findaro is registered. macOS requires a manual click to confirm default app.")
         case .appMissing:
-            return "Instala Findaro en Aplicaciones y vuelve a intentar."
+            return L10n.s("Instala Findaro en Aplicaciones y vuelve a intentar.", "Install Findaro into Applications and try again.")
         }
     }
 
@@ -102,20 +102,20 @@ struct FolderHandlerSetupSheet: View {
 
     private var statusHeadline: String {
         switch result {
-        case .alreadyDefault: return "Listo"
-        case .readyForOpenWith: return "Findaro ya aparece en «Abrir con»"
-        case .appMissing: return "Falta el .app"
+        case .alreadyDefault: return L10n.s("Listo", "Ready")
+        case .readyForOpenWith: return L10n.s("Findaro ya aparece en «Abrir con»", "Findaro now appears in «Open With»")
+        case .appMissing: return L10n.s("Falta el .app", "Missing .app")
         }
     }
 
     private var statusDetail: String {
         switch result {
         case .alreadyDefault:
-            return "No tienes que hacer nada más."
+            return L10n.s("No tienes que hacer nada más.", "Nothing else needed.")
         case .readyForOpenWith(let path):
-            return "App: \(OrdenPathDisplay.short(path)). Elige «Siempre» una vez y listo."
+            return L10n.s("App: \(OrdenPathDisplay.short(path)). Elige «Siempre» una vez y listo.", "App: \(OrdenPathDisplay.short(path)). Choose «Always» once and you're set.")
         case .appMissing:
-            return "Corre el instalador o copia Findaro a /Aplicaciones."
+            return L10n.s("Corre el instalador o copia Findaro a /Aplicaciones.", "Run the installer or copy Findaro to /Applications.")
         }
     }
 

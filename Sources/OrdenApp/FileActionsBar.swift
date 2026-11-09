@@ -1,4 +1,5 @@
 import SwiftUI
+import OrdenCore
 
 /// Densidad de la barra de acciones según ancho útil del detalle.
 enum ActionBarDensity: Equatable {
@@ -50,10 +51,10 @@ struct FileActionsBar: View {
     var body: some View {
         ActionBarFlow(spacing: aroundPipe, lineSpacing: 6) {
             group {
-                chip("Nueva carpeta", "Carpeta", "folder.badge.plus", prominent: true, help: "Nueva carpeta · ⇧⌘N", enabled: true) {
+                chip(L10n.s("Nueva carpeta", "New Folder"), L10n.s("Carpeta", "Folder"), "folder.badge.plus", prominent: true, help: L10n.s("Nueva carpeta · ⇧⌘N", "New Folder · ⇧⌘N"), enabled: true) {
                     browser.promptNewFolder()
                 }
-                chip("Nuevo archivo", "Archivo", "doc.badge.plus", help: "Nuevo archivo · ⌘N", enabled: true) {
+                chip(L10n.s("Nuevo archivo", "New File"), L10n.s("Archivo", "File"), "doc.badge.plus", help: L10n.s("Nuevo archivo · ⌘N", "New File · ⌘N"), enabled: true) {
                     browser.promptNewFile()
                 }
             }
@@ -62,29 +63,29 @@ struct FileActionsBar: View {
 
             group {
                 chip(
-                    browser.showAssistantPanel ? "Cerrar IA" : "Asistente",
-                    browser.showAssistantPanel ? "Cerrar IA" : "IA",
+                    browser.showAssistantPanel ? L10n.s("Cerrar IA", "Close AI") : L10n.s("Asistente", "Assistant"),
+                    browser.showAssistantPanel ? L10n.s("Cerrar IA", "Close AI") : L10n.s("IA", "AI"),
                     "sparkles",
                     smart: true,
-                    help: "Asistente · ⌘5",
+                    help: L10n.s("Asistente · ⌘5", "AI Assistant · ⌘5"),
                     enabled: true
                 ) { browser.showAssistantPanel.toggle() }
                 chip(
-                    browser.dualPaneEnabled ? "Un panel" : "Dos paneles",
-                    browser.dualPaneEnabled ? "1 panel" : "2 paneles",
+                    browser.dualPaneEnabled ? L10n.s("Un panel", "Single pane") : L10n.s("Dos paneles", "Dual pane"),
+                    browser.dualPaneEnabled ? L10n.s("1 panel", "1 pane") : L10n.s("2 paneles", "2 panes"),
                     "rectangle.split.2x1",
                     prominent: browser.dualPaneEnabled,
-                    help: browser.dualPaneEnabled ? "Volver a un solo panel" : "Dos paneles Origen | Destino",
+                    help: browser.dualPaneEnabled ? L10n.s("Volver a un solo panel", "Return to single pane") : L10n.s("Dos paneles Origen | Destino", "Dual panes Origin | Destination"),
                     enabled: true
                 ) { browser.toggleDualPane() }
                 if browser.dualPaneEnabled {
-                    chip("Mover →", "→ Dest", "arrow.right.circle.fill", prominent: true, help: "Selección Origen → Destino · ⌘⇧M", enabled: true) {
+                    chip(L10n.s("Mover →", "Move →"), "→ Dest", "arrow.right.circle.fill", prominent: true, help: L10n.s("Selección Origen → Destino · ⌘⇧M", "Selection Origin → Destination · ⌘⇧M"), enabled: true) {
                         browser.transferPrimarySelectionToSecondary(copy: false)
                     }
-                    chip("← Origen", "← Orig", "arrow.left.circle.fill", smart: true, help: "Selección Destino → Origen", enabled: true) {
+                    chip(L10n.s("← Origen", "← Origin"), "← Orig", "arrow.left.circle.fill", smart: true, help: L10n.s("Selección Destino → Origen", "Selection Destination → Origin"), enabled: true) {
                         browser.transferSecondarySelectionToPrimary(copy: false)
                     }
-                    chip("Swap", "Swap", "arrow.left.arrow.right", help: "Intercambiar carpetas Origen ↔ Destino", enabled: true) {
+                    chip("Swap", "Swap", "arrow.left.arrow.right", help: L10n.s("Intercambiar carpetas Origen ↔ Destino", "Swap folders Origin ↔ Destination"), enabled: true) {
                         browser.swapPaneFolders()
                     }
                 }
@@ -93,19 +94,19 @@ struct FileActionsBar: View {
             pipe
 
             group {
-                chip("Renombrar", "Nombre", "pencil", help: "Renombrar (panel activo)", enabled: browser.activeSelectedEntries.count == 1) {
+                chip(L10n.s("Renombrar", "Rename"), L10n.s("Nombre", "Name"), "pencil", help: L10n.s("Renombrar (panel activo)", "Rename (active pane)"), enabled: browser.activeSelectedEntries.count == 1) {
                     browser.promptRename()
                 }
-                chip("Duplicar", "Dup", "plus.square.on.square", help: "Duplicar · ⌘D", enabled: browser.activeHasSelection) {
+                chip(L10n.s("Duplicar", "Duplicate"), L10n.s("Dup", "Dup"), "plus.square.on.square", help: L10n.s("Duplicar · ⌘D", "Duplicate · ⌘D"), enabled: browser.activeHasSelection) {
                     browser.duplicateSelection()
                 }
-                chip("Copiar", "Copiar", "doc.on.doc", help: "Copiar a bandeja · ⌘C", enabled: browser.activeHasSelection) {
+                chip(L10n.s("Copiar", "Copy"), L10n.s("Copiar", "Copy"), "doc.on.doc", help: L10n.s("Copiar a bandeja · ⌘C", "Copy to tray · ⌘C"), enabled: browser.activeHasSelection) {
                     browser.addSelectionToShelf(intent: .copy)
                 }
-                chip("Cortar", "Cortar", "scissors", help: "Cortar a bandeja · ⌘X", enabled: browser.activeHasSelection) {
+                chip(L10n.s("Cortar", "Cut"), L10n.s("Cortar", "Cut"), "scissors", help: L10n.s("Cortar a bandeja · ⌘X", "Cut to tray · ⌘X"), enabled: browser.activeHasSelection) {
                     browser.addSelectionToShelf(intent: .move)
                 }
-                chip("Pegar", "Pegar", "doc.on.clipboard", help: "Pegar en panel activo · ⌘V", enabled: !browser.shelf.isEmpty || browser.canPasteFiles) {
+                chip(L10n.s("Pegar", "Paste"), L10n.s("Pegar", "Paste"), "doc.on.clipboard", help: L10n.s("Pegar en panel activo · ⌘V", "Paste in active pane · ⌘V"), enabled: !browser.shelf.isEmpty || browser.canPasteFiles) {
                     browser.depositShelfHere()
                 }
             }
@@ -114,16 +115,16 @@ struct FileActionsBar: View {
 
             group {
                 chip(
-                    browser.shelf.isEmpty ? "Bandeja" : "Bandeja (\(browser.shelf.count))",
-                    browser.shelf.isEmpty ? "Bandeja" : "Ban (\(browser.shelf.count))",
+                    browser.shelf.isEmpty ? L10n.s("Bandeja", "Tray") : "\(L10n.s("Bandeja", "Tray")) (\(browser.shelf.count))",
+                    browser.shelf.isEmpty ? L10n.s("Bandeja", "Tray") : "Tray (\(browser.shelf.count))",
                     "tray.and.arrow.down.fill",
-                    help: "Meter en bandeja",
+                    help: L10n.s("Meter en bandeja", "Put in tray"),
                     enabled: browser.activeHasSelection
                 ) { browser.addSelectionToShelf(intent: .move) }
-                chip("Dropover", "Drop", "circle.dashed", help: "Abrir en Dropover", enabled: !browser.outboundPaths.isEmpty) {
+                chip("Dropover", "Drop", "circle.dashed", help: L10n.s("Abrir en Dropover", "Open in Dropover"), enabled: !browser.outboundPaths.isEmpty) {
                     browser.sendOutboundToDropover()
                 }
-                chip("Rutas", "Rutas", "terminal", help: "Copiar rutas", enabled: !browser.outboundPaths.isEmpty) {
+                chip(L10n.s("Rutas", "Paths"), L10n.s("Rutas", "Paths"), "terminal", help: L10n.s("Copiar rutas", "Copy paths"), enabled: !browser.outboundPaths.isEmpty) {
                     browser.copyOutboundPaths()
                 }
             }
@@ -131,18 +132,18 @@ struct FileActionsBar: View {
             pipe
 
             group {
-                chip("Terminal", "Term", "terminal", help: "Abrir Terminal en esta carpeta · ⌘⌥T", enabled: true) {
+                chip(L10n.s("Terminal", "Terminal"), L10n.s("Term", "Term"), "terminal", help: L10n.s("Abrir Terminal en esta carpeta · ⌘⌥T", "Open Terminal in this folder · ⌘⌥T"), enabled: true) {
                     browser.openTerminalHere()
                 }
-                chip("A Favoritos", "Favorito", "star.fill", help: "A Favoritos", enabled: true) {
+                chip(L10n.s("A Favoritos", "To Favorites"), L10n.s("Favorito", "Favorite"), "star.fill", help: L10n.s("A Favoritos", "Add to Favorites"), enabled: true) {
                     browser.addFoldersToFavoritesFromUI()
                 }
                 if browser.isViewingTrash {
-                    chip("Restaurar", "Sacar", "arrow.uturn.backward", prominent: true, help: "Sacar de la Papelera", enabled: browser.activeHasSelection) {
+                    chip(L10n.s("Restaurar", "Restore"), L10n.s("Sacar", "Extract"), "arrow.uturn.backward", prominent: true, help: L10n.s("Sacar de la Papelera", "Restore from Trash"), enabled: browser.activeHasSelection) {
                         browser.restoreSelectionFromTrash()
                     }
                 } else {
-                    chip("Papelera", "Basura", "trash", role: .destructive, help: "Papelera · ⌘⌫", enabled: browser.activeHasSelection) {
+                    chip(L10n.s("Papelera", "Trash"), L10n.s("Basura", "Trash"), "trash", role: .destructive, help: L10n.s("Papelera · ⌘⌫", "Move to Trash · ⌘⌫"), enabled: browser.activeHasSelection) {
                         browser.moveSelectionToTrash()
                     }
                 }

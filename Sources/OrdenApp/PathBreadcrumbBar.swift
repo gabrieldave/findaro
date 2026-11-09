@@ -12,14 +12,14 @@ struct PathBreadcrumbBar: View {
                 Image(systemName: "magnifyingglass")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(OrdenTheme.accent)
-                TextField("Ruta o ~/carpeta", text: $browser.pathOmniboxDraft)
+                TextField(L10n.s("Ruta o ~/carpeta", "Path or ~/folder"), text: $browser.pathOmniboxDraft)
                     .textFieldStyle(.plain)
                     .font(.system(.callout, design: .monospaced))
                     .focused($omniboxFocused)
                     .onSubmit { browser.submitPathOmnibox() }
                     .onExitCommand { browser.cancelPathOmnibox() }
                     .frame(minWidth: 220, maxWidth: 480)
-                Button("Ir") { browser.submitPathOmnibox() }
+                Button(L10n.s("Ir", "Go")) { browser.submitPathOmnibox() }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.mini)
                     .tint(OrdenTheme.accent)
@@ -63,16 +63,16 @@ struct PathBreadcrumbBar: View {
                         .foregroundStyle(OrdenTheme.accent)
                 }
                 .buttonStyle(.borderless)
-                .help("Editar ruta · ⌘E (Enter confirma) · o ⌘3 diálogo")
+                .help(L10n.s("Editar ruta · ⌘E (Enter confirma) · o ⌘3 diálogo", "Edit path · ⌘E (Enter confirms) · or ⌘3 dialog"))
             }
 
             if browser.flattenFolderView {
-                FindaroStatusPill(title: "plana", kind: .warning)
-                    .help("Vista plana activa")
+                FindaroStatusPill(title: L10n.s("plana", "flat"), kind: .warning)
+                    .help(L10n.s("Vista plana activa", "Flat view active"))
             }
             if browser.showHiddenFiles {
-                FindaroStatusPill(title: "ocultos", kind: .processing)
-                    .help("Mostrando archivos ocultos")
+                FindaroStatusPill(title: L10n.s("ocultos", "hidden"), kind: .processing)
+                    .help(L10n.s("Mostrando archivos ocultos", "Showing hidden files"))
             }
         }
         .padding(.horizontal, 10)

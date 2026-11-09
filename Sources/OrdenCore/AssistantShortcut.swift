@@ -18,6 +18,21 @@ public enum ShortcutDateWindow: Codable, Equatable, Sendable, Hashable {
         }
     }
 
+    public var labelEnglish: String {
+        switch self {
+        case .today: return "today"
+        case .yesterday: return "yesterday"
+        case .lastDays(let n):
+            if n <= 1 { return "today" }
+            if n == 7 { return "1 week ago" }
+            return "\(n) days ago"
+        }
+    }
+
+    public var labelLocalized: String {
+        L10n.isEnglish ? labelEnglish : labelSpanish
+    }
+
     public func matches(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> Bool {
         switch self {
         case .today:
@@ -58,6 +73,35 @@ public struct AssistantShortcut: Identifiable, Codable, Equatable, Sendable {
         self.categories = categories
         self.dateWindow = dateWindow
         self.createdAt = createdAt
+    }
+
+    public var displayTitle: String {
+        guard L10n.isEnglish else { return title }
+        switch title {
+        case "Imágenes de hoy": return "Today's images"
+        case "Imágenes de hace 1 semana": return "Images from 1 week ago"
+        case "Documentos de ayer": return "Yesterday's documents"
+        case "Música de hace 3 días": return "Music from 3 days ago"
+        default:
+            var t = title
+            if t.hasPrefix("Imágenes ") {
+                t = t.replacingOccurrences(of: "Imágenes de hoy", with: "Today's images")
+                     .replacingOccurrences(of: "Imágenes de hace 1 semana", with: "Images from 1 week ago")
+                     .replacingOccurrences(of: "Imágenes de hace ", with: "Images from ")
+                     .replacingOccurrences(of: " días", with: " days ago")
+            } else if t.hasPrefix("Documentos ") {
+                t = t.replacingOccurrences(of: "Documentos de ayer", with: "Yesterday's documents")
+                     .replacingOccurrences(of: "Documentos de hoy", with: "Today's documents")
+                     .replacingOccurrences(of: "Documentos de hace ", with: "Documents from ")
+                     .replacingOccurrences(of: " días", with: " days ago")
+            } else if t.hasPrefix("Archivos ") {
+                t = t.replacingOccurrences(of: "Archivos de hoy", with: "Today's files")
+                     .replacingOccurrences(of: "Archivos de ayer", with: "Yesterday's files")
+                     .replacingOccurrences(of: "Archivos de hace ", with: "Files from ")
+                     .replacingOccurrences(of: " días", with: " days ago")
+            }
+            return t
+        }
     }
 
     public static let maxCount = 80
