@@ -51,8 +51,8 @@ export default function PrivacidadPage() {
           <h2 style={{ fontSize: "16px", color: "#fff", marginTop: "16px" }}>5. Contacto</h2>
           <p>
             Puedes ejercer tus derechos de acceso, rectificación o eliminación de tus datos de cliente escribiendo a:{" "}
-            <a href="mailto:david.del.rio.colin@gmail.com" style={{ color: "#38bdf8" }}>
-              david.del.rio.colin@gmail.com
+            <a href="mailto:soporte@findaro.iareal.net" style={{ color: "#38bdf8" }}>
+              soporte@findaro.iareal.net
             </a>.
           </p>
         </div>

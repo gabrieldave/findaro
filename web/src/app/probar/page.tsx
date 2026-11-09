@@ -62,10 +62,30 @@ function ProbarInner() {
     setBusy(true);
     setError(null);
     try {
+      const utmSource = searchParams.get("utm_source");
+      const utmMedium = searchParams.get("utm_medium");
+      const utmCampaign = searchParams.get("utm_campaign");
+      const utmContent = searchParams.get("utm_content");
+
+      let cookieUtm: Record<string, string> = {};
+      if (typeof document !== "undefined") {
+        try {
+          const match = document.cookie.match(/(?:^|; )findaro_utm=([^;]*)/);
+          if (match) cookieUtm = JSON.parse(decodeURIComponent(match[1]));
+        } catch {}
+      }
+
       const res = await fetch("/api/trial", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email }),
+        body: JSON.stringify({
+          name,
+          email,
+          utm_source: utmSource || cookieUtm.utm_source,
+          utm_medium: utmMedium || cookieUtm.utm_medium,
+          utm_campaign: utmCampaign || cookieUtm.utm_campaign,
+          utm_content: utmContent || cookieUtm.utm_content,
+        }),
       });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || (isEn ? "Could not create trial" : "No se pudo crear la prueba"));

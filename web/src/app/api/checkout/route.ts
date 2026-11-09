@@ -13,12 +13,20 @@ export const POST = handle(async (req) => {
     name?: string;
     tier?: LicenseTier;
     referralCode?: string;
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+    utm_content?: string;
   } | null;
 
   const email = (body?.email || "").trim().toLowerCase();
   const name = (body?.name || "").trim();
   const tier: LicenseTier = body?.tier === "family" ? "family" : "personal";
   const refCode = (body?.referralCode || "").trim().toUpperCase();
+  const utmSource = (body?.utm_source || "").trim() || null;
+  const utmMedium = (body?.utm_medium || "").trim() || null;
+  const utmCampaign = (body?.utm_campaign || "").trim() || null;
+  const utmContent = (body?.utm_content || "").trim() || null;
 
   if (!email || !email.includes("@")) return fail("Correo inválido", 400);
   if (name.length < 2) return fail("Nombre requerido", 400);
@@ -39,17 +47,21 @@ export const POST = handle(async (req) => {
     }
   }
 
-  // Asignar o mantener código de referido único para este cliente
+  // Asignar o mantener código de referido único para este cliente y persistir UTM first-touch
   const generatedRef = mintReferralCode(name);
   const customer = await query<{ id: string; referral_code: string }>(
-    `INSERT INTO customers (email, name, referral_code)
-     VALUES ($1, $2, $3)
+    `INSERT INTO customers (email, name, referral_code, utm_source, utm_medium, utm_campaign, utm_content, first_seen_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, now())
      ON CONFLICT (email) DO UPDATE 
        SET name = EXCLUDED.name, 
            referral_code = COALESCE(customers.referral_code, EXCLUDED.referral_code),
+           utm_source = COALESCE(customers.utm_source, EXCLUDED.utm_source),
+           utm_medium = COALESCE(customers.utm_medium, EXCLUDED.utm_medium),
+           utm_campaign = COALESCE(customers.utm_campaign, EXCLUDED.utm_campaign),
+           utm_content = COALESCE(customers.utm_content, EXCLUDED.utm_content),
            updated_at = now()
      RETURNING id, referral_code`,
-    [email, name, generatedRef],
+    [email, name, generatedRef, utmSource, utmMedium, utmCampaign, utmContent],
   );
   const customerId = customer.rows[0]?.id;
   if (!customerId) return fail("No se pudo registrar el cliente", 500);

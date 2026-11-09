@@ -1,6 +1,7 @@
 import { query } from "./db";
 import { issueDownloadToken } from "./download";
 import { sendPurchaseConfirmationEmail } from "./email";
+import { recordEvent } from "./events";
 import { issueProLicense, mintReferralCode } from "./license";
 import { incrementPromoIfEligible, LicenseTier } from "./pricing";
 import { PUBLIC_APP_URL } from "./site";
@@ -97,6 +98,19 @@ export async function fulfillPaidOrder(opts: {
       if (order.promo_slot) {
         await incrementPromoIfEligible();
       }
+
+      // Registrar evento purchase_confirmed con deduplicación por order_id (T-06)
+      await recordEvent({
+        name: "purchase_confirmed",
+        subjectType: "order",
+        subjectId: order.id,
+        dedupKey: `purchase_confirmed:${order.id}`,
+        props: {
+          tier: order.tier,
+          amountUsd: order.amount_usd,
+          promoSlot: order.promo_slot,
+        },
+      });
 
       // Registrar cashback de referido ($10 USD para el referente)
       if (order.referral_code) {

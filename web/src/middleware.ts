@@ -58,18 +58,40 @@ export function middleware(request: NextRequest) {
   }
 
   // 3. Root path '/' -> internal rewrite to clean HTML without changing browser URL
+  let res: NextResponse;
   if (pathname === '/') {
     const targetFile = targetLang === 'es' ? '/findaro-landing.html' : '/findaro-landing-en.html';
-    const res = NextResponse.rewrite(new URL(targetFile, request.url));
-    res.cookies.set('findaro_lang', targetLang, { maxAge: 60 * 60 * 24 * 365, path: '/' });
-    return res;
+    res = NextResponse.rewrite(new URL(targetFile, request.url));
+  } else {
+    // 4. Other pages (/comprar, /probar, /gracias): pass through
+    res = NextResponse.next();
   }
 
-  // 4. Other pages (/comprar, /probar, /gracias): pass through and set language cookie
-  const res = NextResponse.next();
+  // Set language cookie
   if (!cookieLang || queryLang) {
     res.cookies.set('findaro_lang', targetLang, { maxAge: 60 * 60 * 24 * 365, path: '/' });
   }
+
+  // 5. First-touch UTM persistence in 30-day cookie
+  const utmSource = searchParams.get('utm_source');
+  const utmMedium = searchParams.get('utm_medium');
+  const utmCampaign = searchParams.get('utm_campaign');
+  const utmContent = searchParams.get('utm_content');
+
+  if (utmSource || utmMedium || utmCampaign || utmContent) {
+    const utmObj = {
+      utm_source: utmSource || '',
+      utm_medium: utmMedium || '',
+      utm_campaign: utmCampaign || '',
+      utm_content: utmContent || '',
+    };
+    res.cookies.set('findaro_utm', JSON.stringify(utmObj), {
+      maxAge: 60 * 60 * 24 * 30,
+      path: '/',
+      sameSite: 'lax',
+    });
+  }
+
   return res;
 }
 

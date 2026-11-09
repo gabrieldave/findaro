@@ -42,8 +42,8 @@ export default function ReembolsoPage() {
           </p>
           <p style={{ margin: "10px 0" }}>
             📧{" "}
-            <a href="mailto:david.del.rio.colin@gmail.com" style={{ color: "#38bdf8", fontWeight: "bold" }}>
-              david.del.rio.colin@gmail.com
+            <a href="mailto:soporte@findaro.iareal.net" style={{ color: "#38bdf8", fontWeight: "bold" }}>
+              soporte@findaro.iareal.net
             </a>
           </p>
           <p>

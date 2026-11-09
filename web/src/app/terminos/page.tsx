@@ -41,14 +41,14 @@ export default function TerminosPage() {
 
           <h2 style={{ fontSize: "16px", color: "#fff", marginTop: "16px" }}>4. Programa de Referidos</h2>
           <p>
-            Los compradores reciben un enlace de recomendación único. Por cada venta válida referida, el comprador recomendado recibe un descuento directo y el referente acumula $10 USD de cashback, pagadero tras confirmación de la orden. El uso fraudulento o auto-referido se encuentra prohibido.
+            Los compradores reciben un enlace de recomendación único. Por cada venta válida referida, el comprador recomendado recibe un descuento directo aplicable al momento del checkout. El uso fraudulento o auto-referido se encuentra prohibido.
           </p>
 
           <h2 style={{ fontSize: "16px", color: "#fff", marginTop: "16px" }}>5. Contacto</h2>
           <p>
             Para consultas legales, facturación o soporte técnico, contáctanos en:{" "}
-            <a href="mailto:david.del.rio.colin@gmail.com" style={{ color: "#38bdf8" }}>
-              david.del.rio.colin@gmail.com
+            <a href="mailto:soporte@findaro.iareal.net" style={{ color: "#38bdf8" }}>
+              soporte@findaro.iareal.net
             </a>.
           </p>
         </div>

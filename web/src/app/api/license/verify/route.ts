@@ -1,10 +1,18 @@
 import { fail, handle, ok } from "@/lib/api";
-import { lookupLicense, registerActivation, signLicensePayload } from "@/lib/license";
+import { query } from "@/lib/db";
+import { recordEvent } from "@/lib/events";
+import {
+  hashHardwareId,
+  lookupLicense,
+  registerActivation,
+  signLicensePayload,
+  TRIAL_DAYS,
+} from "@/lib/license";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** La app Mac verifica / activa una clave. Soporte multi-asiento (2 Macs personal / 5 Macs familiar). */
+/** La app Mac verifica / activa una clave. Soporte multi-asiento (2 Macs personal / 5 Macs familiar) y prueba de 5 días. */
 export const POST = handle(async (req) => {
   const body = (await req.json().catch(() => null)) as {
     licenseKey?: string;
@@ -22,8 +30,55 @@ export const POST = handle(async (req) => {
   const row = await lookupLicense(licenseKey);
   if (!row || row.revoked) return fail("Licencia no encontrada o revocada.", 404);
 
-  if (row.plan === "trial" && row.expires_at && new Date(row.expires_at).getTime() < Date.now()) {
-    return fail("El período de prueba de 5 días ha finalizado. Compra tu licencia Pro para continuar.", 402);
+  let effectiveExpiresAt = row.expires_at ? new Date(row.expires_at) : null;
+
+  // Lógica específica para licencias trial: reloj único e impedir múltiples trials por equipo
+  if (row.plan === "trial") {
+    const hwHash = hashHardwareId(machineId);
+
+    // Verificar si este equipo ya usó una prueba anterior
+    const devCheck = await query<{ id: string; license_id: string }>(
+      `SELECT id, license_id FROM trial_devices WHERE hardware_hash = $1 LIMIT 1`,
+      [hwHash],
+    );
+    if (devCheck.rows[0] && devCheck.rows[0].license_id !== row.id) {
+      return fail(
+        "Este equipo ya utilizó un período de prueba de Findaro. Adquiere una licencia Pro para continuar.",
+        403,
+      );
+    }
+
+    // Reloj único: si expires_at es null, es la primera activación en una Mac
+    if (!effectiveExpiresAt) {
+      effectiveExpiresAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+      await query(
+        `UPDATE licenses SET activated_at = now(), expires_at = $1 WHERE id = $2`,
+        [effectiveExpiresAt.toISOString(), row.id],
+      );
+      await query(
+        `INSERT INTO trial_devices (hardware_hash, license_id) VALUES ($1, $2)
+         ON CONFLICT (hardware_hash) DO NOTHING`,
+        [hwHash, row.id],
+      );
+
+      // Evento trial_started (T-04 y T-06)
+      await recordEvent({
+        name: "trial_started",
+        subjectType: "license",
+        subjectId: row.id,
+        dedupKey: `trial_started:${row.id}`,
+        props: {
+          email: row.email,
+          tier: "trial",
+          machineName: machineName || "Mac",
+        },
+      });
+    } else if (effectiveExpiresAt.getTime() < Date.now()) {
+      return fail(
+        "El período de prueba de 5 días ha finalizado. Compra tu licencia Pro para continuar.",
+        402,
+      );
+    }
   }
 
   const activation = await registerActivation(row.id, machineId, machineName, row.seats);
@@ -39,7 +94,7 @@ export const POST = handle(async (req) => {
     key: row.license_key,
     seats: row.seats,
     machineId,
-    exp: row.expires_at ? Math.floor(new Date(row.expires_at).getTime() / 1000) : null,
+    exp: effectiveExpiresAt ? Math.floor(effectiveExpiresAt.getTime() / 1000) : null,
   });
 
   return ok({
@@ -48,7 +103,7 @@ export const POST = handle(async (req) => {
     email: row.email,
     seats: row.seats,
     activeCount: activation.activeCount,
-    expiresAt: row.expires_at,
+    expiresAt: effectiveExpiresAt,
     signed,
     licenseKey: row.license_key,
   });

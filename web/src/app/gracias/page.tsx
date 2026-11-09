@@ -57,10 +57,10 @@ function GraciasInner() {
     gatekeeperNote: isEn
       ? "FINDARO is signed with Developer ID and notarized by Apple. Open the DMG, drag to Applications, and launch directly with double-click."
       : "FINDARO está firmado con Developer ID y notarizado por Apple. Abre el DMG, arrastra a Aplicaciones y se abre al instante con doble clic.",
-    refBoxTitle: isEn ? "Earn $10 USD for every friend you refer" : "Gana $10 USD por cada amigo que recomiendes",
+    refBoxTitle: isEn ? "Share Findaro with friends" : "Comparte Findaro con amigos",
     refBoxDesc: isEn
-      ? "Your referral code applies a discount to your friends, and automatically credits $10 USD directly to you for every purchase."
-      : "Tu código aplica descuento a tus amigos y te abona $10 USD directo por cada compra.",
+      ? "Your referral code applies an instant discount to your friends on their purchase."
+      : "Tu código de referido otorga un descuento inmediato a tus amigos en su compra.",
     copyLink: isEn ? "Copy Link" : "Copiar enlace",
   };
 

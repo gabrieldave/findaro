@@ -84,8 +84,8 @@ function ComprarInner() {
         : `Pagar $${price} USD con Stripe (${tier === "family" ? "5 Macs" : "2 Macs"})`,
     busyButton: isEn ? "Redirecting to Stripe…" : "Redirigiendo a Stripe…",
     securityNote: isEn
-      ? "🛡️ 100% secure payment with Stripe. No subscriptions or hidden fees. Referral rewards: share your link to earn $10 USD directly to your card for each recommendation."
-      : "🛡️ Pago 100% seguro con Stripe. Sin suscripciones ni cobros ocultos. ¿Tienes amigos? Al comprar recibirás tu enlace para ganar $10 USD directo a tu tarjeta por cada recomendación.",
+      ? "🛡️ 100% secure payment with Stripe. No subscriptions or hidden fees. Referral program: share your link to give friends a discount on their purchase."
+      : "🛡️ Pago 100% seguro con Stripe. Sin suscripciones ni cobros ocultos. ¿Tienes amigos? Al comprar recibirás tu enlace de recomendación para compartir un descuento directo.",
     footerNote: isEn
       ? "Findaro for macOS · 14-day satisfaction guarantee"
       : "Findaro para macOS · Garantía de satisfacción de 14 días",
@@ -150,6 +150,19 @@ function ComprarInner() {
     setBusy(true);
     setError(null);
     try {
+      const utmSource = searchParams.get("utm_source");
+      const utmMedium = searchParams.get("utm_medium");
+      const utmCampaign = searchParams.get("utm_campaign");
+      const utmContent = searchParams.get("utm_content");
+
+      let cookieUtm: Record<string, string> = {};
+      if (typeof document !== "undefined") {
+        try {
+          const match = document.cookie.match(/(?:^|; )findaro_utm=([^;]*)/);
+          if (match) cookieUtm = JSON.parse(decodeURIComponent(match[1]));
+        } catch {}
+      }
+
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -158,6 +171,10 @@ function ComprarInner() {
           email,
           tier: selectedTier,
           referralCode: hasDiscount ? referralCode.trim() : undefined,
+          utm_source: utmSource || cookieUtm.utm_source,
+          utm_medium: utmMedium || cookieUtm.utm_medium,
+          utm_campaign: utmCampaign || cookieUtm.utm_campaign,
+          utm_content: utmContent || cookieUtm.utm_content,
         }),
       });
       const json = await res.json();
@@ -332,7 +349,7 @@ function ComprarInner() {
             <span>·</span>
             <Link href="/reembolso" style={{ color: "#94a3b8", textDecoration: "underline" }}>{t.refund}</Link>
             <span>·</span>
-            <a href="mailto:david.del.rio.colin@gmail.com" style={{ color: "#94a3b8", textDecoration: "underline" }}>{t.contact}</a>
+            <a href={isEn ? "mailto:support@findaro.iareal.net" : "mailto:soporte@findaro.iareal.net"} style={{ color: "#94a3b8", textDecoration: "underline" }}>{t.contact}</a>
           </div>
         </footer>
       </div>

@@ -1,8 +1,14 @@
-import { createPrivateKey, createPublicKey, randomBytes, sign, verify } from "crypto";
+import { createHash, createPrivateKey, createPublicKey, randomBytes, sign, verify } from "crypto";
 import { query } from "./db";
 import { LicenseTier, TIERS } from "./pricing";
 
 const TRIAL_DAYS = 5;
+
+/** Genera un hash con sal del identificador de hardware (no se guarda el UUID en claro) */
+export function hashHardwareId(machineId: string): string {
+  const salt = process.env.HARDWARE_SALT || "findaro-hardware-salt-2026";
+  return createHash("sha256").update(`${salt}:${machineId.trim().toUpperCase()}`).digest("hex");
+}
 
 // Clave pública canónica Ed25519 embebida en la app Findaro (32 bytes raw hex)
 export const FINDARO_ED25519_PUBLIC_KEY_HEX =
@@ -92,9 +98,9 @@ export function verifySignedLicense(token: string): Record<string, unknown> | nu
   }
 }
 
-export async function issueTrialLicense(customerId: string, email: string) {
+export async function issueTrialLicense(customerId: string, _email: string) {
   // ¿Ya tuvo trial?
-  const existing = await query<{ id: string; license_key: string; expires_at: Date }>(
+  const existing = await query<{ id: string; license_key: string; expires_at: Date | null }>(
     `SELECT id, license_key, expires_at FROM licenses
      WHERE customer_id = $1 AND plan = 'trial'
      ORDER BY created_at DESC LIMIT 1`,
@@ -105,28 +111,19 @@ export async function issueTrialLicense(customerId: string, email: string) {
       licenseKey: existing.rows[0].license_key,
       expiresAt: existing.rows[0].expires_at,
       reused: true as const,
+      trialDays: TRIAL_DAYS,
     };
   }
 
   const licenseKey = mintLicenseKey();
-  const expiresAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
-  const signed = signLicensePayload({
-    v: 1,
-    plan: "trial",
-    tier: "trial",
-    email,
-    key: licenseKey,
-    seats: 1,
-    exp: Math.floor(expiresAt.getTime() / 1000),
-  });
-
+  // Reloj único: expires_at es NULL al emitir la clave; el servidor fija now() + 5 días en la primera activación en Mac
   await query(
     `INSERT INTO licenses (customer_id, license_key, plan, tier, seats, expires_at)
-     VALUES ($1, $2, 'trial', 'trial', 1, $3)`,
-    [customerId, licenseKey, expiresAt.toISOString()],
+     VALUES ($1, $2, 'trial', 'trial', 1, NULL)`,
+    [customerId, licenseKey],
   );
 
-  return { licenseKey, signed, expiresAt, reused: false as const, trialDays: TRIAL_DAYS };
+  return { licenseKey, expiresAt: null, reused: false as const, trialDays: TRIAL_DAYS };
 }
 
 export async function issueProLicense(opts: {
