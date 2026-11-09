@@ -48,6 +48,14 @@ private struct FindaroCommands: Commands {
             }
         }
 
+        CommandGroup(after: .appSettings) {
+            Menu("Idioma / Language") {
+                Button("Automático (Sistema)") { browser?.setAppLanguage(.auto) }
+                Button("Español") { browser?.setAppLanguage(.spanish) }
+                Button("English") { browser?.setAppLanguage(.english) }
+            }
+        }
+
         CommandGroup(replacing: .help) {
             Button("Ayuda de Findaro") {
                 FindaroHelpWindow.show()

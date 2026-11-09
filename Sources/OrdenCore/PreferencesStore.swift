@@ -29,6 +29,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public var keyboardHotkeyOverrides: [String: KeyChord]
     /// Carpeta que abre el atajo global ⌃⌥O. `nil` = Descargas.
     public var globalHotkeyFolderPath: String?
+    /// Idioma de la interfaz (auto, es, en).
+    public var appLanguage: AppLanguage
 
     public init(
         schemaVersion: Int = 16,
@@ -46,7 +48,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         ollamaModel: String = "qwen2.5:3b",
         viewTemplates: [ViewTemplate] = ViewTemplate.factoryDefaults(),
         keyboardHotkeyOverrides: [String: KeyChord] = [:],
-        globalHotkeyFolderPath: String? = nil
+        globalHotkeyFolderPath: String? = nil,
+        appLanguage: AppLanguage = .auto
     ) {
         self.schemaVersion = schemaVersion
         self.globalRule = globalRule
@@ -64,6 +67,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         self.viewTemplates = viewTemplates
         self.keyboardHotkeyOverrides = keyboardHotkeyOverrides
         self.globalHotkeyFolderPath = globalHotkeyFolderPath
+        self.appLanguage = appLanguage
     }
 
     /// Override de carpeta si existe; si no, el global (estilo Descargas por defecto).
@@ -80,7 +84,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     enum CodingKeys: String, CodingKey {
         case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode, showRowPaths,
              explorerKeyboardProfile, showHiddenFiles, flattenFolderView, assistantShortcuts,
-             ollamaEnabled, ollamaModel, viewTemplates, keyboardHotkeyOverrides, globalHotkeyFolderPath
+             ollamaEnabled, ollamaModel, viewTemplates, keyboardHotkeyOverrides, globalHotkeyFolderPath,
+             appLanguage
     }
 
     public init(from decoder: Decoder) throws {
@@ -103,6 +108,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
             ?? ViewTemplate.factoryDefaults()
         keyboardHotkeyOverrides = try c.decodeIfPresent([String: KeyChord].self, forKey: .keyboardHotkeyOverrides) ?? [:]
         globalHotkeyFolderPath = try c.decodeIfPresent(String.self, forKey: .globalHotkeyFolderPath)
+        appLanguage = try c.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? .auto
     }
 }
 

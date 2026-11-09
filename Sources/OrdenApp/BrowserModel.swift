@@ -248,6 +248,7 @@ final class BrowserModel: ObservableObject {
         self.flattenFolderView = store.preferences.flattenFolderView
         self.assistantShortcuts = store.preferences.assistantShortcuts
         self.viewTemplates = store.preferences.viewTemplates
+        L10n.activeLanguage = store.preferences.appLanguage
         self.columnPaths = [start]
         self.secondaryPath = start
         OllamaClient.shared.applyPreferences(store.preferences)
@@ -2967,6 +2968,16 @@ final class BrowserModel: ObservableObject {
     func setOllamaModel(_ model: String) {
         store.update { $0.ollamaModel = model }
         OllamaClient.shared.applyPreferences(store.preferences)
+    }
+
+    var appLanguage: AppLanguage {
+        store.preferences.appLanguage
+    }
+
+    func setAppLanguage(_ lang: AppLanguage) {
+        store.update { $0.appLanguage = lang }
+        L10n.activeLanguage = lang
+        objectWillChange.send()
     }
 
     private func defaultTitle(for shortcut: AssistantShortcut) -> String {

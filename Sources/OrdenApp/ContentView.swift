@@ -2018,6 +2018,23 @@ struct SettingsView: View {
         Form {
             Section {
                 settingsRow(
+                    icon: "globe",
+                    tint: .blue,
+                    title: L10n.s("Idioma de la interfaz", "Interface Language"),
+                    subtitle: L10n.s("Español, English o según tu Mac", "Spanish, English, or matching your Mac")
+                ) {
+                    Picker("", selection: Binding(
+                        get: { browser.appLanguage },
+                        set: { browser.setAppLanguage($0) }
+                    )) {
+                        ForEach(AppLanguage.allCases, id: \.self) { lang in
+                            Text(lang.displayName).tag(lang)
+                        }
+                    }
+                    .frame(width: 180)
+                }
+
+                settingsRow(
                     icon: "keyboard",
                     tint: OrdenTheme.accent,
                     title: "Atajo global",
