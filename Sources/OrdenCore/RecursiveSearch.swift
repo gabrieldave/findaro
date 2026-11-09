@@ -1,4 +1,6 @@
 import Foundation
+import PDFKit
+import Vision
 
 public struct SearchHit: Equatable, Sendable, Identifiable {
     public var id: String { path }
@@ -61,6 +63,14 @@ public enum RecursiveSearch {
         "txt", "md", "markdown", "text", "log", "csv", "tsv", "json", "yml", "yaml", "toml", "xml",
         "html", "htm", "css", "scss", "js", "jsx", "ts", "tsx", "swift", "py", "rs", "go", "java",
         "kt", "c", "h", "cpp", "hpp", "m", "mm", "rb", "php", "sh", "zsh", "bash", "sql", "rtf"
+    ]
+
+    public static let pdfContentExtensions: Set<String> = [
+        "pdf"
+    ]
+
+    public static let imageContentExtensions: Set<String> = [
+        "png", "jpg", "jpeg", "heic", "webp", "tiff", "bmp"
     ]
 
     /// Busca en la carpeta actual y sus descendientes reales. No sigue enlaces simbólicos
@@ -167,6 +177,11 @@ public enum RecursiveSearch {
         textContentExtensions.contains((name as NSString).pathExtension.lowercased())
     }
 
+    public static func isSearchableContentFile(name: String) -> Bool {
+        let ext = (name as NSString).pathExtension.lowercased()
+        return textContentExtensions.contains(ext) || pdfContentExtensions.contains(ext) || imageContentExtensions.contains(ext)
+    }
+
     private static func isSameOrDescendant(_ path: String, of root: String) -> Bool {
         if path == root { return true }
         let prefix = root == "/" ? "/" : root + "/"
@@ -174,8 +189,25 @@ public enum RecursiveSearch {
     }
 
     private static func fileContains(_ url: URL, needle: String, maxBytes: Int) -> Bool {
-        guard isTextContentFile(name: url.lastPathComponent), maxBytes > 0,
-              let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        let ext = url.pathExtension.lowercased()
+
+        if textContentExtensions.contains(ext) {
+            return textFileContains(url, needle: needle, maxBytes: maxBytes)
+        }
+
+        if pdfContentExtensions.contains(ext) {
+            return pdfFileContains(url, needle: needle)
+        }
+
+        if imageContentExtensions.contains(ext) {
+            return imageFileContainsOCR(url, needle: needle)
+        }
+
+        return false
+    }
+
+    private static func textFileContains(_ url: URL, needle: String, maxBytes: Int) -> Bool {
+        guard maxBytes > 0, let handle = try? FileHandle(forReadingFrom: url) else { return false }
         defer { try? handle.close() }
 
         let data: Data
@@ -188,5 +220,50 @@ public enum RecursiveSearch {
         guard let text = String(data: data, encoding: .utf8)
                 ?? String(data: data, encoding: .isoLatin1) else { return false }
         return text.lowercased().contains(needle)
+    }
+
+    private static func pdfFileContains(_ url: URL, needle: String, maxPages: Int = 100) -> Bool {
+        guard let doc = PDFDocument(url: url) else { return false }
+        let total = min(doc.pageCount, maxPages)
+        for i in 0..<total {
+            if let page = doc.page(at: i), let content = page.string {
+                if content.localizedCaseInsensitiveContains(needle) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private static func imageFileContainsOCR(_ url: URL, needle: String) -> Bool {
+        // Ignorar imágenes gigantes de más de 25MB para evitar bloqueos
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+           let size = attrs[.size] as? Int64, size > 25_000_000 {
+            return false
+        }
+
+        var found = false
+        let request = VNRecognizeTextRequest { req, _ in
+            guard let observations = req.results as? [VNRecognizedTextObservation] else { return }
+            for observation in observations {
+                let candidates = observation.topCandidates(1)
+                for candidate in candidates {
+                    if candidate.string.localizedCaseInsensitiveContains(needle) {
+                        found = true
+                        return
+                    }
+                }
+            }
+        }
+        request.recognitionLevel = .fast
+        request.usesLanguageCorrection = false
+
+        let handler = VNImageRequestHandler(url: url, options: [:])
+        do {
+            try handler.perform([request])
+        } catch {
+            return false
+        }
+        return found
     }
 }

@@ -1640,7 +1640,7 @@ final class BrowserModel: ObservableObject {
         deepSearchRunning = true
         showDeepSearchPanel = true
         statusMessage = includeContent
-            ? "Buscando «\(q)» en nombres y contenido…"
+            ? "Buscando «\(q)» en nombres, libros/PDFs y fotos (OCR)…"
             : "Buscando «\(q)» en subcarpetas…"
         let root = currentPath
         deepSearchTask = Task.detached(priority: .userInitiated) {
@@ -2209,7 +2209,7 @@ final class BrowserModel: ObservableObject {
                 let q = step.arguments["query"] ?? plan.prompt
                 startDeepSearch(query: q, includeContent: true)
                 appendAgentReply(
-                    "Busco «\(q)» en nombres y dentro de archivos de texto/código de esta carpeta y abajo."
+                    "Busco «\(q)» en nombres, libros/PDFs y dentro de imágenes (OCR) de esta carpeta y abajo."
                 )
             case .listDirectory:
                 reload()
