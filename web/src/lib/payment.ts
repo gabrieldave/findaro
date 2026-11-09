@@ -38,9 +38,15 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<{
     },
   };
 
+  const secret = process.env.FINDARO_GATEWAY_SECRET || process.env.GATEWAY_SECRET || "";
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (secret) {
+    headers["x-findaro-gateway-secret"] = secret;
+  }
+
   const res = await fetch(PAYMENT_GATEWAY_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   });
 

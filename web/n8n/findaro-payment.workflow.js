@@ -39,11 +39,13 @@ const parseRequest = node({
       mode: 'runOnceForAllItems',
       language: 'javaScript',
       jsCode: `const body = $input.item.json.body || $input.item.json;
+const headers = $input.item.json.headers || {};
 if (!body.appId) throw new Error('appId es requerido');
 if (!body.event) throw new Error('event es requerido');
 if (!body.data) throw new Error('data es requerido');
 if (body.appId !== 'findaro') throw new Error('appId no permitido');
 if (body.event !== 'payment.create_checkout_session') throw new Error('evento no soportado');
+
 const getEnv = (name) => {
   let v;
   try { v = $env[name]; } catch (e) { v = undefined; }
@@ -52,6 +54,16 @@ const getEnv = (name) => {
   }
   return v;
 };
+
+// Validación de secreto compartido en cabecera
+const expectedSecret = getEnv('FINDARO_GATEWAY_SECRET');
+if (expectedSecret) {
+  const secretHeader = headers['x-findaro-gateway-secret'] || headers['x-gateway-secret'];
+  if (!secretHeader || secretHeader !== expectedSecret) {
+    throw new Error('No autorizado: secreto de pasarela ausente o inválido');
+  }
+}
+
 const stripeKey = getEnv('STRIPE_SK_MAIN');
 if (!stripeKey || String(stripeKey).includes('REEMPLAZA')) {
   throw new Error('STRIPE_SK_MAIN ausente en n8n');
@@ -84,9 +96,20 @@ const prepareSession = node({
       language: 'javaScript',
       jsCode: `const input = $input.item.json;
 const data = input.data || {};
-const amount = Math.round(Number(data.amount || 59) * 100);
+
+// Validar y fijar importe en servidor según tier (personal o family)
+const tier = data.tier === 'family' ? 'family' : 'personal';
+const validAmounts = tier === 'family' ? [59, 53] : [39, 35];
+const requestedAmount = Number(data.amount);
+if (!validAmounts.includes(requestedAmount)) {
+  throw new Error('Importe inválido para el tier ' + tier + ': ' + requestedAmount);
+}
+
+const amount = Math.round(requestedAmount * 100);
 const currency = (data.currency || 'usd').toLowerCase();
-const title = data.serviceTitle || 'FINDARO — licencia de por vida';
+if (currency !== 'usd') throw new Error('Moneda no soportada: ' + currency);
+
+const title = data.serviceTitle || (tier === 'family' ? 'FINDARO — Plan Familiar (5 Macs)' : 'FINDARO — Plan Personal (2 Macs)');
 const description = data.serviceDescription || 'Licencia de por vida con actualizaciones';
 const formParams = [];
 formParams.push('payment_method_types[]=card');
@@ -101,6 +124,7 @@ formParams.push('line_items[0][price_data][product_data][description]=' + encode
 formParams.push('line_items[0][price_data][unit_amount]=' + amount);
 formParams.push('line_items[0][quantity]=1');
 formParams.push('metadata[app_id]=findaro');
+formParams.push('metadata[tier]=' + tier);
 if (data.serviceId) formParams.push('metadata[service_id]=' + encodeURIComponent(String(data.serviceId)));
 if (data.customerEmail) formParams.push('metadata[customer_email]=' + encodeURIComponent(data.customerEmail));
 if (data.customerName) formParams.push('metadata[customer_name]=' + encodeURIComponent(data.customerName));

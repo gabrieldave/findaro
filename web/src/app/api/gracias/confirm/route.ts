@@ -12,9 +12,15 @@ export const POST = handle(async (req) => {
   const sessionId = (body?.sessionId || "").trim();
   if (!sessionId) return fail("sessionId requerido", 400);
 
+  const secret = process.env.FINDARO_GATEWAY_SECRET || process.env.GATEWAY_SECRET || "";
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (secret) {
+    headers["x-findaro-gateway-secret"] = secret;
+  }
+
   const verifyRes = await fetch(VERIFY_GATEWAY_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ sessionId }),
   });
   const verifyJson = (await verifyRes.json().catch(() => null)) as {
@@ -26,6 +32,9 @@ export const POST = handle(async (req) => {
       paymentIntent?: string | null;
       orderId?: string | null;
       sessionId?: string;
+      amountTotal?: number | null;
+      currency?: string | null;
+      appId?: string | null;
     };
   } | null;
 
@@ -39,6 +48,9 @@ export const POST = handle(async (req) => {
     email: verifyJson.data.email,
     name: verifyJson.data.name,
     orderId: verifyJson.data.orderId,
+    amountTotal: verifyJson.data.amountTotal,
+    currency: verifyJson.data.currency,
+    appId: verifyJson.data.appId,
   });
   if (!result) return fail("No se pudo generar descarga", 500);
   return ok(result);

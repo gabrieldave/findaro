@@ -26,6 +26,7 @@ const prepare = node({
       mode: 'runOnceForAllItems',
       language: 'javaScript',
       jsCode: `const body = $input.item.json.body || $input.item.json;
+const headers = $input.item.json.headers || {};
 const sessionId = body.sessionId || body.session_id;
 if (!sessionId) throw new Error('sessionId requerido');
 const getEnv = (name) => {
@@ -36,6 +37,16 @@ const getEnv = (name) => {
   }
   return v;
 };
+
+// Validación de secreto compartido en cabecera
+const expectedSecret = getEnv('FINDARO_GATEWAY_SECRET');
+if (expectedSecret) {
+  const secretHeader = headers['x-findaro-gateway-secret'] || headers['x-gateway-secret'];
+  if (!secretHeader || secretHeader !== expectedSecret) {
+    throw new Error('No autorizado: secreto de pasarela ausente o inválido');
+  }
+}
+
 const stripeKey = getEnv('STRIPE_SK_MAIN');
 if (!stripeKey) throw new Error('STRIPE_SK_MAIN ausente');
 return [{ json: { sessionId, stripeKey } }];`,
@@ -85,6 +96,9 @@ const paid = s.payment_status === 'paid' || s.status === 'complete';
 const email = s.customer_details?.email || s.customer_email || s.metadata?.customer_email || null;
 const name = s.customer_details?.name || s.metadata?.customer_name || null;
 const paymentIntent = typeof s.payment_intent === 'string' ? s.payment_intent : (s.payment_intent?.id || null);
+const amountTotal = typeof s.amount_total === 'number' ? s.amount_total : null;
+const currency = typeof s.currency === 'string' ? s.currency.toLowerCase() : null;
+const appId = s.metadata?.app_id || s.metadata?.tradingAppSlug || null;
 return [{ json: {
   success: true,
   data: {
@@ -94,11 +108,14 @@ return [{ json: {
     name,
     paymentIntent,
     orderId: s.metadata?.service_id || s.metadata?.purchase_id || null,
+    amountTotal,
+    currency,
+    appId,
   }
 } }];`,
     },
   },
-  output: [{ success: true, data: { paid: true, sessionId: 'cs_test_123', email: 'a@b.com', name: 'Ana', paymentIntent: 'pi_123', orderId: 'order-1' } }],
+  output: [{ success: true, data: { paid: true, sessionId: 'cs_test_123', email: 'a@b.com', name: 'Ana', paymentIntent: 'pi_123', orderId: 'order-1', amountTotal: 3900, currency: 'usd', appId: 'findaro' } }],
 });
 
 const respond = node({

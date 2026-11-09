@@ -80,6 +80,9 @@ export const POST = handle(async (req) => {
     email,
     name,
     orderId: metadata.service_id || metadata.purchase_id || null,
+    amountTotal: typeof session.amount_total === "number" ? session.amount_total : null,
+    currency: typeof session.currency === "string" ? session.currency : null,
+    appId: metadata.app_id || metadata.tradingAppSlug || null,
   });
 
   return ok({ fulfilled: Boolean(result), orderId: result?.orderId ?? null });
