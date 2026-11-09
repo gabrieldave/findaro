@@ -740,12 +740,12 @@ final class BrowserModel: ObservableObject {
 
     var ruleSummary: String {
         if let shortcut = activeAssistantShortcut {
-            return "Atajo · \(shortcut.title) · \(visibleEntries.count)"
+            return "\(L10n.s("Atajo", "Shortcut")) · \(shortcut.displayTitle) · \(visibleEntries.count)"
         }
         if downloadsTodayMode {
-            return "Descargados hoy · \(downloadsTodayCount) en esta carpeta"
+            return L10n.s("Descargados hoy · \(downloadsTodayCount) en esta carpeta", "Downloaded today · \(downloadsTodayCount) in this folder")
         }
-        return rule.summarySpanish
+        return rule.summaryLocalized
     }
 
     var hasFolderOverride: Bool {
@@ -754,18 +754,18 @@ final class BrowserModel: ObservableObject {
 
     var scopeBadge: String {
         if downloadsTodayMode {
-            return "Modo exclusivo · orden normal en pausa"
+            return L10n.s("Modo exclusivo · orden normal en pausa", "Exclusive mode · normal sort paused")
         }
-        return hasFolderOverride ? "Solo esta carpeta" : "Default global"
+        return hasFolderOverride ? L10n.s("Solo esta carpeta", "This folder only") : L10n.s("Default global", "Global default")
     }
 
     var folderTotalLabel: String {
         if isMeasuringSizes && folderTotalBytes == 0 {
-            return "Midiendo peso…"
+            return L10n.s("Midiendo peso…", "Calculating size…")
         }
         return sizeMeasurementsIncomplete
-            ? "Carpeta: ≥ \(FolderSizer.format(folderTotalBytes))"
-            : "Carpeta: \(FolderSizer.format(folderTotalBytes))"
+            ? L10n.s("Carpeta: ≥ \(FolderSizer.format(folderTotalBytes))", "Folder: ≥ \(FolderSizer.format(folderTotalBytes))")
+            : L10n.s("Carpeta: \(FolderSizer.format(folderTotalBytes))", "Folder: \(FolderSizer.format(folderTotalBytes))")
     }
 
     var heaviestPreview: [FileEntry] {

@@ -36,7 +36,7 @@ struct OrdenApp: App {
 }
 
 private struct FindaroCommands: Commands {
-    @AppStorage("findaro_app_language") private var appLangStorage: String = "auto"
+    @AppStorage("findaro_app_language") private var appLangStorage: String = "en"
     @Environment(\.openWindow) private var openWindow
     @FocusedValue(\.findaroBrowser) private var focusedBrowser
     @FocusedValue(\.findaroSession) private var focusedSession
@@ -50,6 +50,10 @@ private struct FindaroCommands: Commands {
         L10n.activeLanguage = lang
         UserDefaults.standard.set(lang.rawValue, forKey: "findaro_app_language")
         browser?.setAppLanguage(lang)
+        AppMenuLocalizer.applyLocalization()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            AppMenuLocalizer.applyLocalization()
+        }
     }
 
     var body: some Commands {

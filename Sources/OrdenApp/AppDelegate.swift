@@ -17,6 +17,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         GlobalHotKey.install()
         _ = OpenFolderBridge.setAsDefaultFolderHandler()
         ThumbnailStore.clearIfAppUpdated()
+
+        // Menubar localization pass
+        AppMenuLocalizer.applyLocalization()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            AppMenuLocalizer.applyLocalization()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            AppMenuLocalizer.applyLocalization()
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in
+                AppMenuLocalizer.applyLocalization()
+            }
+        }
         // Buscar updates en GitHub tras un momento (no bloquea el arranque).
         DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
             AppUpdateChecker.shared.checkOnLaunchIfNeeded()

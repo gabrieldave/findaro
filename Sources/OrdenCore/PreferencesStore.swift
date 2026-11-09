@@ -49,7 +49,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         viewTemplates: [ViewTemplate] = ViewTemplate.factoryDefaults(),
         keyboardHotkeyOverrides: [String: KeyChord] = [:],
         globalHotkeyFolderPath: String? = nil,
-        appLanguage: AppLanguage = .auto
+        appLanguage: AppLanguage = .english
     ) {
         self.schemaVersion = schemaVersion
         self.globalRule = globalRule
@@ -108,7 +108,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
             ?? ViewTemplate.factoryDefaults()
         keyboardHotkeyOverrides = try c.decodeIfPresent([String: KeyChord].self, forKey: .keyboardHotkeyOverrides) ?? [:]
         globalHotkeyFolderPath = try c.decodeIfPresent(String.self, forKey: .globalHotkeyFolderPath)
-        appLanguage = try c.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? .auto
+        appLanguage = try c.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? .english
     }
 }
 

@@ -27,9 +27,9 @@ struct HotkeyRecorderSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(definition.title)
+            Text(definition.titleLocalized)
                 .font(.title2.weight(.semibold))
-            Text(definition.detail)
+            Text(definition.detailLocalized)
                 .foregroundStyle(.secondary)
 
             HStack {
@@ -46,10 +46,10 @@ struct HotkeyRecorderSheet: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Conflicto: Ya asignado a «\(conflict.title)» (\(conflict.group.titleSpanish))")
+                        Text(L10n.s("Conflicto: Ya asignado a «\(conflict.titleLocalized)» (\(conflict.group.titleLocalized))", "Conflict: Already assigned to «\(conflict.titleLocalized)» (\(conflict.group.titleLocalized))"))
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.orange)
-                        Text("No se sobrescribirá en silencio. Guardar requerirá confirmar la reasignación.")
+                        Text(L10n.s("No se sobrescribirá en silencio. Guardar requerirá confirmar la reasignación.", "Will not be silently overwritten. Saving will require confirming re-assignment."))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -58,12 +58,12 @@ struct HotkeyRecorderSheet: View {
                 .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
 
-            Text(listening ? "Pulsa la nueva combinación…" : "Combinación capturada")
+            Text(listening ? L10n.s("Pulsa la nueva combinación…", "Press new keyboard combination…") : L10n.s("Combinación capturada", "Combination captured"))
                 .font(.caption)
                 .foregroundStyle(listening ? OrdenTheme.accent : .secondary)
 
             HStack {
-                Button("Restablecer") {
+                Button(L10n.s("Restablecer", "Reset")) {
                     draft = definition.defaultChord
                     listening = false
                 }
@@ -71,8 +71,8 @@ struct HotkeyRecorderSheet: View {
 
                 Spacer()
 
-                Button("Cancelar") { dismiss() }
-                Button("Guardar") {
+                Button(L10n.s("Cancelar", "Cancel")) { dismiss() }
+                Button(L10n.s("Guardar", "Save")) {
                     if conflictingDefinition != nil {
                         showConflictAlert = true
                     } else {
@@ -87,20 +87,20 @@ struct HotkeyRecorderSheet: View {
         }
         .padding(24)
         .frame(width: 420)
-        .alert("Conflicto de atajo de teclado", isPresented: $showConflictAlert) {
-            Button("Reasignar", role: .destructive) {
+        .alert(L10n.s("Conflicto de atajo de teclado", "Keyboard Shortcut Conflict"), isPresented: $showConflictAlert) {
+            Button(L10n.s("Reasignar", "Reassign"), role: .destructive) {
                 if let conflict = conflictingDefinition {
                     browser.resetKeyboardHotkey(conflict.id)
                 }
                 browser.setKeyboardHotkey(definition.id, chord: draft)
                 dismiss()
             }
-            Button("Cancelar", role: .cancel) { }
+            Button(L10n.s("Cancelar", "Cancel"), role: .cancel) { }
         } message: {
             if let conflict = conflictingDefinition {
-                Text("La combinación «\(draft.displayLabel)» ya está en uso por «\(conflict.title)». ¿Deseas reasignarla a «\(definition.title)»?")
+                Text(L10n.s("La combinación «\(draft.displayLabel)» ya está en uso por «\(conflict.titleLocalized)». ¿Deseas reasignarla a «\(definition.titleLocalized)»?", "The key combination «\(draft.displayLabel)» is already used by «\(conflict.titleLocalized)». Do you want to reassign it to «\(definition.titleLocalized)»?"))
             } else {
-                Text("Esta combinación ya pertenece a otra acción.")
+                Text(L10n.s("Esta combinación ya pertenece a otra acción.", "This combination already belongs to another action."))
             }
         }
         .onAppear { startMonitor() }

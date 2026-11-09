@@ -77,7 +77,7 @@ struct NamePromptSheet: View {
             )
         } content: {
             VStack(alignment: .leading, spacing: 16) {
-                OrdenDialogSection(title: "Ubicación") {
+                OrdenDialogSection(title: L10n.s("Ubicación", "Location")) {
                     Text(OrdenPathDisplay.short(browser.currentPath))
                         .font(.body.monospaced())
                         .lineLimit(2)

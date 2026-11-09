@@ -71,6 +71,43 @@ public struct AgentToolCall: Equatable, Sendable, Identifiable, Codable {
         }
     }
 
+    public var labelEnglish: String {
+        switch name {
+        case .searchFiles:
+            return "Search by name «\(arguments["query"] ?? "")»"
+        case .searchContent:
+            return "Search name + content «\(arguments["query"] ?? "")»"
+        case .listDirectory:
+            return "List folder"
+        case .getFileMetadata:
+            return "Show info"
+        case .openFile:
+            let path = arguments["path"] ?? ""
+            return "Open «\((path as NSString).lastPathComponent)»"
+        case .previewFile:
+            return "Quick Look"
+        case .getStorageUsage:
+            return "Analyze disk usage"
+        case .findDuplicates:
+            return "Find duplicates"
+        case .createDirectory:
+            return "Create folder «\(arguments["name"] ?? "")»"
+        case .copyFiles, .moveFiles:
+            let count = pathsArgument.count
+            let destination = ((arguments["destination"] ?? "?") as NSString).lastPathComponent
+            let verb = name == .copyFiles ? "Copy" : "Move"
+            return "\(verb) \(count <= 1 ? "1 item" : "\(count) items") → \(destination)"
+        case .renameFiles:
+            return "Rename → «\(arguments["newName"] ?? "")»"
+        case .organizeFiles:
+            return "Organize by type"
+        }
+    }
+
+    public var labelLocalized: String {
+        L10n.isEnglish ? labelEnglish : labelSpanish
+    }
+
     /// Los lotes se serializan con saltos de línea para no romper nombres que contengan «|».
     public var pathsArgument: [String] {
         let raw = arguments["paths"] ?? arguments["path"] ?? ""
@@ -95,6 +132,26 @@ public struct AgentToolCall: Equatable, Sendable, Identifiable, Codable {
         default:
             return nil
         }
+    }
+
+    public var approvalDetailsEnglish: String? {
+        switch name {
+        case .copyFiles, .moveFiles:
+            let names = pathsArgument.map { ($0 as NSString).lastPathComponent }
+            return names.isEmpty ? nil : "Source: " + names.joined(separator: ", ")
+        case .createDirectory:
+            guard let parent = arguments["parent"] else { return nil }
+            return "In: \(parent)"
+        case .renameFiles:
+            guard let path = arguments["path"] ?? pathsArgument.first else { return nil }
+            return "Item: \(path)"
+        default:
+            return nil
+        }
+    }
+
+    public var approvalDetailsLocalized: String? {
+        L10n.isEnglish ? approvalDetailsEnglish : approvalDetailsSpanish
     }
 }
 

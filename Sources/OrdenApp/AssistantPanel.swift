@@ -130,7 +130,7 @@ struct AssistantPanel: View {
                     .font(.title2)
                     .foregroundStyle(OrdenTheme.accent)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(ollama.isReady ? "Asistente + Ollama" : "Asistente")
+                    Text(ollama.isReady ? L10n.s("Asistente + Ollama", "Assistant + Ollama") : L10n.s("Asistente", "Assistant"))
                         .font(.title3.weight(.semibold))
                     Text(headerSubtitle)
                         .font(.subheadline)
@@ -146,9 +146,9 @@ struct AssistantPanel: View {
                         .foregroundStyle(ollama.isReady ? .green : OrdenTheme.accent)
                 }
                 .buttonStyle(.plain)
-                .help("Configurar o detectar Ollama")
+                .help(L10n.s("Configurar o detectar Ollama", "Configure or detect Ollama"))
                 if !browser.agentMessages.isEmpty {
-                    Button("Limpiar") { browser.clearAgentChat() }
+                    Button(L10n.s("Limpiar", "Clear")) { browser.clearAgentChat() }
                         .font(.subheadline)
                 }
                 Button {
@@ -159,7 +159,7 @@ struct AssistantPanel: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("Cerrar")
+                .help(L10n.s("Cerrar", "Close"))
             }
 
             // Instrucciones fijas: este panel ES el chat con Ollama.
@@ -172,22 +172,22 @@ struct AssistantPanel: View {
     private var ollamaHowToBanner: some View {
         VStack(alignment: .leading, spacing: 4) {
             if ollama.isReady {
-                Text("Aquí hablas con Ollama («\(ollama.selectedModel)»)")
+                Text(L10n.s("Aquí hablas con Ollama («\(ollama.selectedModel)»)", "Chat with Ollama here («\(ollama.selectedModel)»)"))
                     .font(.subheadline.weight(.semibold))
-                Text("Escribe abajo o mantén el micrófono / ⌃Espacio → Enviar. Todo es local en tu Mac.")
+                Text(L10n.s("Escribe abajo o mantén el micrófono / ⌃Espacio → Enviar. Todo es local en tu Mac.", "Type below or hold microphone / ⌃Space → Send. Everything is local on your Mac."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else if ollama.enabled {
-                Text("Ollama no responde ahora")
+                Text(L10n.s("Ollama no responde ahora", "Ollama is not responding"))
                     .font(.subheadline.weight(.semibold))
-                Text("Los atajos y reglas siguen. Toca el cerebro verde/azul para detectar otra vez.")
+                Text(L10n.s("Los atajos y reglas siguen. Toca el cerebro verde/azul para detectar otra vez.", "Shortcuts and rules still work. Click the brain icon to detect again."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                Text("Sin Ollama: atajos y reglas (calidad básica)")
+                Text(L10n.s("Sin Ollama: atajos y reglas (calidad básica)", "Without Ollama: shortcuts and rules (basic mode)"))
                     .font(.subheadline.weight(.semibold))
-                Text("Para frases libres con IA: toca el cerebro → Detectar / Activar Ollama.")
+                Text(L10n.s("Para frases libres con IA: toca el cerebro → Detectar / Activar Ollama.", "For natural language AI: click the brain icon → Detect / Enable Ollama."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -342,7 +342,7 @@ struct AssistantPanel: View {
 
     private func approvalCard(_ plan: AgentPlan) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Esto modifica archivos")
+            Text(L10n.s("Esto modifica archivos", "This modifies files"))
                 .font(.headline)
             Text(plan.summary)
                 .font(.body)
@@ -354,11 +354,11 @@ struct AssistantPanel: View {
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: step.risk == .destructive ? "exclamationmark.triangle.fill" : "pencil.circle.fill")
                                 .foregroundStyle(.orange)
-                            Text(step.labelSpanish)
+                            Text(step.labelLocalized)
                                 .font(.subheadline)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        if let details = step.approvalDetailsSpanish {
+                        if let details = step.approvalDetailsLocalized {
                             Text(details)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -370,12 +370,12 @@ struct AssistantPanel: View {
                 }
             }
             HStack {
-                Button("Cancelar") {
+                Button(L10n.s("Cancelar", "Cancel")) {
                     browser.agentPlan = nil
                     browser.pendingAgentApproval = nil
-                    browser.appendAgentReply("Cancelé el plan. No toqué nada.")
+                    browser.appendAgentReply(L10n.s("Cancelé el plan. No toqué nada.", "Plan cancelled. Nothing was modified."))
                 }
-                Button("Aprobar y ejecutar") { browser.executeAgentPlan(approved: true) }
+                Button(L10n.s("Aprobar y ejecutar", "Approve & Execute")) { browser.executeAgentPlan(approved: true) }
                     .buttonStyle(.borderedProminent)
                     .tint(.orange)
             }
@@ -462,12 +462,12 @@ struct AssistantPanel: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            Button("Usar") { browser.applyAssistantShortcut(shortcut) }
-            Button("Borrar", role: .destructive) {
+            Button(L10n.s("Usar", "Use")) { browser.applyAssistantShortcut(shortcut) }
+            Button(L10n.s("Borrar", "Delete"), role: .destructive) {
                 browser.deleteAssistantShortcut(id: shortcut.id)
             }
         }
-        .help("Clic: filtrar · clic derecho: borrar")
+        .help(L10n.s("Clic: filtrar · clic derecho: borrar", "Click: filter · right-click: delete"))
     }
 
     private func shortcutIcon(_ shortcut: AssistantShortcut) -> String {
@@ -587,8 +587,8 @@ struct AssistantPanel: View {
                         voice.endPushToTalk()
                     }
             )
-            .help("Mantén para hablar · atajo ⌃Espacio (español)")
-            .accessibilityLabel("Mantener para hablar")
+            .help(L10n.s("Mantén para hablar · atajo ⌃Espacio", "Hold to speak · shortcut ⌃Space"))
+            .accessibilityLabel(L10n.s("Mantener para hablar", "Hold to speak"))
     }
 
     private func submit() {

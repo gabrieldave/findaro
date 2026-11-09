@@ -24,15 +24,18 @@ public enum AppLanguage: String, Codable, Sendable, CaseIterable {
         case .spanish:
             return false
         case .auto:
-            let preferred = Locale.preferredLanguages.first?.lowercased() ?? "es"
-            return preferred.hasPrefix("en")
+            let preferred = Locale.preferredLanguages.first?.lowercased() ?? "en"
+            if preferred.hasPrefix("es") {
+                return false
+            }
+            return true
         }
     }
 }
 
 /// Central de textos localizados para Findaro (Español / Inglés).
 public enum L10n {
-    public nonisolated(unsafe) static var activeLanguage: AppLanguage = .auto
+    public nonisolated(unsafe) static var activeLanguage: AppLanguage = .english
 
     public static func s(_ es: String, _ en: String) -> String {
         activeLanguage.isEnglish ? en : es

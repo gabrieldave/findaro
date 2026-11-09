@@ -216,7 +216,7 @@ struct ContentView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "folder.badge.plus")
                         .font(.body.weight(.bold))
-                    Text("Suelta para meter en «\(URL(fileURLWithPath: dest).lastPathComponent)»")
+                    Text(L10n.s("Suelta para meter en «\(URL(fileURLWithPath: dest).lastPathComponent)»", "Drop to place into «\(URL(fileURLWithPath: dest).lastPathComponent)»"))
                         .font(.subheadline.weight(.semibold))
                     Spacer(minLength: 0)
                     Text(L10n.s("⌥ copia · ⌘Z deshace", "⌥ copies · ⌘Z undos"))
@@ -271,26 +271,26 @@ struct ContentView: View {
                                         Image(systemName: "arrow.up.left")
                                     }
                                     .buttonStyle(.borderless)
-                                    .help("Subir en el panel izquierdo")
+                                    .help(L10n.s("Subir en el panel izquierdo", "Go up in left pane"))
                                     // Solo acciones hacia Destino (→). «← Mover / ← Copiar» viven en Destino.
                                     Button {
                                         browser.transferPrimarySelectionToSecondary(copy: false)
                                     } label: {
-                                        Label("Mover →", systemImage: "arrow.right.circle.fill")
+                                        Label(L10n.s("Mover →", "Move →"), systemImage: "arrow.right.circle.fill")
                                             .font(.caption.weight(.semibold))
                                     }
                                     .buttonStyle(.borderedProminent)
                                     .tint(.orange)
                                     .controlSize(.small)
-                                    .help("Mueve lo seleccionado aquí → Destino · ⌘⇧M")
+                                    .help(L10n.s("Mueve lo seleccionado aquí → Destino · ⌘⇧M", "Move selection here → Destination · ⌘⇧M"))
                                     Button {
                                         browser.transferPrimarySelectionToSecondary(copy: true)
                                     } label: {
-                                        Text("Copiar →")
+                                        Text(L10n.s("Copiar →", "Copy →"))
                                             .font(.caption.weight(.semibold))
                                     }
                                     .controlSize(.small)
-                                    .help("Copia lo seleccionado aquí → Destino")
+                                    .help(L10n.s("Copia lo seleccionado aquí → Destino", "Copy selection here → Destination"))
                                 }
                                 // Tap en ruta/ayuda enfoca Origen; no envolver botones (bloqueaba Mover/Copiar).
                                 VStack(alignment: .leading, spacing: 4) {
@@ -300,7 +300,7 @@ struct ContentView: View {
                                         .lineLimit(1)
                                         .truncationMode(.middle)
                                         .help(browser.currentPath)
-                                    Text("Misma lista · naranja · Arrastra ↔ · Swap intercambia carpetas")
+                                    Text(L10n.s("Misma lista · naranja · Arrastra ↔ · Swap intercambia carpetas", "Same list · orange · Drag ↔ · Swap exchanges folders"))
                                         .font(.caption2)
                                         .foregroundStyle(.tertiary)
                                 }
@@ -364,10 +364,10 @@ struct ContentView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.left.arrow.right.circle.fill")
                             .foregroundStyle(OrdenTheme.accent)
-                        Text(browser.transferProgressLabel ?? "Transferiendo…")
+                        Text(browser.transferProgressLabel ?? L10n.s("Transfiriendo…", "Transferring…"))
                             .font(.caption.weight(.semibold))
                             .lineLimit(1)
-                        FindaroStatusPill(title: "En curso", kind: .processing)
+                        FindaroStatusPill(title: L10n.s("En curso", "In progress"), kind: .processing)
                         Spacer(minLength: 0)
                         Text("\(Int((fraction * 100).rounded()))%")
                             .font(.system(.caption, design: .monospaced).weight(.semibold))
@@ -477,32 +477,32 @@ struct SortBar: View {
                 browser.toggleDownloadsTodayMode()
             } label: {
                 Label(
-                    browser.downloadsTodayMode ? "Salir descargados" : "Descargados",
+                    browser.downloadsTodayMode ? L10n.s("Salir descargados", "Exit Downloads") : L10n.s("Descargados", "Downloads"),
                     systemImage: browser.downloadsTodayMode ? "xmark.circle" : "arrow.down.circle.fill"
                 )
             }
             .buttonStyle(.borderedProminent)
             .tint(browser.downloadsTodayMode ? .orange : OrdenTheme.accent)
             .controlSize(.regular)
-            .help("Solo lo bajado o agregado hoy en esta carpeta (oculta el resto)")
+            .help(L10n.s("Solo lo bajado o agregado hoy en esta carpeta (oculta el resto)", "Only files downloaded or added today in this folder (hides the rest)"))
 
             if browser.cleanupMode {
                 Button {
                     browser.exitCleanupMode()
                 } label: {
-                    Label("Volver al orden normal", systemImage: "xmark.circle")
+                    Label(L10n.s("Volver al orden normal", "Back to Normal Order"), systemImage: "xmark.circle")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
                 .controlSize(.regular)
-                .help("Quita el orden por peso y regresa al orden que tenías")
+                .help(L10n.s("Quita el orden por peso y regresa al orden que tenías", "Removes size sorting and returns to previous order"))
             } else if !browser.downloadsTodayMode {
                 Button {
                     browser.showHeaviestForCleanup()
                 } label: {
-                    Label("Más pesados", systemImage: "gauge.with.dots.needle.67percent")
+                    Label(L10n.s("Más pesados", "Largest Files"), systemImage: "gauge.with.dots.needle.67percent")
                 }
-                .help("No borra nada: solo pone arriba lo que más ocupa espacio")
+                .help(L10n.s("No borra nada: solo pone arriba lo que más ocupa espacio", "Does not delete anything: simply lists largest space consumers at top"))
                 .controlSize(.regular)
             }
 
@@ -510,9 +510,9 @@ struct SortBar: View {
                 Button {
                     browser.useDownloadsStyleEverywhere()
                 } label: {
-                    Label("Fijar orden global", systemImage: "arrow.up.and.down.square")
+                    Label(L10n.s("Fijar orden global", "Set Global Order"), systemImage: "arrow.up.and.down.square")
                 }
-                .help("Aplica este criterio de ordenación a todas las carpetas (no altera el alcance de la búsqueda)")
+                .help(L10n.s("Aplica este criterio de ordenación a todas las carpetas (no altera el alcance de la búsqueda)", "Applies this sort order to all folders (does not alter search scope)"))
                 .buttonStyle(.borderedProminent)
                 .tint(OrdenTheme.accent)
                 .controlSize(.regular)
@@ -527,8 +527,8 @@ struct SortBar: View {
             } label: {
                 Label(
                     browser.deepSearchRunning
-                        ? "Buscando…"
-                        : (browser.showDeepSearchPanel ? "Salir búsqueda" : "Subcarpetas"),
+                        ? L10n.s("Buscando…", "Searching…")
+                        : (browser.showDeepSearchPanel ? L10n.s("Salir búsqueda", "Exit Search") : L10n.s("Subcarpetas", "Subfolders")),
                     systemImage: browser.showDeepSearchPanel
                         ? "xmark.circle.fill"
                         : "folder.badge.magnifyingglass"
@@ -540,41 +540,41 @@ struct SortBar: View {
             .disabled(browser.deepSearchRunning)
             .help(
                 browser.showDeepSearchPanel
-                    ? "Cerrar búsqueda y volver al orden normal · Esc"
-                    : "Por nombre, desde esta carpeta hacia abajo · ⌘4"
+                    ? L10n.s("Cerrar búsqueda y volver al orden normal · Esc", "Close search and return to normal order · Esc")
+                    : L10n.s("Por nombre, desde esta carpeta hacia abajo · ⌘4", "By name, from this folder downwards · ⌘4")
             )
 
             if !browser.downloadsTodayMode {
                 Menu {
-                    Section("Cambiar orden (se guarda)") {
+                    Section(L10n.s("Cambiar orden (se guarda)", "Change Order (Saved)")) {
                         sortButtons(scope: .everywhere)
                     }
                     Divider()
-                    Section("Solo esta carpeta") {
+                    Section(L10n.s("Solo esta carpeta", "This Folder Only")) {
                         sortButtons(scope: .thisFolder)
                     }
                     if browser.hasFolderOverride {
-                        Button("Quitar orden propio (usar global)") {
+                        Button(L10n.s("Quitar orden propio (usar global)", "Remove folder override (use global)")) {
                             browser.useGlobalDefaultHere()
                         }
                     }
                 } label: {
-                    Label("Ordenar", systemImage: "line.3.horizontal.decrease")
+                    Label(L10n.s("Ordenar", "Sort"), systemImage: "line.3.horizontal.decrease")
                 }
                 .menuStyle(.borderedButton)
 
                 Menu {
                     if browser.viewTemplates.isEmpty {
-                        Text("Sin plantillas todavía")
+                        Text(L10n.s("Sin plantillas todavía", "No presets yet"))
                     } else {
-                        Section("Aplicar plantilla") {
+                        Section(L10n.s("Aplicar plantilla", "Apply Preset")) {
                             ForEach(browser.viewTemplates) { template in
                                 Button {
                                     browser.applyViewTemplate(template)
                                 } label: {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(template.name)
-                                        Text(template.summarySpanish)
+                                        Text(template.displayName)
+                                        Text(template.summaryLocalized)
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
@@ -583,22 +583,22 @@ struct SortBar: View {
                         }
                     }
                     Divider()
-                    Button("Guardar vista actual como plantilla…") {
+                    Button(L10n.s("Guardar vista actual como plantilla…", "Save current view as preset…")) {
                         browser.promptSaveViewTemplate()
                     }
                     if !browser.viewTemplates.isEmpty {
-                        Menu("Eliminar plantilla") {
+                        Menu(L10n.s("Eliminar plantilla", "Delete Preset")) {
                             ForEach(browser.viewTemplates) { template in
                                 Button(role: .destructive) {
                                     browser.deleteViewTemplate(template)
                                 } label: {
-                                    Text(template.name)
+                                    Text(template.displayName)
                                 }
                             }
                         }
                     }
                 } label: {
-                    Label("Plantillas", systemImage: "rectangle.stack")
+                    Label(L10n.s("Plantillas", "Presets"), systemImage: "rectangle.stack")
                 }
                 .menuStyle(.borderedButton)
                 .help(Self.plantillasHelp)
@@ -606,7 +606,7 @@ struct SortBar: View {
                 Image(systemName: "info.circle")
                     .foregroundStyle(.secondary)
                     .help(Self.plantillasHelp)
-                    .accessibilityLabel("Qué son las plantillas")
+                    .accessibilityLabel(L10n.s("Qué son las plantillas", "What presets are"))
             }
         }
         .padding(.horizontal, 10)
@@ -614,36 +614,44 @@ struct SortBar: View {
         .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private static let plantillasHelp = """
-    Plantillas = formas guardadas de ver tus archivos.
+    private static var plantillasHelp: String {
+        L10n.s("""
+        Plantillas = formas guardadas de ver tus archivos.
 
-    Ejemplo: ordenas por «Más pesados», eliges lista o iconos, y lo guardas como plantilla «Pesados». Después la vuelves a aplicar con un clic, o dejas esa vista puesta.
+        Ejemplo: ordenas por «Más pesados», eliges lista o iconos, y lo guardas como plantilla «Pesados». Después la vuelves a aplicar con un clic, o dejas esa vista puesta.
 
-    También puedes combinar (tipo + orden) y guardar tu propia mezcla. El menú Ordenar cambia el orden al momento; Plantillas guarda y recarga esas combinaciones.
-    """
+        También puedes combinar (tipo + orden) y guardar tu propia mezcla. El menú Ordenar cambia el orden al momento; Plantillas guarda y recarga esas combinaciones.
+        """, """
+        Presets = saved ways to view your files.
+
+        Example: sort by "Largest Files", select list or icons view, and save as preset "Heavy". You can re-apply it with one click anytime, or keep it active.
+
+        You can also combine file type and sort rules into custom presets. The Sort menu changes views immediately; Presets saves and restores those combinations.
+        """)
+    }
 
     @ViewBuilder
     private func sortButtons(scope: SortSaveScope) -> some View {
-        Button("Estilo Descargas (tipos · Agregado ↓)") {
+        Button(L10n.s("Estilo Descargas (tipos · Agregado ↓)", "Downloads Style (Types · Added ↓)")) {
             browser.applyRule(.downloads, scope: scope)
         }
-        Button("Solo Agregado · lo más nuevo arriba") {
+        Button(L10n.s("Solo Agregado · lo más nuevo arriba", "Date Added Only · Newest on top")) {
             browser.applyRule(.newestAddedFirst, scope: scope)
         }
-        Button("Nombre A→Z") {
+        Button(L10n.s("Nombre A→Z", "Name A→Z")) {
             browser.applyRule(
                 SortRule(keys: [.name(ascending: true)], foldersFirst: true),
                 scope: scope
             )
         }
-        Button("Por tipo fijo") {
+        Button(L10n.s("Por tipo fijo", "By Fixed Type")) {
             browser.applyRule(.byType, scope: scope)
         }
-        Button("Más pesados primero") {
+        Button(L10n.s("Más pesados primero", "Largest First")) {
             browser.applyRule(.heaviestFirst, scope: scope)
         }
         Toggle(
-            "Carpetas arriba",
+            L10n.s("Carpetas arriba", "Folders on top"),
             isOn: Binding(
                 get: { browser.rule.foldersFirst },
                 set: { on in
@@ -673,13 +681,13 @@ struct ActiveFiltersBar: View {
             Button {
                 browser.resetToNormalView()
             } label: {
-                Label("Quitar filtro", systemImage: "xmark.circle.fill")
+                Label(L10n.s("Quitar filtro", "Clear Filter"), systemImage: "xmark.circle.fill")
                     .font(.subheadline.weight(.semibold))
             }
             .buttonStyle(.borderedProminent)
             .tint(.orange)
             .controlSize(.regular)
-            .help("Quita búsqueda, tipo, descargados y atajos · Esc. Al filtrar la lista va por Agregado (más nuevo arriba).")
+            .help(L10n.s("Quita búsqueda, tipo, descargados y atajos · Esc. Al filtrar la lista va por Agregado (más nuevo arriba).", "Clears search, type, downloads and shortcuts · Esc. Filtered views sort by Date Added (newest on top)."))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -694,25 +702,25 @@ struct ActiveFiltersBar: View {
     private var filterSummary: String {
         var parts: [String] = []
         if browser.showDeepSearchPanel {
-            parts.append("búsqueda subcarpetas")
+            parts.append(L10n.s("búsqueda subcarpetas", "subfolder search"))
         }
         if !browser.searchText.isEmpty {
-            parts.append("filtro «\(browser.searchText)»")
+            parts.append(L10n.s("filtro «\(browser.searchText)»", "filter «\(browser.searchText)»"))
         }
         if browser.categoryFilter != nil {
-            parts.append("tipo")
+            parts.append(L10n.s("tipo", "type"))
         }
         if browser.downloadsTodayMode {
-            parts.append("descargados hoy")
+            parts.append(L10n.s("descargados hoy", "downloaded today"))
         }
         if browser.cleanupMode {
-            parts.append("más pesados")
+            parts.append(L10n.s("más pesados", "largest files"))
         }
         if browser.activeAssistantShortcut != nil {
-            parts.append("atajo")
+            parts.append(L10n.s("atajo", "shortcut"))
         }
-        if parts.isEmpty { return "Filtros activos · más nuevo arriba" }
-        return "Activo: " + parts.joined(separator: " · ") + " · más nuevo arriba"
+        if parts.isEmpty { return L10n.s("Filtros activos · más nuevo arriba", "Active filters · newest on top") }
+        return L10n.s("Activo: ", "Active: ") + parts.joined(separator: " · ") + L10n.s(" · más nuevo arriba", " · newest on top")
     }
 }
 
@@ -744,7 +752,7 @@ struct FolderStatsBar: View {
                             }
                             .buttonStyle(.plain)
                             .foregroundStyle(index == browser.pathSegments.count - 1 ? .primary : OrdenTheme.accent)
-                            .help("Ir a \(segment.path)")
+                            .help(L10n.s("Ir a \(segment.path)", "Go to \(segment.path)"))
                         }
                     }
                 }
@@ -756,7 +764,7 @@ struct FolderStatsBar: View {
                         .font(.caption)
                 }
                 .buttonStyle(.borderless)
-                .help("Copiar ruta completa")
+                .help(L10n.s("Copiar ruta completa", "Copy full path"))
                 Label(browser.folderTotalLabel, systemImage: "externaldrive.fill")
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                 if browser.isMeasuringSizes {
@@ -765,8 +773,8 @@ struct FolderStatsBar: View {
                 }
                 Text(
                     browser.downloadsTodayMode
-                        ? "· \(browser.visibleEntries.count) de hoy / \(browser.entries.count)"
-                        : "· \(browser.entries.count) elementos"
+                        ? "· \(browser.visibleEntries.count) " + L10n.s("de hoy", "today") + " / \(browser.entries.count)"
+                        : "· \(browser.entries.count) " + L10n.s("elementos", "items")
                 )
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -776,11 +784,11 @@ struct FolderStatsBar: View {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
                         .foregroundStyle(.orange)
-                    Text("Atajo «\(shortcut.title)»: \(browser.visibleEntries.count) coincidencias. El resto está oculto.")
+                    Text(L10n.s("Atajo «\(shortcut.displayTitle)»: \(browser.visibleEntries.count) coincidencias. El resto está oculto.", "Shortcut «\(shortcut.displayTitle)»: \(browser.visibleEntries.count) matches. The rest is hidden."))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Spacer(minLength: 0)
-                    Button("Mostrar todo") {
+                    Button(L10n.s("Mostrar todo", "Show all")) {
                         browser.clearAssistantShortcutFilter()
                     }
                     .controlSize(.regular)
@@ -789,11 +797,11 @@ struct FolderStatsBar: View {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.down.circle.fill")
                         .foregroundStyle(.orange)
-                    Text("Solo descargas / archivos de hoy en esta carpeta. El resto está oculto.")
+                    Text(L10n.s("Solo descargas / archivos de hoy en esta carpeta. El resto está oculto.", "Only downloads / today's files in this folder. The rest is hidden."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer(minLength: 0)
-                    Button("Mostrar todo") {
+                    Button(L10n.s("Mostrar todo", "Show all")) {
                         browser.exitDownloadsTodayMode()
                     }
                     .controlSize(.small)
@@ -803,7 +811,7 @@ struct FolderStatsBar: View {
             // Solo con orden por peso — evita una segunda franja permanente
             if browser.cleanupMode {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Ordenado por peso (no se borra nada). Toca uno para seleccionarlo:")
+                    Text(L10n.s("Ordenado por peso (no se borra nada). Toca uno para seleccionarlo:", "Sorted by size (nothing is deleted). Tap one to select it:"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     HStack(spacing: 8) {
@@ -841,7 +849,7 @@ private struct SidebarItem: Identifiable, Hashable {
 }
 
 struct SidebarView: View {
-    @AppStorage("findaro_app_language") private var appLangStorage: String = "auto"
+    @AppStorage("findaro_app_language") private var appLangStorage: String = "en"
     @EnvironmentObject private var browser: BrowserModel
     /// Se incrementa al montar/desmontar discos para refrescar Ubicaciones.
     @State private var volumesTick: Int = 0
@@ -1161,7 +1169,7 @@ struct FileBrowserPane: View {
                     TrashPermissionUnavailable(errorText: error)
                 } else {
                     ContentUnavailableView(
-                        "No se pudo abrir",
+                        L10n.s("No se pudo abrir", "Could Not Open"),
                         systemImage: "exclamationmark.folder",
                         description: Text(error)
                     )
@@ -1170,11 +1178,11 @@ struct FileBrowserPane: View {
                 }
             } else if paneEntries.isEmpty && (isSecondary || browser.viewMode != .columns) {
                 ContentUnavailableView(
-                    "Vacío",
+                    L10n.s("Vacío", "Empty"),
                     systemImage: "folder",
                     description: Text(isSecondary
-                        ? "Suelta archivos aquí o usa «Mover →»"
-                        : "No hay elementos con este filtro.")
+                        ? L10n.s("Suelta archivos aquí o usa «Mover →»", "Drop files here or click «Move →»")
+                        : L10n.s("No hay elementos con este filtro.", "No items match this filter."))
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -1517,7 +1525,7 @@ struct FileRowButton: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help("Marcar / desmarcar")
+            .help(L10n.s("Marcar / desmarcar", "Select / deselect"))
             .padding(.leading, 10)
 
             // Clic/doble clic en la fila (no Button): evita pelear con TapGesture y con el monitor AppKit.
@@ -1587,7 +1595,7 @@ struct FileRowButton: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
-            .help("Copiar ruta completa")
+            .help(L10n.s("Copiar ruta completa", "Copy full path"))
             .padding(.trailing, 10)
         }
         .opacity(isCut ? 0.42 : 1)
@@ -1768,35 +1776,35 @@ private struct BrowserToolbarModifier: ViewModifier {
         content.toolbar {
             ToolbarItemGroup(placement: .navigation) {
                 Button(action: browser.goBack) {
-                    Label("Atrás", systemImage: "chevron.backward")
+                    Label(L10n.s("Atrás", "Back"), systemImage: "chevron.backward")
                 }
                 .disabled(!browser.canGoBack)
-                .help("Carpeta anterior (⌘1 o ⌥←)")
+                .help(L10n.s("Carpeta anterior (⌘1 o ⌥←)", "Previous folder (⌘1 or ⌥←)"))
 
                 Button(action: browser.goForward) {
-                    Label("Adelante", systemImage: "chevron.forward")
+                    Label(L10n.s("Adelante", "Forward"), systemImage: "chevron.forward")
                 }
                 .disabled(!browser.canGoForward)
-                .help("Carpeta siguiente (⌘2 o ⌥→)")
+                .help(L10n.s("Carpeta siguiente (⌘2 o ⌥→)", "Next folder (⌘2 or ⌥→)"))
 
                 Button(action: browser.goUp) {
-                    Label("Arriba", systemImage: "chevron.up")
+                    Label(L10n.s("Arriba", "Enclosing Folder"), systemImage: "chevron.up")
                 }
-                .help("Carpeta superior (⌘↑)")
+                .help(L10n.s("Carpeta superior (⌘↑)", "Enclosing folder (⌘↑)"))
 
                 Button {
                     session.addTab()
                 } label: {
-                    Label("Nueva pestaña", systemImage: "plus.square.on.square")
+                    Label(L10n.s("Nueva pestaña", "New Tab"), systemImage: "plus.square.on.square")
                 }
-                .help("Nueva pestaña (⌘T)")
+                .help(L10n.s("Nueva pestaña (⌘T)", "New tab (⌘T)"))
 
                 Button {
                     openWindow(id: "browser")
                 } label: {
-                    Label("Nueva ventana", systemImage: "macwindow.badge.plus")
+                    Label(L10n.s("Nueva ventana", "New Window"), systemImage: "macwindow.badge.plus")
                 }
-                .help("Nueva ventana (⌘⌥N)")
+                .help(L10n.s("Nueva ventana (⌘⌥N)", "New window (⌘⌥N)"))
             }
             ToolbarItem(placement: .principal) {
                 HStack(spacing: 12) {
@@ -1808,64 +1816,64 @@ private struct BrowserToolbarModifier: ViewModifier {
                 Button {
                     browser.promptNewFolder()
                 } label: {
-                    Label("Nueva carpeta", systemImage: "folder.badge.plus")
+                    Label(L10n.s("Nueva carpeta", "New Folder"), systemImage: "folder.badge.plus")
                 }
-                .help("Nueva carpeta en este sitio (⇧⌘N)")
+                .help(L10n.s("Nueva carpeta en este sitio (⇧⌘N)", "New folder here (⇧⌘N)"))
 
                 Button {
                     browser.promptNewFile()
                 } label: {
-                    Label("Nuevo archivo", systemImage: "doc.badge.plus")
+                    Label(L10n.s("Nuevo archivo", "New File"), systemImage: "doc.badge.plus")
                 }
-                .help("Nuevo archivo vacío (⌘N)")
+                .help(L10n.s("Nuevo archivo vacío (⌘N)", "New empty file (⌘N)"))
 
                 ToolbarStateToggle(
                     isOn: $browser.showAssistantPanel,
-                    title: "Asistente",
+                    title: L10n.s("Asistente", "Assistant"),
                     onSymbol: "sparkles",
                     offSymbol: "sparkles",
-                    helpOn: "Asistente ON · clic para cerrar (⌘5)",
-                    helpOff: "Asistente OFF · abrir (⌘5)"
+                    helpOn: L10n.s("Asistente ON · clic para cerrar (⌘5)", "Assistant ON · click to close (⌘5)"),
+                    helpOff: L10n.s("Asistente OFF · abrir (⌘5)", "Assistant OFF · open (⌘5)")
                 )
 
                 ToolbarStateToggle(
                     isOn: $browser.multiSelectMode,
-                    title: "Varios",
+                    title: L10n.s("Varios", "Multi-Select"),
                     onSymbol: "checkmark.circle.fill",
                     offSymbol: "checkmark.circle",
-                    helpOn: "Modo varios ON · cada clic suma/quita",
-                    helpOff: "Modo varios OFF · clic normal"
+                    helpOn: L10n.s("Modo varios ON · cada clic suma/quita", "Multi-select ON · each click adds/removes"),
+                    helpOff: L10n.s("Modo varios OFF · clic normal", "Multi-select OFF · normal click")
                 )
 
                 Button {
                     browser.selectAllVisible()
                 } label: {
-                    Label("Todos", systemImage: "checklist")
+                    Label(L10n.s("Todos", "All"), systemImage: "checklist")
                 }
-                .help("Seleccionar todo lo visible (⌘A)")
+                .help(L10n.s("Seleccionar todo lo visible (⌘A)", "Select all visible (⌘A)"))
 
                 Button {
                     browser.cancelSelection()
                 } label: {
-                    Label("Ninguno", systemImage: "xmark.circle")
+                    Label(L10n.s("Ninguno", "None"), systemImage: "xmark.circle")
                 }
-                .help("Quitar selección (Esc)")
+                .help(L10n.s("Quitar selección (Esc)", "Clear selection (Esc)"))
                 .disabled(browser.selectedIDs.isEmpty)
 
                 Button {
                     browser.openSelection()
                 } label: {
-                    Label("Abrir", systemImage: "arrow.up.forward.app")
+                    Label(L10n.s("Abrir", "Open"), systemImage: "arrow.up.forward.app")
                 }
-                .help("Abrir lo seleccionado (⌘↓)")
+                .help(L10n.s("Abrir lo seleccionado (⌘↓)", "Open selection (⌘↓)"))
                 .disabled(browser.selectedIDs.isEmpty)
 
                 Button {
                     browser.quickLookSelection()
                 } label: {
-                    Label("Vista rápida", systemImage: "eye")
+                    Label(L10n.s("Vista rápida", "Quick Look"), systemImage: "eye")
                 }
-                .help("Vista rápida (Espacio)")
+                .help(L10n.s("Vista rápida (Espacio)", "Quick Look (Space)"))
                 .disabled(browser.selectedIDs.isEmpty)
 
                 ToolbarStateToggle(
@@ -1873,11 +1881,11 @@ private struct BrowserToolbarModifier: ViewModifier {
                         get: { browser.showRowPaths },
                         set: { browser.setShowRowPaths($0) }
                     ),
-                    title: browser.showRowPaths ? "Rutas" : "Rutas",
+                    title: L10n.s("Rutas", "Paths"),
                     onSymbol: "list.bullet.rectangle.fill",
                     offSymbol: "list.bullet",
-                    helpOn: "Rutas bajo el nombre ON",
-                    helpOff: "Rutas bajo el nombre OFF"
+                    helpOn: L10n.s("Rutas bajo el nombre ON", "Paths under name ON"),
+                    helpOff: L10n.s("Rutas bajo el nombre OFF", "Paths under name OFF")
                 )
 
                 ToolbarStateToggle(
@@ -1885,26 +1893,26 @@ private struct BrowserToolbarModifier: ViewModifier {
                         get: { browser.showHiddenFiles },
                         set: { browser.setShowHiddenFiles($0) }
                     ),
-                    title: "Ocultos",
+                    title: L10n.s("Ocultos", "Hidden"),
                     onSymbol: "eye.fill",
                     offSymbol: "eye.slash",
-                    helpOn: "Ocultos visibles ON · ⌘⇧.",
-                    helpOff: "Ocultos escondidos · ⌘⇧."
+                    helpOn: L10n.s("Ocultos visibles ON · ⌘⇧.", "Hidden files visible ON · ⌘⇧."),
+                    helpOff: L10n.s("Ocultos escondidos · ⌘⇧.", "Hidden files concealed · ⌘⇧.")
                 )
 
                 Button {
                     browser.openTerminalHere()
                 } label: {
-                    Label("Terminal", systemImage: "terminal")
+                    Label(L10n.s("Terminal", "Terminal"), systemImage: "terminal")
                 }
-                .help("Abrir Terminal en la carpeta activa (⌘⌥T)")
+                .help(L10n.s("Abrir Terminal en la carpeta activa (⌘⌥T)", "Open Terminal in active folder (⌘⌥T)"))
 
                 Button {
                     browser.reloadFromUser()
                 } label: {
-                    Label("Actualizar", systemImage: "arrow.clockwise")
+                    Label(L10n.s("Actualizar", "Refresh"), systemImage: "arrow.clockwise")
                 }
-                .help("Actualizar esta carpeta y avisarte en el asistente")
+                .help(L10n.s("Actualizar esta carpeta y avisarte en el asistente", "Refresh current folder and notify assistant"))
             }
         }
     }
@@ -2134,7 +2142,7 @@ struct SettingsView: View {
                     icon: "arrow.up.arrow.down",
                     tint: OrdenTheme.accent,
                     title: L10n.s("Orden de esta sesión", "Sort Order for Session"),
-                    subtitle: browser.rule.summarySpanish
+                    subtitle: browser.rule.summaryLocalized
                 ) {
                     Text(browser.scopeBadge)
                         .font(.caption.weight(.medium))
@@ -2227,17 +2235,17 @@ struct SettingsView: View {
             Section {
                 tipLine(
                     icon: "mic.circle.fill",
-                    title: "Voz (mantener micrófono)",
-                    detail: "En el asistente: mantén, habla en español, suelta. Local en tu Mac."
+                    title: L10n.s("Voz (mantener micrófono)", "Voice (hold microphone)"),
+                    detail: L10n.s("En el asistente: mantén, habla, suelta. Local en tu Mac.", "In the assistant: hold, speak, release. Local on your Mac.")
                 )
-                Button("Abrir asistente (⌘5)") {
+                Button(L10n.s("Abrir asistente (⌘5)", "Open assistant (⌘5)")) {
                     browser.showAssistantPanel = true
                 }
-                Text("Los atajos se editan en la pestaña Atajos.")
+                Text(L10n.s("Los atajos se editan en la pestaña Atajos.", "Shortcuts are edited in the Shortcuts tab."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } header: {
-                Text("Panel y voz")
+                Text(L10n.s("Panel y voz", "Panel and voice"))
             }
         }
         .formStyle(.grouped)
@@ -2258,19 +2266,19 @@ struct SettingsView: View {
                     } header: {
                         if group == AppHotkeyGroup.allCases.first {
                             HStack {
-                                Text(group.titleSpanish)
+                                Text(group.titleLocalized)
                                 Spacer()
-                                Button("Restaurar teclado") {
+                                Button(L10n.s("Restaurar teclado", "Restore Shortcuts")) {
                                     browser.restoreDefaultKeyboardHotkeys()
                                 }
                                 .font(.caption)
                             }
                         } else {
-                            Text(group.titleSpanish)
+                            Text(group.titleLocalized)
                         }
                     } footer: {
                         if group == .view {
-                            Text("Clic para cambiar la tecla. Reinicia Findaro si el menú de macOS no se actualiza.")
+                            Text(L10n.s("Clic para cambiar la tecla. Reinicia Findaro si el menú de macOS no se actualiza.", "Click to change shortcut key. Relaunch Findaro if the macOS menu does not refresh immediately."))
                         }
                     }
                 }
@@ -2291,23 +2299,23 @@ struct SettingsView: View {
                 Button {
                     showNewShortcut = true
                 } label: {
-                    Label("Nuevo filtro", systemImage: "plus")
+                    Label(L10n.s("Nuevo filtro", "New Filter"), systemImage: "plus")
                 }
                 .disabled(browser.assistantShortcuts.count >= AssistantShortcut.maxCount)
             } header: {
                 HStack {
-                    Text("Filtros del asistente")
+                    Text(L10n.s("Filtros del asistente", "Assistant Filters"))
                     Spacer()
                     Text("\(browser.assistantShortcuts.count)/\(AssistantShortcut.maxCount)")
                         .foregroundStyle(.secondary)
                 }
             } footer: {
                 HStack {
-                    Button("Restaurar filtros") {
+                    Button(L10n.s("Restaurar filtros", "Restore Filters")) {
                         browser.restoreDefaultAssistantShortcuts()
                     }
                     Spacer()
-                    Text("Imágenes de hoy, docs de ayer…")
+                    Text(L10n.s("Imágenes de hoy, docs de ayer…", "Today's images, yesterday's docs…"))
                 }
             }
         }
@@ -2323,10 +2331,10 @@ struct SettingsView: View {
         } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(def.title)
+                    Text(def.titleLocalized)
                         .font(.body.weight(.medium))
                         .foregroundStyle(.primary)
-                    Text(def.detail)
+                    Text(def.detailLocalized)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -2353,12 +2361,12 @@ struct SettingsView: View {
         .buttonStyle(.plain)
         .contextMenu {
             if def.isEditable {
-                Button("Cambiar…") { editingHotkey = def }
-                Button("Restablecer") { browser.resetKeyboardHotkey(def.id) }
+                Button(L10n.s("Cambiar…", "Change…")) { editingHotkey = def }
+                Button(L10n.s("Restablecer", "Reset")) { browser.resetKeyboardHotkey(def.id) }
                     .disabled(!customized)
             }
         }
-        .help(def.isEditable ? "Clic para cambiar" : "Atajo del sistema (no editable aquí)")
+        .help(def.isEditable ? L10n.s("Clic para cambiar", "Click to change") : L10n.s("Atajo del sistema (no editable aquí)", "System shortcut (not editable here)"))
     }
 
     private func shortcutSettingsRow(_ shortcut: AssistantShortcut) -> some View {
@@ -2371,7 +2379,7 @@ struct SettingsView: View {
                     .foregroundStyle(OrdenTheme.accent)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(shortcut.title)
+                    Text(shortcut.displayTitle)
                         .font(.body.weight(.medium))
                         .foregroundStyle(.primary)
                         .multilineTextAlignment(.leading)
@@ -2388,13 +2396,13 @@ struct SettingsView: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            Button("Editar") { editingShortcut = shortcut }
-            Button("Usar ahora") {
+            Button(L10n.s("Editar", "Edit")) { editingShortcut = shortcut }
+            Button(L10n.s("Usar ahora", "Use Now")) {
                 browser.showAssistantPanel = true
                 browser.applyAssistantShortcut(shortcut)
             }
             Divider()
-            Button("Borrar", role: .destructive) {
+            Button(L10n.s("Borrar", "Delete"), role: .destructive) {
                 browser.deleteAssistantShortcut(id: shortcut.id)
             }
         }
@@ -2408,15 +2416,15 @@ struct SettingsView: View {
     private func shortcutSubtitle(_ shortcut: AssistantShortcut) -> String {
         let type: String
         if shortcut.categories == AssistantShortcut.documentCategories {
-            type = "Documentos"
+            type = L10n.s("Documentos", "Documents")
         } else if shortcut.categories.isEmpty {
-            type = "Cualquier tipo"
+            type = L10n.s("Cualquier tipo", "Any Type")
         } else if shortcut.categories.count == 1, let only = shortcut.categories.first {
-            type = only.labelSpanish
+            type = only.labelLocalized
         } else {
-            type = "\(shortcut.categories.count) tipos"
+            type = "\(shortcut.categories.count) " + L10n.s("tipos", "types")
         }
-        return "\(type) · \(shortcut.dateWindow.labelSpanish)"
+        return "\(type) · \(shortcut.dateWindow.labelLocalized)"
     }
 
     // MARK: Búsqueda

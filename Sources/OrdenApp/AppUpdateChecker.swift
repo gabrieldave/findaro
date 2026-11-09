@@ -35,11 +35,11 @@ final class AppUpdateChecker: ObservableObject {
         var line: String {
             switch self {
             case .upToDate:
-                return "Ya estás al día."
+                return L10n.s("Ya estás al día.", "You're up to date.")
             case .updateAvailable(let latest):
-                return "Hay una versión nueva: \(latest)."
+                return L10n.s("Hay una versión nueva: \(latest).", "New version available: \(latest).")
             case .unreachable:
-                return "No pude comprobar actualizaciones ahora."
+                return L10n.s("No pude comprobar actualizaciones ahora.", "Could not check for updates right now.")
             }
         }
     }
@@ -98,7 +98,7 @@ final class AppUpdateChecker: ObservableObject {
         defer { isChecking = false }
 
         if interactive {
-            statusMessage = "Buscando actualizaciones…"
+            statusMessage = L10n.s("Buscando actualizaciones…", "Checking for updates…")
         }
 
         do {
@@ -110,11 +110,11 @@ final class AppUpdateChecker: ObservableObject {
                 clearPending()
                 if interactive {
                     await showInfo(
-                        title: "Ya estás al día",
-                        message: "Tienes la \(current). No hay nada más nuevo en tu canal."
+                        title: L10n.s("Ya estás al día", "You're up to date"),
+                        message: L10n.s("Tienes la \(current). No hay nada más nuevo en tu canal.", "You have \(current). You are running the latest version.")
                     )
                 }
-                statusMessage = "Ya tienes la última versión (\(current))"
+                statusMessage = L10n.s("Ya tienes la última versión (\(current))", "You have the latest version (\(current))")
                 return
             }
 
@@ -124,20 +124,20 @@ final class AppUpdateChecker: ObservableObject {
                 await downloadAndInstall(release: release, terminateAfter: true)
             case .later:
                 persistPendingMetadata(release)
-                statusMessage = "Actualización \(release.version) pospuesta — descargando; se instala al salir si ya está lista, si no al volver a abrir"
+                statusMessage = L10n.s("Actualización \(release.version) pospuesta", "Update \(release.version) postponed")
                 startPrefetchIfNeeded(release: release)
             case .skip:
                 clearPending()
-                statusMessage = "Actualización \(release.version) omitida por ahora"
+                statusMessage = L10n.s("Actualización \(release.version) omitida por ahora", "Update \(release.version) skipped for now")
             }
         } catch {
             if interactive {
                 await showInfo(
-                    title: "No pude buscar",
-                    message: "Revisa la red e inténtalo otra vez.\n\(error.localizedDescription)"
+                    title: L10n.s("No pude buscar", "Could not check for updates"),
+                    message: L10n.s("Revisa la red e inténtalo otra vez.\n\(error.localizedDescription)", "Check your connection and try again.\n\(error.localizedDescription)")
                 )
             }
-            statusMessage = "No se pudo buscar actualización"
+            statusMessage = L10n.s("No se pudo buscar actualización", "Could not check for updates")
         }
     }
 
@@ -164,18 +164,24 @@ final class AppUpdateChecker: ObservableObject {
     private func confirmUpdate(from current: String, to latest: String) async -> UpdateChoice {
         await withCheckedContinuation { cont in
             let alert = NSAlert()
-            alert.messageText = "Llegó la actualización \(latest)"
-            alert.informativeText = """
+            alert.messageText = L10n.s("Llegó la actualización \(latest)", "Update \(latest) Available")
+            alert.informativeText = L10n.s("""
             Tienes la \(current).
 
             • Instalar ahora: descarga, cierra la app e instala.
             • Después: descarga en segundo plano. Si al salir (⌘Q) ya terminó, instala sola; si no, reintenta al abrir.
             • Ahora no: pregunta más adelante.
-            """
+            """, """
+            You are currently running version \(current).
+
+            • Install Now: downloads update, closes Findaro, and completes install.
+            • Later: downloads in background. Automatically installs on quit or next launch.
+            • Not Now: ask again later.
+            """)
             alert.alertStyle = .informational
-            alert.addButton(withTitle: "Instalar ahora")
-            alert.addButton(withTitle: "Después")
-            alert.addButton(withTitle: "Ahora no")
+            alert.addButton(withTitle: L10n.s("Instalar ahora", "Install Now"))
+            alert.addButton(withTitle: L10n.s("Después", "Later"))
+            alert.addButton(withTitle: L10n.s("Ahora no", "Not Now"))
             let result = alert.runModal()
             switch result {
             case .alertFirstButtonReturn: cont.resume(returning: .install)
@@ -192,7 +198,7 @@ final class AppUpdateChecker: ObservableObject {
             alert.messageText = title
             alert.informativeText = message
             alert.alertStyle = .informational
-            alert.addButton(withTitle: "Listo")
+            alert.addButton(withTitle: L10n.s("Listo", "OK"))
             alert.runModal()
             cont.resume()
         }

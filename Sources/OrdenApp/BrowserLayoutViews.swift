@@ -24,7 +24,7 @@ struct ViewModePicker: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .help(mode.labelSpanish)
+                .help(mode.labelLocalized)
             }
         }
         .padding(3)
@@ -53,7 +53,7 @@ struct SelectionCheckButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Marcar / desmarcar")
+        .help(L10n.s("Marcar / desmarcar", "Select / deselect"))
     }
 }
 
@@ -199,13 +199,13 @@ struct IconsBrowserView: View {
                     .frame(width: 22)
             }
             .buttonStyle(.plain)
-            .help("Seleccionar / quitar todos")
+            .help(L10n.s("Seleccionar / quitar todos", "Select / deselect all"))
 
-            Text("Iconos")
+            Text(L10n.s("Iconos", "Icons"))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
             Spacer()
-            Text("\(browser.selectedIDs.count) sel.")
+            Text("\(browser.selectedIDs.count) " + L10n.s("sel.", "sel."))
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
@@ -438,13 +438,13 @@ struct ColumnsBrowserView: View {
                     .frame(width: 22)
             }
             .buttonStyle(.plain)
-            .help("Seleccionar / quitar todos")
+            .help(L10n.s("Seleccionar / quitar todos", "Select / deselect all"))
 
-            Text("Columnas")
+            Text(L10n.s("Columnas", "Columns"))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
             Spacer()
-            Text("\(browser.selectedIDs.count) sel.")
+            Text("\(browser.selectedIDs.count) " + L10n.s("sel.", "sel."))
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
@@ -719,7 +719,7 @@ struct GalleryBrowserView: View {
                     GalleryPreview(entry: entry)
                         .padding(20)
                 } else {
-                    ContentUnavailableView("Vacío", systemImage: "photo.on.rectangle")
+                    ContentUnavailableView(L10n.s("Vacío", "Empty"), systemImage: "photo.on.rectangle")
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -755,13 +755,13 @@ struct GalleryBrowserView: View {
                     .frame(width: 22)
             }
             .buttonStyle(.plain)
-            .help("Seleccionar / quitar todos")
+            .help(L10n.s("Seleccionar / quitar todos", "Select / deselect all"))
 
-            Text("Galería")
+            Text(L10n.s("Galería", "Gallery"))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
             Spacer()
-            Text("\(browser.selectedIDs.count) sel.")
+            Text("\(browser.selectedIDs.count) " + L10n.s("sel.", "sel."))
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
@@ -867,61 +867,61 @@ private struct EntryContextMenuButtons: View {
     let entry: FileEntry
 
     var body: some View {
-        Button("Abrir") {
+        Button(L10n.s("Abrir", "Open")) {
             browser.selectOnly(entry.id)
             browser.activateEntry(entry)
         }
         OpenWithMenu(entry: entry)
-        Button("Obtener información") {
+        Button(L10n.s("Obtener información", "Get Info")) {
             browser.selectOnly(entry.id)
             browser.showInfo(entry)
         }
         if entry.isDirectory {
             if browser.isFavorite(entry.path) {
-                Button("Quitar de Favoritos") { browser.removeFavorite(entry.path) }
+                Button(L10n.s("Quitar de Favoritos", "Remove from Favorites")) { browser.removeFavorite(entry.path) }
             } else {
-                Button("Añadir a Favoritos") { browser.addFavorite(entry.path) }
+                Button(L10n.s("Añadir a Favoritos", "Add to Favorites")) { browser.addFavorite(entry.path) }
             }
         }
-        Button("Renombrar") {
+        Button(L10n.s("Renombrar", "Rename")) {
             browser.selectOnly(entry.id)
             browser.promptRename()
         }
-        Button("Comprimir") {
+        Button(L10n.s("Comprimir", "Compress")) {
             if !browser.selectedIDs.contains(entry.id) {
                 browser.selectOnly(entry.id)
             }
             browser.compressSelection()
         }
         if ArchiveOps.isExtractable(entry.path) {
-            Button("Descomprimir aquí") {
+            Button(L10n.s("Descomprimir aquí", "Extract here")) {
                 browser.selectOnly(entry.id)
                 browser.extractArchive(entry, intoSecondary: false)
             }
         }
-        Button("A bandeja") {
+        Button(L10n.s("A bandeja", "To Tray")) {
             if !browser.selectedIDs.contains(entry.id) {
                 browser.selectOnly(entry.id)
             }
             browser.addSelectionToShelf()
         }
-        Button("Mostrar en Finder") { browser.revealInFinder(entry) }
+        Button(L10n.s("Mostrar en Finder", "Show in Finder")) { browser.revealInFinder(entry) }
         Divider()
         if browser.isViewingTrash {
-            Button("Sacar de la Papelera") {
+            Button(L10n.s("Sacar de la Papelera", "Restore from Trash")) {
                 if !browser.selectedIDs.contains(entry.id) {
                     browser.selectOnly(entry.id)
                 }
                 browser.restoreSelectionFromTrash()
             }
-            Button("Eliminar para siempre", role: .destructive) {
+            Button(L10n.s("Eliminar para siempre", "Delete Permanently"), role: .destructive) {
                 if !browser.selectedIDs.contains(entry.id) {
                     browser.selectOnly(entry.id)
                 }
                 browser.permanentlyDeleteSelection(confirm: true)
             }
         } else {
-            Button("Mover a la Papelera", role: .destructive) {
+            Button(L10n.s("Mover a la Papelera", "Move to Trash"), role: .destructive) {
                 if !browser.selectedIDs.contains(entry.id) {
                     browser.selectOnly(entry.id)
                 }

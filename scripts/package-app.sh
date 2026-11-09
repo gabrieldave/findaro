@@ -35,13 +35,36 @@ if [[ ! -f "$ROOT/Resources/AppIcon.icns" ]]; then
 fi
 cp "$ROOT/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 
+mkdir -p "$APP_DIR/Contents/Resources/en.lproj" "$APP_DIR/Contents/Resources/es.lproj"
+
+cat > "$APP_DIR/Contents/Resources/en.lproj/InfoPlist.strings" << 'STRINGS'
+CFBundleDisplayName = "Findaro";
+CFBundleName = "Findaro";
+NSHumanReadableCopyright = "Copyright © 2026 Findaro. All rights reserved.";
+NSSpeechRecognitionUsageDescription = "Findaro uses on-device speech recognition for the push-to-talk assistant.";
+NSMicrophoneUsageDescription = "Findaro uses your microphone only while holding the dictation button.";
+STRINGS
+
+cat > "$APP_DIR/Contents/Resources/es.lproj/InfoPlist.strings" << 'STRINGS'
+CFBundleDisplayName = "Findaro";
+CFBundleName = "Findaro";
+NSHumanReadableCopyright = "Copyright © 2026 Findaro. Todos los derechos reservados.";
+NSSpeechRecognitionUsageDescription = "Findaro usa reconocimiento de voz local para el asistente push-to-talk.";
+NSMicrophoneUsageDescription = "Findaro usa el micrófono solo mientras mantienes el botón de dictado.";
+STRINGS
+
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>CFBundleDevelopmentRegion</key>
-  <string>es</string>
+  <string>en</string>
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>es</string>
+  </array>
   <key>CFBundleExecutable</key>
   <string>${PRODUCT_NAME}</string>
   <key>CFBundleIdentifier</key>
@@ -65,9 +88,9 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSSpeechRecognitionUsageDescription</key>
-  <string>Findaro usa reconocimiento de voz local para el asistente push-to-talk.</string>
+  <string>Findaro uses on-device speech recognition for the push-to-talk assistant.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>Findaro usa el micrófono solo mientras mantienes el botón de dictado.</string>
+  <string>Findaro uses your microphone only while holding the dictation button.</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
   <key>CFBundleIconFile</key>
