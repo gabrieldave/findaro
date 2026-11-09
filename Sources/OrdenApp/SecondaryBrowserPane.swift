@@ -69,26 +69,26 @@ struct SecondaryBrowserPane: View {
                     Image(systemName: "arrow.up.left")
                 }
                 .buttonStyle(.borderless)
-                .help("Subir en el panel derecho")
+                .help(L10n.s("Subir en el panel derecho", "Go up in right pane"))
                 // Solo acciones hacia Origen (←). «Mover → / Copiar →» viven en el header de Origen.
                 Button {
                     browser.transferSecondarySelectionToPrimary(copy: false)
                 } label: {
-                    Label("← Mover", systemImage: "arrow.left.circle.fill")
+                    Label(L10n.s("← Mover", "← Move"), systemImage: "arrow.left.circle.fill")
                         .font(.caption.weight(.semibold))
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.purple)
                 .controlSize(.small)
-                .help("Mueve lo seleccionado aquí → Origen")
+                .help(L10n.s("Mueve lo seleccionado aquí → Origen", "Move selection here → Origin"))
                 Button {
                     browser.transferSecondarySelectionToPrimary(copy: true)
                 } label: {
-                    Text("← Copiar")
+                    Text(L10n.s("← Copiar", "← Copy"))
                         .font(.caption.weight(.semibold))
                 }
                 .controlSize(.small)
-                .help("Copia lo seleccionado aquí → Origen")
+                .help(L10n.s("Copia lo seleccionado aquí → Origen", "Copy selection here → Origin"))
             }
 
             // Tap en ruta/ayuda enfoca Destino; no envolver los botones (SwiftUI se come el clic).
@@ -99,7 +99,7 @@ struct SecondaryBrowserPane: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .help(browser.secondaryPath)
-                Text("Misma lista que Origen · ⌘+clic naranja · Arrastra ↔ · Tab cambia panel")
+                Text(L10n.s("Misma lista que Origen · ⌘+clic naranja · Arrastra ↔ · Tab cambia panel", "Same features as Origin · ⌘+click orange · Drag ↔ · Tab swaps pane"))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }

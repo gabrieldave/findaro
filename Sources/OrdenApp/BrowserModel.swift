@@ -1009,11 +1009,14 @@ final class BrowserModel: ObservableObject {
             }
             focusedPane = .secondary
             reloadSecondary()
-            statusMessage = "Dos paneles: izquierda origen · derecha destino. Arrastra o «Mover →»"
+            statusMessage = L10n.s(
+                "Dos paneles: izquierda origen · derecha destino. Arrastra o «Mover →»",
+                "Dual pane: left source · right destination. Drag or «Move →»"
+            )
         } else {
             secondaryFolderWatcher.stop()
             focusedPane = .primary
-            statusMessage = "Un panel"
+            statusMessage = L10n.s("Un panel", "Single pane")
         }
         objectWillChange.send()
     }
@@ -1025,8 +1028,8 @@ final class BrowserModel: ObservableObject {
         }
         focusedPane = pane
         statusMessage = pane == .primary
-            ? "Panel Origen activo · Tab cambia · ⌘⇧→ Destino"
-            : "Panel Destino activo · Tab cambia · ⌘⇧← Origen"
+            ? L10n.s("Panel Origen activo · Tab cambia · ⌘⇧→ Destino", "Origin pane active · Tab switches · ⌘⇧→ Destination")
+            : L10n.s("Panel Destino activo · Tab cambia · ⌘⇧← Origen", "Destination pane active · Tab switches · ⌘⇧← Origin")
         objectWillChange.send()
     }
 
@@ -1273,10 +1276,10 @@ final class BrowserModel: ObservableObject {
         guard dualPaneEnabled else { return }
         let paths = selectedEntries.map(\.path)
         guard !paths.isEmpty else {
-            let verb = copy ? "copiar" : "mover"
+            let verb = copy ? L10n.s("copiar", "copy") : L10n.s("mover", "move")
             statusMessage = secondarySelectedIDs.isEmpty
-                ? "Para \(verb) a Destino, selecciona algo en Origen (izquierda)"
-                : "Esa selección está en Destino. Usa «← Mover» o selecciona en Origen"
+                ? L10n.s("Para \(verb) a Destino, selecciona algo en Origen (izquierda)", "To \(verb) to Destination, select items in Origin (left)")
+                : L10n.s("Esa selección está en Destino. Usa «← Mover» o selecciona en Origen", "That selection is in Destination. Use «← Move» or select in Origin")
             return
         }
         _ = transferPaths(paths, toDirectory: secondaryPath, copy: copy, clearPrimary: true, clearSecondary: false)
@@ -1287,10 +1290,10 @@ final class BrowserModel: ObservableObject {
         guard dualPaneEnabled else { return }
         let paths = secondarySelectedEntries.map(\.path)
         guard !paths.isEmpty else {
-            let verb = copy ? "copiar" : "mover"
+            let verb = copy ? L10n.s("copiar", "copy") : L10n.s("mover", "move")
             statusMessage = selectedIDs.isEmpty
-                ? "Para \(verb) a Origen, selecciona algo en Destino (derecha)"
-                : "Esa selección está en Origen. Usa «Mover →» o selecciona en Destino"
+                ? L10n.s("Para \(verb) a Origen, selecciona algo en Destino (derecha)", "To \(verb) to Origin, select items in Destination (right)")
+                : L10n.s("Esa selección está en Origen. Usa «Mover →» o selecciona en Destino", "That selection is in Origin. Use «Move →» or select in Destination")
             return
         }
         _ = transferPaths(paths, toDirectory: currentPath, copy: copy, clearPrimary: false, clearSecondary: true)

@@ -232,22 +232,22 @@ struct BrowserTabBar: View {
             return true
         }
         .contextMenu {
-            Button("Mover pestaña a la izquierda") {
+            Button(L10n.s("Mover pestaña a la izquierda", "Move Tab Left")) {
                 withAnimation { session.moveTabLeft(tab.id) }
             }
             .disabled(session.tabs.first?.id == tab.id)
 
-            Button("Mover pestaña a la derecha") {
+            Button(L10n.s("Mover pestaña a la derecha", "Move Tab Right")) {
                 withAnimation { session.moveTabRight(tab.id) }
             }
             .disabled(session.tabs.last?.id == tab.id)
 
             Divider()
 
-            Button("Nueva pestaña", action: { session.addTab() })
+            Button(L10n.s("Nueva pestaña", "New Tab"), action: { session.addTab() })
 
             if session.canCloseTab {
-                Button("Cerrar pestaña", action: { session.closeTab(tab.id) })
+                Button(L10n.s("Cerrar pestaña", "Close Tab"), action: { session.closeTab(tab.id) })
             }
         }
     }
