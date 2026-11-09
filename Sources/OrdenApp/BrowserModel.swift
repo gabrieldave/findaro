@@ -1554,27 +1554,46 @@ final class BrowserModel: ObservableObject {
             raw = String(raw.dropFirst().dropLast())
         }
 
-        let expanded: String
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        var candidates: [String] = []
+
         if raw == "~" {
-            expanded = FileManager.default.homeDirectoryForCurrentUser.path
+            candidates.append(home)
         } else if raw.hasPrefix("~/") {
-            let home = FileManager.default.homeDirectoryForCurrentUser.path
-            expanded = (home as NSString).appendingPathComponent(String(raw.dropFirst(2)))
+            candidates.append((home as NSString).appendingPathComponent(String(raw.dropFirst(2))))
         } else if raw.hasPrefix("/") {
-            expanded = raw
+            candidates.append(raw)
         } else {
-            // Intentar relativo a la carpeta actual si existe ahí
-            let relativeCandidate = (currentPath as NSString).appendingPathComponent(raw)
-            if FileManager.default.fileExists(atPath: relativeCandidate) {
-                expanded = relativeCandidate
-            } else {
-                expanded = raw
+            // 1. Relativo a la carpeta actual si existe
+            candidates.append((currentPath as NSString).appendingPathComponent(raw))
+            // 2. Relativo al Home del usuario (ej: Downloads/..., Desktop/...)
+            candidates.append((home as NSString).appendingPathComponent(raw))
+            // 3. Si el usuario pegó y se recortó el prefijo de usuario (ej. "ai/Downloads/..." o "davidai/Downloads/...")
+            let username = FileManager.default.homeDirectoryForCurrentUser.lastPathComponent
+            if raw.hasPrefix(username + "/") {
+                let sub = String(raw.dropFirst(username.count + 1))
+                candidates.append((home as NSString).appendingPathComponent(sub))
+            } else if username.hasSuffix("ai") && raw.hasPrefix("ai/") {
+                let sub = String(raw.dropFirst(3))
+                candidates.append((home as NSString).appendingPathComponent(sub))
+            }
+            candidates.append(raw)
+        }
+
+        var resolvedPath: String?
+        var isDir: ObjCBool = false
+        for candidate in candidates {
+            let std = (candidate as NSString).standardizingPath
+            var d: ObjCBool = false
+            if FileManager.default.fileExists(atPath: std, isDirectory: &d) {
+                resolvedPath = std
+                isDir = d
+                break
             }
         }
-        let path = (expanded as NSString).standardizingPath
-        var isDir: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir) else {
-            statusMessage = "No existe esa ruta"
+
+        guard let path = resolvedPath else {
+            statusMessage = L10n.s("No existe esa ruta o archivo", "No such folder or file exists")
             return
         }
 
@@ -1582,7 +1601,7 @@ final class BrowserModel: ObservableObject {
 
         if isDir.boolValue {
             navigate(to: path)
-            statusMessage = "Fui a \(path)"
+            statusMessage = L10n.s("Fui a «\(URL(fileURLWithPath: path).lastPathComponent)»", "Navigated to «\(URL(fileURLWithPath: path).lastPathComponent)»")
         } else {
             // Es un archivo: abrirlo de inmediato con su app predeterminada
             let parentDir = (path as NSString).deletingLastPathComponent
@@ -1594,16 +1613,16 @@ final class BrowserModel: ObservableObject {
 
             let fileURL = URL(fileURLWithPath: path)
             if NSWorkspace.shared.open(fileURL) {
-                statusMessage = "Abrí «\(fileURL.lastPathComponent)»"
+                statusMessage = L10n.s("Abrí «\(fileURL.lastPathComponent)»", "Opened «\(fileURL.lastPathComponent)»")
             } else {
                 let proc = Process()
                 proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
                 proc.arguments = [path]
                 do {
                     try proc.run()
-                    statusMessage = "Abrí «\(fileURL.lastPathComponent)»"
+                    statusMessage = L10n.s("Abrí «\(fileURL.lastPathComponent)»", "Opened «\(fileURL.lastPathComponent)»")
                 } catch {
-                    statusMessage = "No se pudo abrir «\(fileURL.lastPathComponent)»: \(error.localizedDescription)"
+                    statusMessage = L10n.s("No se pudo abrir «\(fileURL.lastPathComponent)»: \(error.localizedDescription)", "Could not open «\(fileURL.lastPathComponent)»: \(error.localizedDescription)")
                 }
             }
         }
