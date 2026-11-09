@@ -96,7 +96,9 @@ public struct AssistantShortcut: Identifiable, Codable, Equatable, Sendable {
                      .replacingOccurrences(of: " días", with: " days ago")
             } else if t.hasPrefix("Archivos ") {
                 t = t.replacingOccurrences(of: "Archivos de hoy", with: "Today's files")
+                     .replacingOccurrences(of: "Archivos hoy", with: "Today's files")
                      .replacingOccurrences(of: "Archivos de ayer", with: "Yesterday's files")
+                     .replacingOccurrences(of: "Archivos ayer", with: "Yesterday's files")
                      .replacingOccurrences(of: "Archivos de hace ", with: "Files from ")
                      .replacingOccurrences(of: " días", with: " days ago")
             }

@@ -330,7 +330,7 @@ public enum AgentIntentParser {
                 arguments: ["name": folderName, "parent": currentPath],
                 risk: .write
             ))
-            summary = "Crear carpeta «\(folderName)» (requiere aprobación)"
+            summary = L10n.s("Crear carpeta «\(folderName)» (requiere aprobación)", "Create folder «\(folderName)» (requires approval)")
             return AgentPlan(prompt: text, summary: summary, steps: steps)
         }
 
@@ -341,7 +341,7 @@ public enum AgentIntentParser {
                 arguments: ["path": currentPath],
                 risk: .read
             ))
-            summary = "Mostrar lo que más pesa aquí"
+            summary = L10n.s("Mostrar lo que más pesa aquí", "Show largest files here")
         }
 
         if mentionsDuplicates(lower) {
@@ -350,7 +350,7 @@ public enum AgentIntentParser {
                 arguments: ["path": currentPath],
                 risk: .read
             ))
-            summary = "Buscar posibles duplicados en esta carpeta"
+            summary = L10n.s("Buscar posibles duplicados en esta carpeta", "Search for duplicate files in this folder")
         }
 
         let wantsContentSearch =
@@ -384,14 +384,14 @@ public enum AgentIntentParser {
                     arguments: ["query": name, "root": currentPath],
                     risk: .read
                 ))
-                summary = "Búsqueda asistente (nombre + contenido) «\(name)»"
+                summary = L10n.s("Búsqueda asistente (nombre + contenido) «\(name)»", "Assistant search (name + content) «\(name)»")
             } else {
                 steps.append(AgentToolCall(
                     name: .searchFiles,
                     arguments: ["query": name, "root": currentPath],
                     risk: .read
                 ))
-                summary = "Buscar por nombre «\(name)» bajo la carpeta actual"
+                summary = L10n.s("Buscar por nombre «\(name)» bajo la carpeta actual", "Search by name «\(name)» in current folder")
             }
         }
 
@@ -405,10 +405,10 @@ public enum AgentIntentParser {
                     arguments: ["query": ".pdf", "root": currentPath],
                     risk: .read
                 ))
-                if summary == "Interpreté tu pedido" || mentionsHeavy(lower) {
+                if summary == "Interpreté tu pedido" || summary == "Parsed your request" || mentionsHeavy(lower) {
                     summary = mentionsHeavy(lower)
-                        ? "Peso + listar PDFs"
-                        : "Listar PDFs en esta carpeta y subcarpetas"
+                        ? L10n.s("Peso + listar PDFs", "Storage usage + list PDFs")
+                        : L10n.s("Listar PDFs en esta carpeta y subcarpetas", "List PDFs in this folder and subfolders")
                 }
             }
         }
@@ -419,7 +419,7 @@ public enum AgentIntentParser {
                 arguments: ["path": currentPath],
                 risk: .read
             ))
-            summary = "Listar contenido de la carpeta actual"
+            summary = L10n.s("Listar contenido de la carpeta actual", "List contents of current folder")
         }
 
         if lower.contains("organiza") || lower.contains("organize") || lower.contains("ordenar por tipo") {
@@ -428,7 +428,7 @@ public enum AgentIntentParser {
                 arguments: ["path": currentPath],
                 risk: .write
             ))
-            summary = "Organizar por tipo en subcarpetas (requiere aprobación)"
+            summary = L10n.s("Organizar por tipo en subcarpetas (requiere aprobación)", "Organize by type into subfolders (requires approval)")
         }
 
         if let dest = extractAfter(text, keys: [
@@ -441,14 +441,14 @@ public enum AgentIntentParser {
                 arguments: ["destination": destPath, "note": text],
                 risk: .write
             ))
-            summary = "Mover selección → \(destPath) (requiere aprobación)"
+            summary = L10n.s("Mover selección → \(destPath) (requiere aprobación)", "Move selection → \(destPath) (requires approval)")
         } else if lower.contains("mueve") || lower.contains("mover") || lower.contains("move ") {
             steps.append(AgentToolCall(
                 name: .moveFiles,
                 arguments: ["note": text],
                 risk: .write
             ))
-            summary = "Mover (indica destino: «mueve a Facturas»)"
+            summary = L10n.s("Mover (indica destino: «mueve a Facturas»)", "Move (specify destination: «move to Invoices»)")
         }
 
         if let dest = extractAfter(text, keys: [
@@ -460,7 +460,7 @@ public enum AgentIntentParser {
                 arguments: ["destination": destPath, "note": text],
                 risk: .write
             ))
-            summary = "Copiar selección → \(destPath) (requiere aprobación)"
+            summary = L10n.s("Copiar selección → \(destPath) (requiere aprobación)", "Copy selection → \(destPath) (requires approval)")
         }
 
         if steps.isEmpty {
@@ -476,8 +476,8 @@ public enum AgentIntentParser {
                 risk: .read
             ))
             summary = tool == .searchContent
-                ? "Búsqueda asistente (nombre + contenido) «\(sanitized)»"
-                : "Buscar por nombre «\(sanitized)» bajo la carpeta actual"
+                ? L10n.s("Búsqueda asistente (nombre + contenido) «\(sanitized)»", "Assistant search (name + content) «\(sanitized)»")
+                : L10n.s("Buscar por nombre «\(sanitized)» bajo la carpeta actual", "Search by name «\(sanitized)» in current folder")
         }
 
         return AgentPlan(prompt: text, summary: summary, steps: steps)
@@ -514,14 +514,31 @@ public enum AgentIntentParser {
         for w in lowerWords {
             if knownExtensions.contains(w) {
                 let low = text.lowercased()
-                if low.contains("archivo") || low.contains("tipo") || low.contains("extension") || low.contains("extensión") || low.contains("terminad") || low.contains("formato") || low.contains("musica") || low.contains("música") || low.contains("audio") || low.contains("foto") || low.contains("video") || low.contains("document") {
+                if low.contains("archivo") || low.contains("file") || low.contains("tipo") || low.contains("type") || low.contains("extension") || low.contains("extensión") || low.contains("terminad") || low.contains("ending") || low.contains("formato") || low.contains("format") || low.contains("musica") || low.contains("música") || low.contains("music") || low.contains("audio") || low.contains("foto") || low.contains("photo") || low.contains("image") || low.contains("video") || low.contains("document") || low.contains("book") {
                     return ".\(w)"
                 }
             }
         }
 
-        // Limpiar palabras de relleno comunes en español al inicio
+        // Limpiar palabras de relleno comunes en español e inglés al inicio
         let allFillers = [
+            // English filler patterns
+            "files with extension ", "files of type ", "files ending in ", "files finished with ",
+            "files that are ", "files containing ", "files named ", "files called ",
+            "files that have in their content ", "files that have ", "files with content ", "files with ", "files ",
+            "all the files with ", "all the files ", "all files with ", "all files ", "all folders ",
+            "the files that ", "the files with ", "the files ", "the file with ", "the file ",
+            "the folders with ", "the folders ", "the folder ",
+            "documents containing ", "documents with ", "documents of ", "documents ",
+            "photos that say ", "photos with text ", "photos with ", "photos of ", "photos ",
+            "images that say ", "images with text ", "images containing ", "images with ", "images of ", "images ",
+            "books that have in their content ", "books with content ", "books containing ", "books with ", "books ",
+            "videos of ", "videos with ", "videos ",
+            "songs of ", "songs with ", "songs ",
+            "audios of ", "audios with ", "audios ",
+            "audio files with ", "audio files ",
+            "the ", "a ", "an ", "of ",
+            // Spanish filler patterns
             "archivos con extension ", "archivos con extensión ",
             "archivos de tipo ", "archivos que terminen en ", "archivos terminados en ",
             "archivos que sean ", "archivos que contengan ", "archivos con nombre ",
@@ -536,6 +553,8 @@ public enum AgentIntentParser {
             "todos los archivos ", "todas las carpetas ",
             "documentos de ", "documentos con ", "documentos ",
             "fotos de ", "fotos con ", "fotos ",
+            "libros que tengan en su contenido ", "libros con contenido ", "libros de ", "libros ",
+            "imágenes que salgan textos con ", "imágenes con texto ", "imagenes con texto ", "imágenes ", "imagenes ",
             "videos de ", "videos con ", "videos ",
             "canciones de ", "canciones con ", "canciones ",
             "audios de ", "audios con ", "audios ",

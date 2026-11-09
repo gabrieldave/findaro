@@ -1057,7 +1057,7 @@ final class BrowserModel: ObservableObject {
         }
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: target, isDirectory: &isDir), isDir.boolValue else {
-            secondaryError = "No es una carpeta"
+            secondaryError = L10n.s("No es una carpeta", "Not a folder")
             return
         }
         secondaryPath = target
@@ -1798,7 +1798,10 @@ final class BrowserModel: ObservableObject {
                             self.transferProgressFraction = nil
                             self.transferProgressLabel = nil
                             self.reload()
-                            self.statusMessage = "Fusioné los archivos, pero conservé el origen porque no pude enviarlo con seguridad a la Papelera: \(error.localizedDescription)"
+                            self.statusMessage = L10n.s(
+                                "Fusioné los archivos, pero conservé el origen porque no pude enviarlo con seguridad a la Papelera: \(error.localizedDescription)",
+                                "Merged files, but kept original folder because it could not be safely sent to Trash: \(error.localizedDescription)"
+                            )
                         }
                         return
                     }
@@ -1827,12 +1830,12 @@ final class BrowserModel: ObservableObject {
                     let name = URL(fileURLWithPath: destPath).lastPathComponent
                     if overwriteConflicts {
                         self.statusMessage = asMove
-                            ? "Fusionado reemplazando · origen a Papelera → \(name) · ⌘Z puede restaurar"
-                            : "Fusionado reemplazando conflictos → \(name) · ⌘Z puede restaurar"
+                            ? L10n.s("Fusionado reemplazando · origen a Papelera → \(name) · ⌘Z puede restaurar", "Merged replacing conflicts · source to Trash → \(name) · ⌘Z can restore")
+                            : L10n.s("Fusionado reemplazando conflictos → \(name) · ⌘Z puede restaurar", "Merged replacing conflicts → \(name) · ⌘Z can restore")
                     } else {
                         self.statusMessage = asMove
-                            ? "Fusionado y origen a Papelera → \(name) · ⌘Z deshace"
-                            : "Fusionado → \(name) · ⌘Z deshace"
+                            ? L10n.s("Fusionado y origen a Papelera → \(name) · ⌘Z deshace", "Merged and source to Trash → \(name) · ⌘Z undoes")
+                            : L10n.s("Fusionado → \(name) · ⌘Z deshace", "Merged → \(name) · ⌘Z undoes")
                     }
                     if !result.warnings.isEmpty {
                         self.statusMessage = (self.statusMessage ?? "") + " · Aviso: " + result.warnings.joined(separator: "; ")
@@ -1936,8 +1939,8 @@ final class BrowserModel: ObservableObject {
         reload()
         let n = visibleEntries.count
         let msg = n == 1
-            ? "Listo: actualicé esta carpeta. Hay 1 elemento."
-            : "Listo: actualicé esta carpeta. Hay \(n) elementos."
+            ? L10n.s("Listo: actualicé esta carpeta. Hay 1 elemento.", "Done: refreshed this folder. 1 item found.")
+            : L10n.s("Listo: actualicé esta carpeta. Hay \(n) elementos.", "Done: refreshed this folder. \(n) items found.")
         appendAgentReply(msg)
         showAssistantPanel = true
     }
@@ -2200,7 +2203,7 @@ final class BrowserModel: ObservableObject {
         var steps: [AgentToolCall] = []
         for category in FileCategory.allCases where category != .folder {
             guard let group = byCategory[category], !group.isEmpty else { continue }
-            let folderName = category.organizeFolderName
+            let folderName = category.organizeFolderNameLocalized
             let dest = (folder as NSString).appendingPathComponent(folderName)
             steps.append(AgentToolCall(
                 name: .createDirectory,
@@ -2309,28 +2312,28 @@ final class BrowserModel: ObservableObject {
         let name = (step.arguments["name"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let parent = step.arguments["parent"] ?? currentPath
         guard !name.isEmpty else {
-            appendAgentReply("No me diste nombre para la carpeta.")
+            appendAgentReply(L10n.s("No me diste nombre para la carpeta.", "No folder name provided."))
             return
         }
         guard AgentPolicy.isPathAllowed(parent),
               AgentPolicy.isPathWithinScope(parent, root: currentPath),
               name != ".", name != "..", !name.contains("/") else {
-            appendAgentReply("La ruta o el nombre de la carpeta no están permitidos.")
+            appendAgentReply(L10n.s("La ruta o el nombre de la carpeta no están permitidos.", "The folder path or name is not allowed."))
             return
         }
         // Si ya existe (p. ej. al organizar), reutilízala.
         let existing = (parent as NSString).appendingPathComponent(name)
         if FileManager.default.fileExists(atPath: existing) {
-            appendAgentReply("La carpeta «\(name)» ya estaba; la reutilizo.")
+            appendAgentReply(L10n.s("La carpeta «\(name)» ya estaba; la reutilizo.", "Folder «\(name)» already existed; reusing it."))
             return
         }
         do {
             let created = try FileOps.createFolder(named: name, in: parent)
             pushUndo(.copied(created: [created])) // deshacer = papelera de la carpeta nueva vacía/casi
             if parent == currentPath { reload() }
-            appendAgentReply("Creé la carpeta «\((created as NSString).lastPathComponent)».")
+            appendAgentReply(L10n.s("Creé la carpeta «\((created as NSString).lastPathComponent)».", "Created folder «\((created as NSString).lastPathComponent)»."))
         } catch {
-            appendAgentReply("No pude crear la carpeta: \(error.localizedDescription)")
+            appendAgentReply(L10n.s("No pude crear la carpeta: \(error.localizedDescription)", "Could not create folder: \(error.localizedDescription)"))
         }
     }
 
@@ -2340,13 +2343,13 @@ final class BrowserModel: ObservableObject {
         guard !paths.isEmpty else {
             appendAgentReply(
                 move
-                    ? "Selecciona algo y di p. ej. «mueve a Facturas»."
-                    : "Selecciona algo y di p. ej. «copia a Facturas»."
+                    ? L10n.s("Selecciona algo y di p. ej. «mueve a Facturas».", "Select items and say e.g. «move to Invoices».")
+                    : L10n.s("Selecciona algo y di p. ej. «copia a Facturas».", "Select items and say e.g. «copy to Invoices».")
             )
             return
         }
         guard !dest.isEmpty else {
-            appendAgentReply("Falta el destino. Prueba «mueve a NombreCarpeta».")
+            appendAgentReply(L10n.s("Falta el destino. Prueba «mueve a NombreCarpeta».", "Destination missing. Try «move to FolderName»."))
             return
         }
         guard AgentPolicy.isPathAllowed(dest),
@@ -2354,7 +2357,7 @@ final class BrowserModel: ObservableObject {
               paths.allSatisfy({
                   AgentPolicy.isPathAllowed($0) && AgentPolicy.isPathWithinScope($0, root: currentPath)
               }) else {
-            appendAgentReply("Alguna ruta está fuera de la carpeta actual o no está permitida.")
+            appendAgentReply(L10n.s("Alguna ruta está fuera de la carpeta actual o no está permitida.", "A path is outside current folder or not allowed."))
             return
         }
         // Crear destino si es carpeta relativa que aún no existe.
@@ -2368,19 +2371,19 @@ final class BrowserModel: ObservableObject {
                 )
                 destIsDir = true
             } catch {
-                appendAgentReply("No pude preparar el destino: \(error.localizedDescription)")
+                appendAgentReply(L10n.s("No pude preparar el destino: \(error.localizedDescription)", "Could not prepare destination: \(error.localizedDescription)"))
                 return
             }
         }
         guard destIsDir.boolValue || FileManager.default.fileExists(atPath: dest) else {
-            appendAgentReply("El destino no es una carpeta.")
+            appendAgentReply(L10n.s("El destino no es una carpeta.", "Destination is not a folder."))
             return
         }
         // Si dest es archivo (raro), abortar.
         var check: ObjCBool = false
         FileManager.default.fileExists(atPath: dest, isDirectory: &check)
         guard check.boolValue else {
-            appendAgentReply("El destino tiene que ser una carpeta.")
+            appendAgentReply(L10n.s("El destino tiene que ser una carpeta.", "Destination must be a folder."))
             return
         }
         enqueueTransfer(paths: paths, toDirectory: dest, move: move) { result in
@@ -2410,12 +2413,12 @@ final class BrowserModel: ObservableObject {
         let newName = (step.arguments["newName"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let path = step.arguments["path"] ?? step.pathsArgument.first ?? selectedEntries.first?.path
         guard let path, !newName.isEmpty else {
-            appendAgentReply("Selecciona un ítem y di «renombra a nombre-nuevo».")
+            appendAgentReply(L10n.s("Selecciona un ítem y di «renombra a nombre-nuevo».", "Select an item and say «rename to new-name»."))
             return
         }
         guard AgentPolicy.isPathAllowed(path),
               AgentPolicy.isPathWithinScope(path, root: currentPath) else {
-            appendAgentReply("Esa ruta está fuera de la carpeta actual o no está permitida.")
+            appendAgentReply(L10n.s("Esa ruta está fuera de la carpeta actual o no está permitida.", "That path is outside current folder or not allowed."))
             return
         }
         do {
@@ -2423,9 +2426,9 @@ final class BrowserModel: ObservableObject {
             pushUndo(.moved(pairs: [.init(from: path, to: newPath)]))
             reload()
             selectOnly(newPath)
-            appendAgentReply("Renombré a «\(newName)».")
+            appendAgentReply(L10n.s("Renombré a «\(newName)».", "Renamed to «\(newName)»."))
         } catch {
-            appendAgentReply("No pude renombrar: \(error.localizedDescription)")
+            appendAgentReply(L10n.s("No pude renombrar: \(error.localizedDescription)", "Could not rename: \(error.localizedDescription)"))
         }
     }
 
@@ -2637,8 +2640,8 @@ final class BrowserModel: ObservableObject {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = true
-        panel.message = "Elige una carpeta para Favoritos"
-        panel.prompt = "Añadir"
+        panel.message = L10n.s("Elige una carpeta para Favoritos", "Choose a folder for Favorites")
+        panel.prompt = L10n.s("Añadir", "Add")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         addFavorite(url.path)
     }
@@ -2705,8 +2708,8 @@ final class BrowserModel: ObservableObject {
             }
         }
         statusMessage = scope == .everywhere
-            ? "Orden guardado en todas las carpetas"
-            : "Orden guardado solo en esta carpeta"
+            ? L10n.s("Orden guardado en todas las carpetas", "Sort order saved across all folders")
+            : L10n.s("Orden guardado solo en esta carpeta", "Sort order saved for this folder only")
         objectWillChange.send()
     }
 
@@ -2784,14 +2787,17 @@ final class BrowserModel: ObservableObject {
         downloadsTodayMode = false
         activeAssistantShortcut = nil
         applyRule(.heaviestFirst, scope: .everywhere)
-        let msg = "Listo: ordené por peso y lo dejé guardado. Arriba está lo que más ocupa. No borré nada."
+        let msg = L10n.s(
+            "Listo: ordené por peso y lo dejé guardado. Arriba está lo que más ocupa. No borré nada.",
+            "Done: sorted by size and saved. Largest files at top. Nothing was deleted."
+        )
         appendAgentReply(msg)
     }
 
     func exitCleanupMode() {
         // Vuelve al estilo Descargas y lo guarda (si no, al reiniciar seguiría en pesados).
         applyRule(.downloads, scope: .everywhere)
-        appendAgentReply("Volviste al orden normal (estilo Descargas) y lo guardé.")
+        appendAgentReply(L10n.s("Volviste al orden normal (estilo Descargas) y lo guardé.", "Reset to standard sort (Downloads style) and saved."))
     }
 
     /// Modo exclusivo: solo lo agregado/creado hoy en la carpeta actual.
@@ -2829,11 +2835,11 @@ final class BrowserModel: ObservableObject {
         let n = visibleEntries.count
         let msg: String
         if n == 0 {
-            msg = "Atajo «\(shortcut.title)»: no hay nada que coincida en esta carpeta."
+            msg = L10n.s("Atajo «\(shortcut.displayTitle)»: no hay nada que coincida en esta carpeta.", "Preset «\(shortcut.displayTitle)»: no matching items in this folder.")
         } else if n == 1 {
-            msg = "Atajo «\(shortcut.title)»: 1 archivo. Lo más nuevo arriba."
+            msg = L10n.s("Atajo «\(shortcut.displayTitle)»: 1 archivo. Lo más nuevo arriba.", "Preset «\(shortcut.displayTitle)»: 1 file. Newest on top.")
         } else {
-            msg = "Atajo «\(shortcut.title)»: \(n) archivos. Lo más nuevo arriba."
+            msg = L10n.s("Atajo «\(shortcut.displayTitle)»: \(n) archivos. Lo más nuevo arriba.", "Preset «\(shortcut.displayTitle)»: \(n) files. Newest on top.")
         }
         appendAgentReply(msg)
         objectWillChange.send()
@@ -2842,14 +2848,17 @@ final class BrowserModel: ObservableObject {
     func clearAssistantShortcutFilter() {
         guard activeAssistantShortcut != nil else { return }
         activeAssistantShortcut = nil
-        appendAgentReply("Quité el filtro del atajo. Otra vez ves toda la carpeta.")
+        appendAgentReply(L10n.s("Quité el filtro del atajo. Otra vez ves toda la carpeta.", "Filter cleared. All folder items visible."))
         objectWillChange.send()
     }
 
     @discardableResult
     func addAssistantShortcut(_ shortcut: AssistantShortcut) -> String? {
         if assistantShortcuts.count >= AssistantShortcut.maxCount {
-            return "Ya tienes \(AssistantShortcut.maxCount) atajos (tope). Borra alguno para crear otro."
+            return L10n.s(
+                "Ya tienes \(AssistantShortcut.maxCount) atajos (tope). Borra alguno para crear otro.",
+                "Limit reached: \(AssistantShortcut.maxCount) presets. Delete one to create another."
+            )
         }
         var next = shortcut
         if next.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -2857,7 +2866,7 @@ final class BrowserModel: ObservableObject {
         }
         assistantShortcuts.insert(next, at: 0)
         persistAssistantShortcuts()
-        appendAgentReply("Guardé el atajo «\(next.title)». Queda fijo aquí para reusarlo.")
+        appendAgentReply(L10n.s("Guardé el atajo «\(next.displayTitle)». Queda fijo aquí para reusarlo.", "Saved preset «\(next.displayTitle)». Available to reuse."))
         return nil
     }
 
@@ -2894,7 +2903,7 @@ final class BrowserModel: ObservableObject {
         assistantShortcuts = AssistantShortcut.factoryDefaults()
         activeAssistantShortcut = nil
         persistAssistantShortcuts()
-        appendAgentReply("Restauré los atajos de fábrica (\(assistantShortcuts.count)).")
+        appendAgentReply(L10n.s("Restauré los atajos de fábrica (\(assistantShortcuts.count)).", "Restored default presets (\(assistantShortcuts.count))."))
     }
 
     func persistAssistantShortcuts() {
@@ -2969,7 +2978,7 @@ final class BrowserModel: ObservableObject {
         }
         objectWillChange.send()
         let name = globalHotkeyFolderDisplayName
-        statusMessage = "Atajo ⌃⌥O abre «\(name)»"
+        statusMessage = L10n.s("Atajo ⌃⌥O abre «\(name)»", "Hotkey ⌃⌥O opens «\(name)»")
     }
 
     func pickGlobalHotkeyFolder() {
@@ -2978,8 +2987,8 @@ final class BrowserModel: ObservableObject {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = false
-        panel.message = "Carpeta que abrirá Findaro con ⌃⌥O"
-        panel.prompt = "Usar esta carpeta"
+        panel.message = L10n.s("Carpeta que abrirá Findaro con ⌃⌥O", "Folder Findaro will open with ⌃⌥O")
+        panel.prompt = L10n.s("Usar esta carpeta", "Use This Folder")
         panel.directoryURL = URL(fileURLWithPath: globalHotkeyFolderPath)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         setGlobalHotkeyFolder(url.path)
@@ -3056,7 +3065,7 @@ final class BrowserModel: ObservableObject {
     }
 
     private func openDiskImage(_ entry: FileEntry, inSecondary: Bool) {
-        statusMessage = "Montando «\(entry.name)»…"
+        statusMessage = L10n.s("Montando «\(entry.name)»…", "Mounting «\(entry.name)»…")
         let path = entry.path
         Task.detached {
             let process = Process()
@@ -3079,7 +3088,7 @@ final class BrowserModel: ObservableObject {
                             } else {
                                 self.navigate(to: mountPoint)
                             }
-                            self.statusMessage = "Montado: \(URL(fileURLWithPath: mountPoint).lastPathComponent)"
+                            self.statusMessage = L10n.s("Montado: \(URL(fileURLWithPath: mountPoint).lastPathComponent)", "Mounted: \(URL(fileURLWithPath: mountPoint).lastPathComponent)")
                         }
                         return
                     }
@@ -3105,7 +3114,7 @@ final class BrowserModel: ObservableObject {
             try proc.run()
             statusMessage = L10n.s("Abrí: \(entry.name)", "Opened: \(entry.name)")
         } catch {
-            statusMessage = "No se pudo abrir «\(entry.name)»: \(error.localizedDescription)"
+            statusMessage = L10n.s("No se pudo abrir «\(entry.name)»: \(error.localizedDescription)", "Could not open «\(entry.name)»: \(error.localizedDescription)")
         }
     }
 
@@ -3136,7 +3145,7 @@ final class BrowserModel: ObservableObject {
         var isDir: ObjCBool = false
         let exists = FileManager.default.fileExists(atPath: resultPath, isDirectory: &isDir)
         guard exists else {
-            statusMessage = "Descomprimí \(archiveName), pero no encuentro el resultado"
+            statusMessage = L10n.s("Descomprimí \(archiveName), pero no encuentro el resultado", "Extracted \(archiveName), but cannot find result")
             if intoSecondary { reloadSecondary() } else { reload() }
             return
         }
@@ -3187,7 +3196,7 @@ final class BrowserModel: ObservableObject {
         NSWorkspace.shared.open([fileURL], withApplicationAt: appURL, configuration: config) { _, error in
             if let error {
                 Task { @MainActor in
-                    self.statusMessage = "No se pudo abrir: \(error.localizedDescription)"
+                    self.statusMessage = L10n.s("No se pudo abrir: \(error.localizedDescription)", "Could not open: \(error.localizedDescription)")
                 }
             }
         }
@@ -3200,10 +3209,10 @@ final class BrowserModel: ObservableObject {
         NSWorkspace.shared.setDefaultApplication(at: appURL, toOpenContentTypeOfFileAt: fileURL) { error in
             Task { @MainActor in
                 if let error {
-                    self.statusMessage = "No se pudo cambiar la app: \(error.localizedDescription)"
+                    self.statusMessage = L10n.s("No se pudo cambiar la app: \(error.localizedDescription)", "Could not change default app: \(error.localizedDescription)")
                 } else {
                     let name = FileManager.default.displayName(atPath: appURL.path)
-                    self.statusMessage = "Ahora \(entry.name) y similares se abren con \(name)"
+                    self.statusMessage = L10n.s("Ahora \(entry.name) y similares se abren con \(name)", "\(entry.name) and similar files will now open with \(name)")
                 }
             }
         }
@@ -3217,7 +3226,7 @@ final class BrowserModel: ObservableObject {
         let targets = activeSelectedEntries
         let paths = targets.map(\.path)
         guard !paths.isEmpty else {
-            statusMessage = "Selecciona algo para comprimir"
+            statusMessage = L10n.s("Selecciona algo para comprimir", "Select items to compress")
             return
         }
         let folder = activeWorkingPath
@@ -3227,7 +3236,7 @@ final class BrowserModel: ObservableObject {
                 let base = URL(fileURLWithPath: paths[0]).deletingPathExtension().lastPathComponent
                 return "\(base).zip"
             }
-            return "Archivo.zip"
+            return L10n.s("Archivo.zip", "Archive.zip")
         }()
         var dest = (folder as NSString).appendingPathComponent(destName)
         var n = 2
@@ -3236,7 +3245,7 @@ final class BrowserModel: ObservableObject {
             dest = (folder as NSString).appendingPathComponent("\(stem) \(n).zip")
             n += 1
         }
-        statusMessage = "Comprimiendo…"
+        statusMessage = L10n.s("Comprimiendo…", "Compressing…")
         let names = paths.map { URL(fileURLWithPath: $0).lastPathComponent }
         Task.detached {
             let process = Process()
@@ -3261,7 +3270,7 @@ final class BrowserModel: ObservableObject {
                 }
             } catch {
                 await MainActor.run {
-                    self.statusMessage = "No se pudo comprimir: \(error.localizedDescription)"
+                    self.statusMessage = L10n.s("No se pudo comprimir: \(error.localizedDescription)", "Could not compress: \(error.localizedDescription)")
                 }
             }
         }
@@ -3411,8 +3420,8 @@ final class BrowserModel: ObservableObject {
                     if self.dualPaneEnabled { self.reloadSecondary() }
                     let destName = URL(fileURLWithPath: destination).lastPathComponent
                     self.statusMessage = moved.count == 1
-                        ? "Restaurado en «\(destName)»: \(URL(fileURLWithPath: moved[0].to).lastPathComponent)"
-                        : "\(moved.count) archivos restaurados en «\(destName)»"
+                        ? L10n.s("Restaurado en «\(destName)»: \(URL(fileURLWithPath: moved[0].to).lastPathComponent)", "Restored to «\(destName)»: \(URL(fileURLWithPath: moved[0].to).lastPathComponent)")
+                        : L10n.s("\(moved.count) archivos restaurados en «\(destName)»", "\(moved.count) items restored to «\(destName)»")
                 }
             } catch {
                 await MainActor.run {
@@ -3428,8 +3437,8 @@ final class BrowserModel: ObservableObject {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
-        panel.prompt = "Restaurar aquí"
-        panel.message = "Elige la carpeta donde deseas restaurar los archivos de la Papelera"
+        panel.prompt = L10n.s("Restaurar aquí", "Restore Here")
+        panel.message = L10n.s("Elige la carpeta donde deseas restaurar los archivos de la Papelera", "Choose the folder where you want to restore Trash items")
         if panel.runModal() == .OK, let url = panel.url {
             restoreSelectionFromTrash(targetDirectory: url.path)
         }
@@ -3533,7 +3542,7 @@ final class BrowserModel: ObservableObject {
                 } else {
                     var parts: [String] = []
                     if result.ok > 0 {
-                        parts.append("Papelera: \(result.ok) eliminados")
+                        parts.append(L10n.s("Papelera: \(result.ok) eliminados", "Trash: \(result.ok) permanently deleted"))
                     }
                     if !result.failures.isEmpty {
                         parts.append(result.failures.prefix(2).joined(separator: "; "))
@@ -3564,7 +3573,7 @@ final class BrowserModel: ObservableObject {
     // MARK: - Crear / renombrar / duplicar / portapapeles
 
     func promptNewFolder() {
-        nameDraft = "Carpeta sin título"
+        nameDraft = L10n.s("Carpeta sin título", "Untitled Folder")
         showNewFolderDialog = true
     }
 
@@ -3585,12 +3594,12 @@ final class BrowserModel: ObservableObject {
             }
             statusMessage = L10n.s("Carpeta creada: \(URL(fileURLWithPath: path).lastPathComponent)", "Folder created: \(URL(fileURLWithPath: path).lastPathComponent)")
         } catch {
-            statusMessage = "No se pudo crear: \(error.localizedDescription)"
+            statusMessage = L10n.s("No se pudo crear: \(error.localizedDescription)", "Could not create: \(error.localizedDescription)")
         }
     }
 
     func promptNewFile() {
-        nameDraft = "Sin título.txt"
+        nameDraft = L10n.s("Sin título.txt", "Untitled.txt")
         showNewFileDialog = true
     }
 
@@ -3615,7 +3624,7 @@ final class BrowserModel: ObservableObject {
             }
             statusMessage = L10n.s("Archivo creado: \(URL(fileURLWithPath: path).lastPathComponent)", "File created: \(URL(fileURLWithPath: path).lastPathComponent)")
         } catch {
-            statusMessage = "No se pudo crear: \(error.localizedDescription)"
+            statusMessage = L10n.s("No se pudo crear: \(error.localizedDescription)", "Could not create: \(error.localizedDescription)")
         }
     }
 
@@ -3855,7 +3864,7 @@ final class BrowserModel: ObservableObject {
         let dest = activeWorkingPath
         let rest = offerMergeIfNeeded(paths: paths, toDirectory: dest, move: false)
         if pendingMergePreview != nil {
-            statusMessage = "Revisa Smart Merge; vuelve a pegar para continuar con los demás elementos"
+            statusMessage = L10n.s("Revisa Smart Merge; vuelve a pegar para continuar con los demás elementos", "Review Smart Merge; paste again to continue with remaining items")
             return
         }
         guard !rest.isEmpty else { return }
@@ -3865,7 +3874,9 @@ final class BrowserModel: ObservableObject {
                 self.pushUndo(.copied(created: pairs.map(\.to)))
                 self.reload()
                 if self.dualPaneEnabled { self.reloadSecondary() }
-                self.statusMessage = pairs.count == 1 ? "1 archivo pegado" : "\(pairs.count) archivos pegados"
+                self.statusMessage = pairs.count == 1
+                    ? L10n.s("1 archivo pegado", "1 file pasted")
+                    : L10n.s("\(pairs.count) archivos pegados", "\(pairs.count) files pasted")
             case .failure(let error):
                 self.statusMessage = L10n.s("No se pudo pegar: \(error.localizedDescription)", "Could not paste: \(error.localizedDescription)")
             }
@@ -3898,10 +3909,10 @@ final class BrowserModel: ObservableObject {
         SharedShelf.shared.items = shelf
         NotificationCenter.default.post(name: SharedShelf.didChangeNotification, object: self)
 
-        let verb = intent == .move ? "para mover" : "para copiar"
+        let verb = intent == .move ? L10n.s("para mover", "to move") : L10n.s("para copiar", "to copy")
         statusMessage = entries.count == 1
-            ? "En bandeja \(verb) — ve abajo o ⌘V aquí"
-            : "\(entries.count) en bandeja \(verb) — ⌘V suelta aquí"
+            ? L10n.s("En bandeja \(verb) — ve abajo o ⌘V aquí", "In clipboard tray \(verb) — navigate or ⌘V here")
+            : L10n.s("\(entries.count) en bandeja \(verb) — ⌘V suelta aquí", "\(entries.count) in clipboard tray \(verb) — ⌘V pastes here")
         objectWillChange.send()
     }
 
@@ -3979,7 +3990,7 @@ final class BrowserModel: ObservableObject {
 
         if pendingMergePreview != nil {
             shelf = remaining
-            statusMessage = "Revisa Smart Merge; los demás elementos siguen en la bandeja"
+            statusMessage = L10n.s("Revisa Smart Merge; los demás elementos siguen en la bandeja", "Review Smart Merge; remaining items stay in tray")
             return
         }
 
@@ -4003,14 +4014,16 @@ final class BrowserModel: ObservableObject {
             reload()
             if dualPaneEnabled { reloadSecondary() }
             var parts: [String] = []
-            if !moved.isEmpty { parts.append("\(moved.count) movido(s)") }
-            if !copied.isEmpty { parts.append("\(copied.count) copiado(s)") }
+            if !moved.isEmpty { parts.append(L10n.s("\(moved.count) movido(s)", "\(moved.count) moved")) }
+            if !copied.isEmpty { parts.append(L10n.s("\(copied.count) copiado(s)", "\(copied.count) copied")) }
             if let error {
                 statusMessage = parts.isEmpty
-                    ? "No se completó la transferencia: \(error)"
-                    : "Transferencia parcial: \(parts.joined(separator: " · ")). \(error)"
+                    ? L10n.s("No se completó la transferencia: \(error)", "Transfer could not be completed: \(error)")
+                    : L10n.s("Transferencia parcial: \(parts.joined(separator: " · ")). \(error)", "Partial transfer: \(parts.joined(separator: " · ")). \(error)")
             } else {
-                statusMessage = parts.isEmpty ? "Nada transferido" : parts.joined(separator: " · ") + " · ⌘Z deshace"
+                statusMessage = parts.isEmpty
+                    ? L10n.s("Nada transferido", "Nothing transferred")
+                    : parts.joined(separator: " · ") + L10n.s(" · ⌘Z deshace", " · ⌘Z undoes")
             }
         }
 
@@ -4084,13 +4097,15 @@ final class BrowserModel: ObservableObject {
         let dest = activeWorkingPath
         let rest = offerMergeIfNeeded(paths: paths, toDirectory: dest, move: forceMove)
         if pendingMergePreview != nil {
-            statusMessage = "Revisa Smart Merge; los demás elementos siguen en la bandeja"
+            statusMessage = L10n.s("Revisa Smart Merge; los demás elementos siguen en la bandeja", "Review Smart Merge; remaining items stay in tray")
             return
         }
         guard !rest.isEmpty else { return }
         let job = TransferQueue.Job(paths: rest, destinationDir: dest, move: forceMove)
         transferProgressFraction = 0
-        transferProgressLabel = forceMove ? "Moviendo bandeja…" : "Copiando bandeja…"
+        transferProgressLabel = forceMove
+            ? L10n.s("Moviendo bandeja…", "Moving tray items…")
+            : L10n.s("Copiando bandeja…", "Copying tray items…")
         statusMessage = transferProgressLabel
         Task { @MainActor in
             do {
@@ -4118,8 +4133,8 @@ final class BrowserModel: ObservableObject {
                 self.reload()
                 if self.dualPaneEnabled { self.reloadSecondary() }
                 self.statusMessage = forceMove
-                    ? "Movidos \(pairs.count) a esta carpeta · ⌘Z deshace"
-                    : "Copiados \(pairs.count) a esta carpeta · ⌘Z deshace"
+                    ? L10n.s("Movidos \(pairs.count) a esta carpeta · ⌘Z deshace", "Moved \(pairs.count) items to this folder · ⌘Z undoes")
+                    : L10n.s("Copiados \(pairs.count) a esta carpeta · ⌘Z deshace", "Copied \(pairs.count) items to this folder · ⌘Z undoes")
             } catch {
                 self.transferProgressFraction = nil
                 self.transferProgressLabel = nil
@@ -4166,8 +4181,8 @@ final class BrowserModel: ObservableObject {
                 }
                 reload()
                 statusMessage = restored == 0
-                    ? "No se pudo deshacer el movimiento"
-                    : "Deshecho: \(restored) movido(s) de vuelta"
+                    ? L10n.s("No se pudo deshacer el movimiento", "Could not undo file move")
+                    : L10n.s("Deshecho: \(restored) movido(s) de vuelta", "Undone: \(restored) item(s) moved back")
 
             case .copied(let created):
                 var trashed = 0
@@ -4179,8 +4194,8 @@ final class BrowserModel: ObservableObject {
                 }
                 reload()
                 statusMessage = trashed == 0
-                    ? "No se pudo deshacer la copia"
-                    : "Deshecho: \(trashed) copia(s) a la Papelera"
+                    ? L10n.s("No se pudo deshacer la copia", "Could not undo copy")
+                    : L10n.s("Deshecho: \(trashed) copia(s) a la Papelera", "Undone: \(trashed) copy/copies moved to Trash")
 
             case .merged(let created, let sourceOriginalPath, let sourceTrashPath, let replacements):
                 let fm = FileManager.default
@@ -4218,15 +4233,21 @@ final class BrowserModel: ObservableObject {
                 }
 
                 reload()
-                statusMessage = "Smart Merge deshecho: \(removedCopies) copia(s) retiradas, \(restoredBackups) respaldo(s) restaurado(s)"
+                statusMessage = L10n.s(
+                    "Smart Merge deshecho: \(removedCopies) copia(s) retiradas, \(restoredBackups) respaldo(s) restaurado(s)",
+                    "Smart Merge undone: \(removedCopies) copy/copies removed, \(restoredBackups) backup(s) restored"
+                )
                 if sourceOriginalPath != nil && !restoredSource {
-                    statusMessage = (statusMessage ?? "") + " · No encontré el origen en la Papelera"
+                    statusMessage = (statusMessage ?? "") + L10n.s(" · No encontré el origen en la Papelera", " · Original folder not found in Trash")
                 }
             }
             undoStack.removeLast()
         } catch {
             // Conserva el registro para permitir reintentar lo que no se pudo revertir.
-            statusMessage = "Deshacer quedó incompleto; puedes reintentar: \(error.localizedDescription)"
+            statusMessage = L10n.s(
+                "Deshacer quedó incompleto; puedes reintentar: \(error.localizedDescription)",
+                "Undo was incomplete; you can retry: \(error.localizedDescription)"
+            )
         }
     }
 
@@ -4251,7 +4272,7 @@ final class BrowserModel: ObservableObject {
     func sendOutboundToDropover() {
         let paths = outboundPaths
         guard !paths.isEmpty else {
-            statusMessage = "Selecciona archivos o lléná la bandeja"
+            statusMessage = L10n.s("Selecciona archivos o llena la bandeja", "Select files or add items to clipboard tray")
             return
         }
         let dropoverURL: URL? =
@@ -4261,7 +4282,7 @@ final class BrowserModel: ObservableObject {
                 return FileManager.default.fileExists(atPath: fallback.path) ? fallback : nil
             }()
         guard let dropoverURL else {
-            statusMessage = "No encontré Dropover.app en /Applications"
+            statusMessage = L10n.s("No encontré Dropover.app en /Applications", "Dropover.app not found in /Applications")
             return
         }
 
@@ -4274,8 +4295,8 @@ final class BrowserModel: ObservableObject {
                     self.statusMessage = "Dropover: \(error.localizedDescription)"
                 } else {
                     self.statusMessage = paths.count == 1
-                        ? "En Dropover — arrástralo a Terminal o Cursor"
-                        : "\(paths.count) en Dropover — arrástralos a otra app"
+                        ? L10n.s("En Dropover — arrástralo a Terminal o Cursor", "In Dropover — drag to Terminal or other apps")
+                        : L10n.s("\(paths.count) en Dropover — arrástralos a otra app", "\(paths.count) in Dropover — drag to other apps")
                 }
             }
         }
@@ -4285,7 +4306,7 @@ final class BrowserModel: ObservableObject {
     func copyOutboundPaths() {
         let paths = outboundPaths
         guard !paths.isEmpty else {
-            statusMessage = "Nada seleccionado para copiar rutas"
+            statusMessage = L10n.s("Nada seleccionado para copiar rutas", "No items selected to copy paths")
             return
         }
         let quoted = paths.map { path -> String in

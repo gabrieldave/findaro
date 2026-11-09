@@ -215,7 +215,10 @@ final class AppUpdateChecker: ObservableObject {
         if downloadingVersion == release.version { return }
         if let local = UserDefaults.standard.string(forKey: Self.pendingLocalDMGKey),
            FileManager.default.fileExists(atPath: local) {
-            statusMessage = "\(release.version) ya descargada — se instalará al salir o al abrir"
+            statusMessage = L10n.s(
+                "\(release.version) ya descargada — se instalará al salir o al abrir",
+                "\(release.version) downloaded — will install on quit or next launch"
+            )
             return
         }
         downloadingVersion = release.version
@@ -226,10 +229,16 @@ final class AppUpdateChecker: ObservableObject {
                 let dmg = try await self.downloadVerifiedDMG(release: release)
                 guard !Task.isCancelled else { return }
                 UserDefaults.standard.set(dmg.path, forKey: Self.pendingLocalDMGKey)
-                self.statusMessage = "\(release.version) lista — se instalará al salir (⌘Q) o al abrir de nuevo"
+                self.statusMessage = L10n.s(
+                    "\(release.version) lista — se instalará al salir (⌘Q) o al abrir de nuevo",
+                    "\(release.version) ready — will install on quit (⌘Q) or next launch"
+                )
             } catch {
                 if !Task.isCancelled {
-                    self.statusMessage = "Descarga pospuesta incompleta — se reintentará al abrir"
+                    self.statusMessage = L10n.s(
+                        "Descarga pospuesta incompleta — se reintentará al abrir",
+                        "Postponed download incomplete — will retry on next launch"
+                    )
                 }
             }
             if self.downloadingVersion == release.version {
@@ -261,7 +270,7 @@ final class AppUpdateChecker: ObservableObject {
                     )
                     NSApp.terminate(nil)
                 } catch {
-                    statusMessage = "No pude aplicar la actualización pendiente"
+                    statusMessage = L10n.s("No pude aplicar la actualización pendiente", "Could not apply pending update")
                 }
             }
             return
@@ -278,7 +287,7 @@ final class AppUpdateChecker: ObservableObject {
             sha256: sha,
             expectedBundleID: expectedBundle
         )
-        statusMessage = "Reanudando descarga de \(version)…"
+        statusMessage = L10n.s("Reanudando descarga de \(version)…", "Resuming download of \(version)…")
         startPrefetchIfNeeded(release: release)
         // Esperar un poco a que termine si vamos a instalar en este arranque.
         if installWhenReady {
@@ -294,7 +303,7 @@ final class AppUpdateChecker: ObservableObject {
                         )
                         NSApp.terminate(nil)
                     } catch {
-                        statusMessage = "No pude aplicar la actualización pendiente"
+                        statusMessage = L10n.s("No pude aplicar la actualización pendiente", "Could not apply pending update")
                     }
                     return
                 }
@@ -323,14 +332,14 @@ final class AppUpdateChecker: ObservableObject {
 
     private func downloadAndInstall(release: UpdateFeed.ChannelRelease, terminateAfter: Bool) async {
         isInstalling = true
-        statusMessage = "Descargando \(release.tag)…"
+        statusMessage = L10n.s("Descargando \(release.tag)…", "Downloading \(release.tag)…")
         defer { isInstalling = false }
 
         do {
             persistPendingMetadata(release)
             let dmg = try await downloadVerifiedDMG(release: release)
             UserDefaults.standard.set(dmg.path, forKey: Self.pendingLocalDMGKey)
-            statusMessage = "Preparando instalación…"
+            statusMessage = L10n.s("Preparando instalación…", "Preparing installation…")
             try Self.scheduleInstallAndRelaunch(
                 dmgPath: dmg.path,
                 installRoot: Self.preferredInstallRoot(),
@@ -341,12 +350,15 @@ final class AppUpdateChecker: ObservableObject {
                 NSApp.terminate(nil)
             }
         } catch {
-            statusMessage = "Falló la instalación automática"
+            statusMessage = L10n.s("Falló la instalación automática", "Automatic installation failed")
             let alert = NSAlert()
-            alert.messageText = "No se pudo instalar sola"
-            alert.informativeText = "Abre el sitio y arrastra el .dmg a Aplicaciones:\n\(release.notesURL.absoluteString)"
-            alert.addButton(withTitle: "Abrir en el navegador")
-            alert.addButton(withTitle: "Cerrar")
+            alert.messageText = L10n.s("No se pudo instalar sola", "Could not auto-install")
+            alert.informativeText = L10n.s(
+                "Abre el sitio y arrastra el .dmg a Aplicaciones:\n\(release.notesURL.absoluteString)",
+                "Open the website and drag the .dmg to Applications:\n\(release.notesURL.absoluteString)"
+            )
+            alert.addButton(withTitle: L10n.s("Abrir en el navegador", "Open in Browser"))
+            alert.addButton(withTitle: L10n.s("Cerrar", "Close"))
             if alert.runModal() == .alertFirstButtonReturn {
                 NSWorkspace.shared.open(release.notesURL)
             }
@@ -360,7 +372,7 @@ final class AppUpdateChecker: ObservableObject {
         try? FileManager.default.removeItem(at: dmg)
         try FileManager.default.moveItem(at: tempURL, to: dmg)
 
-        statusMessage = "Verificando integridad…"
+        statusMessage = L10n.s("Verificando integridad…", "Verifying integrity…")
         let digest = try Self.sha256File(at: dmg)
         guard digest == release.sha256.lowercased() else {
             try? FileManager.default.removeItem(at: dmg)

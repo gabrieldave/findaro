@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "FINDARO — Explorador de archivos con IA para Mac",
+  title: "FINDARO — AI-Powered Dual-Pane File Manager for Mac",
   description:
-    "Doble panel, Smart Merge, bandeja tipo Windows, búsqueda y asistente local. Licencia de por vida desde $59 (primeros 1000).",
+    "Dual panes, Smart Merge, on-device AI assistant, familiar cut & paste, and deep recursive search. Built natively for Apple Silicon and macOS 15+.",
   applicationName: "FINDARO",
   appleWebApp: {
     capable: true,
@@ -23,7 +23,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es">
+    <html lang="en">
       <body>{children}</body>
     </html>
   );

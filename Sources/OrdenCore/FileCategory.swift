@@ -99,6 +99,29 @@ public enum FileCategory: String, Codable, Sendable, CaseIterable, Comparable {
         }
     }
 
+    public var organizeFolderNameEnglish: String {
+        switch self {
+        case .folder: return "Folders"
+        case .video: return "Videos"
+        case .audio: return "Audio"
+        case .image: return "Images"
+        case .pdf: return "PDFs"
+        case .word: return "Word"
+        case .excel: return "Excel"
+        case .powerpoint: return "PowerPoint"
+        case .text: return "Text"
+        case .code: return "Code"
+        case .archive: return "Archives"
+        case .diskImage: return "Disk Images"
+        case .app: return "Apps"
+        case .other: return "Other"
+        }
+    }
+
+    public var organizeFolderNameLocalized: String {
+        L10n.isEnglish ? organizeFolderNameEnglish : organizeFolderName
+    }
+
     /// SF Symbol estable por categoría (misma pinta siempre).
     public var symbolName: String {
         switch self {

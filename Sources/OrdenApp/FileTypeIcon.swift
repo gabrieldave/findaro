@@ -56,7 +56,7 @@ struct FileTypeIcon: View {
             }
         }
         .frame(width: box, height: box)
-        .accessibilityLabel(category.labelSpanish)
+        .accessibilityLabel(category.labelLocalized)
         .task(id: "\(path ?? "")|\(Int(size))|\(category.rawValue)") {
             guard showsPreview, let path else {
                 thumb = nil
