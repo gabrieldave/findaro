@@ -37,7 +37,7 @@ struct DropShelfView: View {
                 }
                 .controlSize(.small)
                 .disabled(browser.selectedIDs.isEmpty)
-                .help("⌘C")
+                .help(L10n.s("Copiar a bandeja · ⌘C", "Copy to tray · ⌘C"))
 
                 Button {
                     browser.addSelectionToShelf(intent: .move)
@@ -46,7 +46,7 @@ struct DropShelfView: View {
                 }
                 .controlSize(.small)
                 .disabled(browser.selectedIDs.isEmpty)
-                .help("⌘X")
+                .help(L10n.s("Cortar a bandeja · ⌘X", "Cut to tray · ⌘X"))
 
                 Button {
                     browser.depositShelfHere()

@@ -273,11 +273,20 @@ public enum TrashOps {
 
         let message: String
         if finder.automationDenied {
-            message = "macOS no permite que Findaro controle Finder. Ve a Ajustes del Sistema → Privacidad y seguridad → Automatización → Findaro y activa «Finder», o activa Acceso completo al disco para Findaro."
+            message = L10n.s(
+                "macOS no permite que Findaro controle Finder. Ve a Ajustes del Sistema → Privacidad y seguridad → Automatización → Findaro y activa «Finder», o activa Acceso completo al disco para Findaro.",
+                "macOS won’t let Findaro control Finder. Go to System Settings → Privacy & Security → Automation → Findaro and enable «Finder», or grant Full Disk Access to Findaro."
+            )
         } else {
             message = finder.error.isEmpty
-                ? "No se pudo vaciar la Papelera. Activa Acceso completo al disco para Findaro y vuelve a intentarlo."
-                : "No se pudo vaciar la Papelera: \(finder.error)"
+                ? L10n.s(
+                    "No se pudo vaciar la Papelera. Activa Acceso completo al disco para Findaro y vuelve a intentarlo.",
+                    "Could not empty the Trash. Enable Full Disk Access for Findaro and try again."
+                )
+                : L10n.s(
+                    "No se pudo vaciar la Papelera: \(finder.error)",
+                    "Could not empty the Trash: \(finder.error)"
+                )
         }
         return .needsPermission(message: message)
     }

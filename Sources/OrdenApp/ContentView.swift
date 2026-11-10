@@ -409,7 +409,7 @@ struct ContentView: View {
                             .foregroundStyle(OrdenTheme.textMuted)
                     }
                     .buttonStyle(.plain)
-                    .help("Cerrar aviso")
+                    .help(L10n.s("Cerrar aviso", "Dismiss notice"))
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)

@@ -75,7 +75,7 @@ final class MediaPreviewController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        win.title = "Vista previa"
+        win.title = L10n.s("Vista previa", "Preview")
         win.isReleasedWhenClosed = false
         win.delegate = self
         win.center()

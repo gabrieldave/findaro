@@ -292,13 +292,16 @@ public enum AgentIntentParser {
 
         let title: String
         if categories.isEmpty {
-            title = "Archivos \(window.labelSpanish)"
+            title = L10n.s("Archivos \(window.labelSpanish)", "Files \(window.labelEnglish)")
         } else if categories == AssistantShortcut.documentCategories {
-            title = "Documentos \(window.labelSpanish)"
+            title = L10n.s("Documentos \(window.labelSpanish)", "Documents \(window.labelEnglish)")
         } else if let only = categories.first {
-            title = "\(only.labelSpanish)s \(window.labelSpanish)"
+            title = L10n.s(
+                "\(only.labelSpanish)s \(window.labelSpanish)",
+                "\(only.labelEnglish)s \(window.labelEnglish)"
+            )
         } else {
-            title = "Archivos \(window.labelSpanish)"
+            title = L10n.s("Archivos \(window.labelSpanish)", "Files \(window.labelEnglish)")
         }
         return AssistantShortcut(title: title, categories: categories, dateWindow: window)
     }
@@ -325,7 +328,7 @@ public enum AgentIntentParser {
         let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         let lower = text.lowercased()
         var steps: [AgentToolCall] = []
-        var summary = "Interpreté tu pedido"
+        var summary = L10n.s("Interpreté tu pedido", "Parsed your request")
 
         let isRename = lower.contains("renombr") || lower.contains("rename") || lower.contains("cambiar nombre") || lower.contains("cambia el nombre") || lower.contains("cambia nombre")
         let isCreateDir = (lower.contains("carpeta") || lower.contains("folder") || lower.contains("directorio") || lower.contains("mkdir")) && (lower.contains("crea") || lower.contains("nueva") || lower.contains("create") || lower.contains("nuevo") || lower.contains("mkdir"))
@@ -349,7 +352,10 @@ public enum AgentIntentParser {
                 arguments: ["newName": newName],
                 risk: .write
             ))
-            summary = "Renombrar selección a «\(newName)» (requiere aprobación)"
+            summary = L10n.s(
+                "Renombrar selección a «\(newName)» (requiere aprobación)",
+                "Rename selection to «\(newName)» (requires approval)"
+            )
             return AgentPlan(prompt: text, summary: summary, steps: steps)
         }
 

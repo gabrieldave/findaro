@@ -267,7 +267,10 @@ public final class LicenseStore: ObservableObject {
 
     public func evaluateLocalState() {
         if defaults.bool(forKey: Keys.revoked) {
-            state = .revoked(message: "Esta licencia ha sido revocada remotamente.")
+            state = .revoked(message: L10n.s(
+                "Esta licencia ha sido revocada remotamente.",
+                "This license has been revoked remotely."
+            ))
             return
         }
 
@@ -310,7 +313,10 @@ public final class LicenseStore: ObservableObject {
         // clave de firma anterior: pedir conexión para revalidar (checkServerStatus lo renueva solo).
         let storedKey = defaults.string(forKey: Keys.licenseKey) ?? keychain.get(Keys.licenseKey)
         if storedKey != nil, defaults.string(forKey: Keys.tier) != "trial" {
-            state = .revoked(message: "Tu licencia necesita revalidarse. Conéctate a internet y Findaro la renovará automáticamente.")
+            state = .revoked(message: L10n.s(
+                "Tu licencia necesita revalidarse. Conéctate a internet y Findaro la renovará automáticamente.",
+                "Your license needs revalidation. Connect to the internet and Findaro will renew it automatically."
+            ))
             return
         }
 
@@ -414,7 +420,10 @@ public final class LicenseStore: ObservableObject {
     public func activate(key: String) async throws {
         let trimmedKey = key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard !trimmedKey.isEmpty else {
-            throw NSError(domain: "FindaroLicense", code: 400, userInfo: [NSLocalizedDescriptionKey: "Ingresa una clave de licencia válida"])
+            throw NSError(domain: "FindaroLicense", code: 400, userInfo: [NSLocalizedDescriptionKey: L10n.s(
+                "Ingresa una clave de licencia válida",
+                "Enter a valid license key"
+            )])
         }
 
         isBusy = true
@@ -439,12 +448,18 @@ public final class LicenseStore: ObservableObject {
 
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse else {
-            throw NSError(domain: "FindaroLicense", code: 500, userInfo: [NSLocalizedDescriptionKey: "Error de red"])
+            throw NSError(domain: "FindaroLicense", code: 500, userInfo: [NSLocalizedDescriptionKey: L10n.s(
+                "Error de red",
+                "Network error"
+            )])
         }
 
         let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
         guard http.statusCode == 200, let ok = json["ok"] as? Bool, ok, let responseData = json["data"] as? [String: Any] else {
-            let errorMsg = (json["error"] as? String) ?? "No se pudo activar la licencia (código \(http.statusCode))"
+            let errorMsg = (json["error"] as? String) ?? L10n.s(
+                "No se pudo activar la licencia (código \(http.statusCode))",
+                "Could not activate license (code \(http.statusCode))"
+            )
             lastErrorMessage = errorMsg
             throw NSError(domain: "FindaroLicense", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: errorMsg])
         }
@@ -457,7 +472,10 @@ public final class LicenseStore: ObservableObject {
 
         // Verificar criptográficamente el token antes de aceptarlo y persistirlo
         guard let _ = FindaroLicenseVerifier.verifyToken(signed, publicKeyHex: publicKeyHex, expectedMachineId: machineId, currentDate: dateProvider()) else {
-            let errorMsg = "La firma de la licencia devuelta por el servidor no es válida."
+            let errorMsg = L10n.s(
+                "La firma de la licencia devuelta por el servidor no es válida.",
+                "The license signature returned by the server is invalid."
+            )
             lastErrorMessage = errorMsg
             throw NSError(domain: "FindaroLicense", code: 400, userInfo: [NSLocalizedDescriptionKey: errorMsg])
         }
@@ -551,7 +569,10 @@ public final class LicenseStore: ObservableObject {
 
         if http.statusCode == 404, isOurAPI {
             // Licencia inexistente o revocada en el servidor (reembolso, clave filtrada).
-            let msg = (json["error"] as? String) ?? "Licencia revocada o no disponible."
+            let msg = (json["error"] as? String) ?? L10n.s(
+                "Licencia revocada o no disponible.",
+                "License revoked or unavailable."
+            )
             defaults.set(true, forKey: Keys.revoked)
             defaults.removeObject(forKey: Keys.signedToken)
             keychain.delete(Keys.signedToken)
@@ -559,7 +580,10 @@ public final class LicenseStore: ObservableObject {
         } else if (http.statusCode == 403 || http.statusCode == 402), isOurAPI {
             // Límite de Macs alcanzado o prueba terminada: sin marca permanente de "revocada";
             // el usuario puede liberar un asiento y volver a activar.
-            let msg = (json["error"] as? String) ?? "Esta Mac no está activada para esta licencia."
+            let msg = (json["error"] as? String) ?? L10n.s(
+                "Esta Mac no está activada para esta licencia.",
+                "This Mac is not activated for this license."
+            )
             defaults.removeObject(forKey: Keys.signedToken)
             keychain.delete(Keys.signedToken)
             lastErrorMessage = msg

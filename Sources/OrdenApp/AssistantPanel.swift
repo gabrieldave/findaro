@@ -103,7 +103,7 @@ struct AssistantPanel: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(busyTitle)
                     .font(.subheadline.weight(.semibold))
-                Text("Espera un momento — no cierres el panel")
+                Text(L10n.s("Espera un momento — no cierres el panel", "Please wait — don’t close this panel"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -119,7 +119,7 @@ struct AssistantPanel: View {
     }
 
     private var busyTitle: String {
-        let base = browser.agentProgressLabel.isEmpty ? "Trabajando" : browser.agentProgressLabel
+        let base = browser.agentProgressLabel.isEmpty ? L10n.s("Trabajando", "Working") : browser.agentProgressLabel
         return base + String(repeating: ".", count: busyDotCount)
     }
 

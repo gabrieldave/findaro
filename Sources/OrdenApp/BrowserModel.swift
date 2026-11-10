@@ -3962,7 +3962,10 @@ final class BrowserModel: ObservableObject {
                         return (resulting as URL?)?.path ?? ""
                     }.value
                     if trashPath.isEmpty {
-                        failures.append("\(item.name): sin ruta en Papelera")
+                        failures.append(L10n.s(
+                            "\(item.name): sin ruta en Papelera",
+                            "\(item.name): no Trash path returned"
+                        ))
                     } else {
                         pairs.append(.init(from: item.path, to: trashPath))
                     }
@@ -4955,7 +4958,10 @@ final class BrowserModel: ObservableObject {
         NSWorkspace.shared.open(urls, withApplicationAt: dropoverURL, configuration: config) { _, error in
             Task { @MainActor in
                 if let error {
-                    self.statusMessage = "Dropover: \(error.localizedDescription)"
+                    self.statusMessage = L10n.s(
+                        "Dropover: \(error.localizedDescription)",
+                        "Dropover: \(error.localizedDescription)"
+                    )
                 } else {
                     self.statusMessage = paths.count == 1
                         ? L10n.s("En Dropover — arrástralo a Terminal o Cursor", "In Dropover — drag to Terminal or other apps")
