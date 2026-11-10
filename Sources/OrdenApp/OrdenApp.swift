@@ -55,16 +55,32 @@ private struct FindaroCommands: Commands {
     private var browser: BrowserModel? { focusedBrowser ?? FindaroWindowRegistry.keyBrowser }
     private var session: BrowserWindowSession? { focusedSession ?? FindaroWindowRegistry.keySession }
 
+    private var currentLanguage: AppLanguage {
+        AppLanguage(rawValue: appLangStorage) ?? .english
+    }
+
     private func setGlobalLanguage(_ lang: AppLanguage) {
         PreferencesStore.shared.update { $0.appLanguage = lang }
         L10n.activeLanguage = lang
         let langCode = lang.isEnglish ? "en" : "es"
         UserDefaults.standard.set([langCode], forKey: "AppleLanguages")
         UserDefaults.standard.set(lang.rawValue, forKey: "findaro_app_language")
+        appLangStorage = lang.rawValue
         browser?.setAppLanguage(lang)
         AppMenuLocalizer.applyLocalization()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             AppMenuLocalizer.applyLocalization()
+        }
+    }
+
+    @ViewBuilder
+    private func languageMenuItem(_ lang: AppLanguage, title: String) -> some View {
+        // Toggle en menú macOS = palomita nativa a la izquierda; se actualiza con @AppStorage.
+        Toggle(isOn: Binding(
+            get: { currentLanguage == lang },
+            set: { _ in setGlobalLanguage(lang) }
+        )) {
+            Text(title)
         }
     }
 
@@ -80,9 +96,12 @@ private struct FindaroCommands: Commands {
 
         CommandGroup(after: .appSettings) {
             Menu(L10n.s("Idioma / Language", "Language / Idioma")) {
-                Button(L10n.s("Automático (Sistema)", "Automatic (System)")) { setGlobalLanguage(.auto) }
-                Button("Español") { setGlobalLanguage(.spanish) }
-                Button("English") { setGlobalLanguage(.english) }
+                languageMenuItem(
+                    .auto,
+                    title: L10n.s("Automático (Sistema)", "Automatic (System)")
+                )
+                languageMenuItem(.spanish, title: "Español")
+                languageMenuItem(.english, title: "English")
             }
 
             if DefaultFileViewerManager.isEnabled {
@@ -340,7 +359,7 @@ private struct FindaroCommands: Commands {
                 browser?.runFolderHandlerSetup()
             }
             .disabled(browser == nil)
-            Button(L10n.s("Abrir Descargas (⌃⌥O)", "Open Downloads (⌃⌥O)")) {
+            Button(L10n.s("Abrir Descargas (⌃⌥A)", "Open Downloads (⌃⌥A)")) {
                 GlobalHotKey.activateOrdena()
             }
             Divider()

@@ -3560,7 +3560,7 @@ final class BrowserModel: ObservableObject {
         }
         objectWillChange.send()
         let name = globalHotkeyFolderDisplayName
-        statusMessage = L10n.s("Atajo ⌃⌥O abre «\(name)»", "Hotkey ⌃⌥O opens «\(name)»")
+        statusMessage = L10n.s("Atajo ⌃⌥A abre «\(name)»", "Hotkey ⌃⌥A opens «\(name)»")
     }
 
     func pickGlobalHotkeyFolder() {
@@ -3569,7 +3569,7 @@ final class BrowserModel: ObservableObject {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = false
-        panel.message = L10n.s("Carpeta que abrirá Findaro con ⌃⌥O", "Folder Findaro will open with ⌃⌥O")
+        panel.message = L10n.s("Carpeta que abrirá Findaro con ⌃⌥A", "Folder Findaro will open with ⌃⌥A")
         panel.prompt = L10n.s("Usar esta carpeta", "Use This Folder")
         panel.directoryURL = URL(fileURLWithPath: globalHotkeyFolderPath)
         guard panel.runModal() == .OK, let url = panel.url else { return }

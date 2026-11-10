@@ -2470,7 +2470,7 @@ struct SettingsView: View {
                 ) {
                     HStack(spacing: 6) {
                         let globalChord = browser.chord(forHotkey: "nav.globalOpen")
-                            ?? KeyChord(keyCode: 31, character: "o", option: true, control: true)
+                            ?? KeyChord(keyCode: 0, character: "a", option: true, control: true)
                         Button {
                             if let def = AppHotkeyCatalog.definition(id: "nav.globalOpen") {
                                 editingHotkey = def

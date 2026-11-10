@@ -148,7 +148,7 @@ public struct FindaroHelpView: View {
             helpCard {
                 bullet("⌘1 / ⌘2 / ⌘3: " + L10n.s("Navegación de historial y accesos directos.", "History navigation and quick access."))
                 bullet("⌘⇧M / ⌘⌥C: " + L10n.s("Acciones directas entre paneles duales.", "Direct actions between dual panes."))
-                bullet("⌃⌥O: " + L10n.s("Atajo global de sistema para abrir rápidamente Descargas o tu carpeta preferida.", "Global hotkey to quickly open Downloads or your chosen folder."))
+                bullet("⌃⌥A: " + L10n.s("Atajo global de sistema para abrir rápidamente Descargas o tu carpeta preferida.", "Global hotkey to quickly open Downloads or your chosen folder."))
                 bullet(L10n.s("Detección de conflictos: Al editar atajos en Ajustes, el sistema te advertirá si una combinación ya está en uso.", "Conflict detection: When customizing hotkeys, Findaro warns if chord is in use."))
             }
 

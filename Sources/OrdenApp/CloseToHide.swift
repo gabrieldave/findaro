@@ -1,6 +1,6 @@
 import AppKit
 
-/// El botón rojo (✕) oculta la ventana; la app sigue viva en el Dock (atajo ⌃⌥O).
+/// El botón rojo (✕) oculta la ventana; la app sigue viva en el Dock (atajo ⌃⌥A).
 @MainActor
 enum CloseToHide {
     private static var observer: NSObjectProtocol?

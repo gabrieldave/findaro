@@ -27,7 +27,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public var viewTemplates: [ViewTemplate]
     /// Overrides de atajos de teclado (id → acorde). Vacío = defaults de fábrica.
     public var keyboardHotkeyOverrides: [String: KeyChord]
-    /// Carpeta que abre el atajo global ⌃⌥O. `nil` = Descargas.
+    /// Carpeta que abre el atajo global ⌃⌥A. `nil` = Descargas.
     public var globalHotkeyFolderPath: String?
     /// Idioma de la interfaz (auto, es, en).
     public var appLanguage: AppLanguage

@@ -46,7 +46,7 @@ struct FolderHandlerSetupSheet: View {
             .padding(20)
         } footer: {
             OrdenDialogFooter(
-                shortcutHint: L10n.s("Atajo ⌃⌥O", "Shortcut ⌃⌥O"),
+                shortcutHint: L10n.s("Atajo ⌃⌥A", "Shortcut ⌃⌥A"),
                 cancelTitle: L10n.s("Cerrar", "Close"),
                 actionTitle: L10n.s("Ir a Descargas", "Go to Downloads"),
                 onCancel: { browser.showFolderHandlerSetupDialog = false },

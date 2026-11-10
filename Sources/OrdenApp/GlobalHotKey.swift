@@ -2,7 +2,7 @@ import AppKit
 import Carbon
 import OrdenCore
 
-/// Atajo global (por defecto ⌃⌥O) → trae Findaro al frente en la carpeta configurada.
+/// Atajo global (por defecto ⌃⌥A) → trae Findaro al frente en la carpeta configurada.
 /// Funciona mientras Findaro esté abierta (ponla en «Abrir al iniciar sesión»).
 @MainActor
 enum GlobalHotKey {
@@ -83,7 +83,7 @@ enum GlobalHotKey {
     static func resolvedChord() -> KeyChord {
         let overrides = PreferencesStore().preferences.keyboardHotkeyOverrides
         return AppHotkeyCatalog.resolvedChord(id: "nav.globalOpen", overrides: overrides)
-            ?? KeyChord(keyCode: 31, character: "o", option: true, control: true)
+            ?? KeyChord(keyCode: 0, character: "a", option: true, control: true)
     }
 
     private static func carbonModifiers(_ chord: KeyChord) -> UInt32 {

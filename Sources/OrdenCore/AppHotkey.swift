@@ -193,8 +193,8 @@ public enum AppHotkeyCatalog {
               defaultChord: .init(keyCode: 14, character: "e", command: true)),
         .init(id: "nav.downloads", title: "Ir a Descargas", titleEnglish: "Go to Downloads", detail: "Salto rápido a Descargas", detailEnglish: "Quick jump to Downloads", group: .navigation,
               defaultChord: .init(keyCode: 37, character: "l", command: true, shift: true)),
-        .init(id: "nav.globalOpen", title: "Abrir Findaro (global)", titleEnglish: "Open Findaro (Global)", detail: "Desde cualquier app → carpeta elegida", detailEnglish: "From any app → chosen folder", group: .navigation,
-              defaultChord: .init(keyCode: 31, character: "o", option: true, control: true), isEditable: true),
+        .init(id: "nav.globalOpen", title: "Abrir Findaro (global)", titleEnglish: "Open Findaro (Global)", detail: "Desde cualquier app → carpeta elegida (⌃⌥A)", detailEnglish: "From any app → chosen folder (⌃⌥A)", group: .navigation,
+              defaultChord: .init(keyCode: 0, character: "a", option: true, control: true), isEditable: true),
         .init(id: "help.guide", title: "Ayuda de Findaro", titleEnglish: "Findaro Help", detail: "Abre la guía nativa y atajos de Findaro", detailEnglish: "Open native guide and shortcuts", group: .navigation,
               defaultChord: .init(keyCode: 44, character: "?", command: true, shift: true)),
 
