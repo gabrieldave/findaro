@@ -2,28 +2,34 @@ import AppKit
 import SwiftUI
 import OrdenCore
 
-/// Monitor AppKit: teclas del clic, selección al mouseDown y arrastre nativo al mover.
-/// El doble clic para abrir lo maneja SwiftUI en cada fila (`fileOpenOnDoubleClick`):
-/// los frames AppKit del LazyVStack se quedan stale tras scroll y abrían la fila equivocada.
+/// Hit zones estilo Finder:
+/// - `name`: icono + nombre → clic selecciona y el jalón mueve.
+/// - `row`: resto de la fila (fechas, tamaño, padding) → clic selecciona; el jalón es marquesina.
 @MainActor
 final class FileDragArmMonitor {
     static let shared = FileDragArmMonitor()
 
+    enum HitKind: Equatable {
+        case name
+        case row
+    }
+
     private var monitor: Any?
     private weak var browser: BrowserModel?
 
+    private var nameFrames: [String: RowHitTestLogic.RowFrame] = [:]
     private var rowFrames: [String: RowHitTestLogic.RowFrame] = [:]
-    /// Sube en cada scroll / cambio de lista — invalida frames viejos del LazyVStack.
     private(set) var frameGeneration: UInt64 = 1
 
-    /// Press sobre un archivo (sin ⌘/⇧): al superar el umbral → drag AppKit (Finder).
     private var pressPath: String?
     private var pressPoint: CGPoint?
     private var pressIsSecondary = false
     private var didStartNativeDrag = false
 
-    /// True si este gesto ya disparó (o va a disparar) un arrastre nativo.
     var hasStartedNativeDrag: Bool { didStartNativeDrag }
+
+    /// True si el último mouseDown armó drag de archivo (estaba sobre el nombre).
+    private(set) var pressArmedFileDrag = false
 
     func attach(browser: BrowserModel) {
         self.browser = browser
@@ -35,37 +41,47 @@ final class FileDragArmMonitor {
         }
     }
 
-    /// Llamar al hacer scroll o al cambiar `visibleEntries`.
     func invalidateFrames() {
         frameGeneration &+= 1
+        nameFrames.removeAll(keepingCapacity: true)
         rowFrames.removeAll(keepingCapacity: true)
     }
 
-    func updateRowFrame(path: String, frameInWindow: CGRect) {
+    func updateHitFrame(path: String, kind: HitKind, frameInWindow: CGRect) {
         guard !path.isEmpty, frameInWindow.width > 2, frameInWindow.height > 2 else { return }
-        rowFrames[path] = RowHitTestLogic.RowFrame(
+        let frame = RowHitTestLogic.RowFrame(
             path: path,
             frame: frameInWindow,
             generation: frameGeneration
         )
+        switch kind {
+        case .name: nameFrames[path] = frame
+        case .row: rowFrames[path] = frame
+        }
+    }
+
+    func removeHitFrame(path: String, kind: HitKind) {
+        guard !path.isEmpty else { return }
+        switch kind {
+        case .name: nameFrames.removeValue(forKey: path)
+        case .row: rowFrames.removeValue(forKey: path)
+        }
+    }
+
+    /// Compat: frames de drag = zona nombre.
+    func updateRowFrame(path: String, frameInWindow: CGRect) {
+        updateHitFrame(path: path, kind: .name, frameInWindow: frameInWindow)
     }
 
     func removeRowFrame(path: String) {
-        guard !path.isEmpty else { return }
-        rowFrames.removeValue(forKey: path)
+        removeHitFrame(path: path, kind: .name)
+        removeHitFrame(path: path, kind: .row)
     }
 
-    /// Teclas pulsadas en el último mouseDown (ver `ClickModifierMemory`).
     private(set) var clickMemory = ClickModifierMemory()
-
-    /// `clickCount` del último mouseDown (1 = clic, 2 = doble clic) y cuándo ocurrió.
     private var lastMouseDownClickCount: Int = 1
     private var lastMouseDownAt: TimeInterval = 0
 
-    /// Número de clic del gesto que SwiftUI está procesando ahora (1, 2, 3…).
-    /// Permite resolver el doble clic SIN `TapGesture(count: 2)`: ese gesto obliga a SwiftUI
-    /// a esperar el intervalo de doble clic del sistema antes de entregar el clic simple,
-    /// y eso era la demora al seleccionar un archivo.
     func currentClickCount() -> Int {
         if let event = NSApp.currentEvent,
            event.type == .leftMouseUp || event.type == .leftMouseDown {
@@ -76,7 +92,6 @@ final class FileDragArmMonitor {
         return max(1, lastMouseDownClickCount)
     }
 
-    /// Teclas efectivas del clic que SwiftUI está procesando ahora.
     func effectiveClickModifiers() -> ClickModifierMemory.Modifiers {
         let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let current = ClickModifierMemory.Modifiers(
@@ -91,8 +106,20 @@ final class FileDragArmMonitor {
         )
     }
 
-    /// mouseDown → teclas + selección al instante.
-    /// mouseDragged sobre archivo → arrastre nativo (no depende del DragGesture de SwiftUI).
+    /// ¿El punto de ventana cae sobre icono+nombre?
+    func isNameHit(atWindowPoint point: CGPoint) -> Bool {
+        pruneStaleFrames()
+        return pathAt(point, in: nameFrames) != nil
+    }
+
+    /// Path bajo el punto: prioriza nombre; si no, fila completa.
+    func pathHit(atWindowPoint point: CGPoint) -> (path: String, kind: HitKind)? {
+        pruneStaleFrames()
+        if let p = pathAt(point, in: nameFrames) { return (p, .name) }
+        if let p = pathAt(point, in: rowFrames) { return (p, .row) }
+        return nil
+    }
+
     private func handle(_ event: NSEvent) -> NSEvent? {
         switch event.type {
         case .leftMouseDown:
@@ -103,6 +130,7 @@ final class FileDragArmMonitor {
             pressPath = nil
             pressPoint = nil
             pressIsSecondary = false
+            pressArmedFileDrag = false
             didStartNativeDrag = false
             return event
         default:
@@ -125,33 +153,49 @@ final class FileDragArmMonitor {
         pressPath = nil
         pressPoint = nil
         pressIsSecondary = false
+        pressArmedFileDrag = false
         didStartNativeDrag = false
 
-        // Selección inmediata estilo Finder (solo clic 1, sin modificadores).
-        if event.clickCount == 1,
-           !flags.contains(.command),
-           !flags.contains(.shift),
-           let browser {
-            pruneStaleFrames()
-            if let path = pathAt(event.locationInWindow) {
-                let inPrimary = browser.visibleEntries.contains(where: { $0.path == path })
-                let inSecondary = browser.dualPaneEnabled
-                    && browser.secondaryEntries.contains(where: { $0.path == path })
-                if inSecondary, (!inPrimary || browser.focusedPane == .secondary) {
-                    if browser.secondarySelectedIDs != [path] {
-                        browser.selectSecondaryOnly(path)
-                    }
-                    pressPath = path
-                    pressPoint = event.locationInWindow
-                    pressIsSecondary = true
-                } else if inPrimary {
-                    if browser.selectedIDs != [path] {
-                        browser.selectOnly(path)
-                    }
-                    pressPath = path
-                    pressPoint = event.locationInWindow
-                    pressIsSecondary = false
-                }
+        guard event.clickCount == 1, let browser else { return event }
+        pruneStaleFrames()
+        guard let hit = pathHit(atWindowPoint: event.locationInWindow) else { return event }
+
+        let path = hit.path
+        let inPrimary = browser.visibleEntries.contains(where: { $0.path == path })
+        let inSecondary = browser.dualPaneEnabled
+            && browser.secondaryEntries.contains(where: { $0.path == path })
+        let useSecondary = inSecondary && (!inPrimary || browser.focusedPane == .secondary)
+
+        // ⌘ / ⇧ al mouseDown — sin esperar al TapGesture de SwiftUI (sensación Finder).
+        if flags.contains(.shift) || flags.contains(.command) {
+            if useSecondary {
+                browser.clickSelectSecondary(path)
+            } else if inPrimary {
+                browser.clickSelect(path)
+            }
+            return event
+        }
+
+        // Clic simple: selección al instante.
+        if useSecondary {
+            if browser.secondarySelectedIDs != [path] {
+                browser.selectSecondaryOnly(path)
+            }
+            if hit.kind == .name {
+                pressPath = path
+                pressPoint = event.locationInWindow
+                pressIsSecondary = true
+                pressArmedFileDrag = true
+            }
+        } else if inPrimary {
+            if browser.selectedIDs != [path] {
+                browser.selectOnly(path)
+            }
+            if hit.kind == .name {
+                pressPath = path
+                pressPoint = event.locationInWindow
+                pressIsSecondary = false
+                pressArmedFileDrag = true
             }
         }
         return event
@@ -159,6 +203,7 @@ final class FileDragArmMonitor {
 
     private func handleMouseDragged(_ event: NSEvent) -> NSEvent {
         guard !didStartNativeDrag,
+              pressArmedFileDrag,
               let path = pressPath,
               let start = pressPoint,
               let browser
@@ -181,21 +226,18 @@ final class FileDragArmMonitor {
             paths = [path]
         }
 
-        // Sync: el evento vivo es leftMouseDragged — ideal para beginDraggingSession.
         requestNativeDrag(paths: paths, deferToNextRunLoop: false)
         return event
     }
 
-    /// Arranque AppKit. Desde SwiftUI DragGesture hay que diferir un tick (si no, la sesión no engancha).
-    /// Desde mouseDragged del monitor: sync con el evento vivo.
     func requestNativeDrag(paths: [String], deferToNextRunLoop: Bool = true) {
         guard !didStartNativeDrag, !paths.isEmpty, let browser else { return }
         didStartNativeDrag = true
         pressPath = nil
         pressPoint = nil
+        pressArmedFileDrag = false
         let copy = paths
         let start = {
-            // Si el botón ya se soltó, no inventes un drag huérfano.
             guard NSEvent.pressedMouseButtons & (1 << 0) != 0 else { return }
             _ = browser.startDragWithPaths(copy)
         }
@@ -208,6 +250,7 @@ final class FileDragArmMonitor {
 
     private func pruneStaleFrames() {
         guard let browser else {
+            nameFrames.removeAll()
             rowFrames.removeAll()
             return
         }
@@ -216,21 +259,24 @@ final class FileDragArmMonitor {
             live.formUnion(browser.secondaryEntries.map(\.path))
         }
         let gen = frameGeneration
+        nameFrames = nameFrames.filter { live.contains($0.key) && $0.value.generation == gen }
         rowFrames = rowFrames.filter { live.contains($0.key) && $0.value.generation == gen }
     }
 
-    private func pathAt(_ pointInWindow: CGPoint) -> String? {
+    private func pathAt(_ point: CGPoint, in frames: [String: RowHitTestLogic.RowFrame]) -> String? {
         RowHitTestLogic.pathAt(
-            point: pointInWindow,
-            frames: Array(rowFrames.values),
+            point: point,
+            frames: Array(frames.values),
             generation: frameGeneration
         )
     }
 }
 
-/// NSView que reporta su frame en coordenadas de ventana al monitor.
-private final class FileDragArmFrameNSView: NSView {
+// MARK: - Frame reporters
+
+private final class FileHitFrameNSView: NSView {
     private var trackedPath: String = ""
+    var kind: FileDragArmMonitor.HitKind = .name
 
     var path: String {
         get { trackedPath }
@@ -238,7 +284,7 @@ private final class FileDragArmFrameNSView: NSView {
             let old = trackedPath
             guard old != newValue else { return }
             if !old.isEmpty {
-                FileDragArmMonitor.shared.removeRowFrame(path: old)
+                FileDragArmMonitor.shared.removeHitFrame(path: old, kind: kind)
             }
             trackedPath = newValue
             report()
@@ -278,13 +324,14 @@ private final class FileDragArmFrameNSView: NSView {
         guard !trackedPath.isEmpty, window != nil, !bounds.isEmpty else { return }
         let rect = convert(bounds, to: nil)
         let p = trackedPath
+        let k = kind
         if Thread.isMainThread {
             MainActor.assumeIsolated {
-                FileDragArmMonitor.shared.updateRowFrame(path: p, frameInWindow: rect)
+                FileDragArmMonitor.shared.updateHitFrame(path: p, kind: k, frameInWindow: rect)
             }
         } else {
             DispatchQueue.main.async {
-                FileDragArmMonitor.shared.updateRowFrame(path: p, frameInWindow: rect)
+                FileDragArmMonitor.shared.updateHitFrame(path: p, kind: k, frameInWindow: rect)
             }
         }
     }
@@ -292,13 +339,14 @@ private final class FileDragArmFrameNSView: NSView {
     override func viewWillMove(toWindow newWindow: NSWindow?) {
         if newWindow == nil, !trackedPath.isEmpty {
             let p = trackedPath
+            let k = kind
             if Thread.isMainThread {
                 MainActor.assumeIsolated {
-                    FileDragArmMonitor.shared.removeRowFrame(path: p)
+                    FileDragArmMonitor.shared.removeHitFrame(path: p, kind: k)
                 }
             } else {
                 DispatchQueue.main.async {
-                    FileDragArmMonitor.shared.removeRowFrame(path: p)
+                    FileDragArmMonitor.shared.removeHitFrame(path: p, kind: k)
                 }
             }
         }
@@ -306,27 +354,37 @@ private final class FileDragArmFrameNSView: NSView {
     }
 }
 
-private struct FileDragArmFrameReader: NSViewRepresentable {
+private struct FileHitFrameReader: NSViewRepresentable {
     let path: String
+    let kind: FileDragArmMonitor.HitKind
 
-    func makeNSView(context: Context) -> FileDragArmFrameNSView {
-        let v = FileDragArmFrameNSView()
+    func makeNSView(context: Context) -> FileHitFrameNSView {
+        let v = FileHitFrameNSView()
+        v.kind = kind
         v.path = path
         return v
     }
 
-    func updateNSView(_ nsView: FileDragArmFrameNSView, context: Context) {
-        // Antes: cada re-render (cada clic de selección) forzaba un layout por fila visible.
-        // `layout()` / `setFrameSize` ya reportan el frame cuando cambia de verdad.
+    func updateNSView(_ nsView: FileHitFrameNSView, context: Context) {
+        nsView.kind = kind
         nsView.path = path
     }
 }
 
 extension View {
+    /// Zona icono+nombre: jalón = mover (Finder).
     func reportFileDragArmFrame(path: String) -> some View {
-        background(FileDragArmFrameReader(path: path))
+        background(FileHitFrameReader(path: path, kind: .name))
             .onDisappear {
-                FileDragArmMonitor.shared.removeRowFrame(path: path)
+                FileDragArmMonitor.shared.removeHitFrame(path: path, kind: .name)
+            }
+    }
+
+    /// Fila completa: clic selecciona; jalón fuera del nombre = marquesina.
+    func reportFileRowSelectFrame(path: String) -> some View {
+        background(FileHitFrameReader(path: path, kind: .row))
+            .onDisappear {
+                FileDragArmMonitor.shared.removeHitFrame(path: path, kind: .row)
             }
     }
 
@@ -334,10 +392,6 @@ extension View {
         onAppear { FileDragArmMonitor.shared.attach(browser: browser) }
     }
 
-    /// Doble clic ligado a la celda SwiftUI (no a frames AppKit).
-    /// Un `TapGesture` simple simultáneo + `clickCount` del evento: el clic simple del botón
-    /// hijo ya no espera al intervalo de doble clic (antes `highPriorityGesture(count: 2)`
-    /// retrasaba cada selección ~0,5 s o más, según Ajustes del Sistema).
     func fileOpenOnDoubleClick(entry: FileEntry, browser: BrowserModel) -> some View {
         simultaneousGesture(
             TapGesture().onEnded {

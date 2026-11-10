@@ -237,7 +237,9 @@ struct IconsBrowserView: View {
                 if marqueeStart == nil {
                     let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
                     let hit = iconEntry(at: value.startLocation)
+                    let hitOnName = hit != nil
                     switch PressDragSelectLogic.startAction(
+                        hitOnName: hitOnName,
                         hitID: hit?.id,
                         hitPath: hit?.path,
                         hitIsSelected: hit.map { browser.selectedIDs.contains($0.id) } ?? false,
@@ -245,8 +247,7 @@ struct IconsBrowserView: View {
                         commandHeld: flags.contains(.command),
                         shiftHeld: flags.contains(.shift),
                         hasArmedFileDrag: browser.hasArmedFileDrag,
-                        armedPaths: browser.peekArmedFileDrag(),
-                        isArming: browser.fileDragArmingPath != nil
+                        armedPaths: browser.peekArmedFileDrag()
                     ) {
                     case .ignore:
                         return
@@ -255,7 +256,7 @@ struct IconsBrowserView: View {
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
                         folderDragPaths = paths
-                        folderDragStarted = false
+                        folderDragStarted = FileDragArmMonitor.shared.pressArmedFileDrag
                     case .beginMarquee(let additive):
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
@@ -555,8 +556,12 @@ private struct ColumnPane: View {
             .onChanged { value in
                 if marqueeStart == nil {
                     let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                    let windowPoint = NSApp.currentEvent?.locationInWindow
+                    let hitOnName = windowPoint.map { FileDragArmMonitor.shared.isNameHit(atWindowPoint: $0) }
+                        ?? FileDragArmMonitor.shared.pressArmedFileDrag
                     let hit = entryAtY(value.startLocation.y)
                     switch PressDragSelectLogic.startAction(
+                        hitOnName: hitOnName,
                         hitID: hit?.id,
                         hitPath: hit?.path,
                         hitIsSelected: hit.map { browser.selectedIDs.contains($0.id) } ?? false,
@@ -564,8 +569,7 @@ private struct ColumnPane: View {
                         commandHeld: flags.contains(.command),
                         shiftHeld: flags.contains(.shift),
                         hasArmedFileDrag: browser.hasArmedFileDrag,
-                        armedPaths: browser.peekArmedFileDrag(),
-                        isArming: browser.fileDragArmingPath != nil
+                        armedPaths: browser.peekArmedFileDrag()
                     ) {
                     case .ignore:
                         return
@@ -574,7 +578,7 @@ private struct ColumnPane: View {
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
                         folderDragPaths = paths
-                        folderDragStarted = false
+                        folderDragStarted = FileDragArmMonitor.shared.pressArmedFileDrag
                     case .beginMarquee(let additive):
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location

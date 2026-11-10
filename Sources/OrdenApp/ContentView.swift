@@ -1363,7 +1363,14 @@ struct SidebarView: View {
     }
 }
 
-// MARK: - File pane (clic + marquee; sin GeometryReader = sin hueco)
+// MARK: - File pane (clic + marquee)
+
+private struct ListContentWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 900
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
 
 struct FileBrowserPane: View {
     @EnvironmentObject private var browser: BrowserModel
@@ -1379,10 +1386,6 @@ struct FileBrowserPane: View {
 
     private var paneError: String? {
         isSecondary ? browser.secondaryError : browser.errorMessage
-    }
-
-    private var paneAllSelected: Bool {
-        isSecondary ? browser.allSecondarySelected : browser.allVisibleSelected
     }
 
     /// Debe coincidir con la altura fija de cada `FileRowButton`.
@@ -1401,6 +1404,8 @@ struct FileBrowserPane: View {
     @State private var marqueeStartEntryID: String?
     @State private var folderDragPaths: [String] = []
     @State private var folderDragStarted = false
+    /// Ancho del contenido de lista (coordenadas del gesto) para separar columna Nombre vs vacío.
+    @State private var listContentWidth: CGFloat = 900
 
     var body: some View {
         Group {
@@ -1486,6 +1491,12 @@ struct FileBrowserPane: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .coordinateSpace(name: isSecondary ? "fileListSecondary" : "fileList")
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.preference(key: ListContentWidthKey.self, value: geo.size.width)
+                        }
+                    )
+                    .onPreferenceChange(ListContentWidthKey.self) { listContentWidth = max($0, 1) }
                     .overlay(alignment: .topLeading) {
                         if let rect = marqueeRect {
                             RoundedRectangle(cornerRadius: 3, style: .continuous)
@@ -1500,8 +1511,8 @@ struct FileBrowserPane: View {
                         }
                     }
                     .contentShape(Rectangle())
-                    // highPriority: el jalón gana al onTapGesture de la fila (si no, “no jala”).
-                    .highPriorityGesture(marqueeGesture)
+                    // Marquesina en vacío. El drag de archivo lo arma AppKit sobre el nombre.
+                    .gesture(marqueeGesture)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .onScrollGeometryChange(for: CGFloat.self) { geo in
@@ -1580,12 +1591,27 @@ struct FileBrowserPane: View {
     }
 
     private var marqueeGesture: some Gesture {
-        // Archivo + mover → drag (también al Tray abajo). Vacío / ⇧ → marquesina. Clic limpio → select.
+        // Nombre/icono → mover (AppKit). Vacío / columnas → marquesina. ⇧ → caja aditiva.
         DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named(listCoordinateSpace))
             .onChanged { value in
                 if marqueeStart == nil {
                     let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                    let windowPoint = NSApp.currentEvent?.locationInWindow
                     let hit = entryAtY(value.startLocation.y)
+                    // Columna Nombre = todo menos Tipo/Fecha/Tamaño/copiar (vacío Finder a la derecha).
+                    let trailingChrome: CGFloat = {
+                        let copy: CGFloat = 38
+                        let size: CGFloat = metrics.isCompact ? 72 : 84
+                        let date: CGFloat = metrics.isCompact ? 108 : 130
+                        let type: CGFloat = metrics.isCompact ? 0 : 100
+                        let gaps: CGFloat = metrics.isCompact ? 24 : 40
+                        return copy + size + date + type + gaps
+                    }()
+                    let inTrailingChrome = value.startLocation.x >= (listContentWidth - trailingChrome)
+                    let inNameColumn = hit != nil && !inTrailingChrome
+                    let hitOnName = FileDragArmMonitor.shared.pressArmedFileDrag
+                        || (windowPoint.map { FileDragArmMonitor.shared.isNameHit(atWindowPoint: $0) } ?? false)
+                        || inNameColumn
                     let hitSelected: Bool = {
                         guard let hit else { return false }
                         return isSecondary
@@ -1596,6 +1622,7 @@ struct FileBrowserPane: View {
                         ? browser.secondarySelectedEntries.map(\.path)
                         : browser.selectedEntries.map(\.path)
                     switch PressDragSelectLogic.startAction(
+                        hitOnName: hitOnName,
                         hitID: hit?.id,
                         hitPath: hit?.path,
                         hitIsSelected: hitSelected,
@@ -1603,8 +1630,7 @@ struct FileBrowserPane: View {
                         commandHeld: flags.contains(.command),
                         shiftHeld: flags.contains(.shift),
                         hasArmedFileDrag: browser.hasArmedFileDrag,
-                        armedPaths: browser.peekArmedFileDrag(),
-                        isArming: browser.fileDragArmingPath != nil
+                        armedPaths: browser.peekArmedFileDrag()
                     ) {
                     case .ignore:
                         return
@@ -1619,7 +1645,8 @@ struct FileBrowserPane: View {
                         folderDragPaths = paths
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
-                        folderDragStarted = false
+                        // Si AppKit ya armó el press sobre el nombre, él dispara el drag nativo.
+                        folderDragStarted = FileDragArmMonitor.shared.pressArmedFileDrag
                         marqueeCommitted = false
                     case .beginMarquee(let additive):
                         marqueeStart = value.startLocation
@@ -1638,7 +1665,6 @@ struct FileBrowserPane: View {
                     let dist = hypot(value.translation.width, value.translation.height)
                     if !folderDragStarted, dist >= PressDragSelectLogic.moveThreshold {
                         folderDragStarted = true
-                        // Async vía monitor: beginDraggingSession sync dentro de DragGesture falla.
                         FileDragArmMonitor.shared.requestNativeDrag(paths: folderDragPaths)
                     }
                     return
@@ -1706,20 +1732,6 @@ struct FileBrowserPane: View {
 
     private var header: some View {
         HStack(spacing: metrics.isCompact ? 8 : 12) {
-            Button {
-                if isSecondary {
-                    browser.toggleSelectAllSecondary()
-                } else {
-                    browser.toggleSelectAllVisible()
-                }
-            } label: {
-                Image(systemName: paneAllSelected ? "checkmark.square.fill" : "square")
-                    .foregroundStyle(OrdenTheme.accent)
-                    .frame(width: 22)
-            }
-            .buttonStyle(.plain)
-            .help(L10n.s("Seleccionar / quitar todos", "Select / deselect all"))
-
             Text(L10n.s("Nombre / ruta", "Name / Path"))
                 .frame(maxWidth: .infinity, alignment: .leading)
             if !metrics.isCompact {
@@ -1760,26 +1772,9 @@ struct FileRowButton: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Button {
-                if isSecondary {
-                    browser.toggleSecondarySelection(entry.id)
-                } else {
-                    browser.toggleSelection(entry.id)
-                }
-            } label: {
-                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                    .font(.body)
-                    .foregroundStyle(isSelected ? OrdenTheme.accent : .secondary)
-                    .frame(width: 22, height: 28)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help(L10n.s("Marcar / desmarcar", "Select / deselect"))
-            .padding(.leading, 10)
-
-            // Clic/doble clic en la fila (no Button): evita pelear con TapGesture y con el monitor AppKit.
-            HStack(alignment: .center, spacing: metrics.isCompact ? 8 : 12) {
+        HStack(alignment: .center, spacing: metrics.isCompact ? 8 : 12) {
+            // Solo icono + nombre = zona de MOVER (Finder). El resto de la fila = marquesina.
+            HStack(alignment: .center, spacing: 8) {
                 ZStack {
                     FileTypeIcon(category: entry.category, path: entry.path, size: 17)
                     FileDragArmChrome.Overlay(path: entry.path, size: 26)
@@ -1802,31 +1797,30 @@ struct FileRowButton: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-
-                if !metrics.isCompact {
-                    Text(entry.category.labelLocalized)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 100, alignment: .leading)
-                }
-                Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: metrics.isCompact ? 108 : 130, alignment: .trailing)
-                Text(sizeLabel)
-                    .font(.caption.monospacedDigit().weight(entry.size > 100_000_000 ? .semibold : .regular))
-                    .foregroundStyle(entry.size > 500_000_000 ? .orange : .secondary)
-                    .frame(width: metrics.isCompact ? 72 : 84, alignment: .trailing)
             }
-            .padding(.vertical, metrics.isCompact ? 10 : 8)
+            // Columna Nombre (icono+texto): jalón = mover. Tipo/Fecha/Tamaño = vacío/marquesina.
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 12)
+            .padding(.vertical, metrics.isCompact ? 10 : 8)
             .contentShape(Rectangle())
-            // UN solo gesto de clic: selecciona al instante. El doble clic se reconoce por el
-            // `clickCount` del evento (2.º clic) en vez de `TapGesture(count: 2)`, que obligaba
-            // a SwiftUI a esperar el intervalo de doble clic antes de seleccionar (la demora).
-            .onTapGesture {
-                handleRowTap()
+            .reportFileDragArmFrame(path: entry.path)
+
+            // Espacio fijo de columnas = “vacío” Finder para marquesina.
+
+            if !metrics.isCompact {
+                Text(entry.category.labelLocalized)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 100, alignment: .leading)
             }
+            Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: metrics.isCompact ? 108 : 130, alignment: .trailing)
+            Text(sizeLabel)
+                .font(.caption.monospacedDigit().weight(entry.size > 100_000_000 ? .semibold : .regular))
+                .foregroundStyle(entry.size > 500_000_000 ? .orange : .secondary)
+                .frame(width: metrics.isCompact ? 72 : 84, alignment: .trailing)
 
             Button {
                 browser.copyPath(entry)
@@ -1841,9 +1835,12 @@ struct FileRowButton: View {
             .help(L10n.s("Copiar ruta completa", "Copy full path"))
             .padding(.trailing, 10)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture { handleRowTap() }
         .opacity(isCut ? 0.42 : 1)
         .background(rowBackground)
-        .reportFileDragArmFrame(path: entry.path)
+        .reportFileRowSelectFrame(path: entry.path)
         .fileDragArmHighlight(path: entry.path)
         .folderDropTarget(entry: entry)
         .fileDragArmPress(entry: entry, browser: browser)
