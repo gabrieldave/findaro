@@ -8,23 +8,23 @@ public enum PressDragIntent: Equatable, Sendable {
     case fileMove
 }
 
-/// Qué hacer al superar el umbral de arrastre (estilo Finder).
+/// Qué hacer al superar el umbral de arrastre.
 public enum PressDragStartAction: Equatable, Sendable {
     /// No consumir el gesto (p. ej. ⌘ sin modo naranja).
     case ignore
     /// Arrastre nativo de archivos. `selectOnlyID` si hay que fijar selección al ítem pulsado.
     case beginFileDrag(paths: [String], selectOnlyID: String?)
-    /// Marquesina (espacio vacío o ⇧ desde ítem no seleccionado).
+    /// Marquesina (espacio vacío, ⇧, o gesto de caja/vertical).
     case beginMarquee(additive: Bool)
+    /// Archivo no seleccionado: aún no decidimos (marquesina vs mover).
+    case pendingUnselectedFile(id: String, path: String)
 }
 
 public enum PressDragSelectLogic {
     /// Distancia mínima para reconocer arrastre (no robar clic limpio).
-    /// Mantener bajo: clic suelto = seleccionar; apretar + mover = arrastrar (Finder).
     public static let moveThreshold: CGFloat = 4
 
     /// El marquee solo “engancha” con un rectángulo intencional.
-    /// Evita que un micro-movimiento al hacer clic seleccione la fila de al lado.
     public static let marqueeCommitSize: CGFloat = 28
 
     public static func isMarqueeCommitted(translation: CGSize) -> Bool {
@@ -37,8 +37,10 @@ public enum PressDragSelectLogic {
         showPaths ? 64 : 48
     }
 
-    /// Regla Finder: click+suelta selecciona; click+arrastra sobre un archivo lo mueve.
-    /// Marquesina solo desde vacío (o ⇧ sobre no seleccionado). Sin delays extra.
+    /// Arranque del gesto.
+    /// - Seleccionado / armado → mover ya.
+    /// - No seleccionado → `pending` (se resuelve en `resolvePendingUnselected`).
+    /// - Vacío / ⇧ → marquesina.
     public static func startAction(
         hitID: String?,
         hitPath: String?,
@@ -60,12 +62,33 @@ public enum PressDragSelectLogic {
                 let paths = selectedPaths.isEmpty ? [hitPath] : selectedPaths
                 return .beginFileDrag(paths: paths, selectOnlyID: nil)
             }
-            // ⇧ conserva marquesina aditiva; sin modificadores = mover ese archivo (Finder).
             if shiftHeld {
                 return .beginMarquee(additive: true)
             }
-            return .beginFileDrag(paths: [hitPath], selectOnlyID: hitID)
+            // No comerse la marquesina: decidir en movimiento (vertical/caja vs horizontal).
+            return .pendingUnselectedFile(id: hitID, path: hitPath)
         }
         return .beginMarquee(additive: shiftHeld)
+    }
+
+    /// Resuelve pending sin delay artificial.
+    /// - Caja/vertical ≥ marqueeCommitSize → marquesina (multi-selección con mouse).
+    /// - Horizontal dominante ≥ moveThreshold → mover ese archivo (Finder / otro panel).
+    public static func resolvePendingUnselected(
+        id: String,
+        path: String,
+        translation: CGSize
+    ) -> PressDragStartAction? {
+        let dx = abs(translation.width)
+        let dy = abs(translation.height)
+
+        if dy >= marqueeCommitSize || (dx >= marqueeCommitSize && dy >= marqueeCommitSize * 0.45) {
+            return .beginMarquee(additive: false)
+        }
+        if dx >= moveThreshold, dx > dy {
+            return .beginFileDrag(paths: [path], selectOnlyID: id)
+        }
+        // Vertical corto: espera a marqueeCommitSize (no lances drag ni marquesina aún).
+        return nil
     }
 }

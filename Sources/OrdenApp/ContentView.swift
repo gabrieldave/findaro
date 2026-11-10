@@ -1401,6 +1401,8 @@ struct FileBrowserPane: View {
     @State private var marqueeStartEntryID: String?
     @State private var folderDragPaths: [String] = []
     @State private var folderDragStarted = false
+    /// Archivo no seleccionado: esperando si el gesto es marquesina o mover.
+    @State private var pendingUnselected: (id: String, path: String)?
 
     var body: some View {
         Group {
@@ -1549,10 +1551,36 @@ struct FileBrowserPane: View {
         marqueeStartEntryID = nil
         folderDragPaths = []
         folderDragStarted = false
+        pendingUnselected = nil
+    }
+
+    private func applyFileDragStart(paths: [String], selectOnlyID: String?) {
+        if let selectOnlyID {
+            if isSecondary {
+                browser.selectSecondaryOnly(selectOnlyID)
+            } else {
+                browser.selectOnly(selectOnlyID)
+            }
+        }
+        folderDragPaths = paths
+        folderDragStarted = false
+        pendingUnselected = nil
+        marqueeCommitted = false
+    }
+
+    private func applyMarqueeStart(additive: Bool, hitID: String?) {
+        folderDragPaths = []
+        pendingUnselected = nil
+        marqueeCommitted = false
+        marqueeStartEntryID = hitID
+        marqueeAdditive = additive
+        marqueeBase = additive
+            ? (isSecondary ? browser.secondarySelectedIDs : browser.selectedIDs)
+            : []
     }
 
     private var marqueeRect: CGRect? {
-        guard folderDragPaths.isEmpty, marqueeCommitted else { return nil }
+        guard folderDragPaths.isEmpty, pendingUnselected == nil, marqueeCommitted else { return nil }
         guard let start = marqueeStart, let current = marqueeCurrent else { return nil }
         return CGRect(
             x: min(start.x, current.x),
@@ -1579,9 +1607,7 @@ struct FileBrowserPane: View {
     }
 
     private var marqueeGesture: some Gesture {
-        // minimumDistance > 0: el clic limpio llega al botón (1 archivo).
-        // Marquee solo tras rectángulo intencional (marqueeCommitSize).
-        // Sobre un archivo: apretar + mover = arrastre nativo (Finder); soltar sin mover = solo selección.
+        // Clic limpio → selección. Vertical/caja → marquesina. Horizontal / ya seleccionado → mover.
         DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named(listCoordinateSpace))
             .onChanged { value in
                 if marqueeStart == nil {
@@ -1610,30 +1636,39 @@ struct FileBrowserPane: View {
                     case .ignore:
                         return
                     case .beginFileDrag(let paths, let selectOnlyID):
-                        if let selectOnlyID {
-                            if isSecondary {
-                                browser.selectSecondaryOnly(selectOnlyID)
-                            } else {
-                                browser.selectOnly(selectOnlyID)
-                            }
-                        }
-                        folderDragPaths = paths
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
-                        folderDragStarted = false
-                        marqueeCommitted = false
-                        return
+                        applyFileDragStart(paths: paths, selectOnlyID: selectOnlyID)
                     case .beginMarquee(let additive):
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
+                        applyMarqueeStart(additive: additive, hitID: hit?.id)
+                    case .pendingUnselectedFile(let id, let path):
+                        marqueeStart = value.startLocation
+                        marqueeCurrent = value.location
+                        pendingUnselected = (id, path)
                         folderDragPaths = []
                         marqueeCommitted = false
-                        marqueeStartEntryID = hit?.id
-                        marqueeAdditive = additive
-                        marqueeBase = additive
-                            ? (isSecondary ? browser.secondarySelectedIDs : browser.selectedIDs)
-                            : []
-                        // No limpiar selección hasta confirmar marquee (si no, un temblor deja multi raro).
+                    }
+                }
+
+                if let pending = pendingUnselected {
+                    marqueeCurrent = value.location
+                    if let resolved = PressDragSelectLogic.resolvePendingUnselected(
+                        id: pending.id,
+                        path: pending.path,
+                        translation: value.translation
+                    ) {
+                        switch resolved {
+                        case .beginFileDrag(let paths, let selectOnlyID):
+                            applyFileDragStart(paths: paths, selectOnlyID: selectOnlyID)
+                        case .beginMarquee(let additive):
+                            applyMarqueeStart(additive: additive, hitID: pending.id)
+                        default:
+                            break
+                        }
+                    } else {
+                        return
                     }
                 }
 
@@ -1665,9 +1700,14 @@ struct FileBrowserPane: View {
                 if folderDragPaths.isEmpty {
                     if marqueeCommitted {
                         applyMarquee()
+                    } else if let pending = pendingUnselected {
+                        // Gesto corto sin decidir: equivale a clic en ese archivo.
+                        if isSecondary {
+                            browser.selectSecondaryOnly(pending.id)
+                        } else {
+                            browser.selectOnly(pending.id)
+                        }
                     }
-                    // Si no hubo marquee committed (clic limpio o micro-movimiento),
-                    // FileRowButton ya gestiona el clic directamente sin pisar ⌘ ni ⇧.
                 }
                 resetMarquee()
             }

@@ -89,6 +89,7 @@ struct IconsBrowserView: View {
     @State private var marqueeAdditive = false
     @State private var folderDragPaths: [String] = []
     @State private var folderDragStarted = false
+    @State private var pendingUnselected: (id: String, path: String)?
 
     /// Ancho efectivo: preferir medida local; si no, la del resize de ventana.
     private var containerWidth: CGFloat {
@@ -219,10 +220,11 @@ struct IconsBrowserView: View {
         marqueeBase = []
         folderDragPaths = []
         folderDragStarted = false
+        pendingUnselected = nil
     }
 
     private var marqueeRect: CGRect? {
-        guard folderDragPaths.isEmpty else { return nil }
+        guard folderDragPaths.isEmpty, pendingUnselected == nil else { return nil }
         guard let start = marqueeStart, let current = marqueeCurrent else { return nil }
         return CGRect(
             x: min(start.x, current.x),
@@ -257,16 +259,50 @@ struct IconsBrowserView: View {
                         marqueeCurrent = value.location
                         folderDragPaths = paths
                         folderDragStarted = false
-                        return
+                        pendingUnselected = nil
                     case .beginMarquee(let additive):
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
                         folderDragPaths = []
+                        pendingUnselected = nil
                         marqueeAdditive = additive
                         marqueeBase = additive ? browser.selectedIDs : []
                         if !additive { browser.clearSelection() }
+                    case .pendingUnselectedFile(let id, let path):
+                        marqueeStart = value.startLocation
+                        marqueeCurrent = value.location
+                        folderDragPaths = []
+                        pendingUnselected = (id, path)
                     }
                 }
+
+                if let pending = pendingUnselected {
+                    marqueeCurrent = value.location
+                    if let resolved = PressDragSelectLogic.resolvePendingUnselected(
+                        id: pending.id,
+                        path: pending.path,
+                        translation: value.translation
+                    ) {
+                        switch resolved {
+                        case .beginFileDrag(let paths, let selectOnlyID):
+                            if let selectOnlyID { browser.selectOnly(selectOnlyID) }
+                            folderDragPaths = paths
+                            folderDragStarted = false
+                            pendingUnselected = nil
+                        case .beginMarquee(let additive):
+                            pendingUnselected = nil
+                            folderDragPaths = []
+                            marqueeAdditive = additive
+                            marqueeBase = additive ? browser.selectedIDs : []
+                            if !additive { browser.clearSelection() }
+                        default:
+                            break
+                        }
+                    } else {
+                        return
+                    }
+                }
+
                 if !folderDragPaths.isEmpty {
                     let dist = hypot(value.translation.width, value.translation.height)
                     if !folderDragStarted, dist >= PressDragSelectLogic.moveThreshold {
@@ -279,7 +315,13 @@ struct IconsBrowserView: View {
                 applyIconsMarquee()
             }
             .onEnded { _ in
-                if folderDragPaths.isEmpty { applyIconsMarquee() }
+                if folderDragPaths.isEmpty {
+                    if let pending = pendingUnselected {
+                        browser.selectOnly(pending.id)
+                    } else {
+                        applyIconsMarquee()
+                    }
+                }
                 resetMarquee()
             }
     }
@@ -473,6 +515,7 @@ private struct ColumnPane: View {
     @State private var marqueeAdditive = false
     @State private var folderDragPaths: [String] = []
     @State private var folderDragStarted = false
+    @State private var pendingUnselected: (id: String, path: String)?
 
     private var sortedEntries: [FileEntry] {
         SortEngine.sort(entries, by: browser.rule)
@@ -540,10 +583,11 @@ private struct ColumnPane: View {
         marqueeBase = []
         folderDragPaths = []
         folderDragStarted = false
+        pendingUnselected = nil
     }
 
     private var marqueeRect: CGRect? {
-        guard folderDragPaths.isEmpty else { return nil }
+        guard folderDragPaths.isEmpty, pendingUnselected == nil else { return nil }
         guard let start = marqueeStart, let current = marqueeCurrent else { return nil }
         return CGRect(
             x: min(start.x, current.x),
@@ -578,16 +622,50 @@ private struct ColumnPane: View {
                         marqueeCurrent = value.location
                         folderDragPaths = paths
                         folderDragStarted = false
-                        return
+                        pendingUnselected = nil
                     case .beginMarquee(let additive):
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
                         folderDragPaths = []
+                        pendingUnselected = nil
                         marqueeAdditive = additive
                         marqueeBase = additive ? browser.selectedIDs : []
                         if !additive { browser.clearSelection() }
+                    case .pendingUnselectedFile(let id, let path):
+                        marqueeStart = value.startLocation
+                        marqueeCurrent = value.location
+                        folderDragPaths = []
+                        pendingUnselected = (id, path)
                     }
                 }
+
+                if let pending = pendingUnselected {
+                    marqueeCurrent = value.location
+                    if let resolved = PressDragSelectLogic.resolvePendingUnselected(
+                        id: pending.id,
+                        path: pending.path,
+                        translation: value.translation
+                    ) {
+                        switch resolved {
+                        case .beginFileDrag(let paths, let selectOnlyID):
+                            if let selectOnlyID { browser.selectOnly(selectOnlyID) }
+                            folderDragPaths = paths
+                            folderDragStarted = false
+                            pendingUnselected = nil
+                        case .beginMarquee(let additive):
+                            pendingUnselected = nil
+                            folderDragPaths = []
+                            marqueeAdditive = additive
+                            marqueeBase = additive ? browser.selectedIDs : []
+                            if !additive { browser.clearSelection() }
+                        default:
+                            break
+                        }
+                    } else {
+                        return
+                    }
+                }
+
                 if !folderDragPaths.isEmpty {
                     let dist = hypot(value.translation.width, value.translation.height)
                     if !folderDragStarted, dist >= PressDragSelectLogic.moveThreshold {
@@ -600,7 +678,13 @@ private struct ColumnPane: View {
                 applyMarquee()
             }
             .onEnded { _ in
-                if folderDragPaths.isEmpty { applyMarquee() }
+                if folderDragPaths.isEmpty {
+                    if let pending = pendingUnselected {
+                        browser.selectOnly(pending.id)
+                    } else {
+                        applyMarquee()
+                    }
+                }
                 resetMarquee()
             }
     }

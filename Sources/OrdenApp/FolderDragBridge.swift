@@ -44,26 +44,26 @@ final class FolderDragBridge: NSObject, NSDraggingSource {
         guard !urls.isEmpty else { return false }
 
         let origin = event.locationInWindow
+        let badge = Self.simpleMoveBadge(count: urls.count, name: urls[0].lastPathComponent)
+        let badgeSize = badge.size
         let items: [NSDraggingItem] = urls.enumerated().map { index, url in
             let item = NSDraggingItem(pasteboardWriter: url as NSURL)
-            var isDir: ObjCBool = false
-            _ = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
-            let offset = CGFloat(min(index, 6)) * 5
-            let rect = NSRect(
-                x: origin.x - 18 + offset,
-                y: origin.y - 18 - offset,
-                width: 36,
-                height: 36
-            )
-            let image: NSImage
-            if index == 0, urls.count > 1 {
-                image = Self.stackedBadgeImage(count: urls.count, isDirectory: isDir.boolValue)
+            if index == 0 {
+                // Un solo indicador sutil bajo el cursor (sin icono de documento negro).
+                let rect = NSRect(
+                    x: origin.x - badgeSize.width * 0.35,
+                    y: origin.y - badgeSize.height * 0.55,
+                    width: badgeSize.width,
+                    height: badgeSize.height
+                )
+                item.setDraggingFrame(rect, contents: badge)
             } else {
-                let symbol = isDir.boolValue ? "folder.fill" : "doc.fill"
-                image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-                    ?? NSImage(size: NSSize(width: 32, height: 32))
+                // El resto viaja en el pasteboard sin fantasma visual extra.
+                item.setDraggingFrame(
+                    NSRect(x: origin.x, y: origin.y, width: 1, height: 1),
+                    contents: nil
+                )
             }
-            item.setDraggingFrame(rect, contents: image)
             return item
         }
 
@@ -72,36 +72,47 @@ final class FolderDragBridge: NSObject, NSDraggingSource {
         return true
     }
 
-    private static func stackedBadgeImage(count: Int, isDirectory: Bool) -> NSImage {
-        let size = NSSize(width: 44, height: 44)
+    /// Pastilla translúcida: resalta el movimiento sin silueta de archivo.
+    private static func simpleMoveBadge(count: Int, name: String) -> NSImage {
+        let label: String
+        if count > 1 {
+            label = "\(min(count, 99))"
+        } else {
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            label = trimmed.count > 22 ? String(trimmed.prefix(20)) + "…" : trimmed
+        }
+
+        let font = NSFont.systemFont(ofSize: count > 1 ? 13 : 11, weight: .semibold)
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.white
+        ]
+        let text = label as NSString
+        let textSize = text.size(withAttributes: attrs)
+        let padX: CGFloat = count > 1 ? 10 : 12
+        let padY: CGFloat = count > 1 ? 8 : 7
+        let size = NSSize(
+            width: max(count > 1 ? 28 : 72, textSize.width + padX * 2),
+            height: max(28, textSize.height + padY * 2)
+        )
+
         let image = NSImage(size: size)
         image.lockFocus()
         defer { image.unlockFocus() }
 
-        let symbol = isDirectory ? "folder.fill" : "doc.fill"
-        if let base = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
-            let conf = NSImage.SymbolConfiguration(pointSize: 26, weight: .semibold)
-            let configured = base.withSymbolConfiguration(conf) ?? base
-            let rect = NSRect(x: 4, y: 10, width: 28, height: 28)
-            configured.draw(in: rect)
-        }
+        let rect = NSRect(origin: .zero, size: size).insetBy(dx: 0.5, dy: 0.5)
+        let path = NSBezierPath(roundedRect: rect, xRadius: size.height / 2, yRadius: size.height / 2)
+        NSColor.controlAccentColor.withAlphaComponent(0.88).setFill()
+        path.fill()
+        NSColor.white.withAlphaComponent(0.35).setStroke()
+        path.lineWidth = 1
+        path.stroke()
 
-        let badge = NSRect(x: 22, y: 2, width: 20, height: 20)
-        NSColor.systemOrange.setFill()
-        NSBezierPath(ovalIn: badge).fill()
-        let text = "\(min(count, 99))" as NSString
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.boldSystemFont(ofSize: 10),
-            .foregroundColor: NSColor.white
-        ]
-        let textSize = text.size(withAttributes: attrs)
-        text.draw(
-            at: NSPoint(
-                x: badge.midX - textSize.width / 2,
-                y: badge.midY - textSize.height / 2
-            ),
-            withAttributes: attrs
+        let textOrigin = NSPoint(
+            x: (size.width - textSize.width) / 2,
+            y: (size.height - textSize.height) / 2 - 0.5
         )
+        text.draw(at: textOrigin, withAttributes: attrs)
         return image
     }
 }
