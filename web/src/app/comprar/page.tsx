@@ -97,11 +97,11 @@ function ComprarInner() {
       const price = isPromo ? (seats === 5 ? 59 : (hasDiscount ? 35 : 39)) : (seats === 5 ? 59 : 39);
       if (isEn) {
         return isPromo
-          ? `Launch special: $${price} USD (${seats} Macs) · ${remaining} spots remaining`
+          ? `Launch price: ${price} USD (${seats} Macs)`
           : `Lifetime License: $${price} USD (${seats} Macs)`;
       } else {
         return isPromo
-          ? `Lanzamiento: $${price} USD (${seats} Macs) · quedan ${remaining} cupos`
+          ? `Precio de lanzamiento: ${price} USD (${seats} Macs)`
           : `Licencia de por vida: $${price} USD (${seats} Macs)`;
       }
     },
