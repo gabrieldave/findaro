@@ -1401,8 +1401,6 @@ struct FileBrowserPane: View {
     @State private var marqueeStartEntryID: String?
     @State private var folderDragPaths: [String] = []
     @State private var folderDragStarted = false
-    /// Archivo no seleccionado: esperando si el gesto es marquesina o mover.
-    @State private var pendingUnselected: (id: String, path: String)?
 
     var body: some View {
         Group {
@@ -1502,7 +1500,8 @@ struct FileBrowserPane: View {
                         }
                     }
                     .contentShape(Rectangle())
-                    .gesture(marqueeGesture)
+                    // highPriority: el jalón gana al onTapGesture de la fila (si no, “no jala”).
+                    .highPriorityGesture(marqueeGesture)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .onScrollGeometryChange(for: CGFloat.self) { geo in
@@ -1551,36 +1550,10 @@ struct FileBrowserPane: View {
         marqueeStartEntryID = nil
         folderDragPaths = []
         folderDragStarted = false
-        pendingUnselected = nil
-    }
-
-    private func applyFileDragStart(paths: [String], selectOnlyID: String?) {
-        if let selectOnlyID {
-            if isSecondary {
-                browser.selectSecondaryOnly(selectOnlyID)
-            } else {
-                browser.selectOnly(selectOnlyID)
-            }
-        }
-        folderDragPaths = paths
-        folderDragStarted = false
-        pendingUnselected = nil
-        marqueeCommitted = false
-    }
-
-    private func applyMarqueeStart(additive: Bool, hitID: String?) {
-        folderDragPaths = []
-        pendingUnselected = nil
-        marqueeCommitted = false
-        marqueeStartEntryID = hitID
-        marqueeAdditive = additive
-        marqueeBase = additive
-            ? (isSecondary ? browser.secondarySelectedIDs : browser.selectedIDs)
-            : []
     }
 
     private var marqueeRect: CGRect? {
-        guard folderDragPaths.isEmpty, pendingUnselected == nil, marqueeCommitted else { return nil }
+        guard folderDragPaths.isEmpty, marqueeCommitted else { return nil }
         guard let start = marqueeStart, let current = marqueeCurrent else { return nil }
         return CGRect(
             x: min(start.x, current.x),
@@ -1607,7 +1580,7 @@ struct FileBrowserPane: View {
     }
 
     private var marqueeGesture: some Gesture {
-        // Clic limpio → selección. Vertical/caja → marquesina. Horizontal / ya seleccionado → mover.
+        // Archivo + mover → drag (también al Tray abajo). Vacío / ⇧ → marquesina. Clic limpio → select.
         DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named(listCoordinateSpace))
             .onChanged { value in
                 if marqueeStart == nil {
@@ -1636,39 +1609,28 @@ struct FileBrowserPane: View {
                     case .ignore:
                         return
                     case .beginFileDrag(let paths, let selectOnlyID):
+                        if let selectOnlyID {
+                            if isSecondary {
+                                browser.selectSecondaryOnly(selectOnlyID)
+                            } else {
+                                browser.selectOnly(selectOnlyID)
+                            }
+                        }
+                        folderDragPaths = paths
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
-                        applyFileDragStart(paths: paths, selectOnlyID: selectOnlyID)
+                        folderDragStarted = false
+                        marqueeCommitted = false
                     case .beginMarquee(let additive):
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
-                        applyMarqueeStart(additive: additive, hitID: hit?.id)
-                    case .pendingUnselectedFile(let id, let path):
-                        marqueeStart = value.startLocation
-                        marqueeCurrent = value.location
-                        pendingUnselected = (id, path)
                         folderDragPaths = []
                         marqueeCommitted = false
-                    }
-                }
-
-                if let pending = pendingUnselected {
-                    marqueeCurrent = value.location
-                    if let resolved = PressDragSelectLogic.resolvePendingUnselected(
-                        id: pending.id,
-                        path: pending.path,
-                        translation: value.translation
-                    ) {
-                        switch resolved {
-                        case .beginFileDrag(let paths, let selectOnlyID):
-                            applyFileDragStart(paths: paths, selectOnlyID: selectOnlyID)
-                        case .beginMarquee(let additive):
-                            applyMarqueeStart(additive: additive, hitID: pending.id)
-                        default:
-                            break
-                        }
-                    } else {
-                        return
+                        marqueeStartEntryID = hit?.id
+                        marqueeAdditive = additive
+                        marqueeBase = additive
+                            ? (isSecondary ? browser.secondarySelectedIDs : browser.selectedIDs)
+                            : []
                     }
                 }
 
@@ -1676,7 +1638,8 @@ struct FileBrowserPane: View {
                     let dist = hypot(value.translation.width, value.translation.height)
                     if !folderDragStarted, dist >= PressDragSelectLogic.moveThreshold {
                         folderDragStarted = true
-                        _ = browser.startDragWithPaths(folderDragPaths)
+                        // Async vía monitor: beginDraggingSession sync dentro de DragGesture falla.
+                        FileDragArmMonitor.shared.requestNativeDrag(paths: folderDragPaths)
                     }
                     return
                 }
@@ -1697,17 +1660,8 @@ struct FileBrowserPane: View {
                 }
             }
             .onEnded { _ in
-                if folderDragPaths.isEmpty {
-                    if marqueeCommitted {
-                        applyMarquee()
-                    } else if let pending = pendingUnselected {
-                        // Gesto corto sin decidir: equivale a clic en ese archivo.
-                        if isSecondary {
-                            browser.selectSecondaryOnly(pending.id)
-                        } else {
-                            browser.selectOnly(pending.id)
-                        }
-                    }
+                if folderDragPaths.isEmpty, marqueeCommitted {
+                    applyMarquee()
                 }
                 resetMarquee()
             }
@@ -1889,6 +1843,7 @@ struct FileRowButton: View {
         }
         .opacity(isCut ? 0.42 : 1)
         .background(rowBackground)
+        .reportFileDragArmFrame(path: entry.path)
         .fileDragArmHighlight(path: entry.path)
         .folderDropTarget(entry: entry)
         .fileDragArmPress(entry: entry, browser: browser)

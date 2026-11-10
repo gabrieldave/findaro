@@ -35,8 +35,8 @@ final class FolderDragBridge: NSObject, NSDraggingSource {
     @discardableResult
     func startDrag(paths: [String]) -> Bool {
         guard !isDragging else { return false }
-        guard let event = NSApp.currentEvent else { return false }
-        guard let view = NSApp.keyWindow?.contentView else { return false }
+        guard let window = NSApp.keyWindow, let view = window.contentView else { return false }
+        guard let event = dragEvent(for: window) else { return false }
 
         let urls = paths
             .map { URL(fileURLWithPath: $0) }
@@ -70,6 +70,27 @@ final class FolderDragBridge: NSObject, NSDraggingSource {
         isDragging = true
         view.beginDraggingSession(with: items, event: event, source: self)
         return true
+    }
+
+    /// Prefiere mouseDown/Dragged vivo; si SwiftUI dejó un evento raro, sintetiza dragged.
+    private func dragEvent(for window: NSWindow) -> NSEvent? {
+        if let current = NSApp.currentEvent,
+           current.windowNumber == window.windowNumber,
+           current.type == .leftMouseDown || current.type == .leftMouseDragged {
+            return current
+        }
+        let loc = window.mouseLocationOutsideOfEventStream
+        return NSEvent.mouseEvent(
+            with: .leftMouseDragged,
+            location: loc,
+            modifierFlags: NSEvent.modifierFlags,
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1
+        )
     }
 
     /// Pastilla translúcida: resalta el movimiento sin silueta de archivo.

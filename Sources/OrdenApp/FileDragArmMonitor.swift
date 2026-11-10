@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import OrdenCore
 
-/// Monitor AppKit que registra las teclas (⌘/⇧) de cada clic para la selección múltiple.
+/// Monitor AppKit: teclas del clic, selección al mouseDown y arrastre nativo al mover.
 /// El doble clic para abrir lo maneja SwiftUI en cada fila (`fileOpenOnDoubleClick`):
 /// los frames AppKit del LazyVStack se quedan stale tras scroll y abrían la fila equivocada.
 @MainActor
@@ -16,11 +16,20 @@ final class FileDragArmMonitor {
     /// Sube en cada scroll / cambio de lista — invalida frames viejos del LazyVStack.
     private(set) var frameGeneration: UInt64 = 1
 
+    /// Press sobre un archivo (sin ⌘/⇧): al superar el umbral → drag AppKit (Finder).
+    private var pressPath: String?
+    private var pressPoint: CGPoint?
+    private var pressIsSecondary = false
+    private var didStartNativeDrag = false
+
+    /// True si este gesto ya disparó (o va a disparar) un arrastre nativo.
+    var hasStartedNativeDrag: Bool { didStartNativeDrag }
+
     func attach(browser: BrowserModel) {
         self.browser = browser
         guard monitor == nil else { return }
         monitor = NSEvent.addLocalMonitorForEvents(
-            matching: [.leftMouseDown]
+            matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
         ) { [weak self] event in
             self?.handle(event) ?? event
         }
@@ -82,13 +91,26 @@ final class FileDragArmMonitor {
         )
     }
 
-    /// Solo REGISTRA las teclas del clic; nunca se come el evento.
-    /// Antes este monitor resolvía ⌘+clic con frames AppKit de las filas: tras hacer scroll los
-    /// frames quedaban viejos (o eran de otra ventana con la misma carpeta) y el ⌘+clic se
-    /// aplicaba a otro archivo o se perdía. Ahora la selección la decide SIEMPRE la fila SwiftUI
-    /// pulsada, con las teclas capturadas aquí en el mouseDown.
+    /// mouseDown → teclas + selección al instante.
+    /// mouseDragged sobre archivo → arrastre nativo (no depende del DragGesture de SwiftUI).
     private func handle(_ event: NSEvent) -> NSEvent? {
-        guard event.type == .leftMouseDown else { return event }
+        switch event.type {
+        case .leftMouseDown:
+            return handleMouseDown(event)
+        case .leftMouseDragged:
+            return handleMouseDragged(event)
+        case .leftMouseUp:
+            pressPath = nil
+            pressPoint = nil
+            pressIsSecondary = false
+            didStartNativeDrag = false
+            return event
+        default:
+            return event
+        }
+    }
+
+    private func handleMouseDown(_ event: NSEvent) -> NSEvent {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         clickMemory.recordMouseDown(
             ClickModifierMemory.Modifiers(
@@ -100,7 +122,88 @@ final class FileDragArmMonitor {
         )
         lastMouseDownClickCount = event.clickCount
         lastMouseDownAt = event.timestamp
+        pressPath = nil
+        pressPoint = nil
+        pressIsSecondary = false
+        didStartNativeDrag = false
+
+        // Selección inmediata estilo Finder (solo clic 1, sin modificadores).
+        if event.clickCount == 1,
+           !flags.contains(.command),
+           !flags.contains(.shift),
+           let browser {
+            pruneStaleFrames()
+            if let path = pathAt(event.locationInWindow) {
+                let inPrimary = browser.visibleEntries.contains(where: { $0.path == path })
+                let inSecondary = browser.dualPaneEnabled
+                    && browser.secondaryEntries.contains(where: { $0.path == path })
+                if inSecondary, (!inPrimary || browser.focusedPane == .secondary) {
+                    if browser.secondarySelectedIDs != [path] {
+                        browser.selectSecondaryOnly(path)
+                    }
+                    pressPath = path
+                    pressPoint = event.locationInWindow
+                    pressIsSecondary = true
+                } else if inPrimary {
+                    if browser.selectedIDs != [path] {
+                        browser.selectOnly(path)
+                    }
+                    pressPath = path
+                    pressPoint = event.locationInWindow
+                    pressIsSecondary = false
+                }
+            }
+        }
         return event
+    }
+
+    private func handleMouseDragged(_ event: NSEvent) -> NSEvent {
+        guard !didStartNativeDrag,
+              let path = pressPath,
+              let start = pressPoint,
+              let browser
+        else { return event }
+
+        let loc = event.locationInWindow
+        let dist = hypot(loc.x - start.x, loc.y - start.y)
+        guard dist >= PressDragSelectLogic.moveThreshold else { return event }
+
+        let paths: [String]
+        if pressIsSecondary {
+            if browser.secondarySelectedIDs.contains(path), browser.secondarySelectedIDs.count > 1 {
+                paths = browser.secondarySelectedEntries.map(\.path)
+            } else {
+                paths = [path]
+            }
+        } else if browser.selectedIDs.contains(path), browser.selectedIDs.count > 1 {
+            paths = browser.selectedEntries.map(\.path)
+        } else {
+            paths = [path]
+        }
+
+        // Sync: el evento vivo es leftMouseDragged — ideal para beginDraggingSession.
+        requestNativeDrag(paths: paths, deferToNextRunLoop: false)
+        return event
+    }
+
+    /// Arranque AppKit. Desde SwiftUI DragGesture hay que diferir un tick (si no, la sesión no engancha).
+    /// Desde mouseDragged del monitor: sync con el evento vivo.
+    func requestNativeDrag(paths: [String], deferToNextRunLoop: Bool = true) {
+        guard !didStartNativeDrag, !paths.isEmpty, let browser else { return }
+        didStartNativeDrag = true
+        pressPath = nil
+        pressPoint = nil
+        let copy = paths
+        let start = {
+            // Si el botón ya se soltó, no inventes un drag huérfano.
+            guard NSEvent.pressedMouseButtons & (1 << 0) != 0 else { return }
+            _ = browser.startDragWithPaths(copy)
+        }
+        if deferToNextRunLoop {
+            DispatchQueue.main.async(execute: start)
+        } else {
+            start()
+        }
     }
 
     private func pruneStaleFrames() {

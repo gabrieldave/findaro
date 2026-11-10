@@ -2,7 +2,7 @@ import XCTest
 @testable import OrdenCore
 
 final class PressDragSelectLogicTests: XCTestCase {
-    func testUnselectedFileStartsPendingNotImmediateDrag() {
+    func testUnselectedFileDragsImmediately() {
         let action = PressDragSelectLogic.startAction(
             hitID: "a",
             hitPath: "/tmp/a.pdf",
@@ -14,37 +14,10 @@ final class PressDragSelectLogicTests: XCTestCase {
             armedPaths: [],
             isArming: false
         )
-        XCTAssertEqual(action, .pendingUnselectedFile(id: "a", path: "/tmp/a.pdf"))
+        XCTAssertEqual(action, .beginFileDrag(paths: ["/tmp/a.pdf"], selectOnlyID: "a"))
     }
 
-    func testPendingVerticalBecomesMarquee() {
-        let resolved = PressDragSelectLogic.resolvePendingUnselected(
-            id: "a",
-            path: "/tmp/a.pdf",
-            translation: CGSize(width: 2, height: 30)
-        )
-        XCTAssertEqual(resolved, .beginMarquee(additive: false))
-    }
-
-    func testPendingHorizontalBecomesFileDrag() {
-        let resolved = PressDragSelectLogic.resolvePendingUnselected(
-            id: "a",
-            path: "/tmp/a.pdf",
-            translation: CGSize(width: 12, height: 3)
-        )
-        XCTAssertEqual(resolved, .beginFileDrag(paths: ["/tmp/a.pdf"], selectOnlyID: "a"))
-    }
-
-    func testPendingSmallMoveStaysUndecided() {
-        let resolved = PressDragSelectLogic.resolvePendingUnselected(
-            id: "a",
-            path: "/tmp/a.pdf",
-            translation: CGSize(width: 2, height: 10)
-        )
-        XCTAssertNil(resolved)
-    }
-
-    func testClickDragOnSelectedFileDragsWholeSelection() {
+    func testSelectedFileDragsWholeSelection() {
         let action = PressDragSelectLogic.startAction(
             hitID: "a",
             hitPath: "/tmp/a.pdf",
