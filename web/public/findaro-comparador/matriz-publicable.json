@@ -206,7 +206,7 @@
   {
     "id": 18,
     "grupo": "IA local",
-    "funcion": "Voz local con Whisper (⌃Espacio y botón de micrófono)",
+    "funcion": "Voz con el reconocimiento de Apple, en tu Mac (⌃Espacio y botón de micrófono)",
     "findaro": "Sí",
     "finder": "N/D",
     "forklift": "N/D",
