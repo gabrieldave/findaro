@@ -1396,6 +1396,23 @@ struct FileBrowserPane: View {
         return metrics.isCompact ? max(base, browser.showRowPaths ? 72 : 52) : base
     }
 
+    /// Lista agrupada por categoría + huecos entre bloques (marquesina).
+    private var layoutRows: [ListPaneRow] {
+        ListPaneLayout.build(entries: paneEntries)
+    }
+
+    private var visibleListColumns: [ListColumn] {
+        let cols = browser.listColumns
+        if metrics.isCompact {
+            return cols.filter { $0 != .kind }
+        }
+        return cols
+    }
+
+    private var trailingColumnsWidth: CGFloat {
+        ListColumn.totalWidth(visibleListColumns, compact: metrics.isCompact) + 38
+    }
+
     @State private var marqueeStart: CGPoint?
     @State private var marqueeCurrent: CGPoint?
     @State private var marqueeBase: Set<String> = []
@@ -1476,10 +1493,30 @@ struct FileBrowserPane: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(Array(paneEntries.enumerated()), id: \.element.id) { index, entry in
-                            FileRowButton(entry: entry, zebra: index.isMultiple(of: 2), pane: pane)
+                        ForEach(Array(layoutRows.enumerated()), id: \.element.id) { index, row in
+                            switch row {
+                            case .section(let category, let count):
+                                CategorySectionHeader(
+                                    category: category,
+                                    count: count,
+                                    pane: pane
+                                )
+                                .frame(height: ListPaneLayout.sectionHeight)
+                                .id(row.id)
+                            case .gap(let category):
+                                CategoryGapRow(category: category, pane: pane)
+                                    .frame(height: ListPaneLayout.gapHeight)
+                                    .id(row.id)
+                            case .entry(let entry):
+                                FileRowButton(
+                                    entry: entry,
+                                    zebra: index.isMultiple(of: 2),
+                                    pane: pane,
+                                    columns: visibleListColumns
+                                )
                                 .frame(height: rowHeight)
                                 .id(entry.id)
+                            }
                         }
                         Color.clear
                             .frame(maxWidth: .infinity)
@@ -1575,7 +1612,7 @@ struct FileBrowserPane: View {
     }
 
     private var listContentHeight: CGFloat {
-        CGFloat(paneEntries.count) * rowHeight
+        ListPaneLayout.totalHeight(rows: layoutRows, entryRowHeight: rowHeight)
     }
 
     private var listCoordinateSpace: String {
@@ -1583,11 +1620,7 @@ struct FileBrowserPane: View {
     }
 
     private func entryAtY(_ y: CGFloat) -> FileEntry? {
-        let entries = paneEntries
-        guard let idx = RowHitTestLogic.indexAtY(y, rowHeight: rowHeight, count: entries.count) else {
-            return nil
-        }
-        return entries[idx]
+        ListPaneLayout.entryAtY(y, rows: layoutRows, entryRowHeight: rowHeight)
     }
 
     private var marqueeGesture: some Gesture {
@@ -1598,16 +1631,8 @@ struct FileBrowserPane: View {
                     let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
                     let windowPoint = NSApp.currentEvent?.locationInWindow
                     let hit = entryAtY(value.startLocation.y)
-                    // Columna Nombre = todo menos Tipo/Fecha/Tamaño/copiar (vacío Finder a la derecha).
-                    let trailingChrome: CGFloat = {
-                        let copy: CGFloat = 38
-                        let size: CGFloat = metrics.isCompact ? 72 : 84
-                        let date: CGFloat = metrics.isCompact ? 108 : 130
-                        let type: CGFloat = metrics.isCompact ? 0 : 100
-                        let gaps: CGFloat = metrics.isCompact ? 24 : 40
-                        return copy + size + date + type + gaps
-                    }()
-                    let inTrailingChrome = value.startLocation.x >= (listContentWidth - trailingChrome)
+                    // Columna Nombre vs columnas meta (marquesina) / huecos de categoría.
+                    let inTrailingChrome = value.startLocation.x >= (listContentWidth - trailingColumnsWidth)
                     let inNameColumn = hit != nil && !inTrailingChrome
                     let hitOnName = FileDragArmMonitor.shared.pressArmedFileDrag
                         || (windowPoint.map { FileDragArmMonitor.shared.isNameHit(atWindowPoint: $0) } ?? false)
@@ -1695,14 +1720,12 @@ struct FileBrowserPane: View {
 
     private func applyMarquee() {
         guard let start = marqueeStart, let current = marqueeCurrent else { return }
-        let entries = paneEntries
-        guard !entries.isEmpty else { return }
+        guard !layoutRows.isEmpty else { return }
 
         let y0 = min(start.y, current.y)
         let y1 = max(start.y, current.y)
         let contentH = listContentHeight
 
-        // Rectángulo solo en el vacío debajo de los archivos → nada
         if y0 >= contentH {
             if isSecondary {
                 browser.applySecondaryMarqueeSelection(hitIDs: [], base: marqueeBase, additive: marqueeAdditive)
@@ -1712,17 +1735,12 @@ struct FileBrowserPane: View {
             return
         }
 
-        let first = max(0, Int(floor(y0 / rowHeight)))
-        let last = min(entries.count - 1, Int(floor((min(y1, contentH) - 0.001) / rowHeight)))
-        guard first <= last else {
-            if isSecondary {
-                browser.applySecondaryMarqueeSelection(hitIDs: [], base: marqueeBase, additive: marqueeAdditive)
-            } else {
-                browser.applyMarqueeSelection(hitIDs: [], base: marqueeBase, additive: marqueeAdditive)
-            }
-            return
-        }
-        let hits = Set(entries[first...last].map(\.id))
+        let hits = ListPaneLayout.entryIDs(
+            y0: y0,
+            y1: min(y1, contentH),
+            rows: layoutRows,
+            entryRowHeight: rowHeight
+        )
         if isSecondary {
             browser.applySecondaryMarqueeSelection(hitIDs: hits, base: marqueeBase, additive: marqueeAdditive)
         } else {
@@ -1734,21 +1752,92 @@ struct FileBrowserPane: View {
         HStack(spacing: metrics.isCompact ? 8 : 12) {
             Text(L10n.s("Nombre / ruta", "Name / Path"))
                 .frame(maxWidth: .infinity, alignment: .leading)
-            if !metrics.isCompact {
-                Text(L10n.s("Tipo", "Type"))
-                    .frame(width: 100, alignment: .leading)
+
+            ForEach(visibleListColumns) { column in
+                let w = metrics.isCompact ? column.compactWidth : column.width
+                if w > 0 {
+                    Text(column.shortLabelLocalized)
+                        .frame(width: w, alignment: column == .size ? .trailing : .leading)
+                }
             }
-            // Siempre visible: al filtrar ordenamos por esto (más nuevo arriba).
-            Text(L10n.s("Agregado", "Date Added"))
-                .frame(width: metrics.isCompact ? 108 : 130, alignment: .trailing)
-            Text(L10n.s("Tamaño", "Size"))
-                .frame(width: metrics.isCompact ? 72 : 84, alignment: .trailing)
-            Color.clear.frame(width: 28)
+
+            Menu {
+                ForEach(ListColumn.allCases) { column in
+                    Button {
+                        browser.toggleListColumn(column)
+                    } label: {
+                        HStack {
+                            Text(column.labelLocalized)
+                            if browser.isListColumnVisible(column) {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .frame(width: 28, height: 28)
+            }
+            .menuStyle(.borderlessButton)
+            .help(L10n.s("Mostrar u ocultar columnas", "Show or hide columns"))
+            .padding(.trailing, 4)
         }
         .font(.caption.weight(.semibold))
         .foregroundStyle(.secondary)
         .padding(.horizontal, metrics.contentPadding)
         .padding(.vertical, metrics.isCompact ? 6 : 8)
+    }
+}
+
+// MARK: - Cabecera / hueco de categoría
+
+private struct CategorySectionHeader: View {
+    @EnvironmentObject private var browser: BrowserModel
+    let category: FileCategory
+    let count: Int
+    var pane: BrowserModel.PaneFocus = .primary
+
+    var body: some View {
+        Button {
+            browser.selectVisibleCategory(category, pane: pane)
+        } label: {
+            HStack(spacing: 8) {
+                Text(category.labelLocalized.uppercased())
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(OrdenTheme.accent)
+                Text("· \(count)")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Text(L10n.s("clic = todos", "click = all"))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(OrdenTheme.accent.opacity(0.08))
+        .help(L10n.s("Seleccionar toda la categoría", "Select entire category"))
+    }
+}
+
+private struct CategoryGapRow: View {
+    @EnvironmentObject private var browser: BrowserModel
+    let category: FileCategory
+    var pane: BrowserModel.PaneFocus = .primary
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                // Hueco: clic = seleccionar el bloque de arriba (categoría).
+                browser.selectVisibleCategory(category, pane: pane)
+            }
+            .help(L10n.s("Hueco: arrastra para marquesina o clic para seleccionar la categoría", "Gap: drag to marquee or click to select the category"))
     }
 }
 
@@ -1758,6 +1847,7 @@ struct FileRowButton: View {
     let entry: FileEntry
     let zebra: Bool
     var pane: BrowserModel.PaneFocus = .primary
+    var columns: [ListColumn] = ListColumn.defaultVisible
 
     private var isSecondary: Bool { pane == .secondary }
 
@@ -1805,22 +1895,14 @@ struct FileRowButton: View {
             .contentShape(Rectangle())
             .reportFileDragArmFrame(path: entry.path)
 
-            // Espacio fijo de columnas = “vacío” Finder para marquesina.
-
-            if !metrics.isCompact {
-                Text(entry.category.labelLocalized)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 100, alignment: .leading)
+            // Columnas meta = vacío Finder (marquesina).
+            ForEach(columns) { column in
+                let w = metrics.isCompact ? column.compactWidth : column.width
+                if w > 0 {
+                    columnCell(column)
+                        .frame(width: w, alignment: column == .size ? .trailing : .leading)
+                }
             }
-            Text(entry.dateAdded, format: .dateTime.day().month().year().hour().minute())
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .frame(width: metrics.isCompact ? 108 : 130, alignment: .trailing)
-            Text(sizeLabel)
-                .font(.caption.monospacedDigit().weight(entry.size > 100_000_000 ? .semibold : .regular))
-                .foregroundStyle(entry.size > 500_000_000 ? .orange : .secondary)
-                .frame(width: metrics.isCompact ? 72 : 84, alignment: .trailing)
 
             Button {
                 browser.copyPath(entry)
@@ -1989,6 +2071,43 @@ struct FileRowButton: View {
             return "—"
         }
         return FolderSizer.format(entry.size)
+    }
+
+    @ViewBuilder
+    private func columnCell(_ column: ListColumn) -> some View {
+        switch column {
+        case .kind:
+            Text(entry.category.labelLocalized)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        case .dateAdded:
+            dateText(entry.dateAdded)
+        case .dateModified:
+            dateText(entry.dateModified)
+        case .dateCreated:
+            dateText(entry.dateCreated)
+        case .dateLastOpened:
+            dateText(entry.dateLastOpened, allowEmpty: true)
+        case .size:
+            Text(sizeLabel)
+                .font(.caption.monospacedDigit().weight(entry.size > 100_000_000 ? .semibold : .regular))
+                .foregroundStyle(entry.size > 500_000_000 ? .orange : .secondary)
+        }
+    }
+
+    private func dateText(_ date: Date, allowEmpty: Bool = false) -> some View {
+        Group {
+            if allowEmpty, date == .distantPast {
+                Text("—")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+            } else {
+                Text(date, format: .dateTime.day().month().year().hour().minute())
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     /// 1.er clic → selecciona ya. 2.º clic del mismo doble clic (sin ⌘/⇧) → abre.

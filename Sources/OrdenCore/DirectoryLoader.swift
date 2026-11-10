@@ -19,6 +19,7 @@ public enum DirectoryLoader {
             .contentModificationDateKey,
             .creationDateKey,
             .addedToDirectoryDateKey,
+            .contentAccessDateKey,
             .localizedTypeDescriptionKey,
             .isHiddenKey
         ]
@@ -39,6 +40,7 @@ public enum DirectoryLoader {
                 let modified = values.contentModificationDate ?? .distantPast
                 let created = values.creationDate ?? .distantPast
                 let added = values.addedToDirectoryDate ?? created
+                let opened = values.contentAccessDate ?? .distantPast
                 let kind = values.localizedTypeDescription
                     ?? UTType(filenameExtension: item.pathExtension)?.localizedDescription
                     ?? (isDirectory ? "Carpeta" : "Documento")
@@ -51,6 +53,7 @@ public enum DirectoryLoader {
                     dateModified: modified,
                     dateCreated: created,
                     dateAdded: added,
+                    dateLastOpened: opened,
                     kind: kind
                 )
             }

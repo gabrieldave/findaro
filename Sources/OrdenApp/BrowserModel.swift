@@ -155,6 +155,8 @@ final class BrowserModel: ObservableObject {
     @Published var viewMode: BrowserViewMode
     /// Mostrar `/ruta/completa` bajo el nombre en cada fila.
     @Published var showRowPaths: Bool
+    /// Columnas opcionales de la vista lista (Nombre siempre).
+    @Published var listColumns: [ListColumn]
     /// Perfil Explorer: Enter abre, F2 renombra.
     @Published var explorerKeyboardProfile: Bool
     /// Mostrar ocultos (⌘⇧.).
@@ -301,6 +303,7 @@ final class BrowserModel: ObservableObject {
         self.cleanupMode = (startRule == .heaviestFirst)
         self.viewMode = store.preferences.viewMode
         self.showRowPaths = store.preferences.showRowPaths
+        self.listColumns = ListColumn.sanitize(store.preferences.listColumns)
         self.explorerKeyboardProfile = store.preferences.explorerKeyboardProfile
         self.showHiddenFiles = store.preferences.showHiddenFiles
         self.flattenFolderView = store.preferences.flattenFolderView
@@ -370,6 +373,7 @@ final class BrowserModel: ObservableObject {
             }
         }
         self.showRowPaths = prefs.showRowPaths
+        self.listColumns = ListColumn.sanitize(prefs.listColumns)
         self.explorerKeyboardProfile = prefs.explorerKeyboardProfile
         self.showHiddenFiles = prefs.showHiddenFiles
         self.flattenFolderView = prefs.flattenFolderView
@@ -565,6 +569,45 @@ final class BrowserModel: ObservableObject {
     func setShowRowPaths(_ show: Bool) {
         showRowPaths = show
         store.update { $0.showRowPaths = show }
+        objectWillChange.send()
+    }
+
+    func isListColumnVisible(_ column: ListColumn) -> Bool {
+        listColumns.contains(column)
+    }
+
+    func toggleListColumn(_ column: ListColumn) {
+        var next = listColumns
+        if let idx = next.firstIndex(of: column) {
+            next.remove(at: idx)
+        } else {
+            // Insertar en el orden canónico de CaseIterable.
+            next.append(column)
+            next = ListColumn.allCases.filter { next.contains($0) }
+        }
+        listColumns = ListColumn.sanitize(next)
+        store.update { $0.listColumns = listColumns }
+        objectWillChange.send()
+    }
+
+    /// Selecciona todos los ítems visibles de una categoría (cabecera de sección).
+    func selectVisibleCategory(_ category: FileCategory, pane: PaneFocus = .primary) {
+        let ids = Set(
+            (pane == .secondary ? secondaryEntries : visibleEntries)
+                .filter { $0.category == category }
+                .map(\.id)
+        )
+        guard !ids.isEmpty else { return }
+        if pane == .secondary {
+            focusedPane = .secondary
+            secondarySelectedIDs = ids
+            secondarySelectionFocusID = ids.first
+        } else {
+            focusedPane = .primary
+            selectedIDs = ids
+            selectionFocusID = ids.first
+            selectionAnchorID = ids.first
+        }
         objectWillChange.send()
     }
 
