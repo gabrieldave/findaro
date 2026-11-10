@@ -13,9 +13,11 @@ struct ViewModePicker: View {
                 Button {
                     browser.setViewMode(mode)
                 } label: {
-                    Image(systemName: mode.symbolName)
+                    Label(mode.labelLocalized, systemImage: mode.symbolName)
+                        .labelStyle(.iconOnly)
                         .font(.system(size: 13, weight: .semibold))
                         .frame(width: 28, height: 22)
+                        .contentShape(Rectangle())
                         .background(
                             browser.viewMode == mode
                                 ? Color.primary.opacity(0.14)
@@ -25,10 +27,30 @@ struct ViewModePicker: View {
                 }
                 .buttonStyle(.plain)
                 .help(mode.labelLocalized)
+                .accessibilityLabel(mode.labelLocalized)
+                // En toolbar, .help a veces no pinta; toolTip nativo de AppKit sí.
+                .background(MacTooltip(text: mode.labelLocalized))
             }
         }
         .padding(3)
         .background(Color.primary.opacity(0.08), in: Capsule())
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(L10n.s("Vista", "View"))
+    }
+}
+
+/// Tooltip fiable en macOS (toolbar / HStack de botones planos).
+private struct MacTooltip: NSViewRepresentable {
+    let text: String
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        view.toolTip = text
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        nsView.toolTip = text
     }
 }
 
