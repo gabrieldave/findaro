@@ -160,6 +160,7 @@ if [[ -n "$CF_TOKEN" && -n "$CF_ZONE" ]]; then
         \"${PUBLIC_BASE}/downloads/latest.json.sig\",
         \"${PUBLIC_BASE}/downloads/${DMG_NAME}\",
         \"${PUBLIC_BASE}/downloads/${PRODUCT_NAME}-latest.dmg\",
+        \"${PUBLIC_BASE}/downloads/${PRODUCT_NAME}-current.dmg\",
         \"${PUBLIC_BASE}/downloads/${LEGACY_DMG_NAME}\",
         \"${PUBLIC_BASE}/downloads/${LEGACY_NAME}-latest.dmg\"
       ]
@@ -174,6 +175,7 @@ Paso manual de purga en Cloudflare Dashboard si fuera necesario:
      - https://ordena.iareal.net/downloads/latest.json
      - https://ordena.iareal.net/downloads/latest.json.sig
      - https://ordena.iareal.net/downloads/Findaro-latest.dmg
+     - https://ordena.iareal.net/downloads/Findaro-current.dmg
      - https://ordena.iareal.net/downloads/Ordena-latest.dmg
 CF_MSG
 fi
