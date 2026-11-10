@@ -1,7 +1,7 @@
 import { fail, handle } from "@/lib/api";
 import { consumeDownloadToken } from "@/lib/download";
 import { recordEvent } from "@/lib/events";
-import { DMG_UPSTREAM_URL } from "@/lib/site";
+import { resolveDmgUpstreamUrl } from "@/lib/site";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +23,8 @@ export const GET = handle(async (req) => {
     props: { usedCount: row.used_count },
   });
 
-  const upstream = await fetch(DMG_UPSTREAM_URL, { redirect: "follow" });
+  const dmgUrl = await resolveDmgUpstreamUrl();
+  const upstream = await fetch(dmgUrl, { redirect: "follow", cache: "no-store" });
   if (!upstream.ok || !upstream.body) {
     return fail("Instalador no disponible temporalmente", 502);
   }
@@ -35,7 +36,7 @@ export const GET = handle(async (req) => {
   );
   headers.set(
     "Content-Disposition",
-    'attachment; filename="Findaro-latest.dmg"',
+    'attachment; filename="Findaro.dmg"',
   );
   const len = upstream.headers.get("content-length");
   if (len) headers.set("Content-Length", len);
