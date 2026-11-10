@@ -10,6 +10,7 @@ final class AppUpdateChecker: ObservableObject {
     static let shared = AppUpdateChecker()
 
     static let feedURL = URL(string: "https://ordena.iareal.net/downloads/latest.json")!
+    static let feedSigURL = URL(string: "https://ordena.iareal.net/downloads/latest.json.sig")!
 
     private static let lastCheckKey = "ordena.lastUpdateCheck"
     private static let pendingVersionKey = "findaro.pendingUpdateVersion"
@@ -52,6 +53,14 @@ final class AppUpdateChecker: ObservableObject {
             }
             return .upToDate
         } catch {
+            if let feedError = error as? UpdateFeed.FeedError {
+                switch feedError {
+                case .missingSignature, .invalidSignature, .invalidSigningKey:
+                    return .unreachable(L10n.s("No pude verificar la actualización.", "Could not verify update."))
+                default:
+                    break
+                }
+            }
             return .unreachable(error.localizedDescription)
         }
     }
@@ -131,13 +140,26 @@ final class AppUpdateChecker: ObservableObject {
                 statusMessage = L10n.s("Actualización \(release.version) omitida por ahora", "Update \(release.version) skipped for now")
             }
         } catch {
+            let userMessage: String
+            if let feedError = error as? UpdateFeed.FeedError {
+                switch feedError {
+                case .missingSignature, .invalidSignature, .invalidSigningKey:
+                    userMessage = L10n.s("No pude verificar la actualización", "Could not verify update")
+                default:
+                    userMessage = L10n.s("No se pudo buscar actualización", "Could not check for updates")
+                }
+            } else {
+                userMessage = L10n.s("No se pudo buscar actualización", "Could not check for updates")
+            }
+
+            NSLog("[UpdateChecker] Error al buscar actualización: %@", error.localizedDescription)
             if interactive {
                 await showInfo(
                     title: L10n.s("No pude buscar", "Could not check for updates"),
-                    message: L10n.s("Revisa la red e inténtalo otra vez.\n\(error.localizedDescription)", "Check your connection and try again.\n\(error.localizedDescription)")
+                    message: "\(userMessage).\n\(error.localizedDescription)"
                 )
             }
-            statusMessage = L10n.s("No se pudo buscar actualización", "Could not check for updates")
+            statusMessage = userMessage
         }
     }
 
@@ -148,14 +170,53 @@ final class AppUpdateChecker: ObservableObject {
     }
 
     private func fetchChannelRelease() async throws -> UpdateFeed.ChannelRelease {
-        var req = URLRequest(url: Self.feedURL)
-        req.setValue("Findaro-UpdateChecker", forHTTPHeaderField: "User-Agent")
-        req.cachePolicy = .reloadIgnoringLocalCacheData
-        let (data, response) = try await URLSession.shared.data(for: req)
-        guard let http = response as? HTTPURLResponse, (200 ... 299).contains(http.statusCode) else {
+        let ts = Int(Date().timeIntervalSince1970)
+        guard var jsonComponents = URLComponents(url: Self.feedURL, resolvingAgainstBaseURL: false),
+              var sigComponents = URLComponents(url: Self.feedSigURL, resolvingAgainstBaseURL: false) else {
+            throw UpdateFeed.FeedError.invalidURL
+        }
+        jsonComponents.queryItems = [URLQueryItem(name: "t", value: String(ts))]
+        sigComponents.queryItems = [URLQueryItem(name: "t", value: String(ts))]
+
+        guard let jsonURL = jsonComponents.url, let sigURL = sigComponents.url else {
+            throw UpdateFeed.FeedError.invalidURL
+        }
+
+        // Validar que ambas URLs cumplan política estricta de seguridad: HTTPS y host permitido
+        _ = try UpdateFeed.validatedHTTPSURL(jsonURL.absoluteString)
+        _ = try UpdateFeed.validatedHTTPSURL(sigURL.absoluteString)
+
+        var jsonReq = URLRequest(url: jsonURL)
+        jsonReq.setValue("Findaro-UpdateChecker", forHTTPHeaderField: "User-Agent")
+        jsonReq.cachePolicy = .reloadIgnoringLocalCacheData
+
+        var sigReq = URLRequest(url: sigURL)
+        sigReq.setValue("Findaro-UpdateChecker", forHTTPHeaderField: "User-Agent")
+        sigReq.cachePolicy = .reloadIgnoringLocalCacheData
+
+        async let jsonFetch = URLSession.shared.data(for: jsonReq)
+        async let sigFetch = URLSession.shared.data(for: sigReq)
+
+        let (jsonData, jsonResp) = try await jsonFetch
+        guard let httpJson = jsonResp as? HTTPURLResponse, (200 ... 299).contains(httpJson.statusCode) else {
             throw URLError(.badServerResponse)
         }
-        let decoded = try JSONDecoder().decode(UpdateFeed.PublicFeed.self, from: data)
+
+        let (sigData, sigResp) = try await sigFetch
+        guard let httpSig = sigResp as? HTTPURLResponse, (200 ... 299).contains(httpSig.statusCode) else {
+            NSLog("[UpdateChecker] Error: latest.json.sig no encontrado o respuesta HTTP inválida: %@", String(describing: sigResp))
+            throw UpdateFeed.FeedError.missingSignature
+        }
+
+        // Verificación criptográfica estricta con CryptoKit ANTES de decodificar JSON
+        let decoded: UpdateFeed.PublicFeed
+        do {
+            decoded = try UpdateFeed.verifiedFeed(data: jsonData, signature: sigData)
+        } catch {
+            NSLog("[UpdateChecker] Rechazado: la firma del feed no es válida o está ausente: %@", error.localizedDescription)
+            throw error
+        }
+
         let bundleID = Bundle.main.bundleIdentifier ?? UpdateFeed.findaroBundleID
         let effectiveID = (bundleID == UpdateFeed.ordenaBundleID) ? UpdateFeed.ordenaBundleID : UpdateFeed.findaroBundleID
         return try UpdateFeed.resolve(feed: decoded, installedBundleID: effectiveID)

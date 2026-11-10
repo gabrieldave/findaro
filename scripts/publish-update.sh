@@ -104,13 +104,10 @@ echo "==> Notarizando ambos DMG…"
 SHA256="$(shasum -a 256 "$LEGACY_DMG" | awk '{print $1}')"
 FINDARO_SHA="$(shasum -a 256 "$FINDARO_DMG" | awk '{print $1}')"
 
-echo "==> Publicando en ${HOST}:${REMOTE_DIR}…"
-scp "$FINDARO_DMG" "${HOST}:${REMOTE_DIR}/downloads/${DMG_NAME}"
-scp "$FINDARO_DMG" "${HOST}:${REMOTE_DIR}/downloads/${PRODUCT_NAME}-latest.dmg"
-scp "$LEGACY_DMG" "${HOST}:${REMOTE_DIR}/downloads/${LEGACY_DMG_NAME}"
-scp "$LEGACY_DMG" "${HOST}:${REMOTE_DIR}/downloads/${LEGACY_NAME}-latest.dmg"
+LOCAL_FEED="$ROOT/dist/latest.json"
+LOCAL_SIG="$ROOT/dist/latest.json.sig"
 
-ssh "$HOST" "cat > '${REMOTE_DIR}/downloads/latest.json'" <<EOF
+cat > "$LOCAL_FEED" <<EOF
 {
   "version": "${VERSION}",
   "tag": "v${VERSION}",
@@ -121,6 +118,17 @@ ssh "$HOST" "cat > '${REMOTE_DIR}/downloads/latest.json'" <<EOF
   "findaro_sha256": "${FINDARO_SHA}"
 }
 EOF
+
+echo "==> Firmando latest.json con Ed25519…"
+"$ROOT/scripts/sign-feed.swift" "$LOCAL_FEED" "$LOCAL_SIG"
+
+echo "==> Publicando en ${HOST}:${REMOTE_DIR}…"
+scp "$FINDARO_DMG" "${HOST}:${REMOTE_DIR}/downloads/${DMG_NAME}"
+scp "$FINDARO_DMG" "${HOST}:${REMOTE_DIR}/downloads/${PRODUCT_NAME}-latest.dmg"
+scp "$LEGACY_DMG" "${HOST}:${REMOTE_DIR}/downloads/${LEGACY_DMG_NAME}"
+scp "$LEGACY_DMG" "${HOST}:${REMOTE_DIR}/downloads/${LEGACY_NAME}-latest.dmg"
+scp "$LOCAL_FEED" "${HOST}:${REMOTE_DIR}/downloads/latest.json"
+scp "$LOCAL_SIG" "${HOST}:${REMOTE_DIR}/downloads/latest.json.sig"
 
 ssh "$HOST" "cat > '${REMOTE_DIR}/index.html'" <<'EOF'
 <!doctype html>
@@ -136,6 +144,41 @@ ssh "$HOST" "cat > '${REMOTE_DIR}/index.html'" <<'EOF'
 </main></body></html>
 EOF
 
+echo "==> Purgando caché de Cloudflare…"
+CF_TOKEN="${CLOUDFLARE_API_TOKEN:-${CF_API_TOKEN:-}}"
+CF_ZONE="${CLOUDFLARE_ZONE_ID:-${CF_ZONE_ID:-}}"
+
+if [[ -n "$CF_TOKEN" && -n "$CF_ZONE" ]]; then
+  echo "Purgando caché en Cloudflare vía API..."
+  curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/purge_cache" \
+    -H "Authorization: Bearer ${CF_TOKEN}" \
+    -H "Content-Type: application/json" \
+    --data "{
+      \"files\": [
+        \"${PUBLIC_BASE}/downloads/latest.json\",
+        \"${PUBLIC_BASE}/downloads/latest.json.sig\",
+        \"${PUBLIC_BASE}/downloads/${DMG_NAME}\",
+        \"${PUBLIC_BASE}/downloads/${PRODUCT_NAME}-latest.dmg\",
+        \"${PUBLIC_BASE}/downloads/${LEGACY_DMG_NAME}\",
+        \"${PUBLIC_BASE}/downloads/${LEGACY_NAME}-latest.dmg\"
+      ]
+    }" | grep -q '"success":true' && echo "Caché de Cloudflare purgada con éxito." || echo "WARN: Falló la purga en Cloudflare (revisar token/zona)."
+else
+  cat <<'CF_MSG'
+INFO: No se definieron CLOUDFLARE_API_TOKEN / CLOUDFLARE_ZONE_ID.
+Paso manual de purga en Cloudflare Dashboard si fuera necesario:
+  1. Ir a Cloudflare Dashboard -> tu zona (iareal.net) -> Caching -> Configuration.
+  2. Seleccionar "Custom Purge" -> URL purge.
+  3. Purgar las URLs:
+     - https://ordena.iareal.net/downloads/latest.json
+     - https://ordena.iareal.net/downloads/latest.json.sig
+     - https://ordena.iareal.net/downloads/Findaro-latest.dmg
+     - https://ordena.iareal.net/downloads/Ordena-latest.dmg
+CF_MSG
+fi
+
 echo "Publicado v${VERSION}"
 curl -sS "${PUBLIC_BASE}/downloads/latest.json"
+echo
+curl -sS "${PUBLIC_BASE}/downloads/latest.json.sig"
 echo
