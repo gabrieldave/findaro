@@ -241,8 +241,8 @@ public enum AppHotkeyCatalog {
               defaultChord: .init(keyCode: 51), isEditable: true),
         .init(id: "files.restore", title: "Sacar de la Papelera", titleEnglish: "Restore from Trash", detail: "Restaura la selección fuera del basurero", detailEnglish: "Restore selection out of Trash", group: .files,
               defaultChord: .init(keyCode: 51, command: true, option: true)),
-        .init(id: "files.rename", title: "Renombrar", titleEnglish: "Rename", detail: "⌘R mano izquierda · solo nombre, sin extensión", detailEnglish: "⌘R left hand · name only, keeps extension", group: .files,
-              defaultChord: .init(keyCode: 15, character: "r", command: true), isEditable: true),
+        .init(id: "files.rename", title: "Renombrar", titleEnglish: "Rename", detail: "⌃R mano izquierda · solo nombre, sin extensión", detailEnglish: "⌃R left hand · name only, keeps extension", group: .files,
+              defaultChord: .init(keyCode: 15, character: "r", control: true), isEditable: true),
         .init(id: "files.renameF2", title: "Renombrar (F2)", titleEnglish: "Rename (F2)", detail: "Igual que Renombrar · tecla F2 (perfil Explorer)", detailEnglish: "Same as Rename · F2 key (Explorer profile)", group: .files,
               defaultChord: .init(keyCode: 120), isEditable: true),
         .init(id: "files.return", title: "Return", titleEnglish: "Return", detail: "Explorer: abrir · Finder: renombrar", detailEnglish: "Explorer: open · Finder: rename", group: .files,
@@ -287,8 +287,8 @@ public enum AppHotkeyCatalog {
               defaultChord: .init(keyCode: 9, character: "v", command: true, shift: true), isEditable: true),
         .init(id: "view.flatten", title: "Vista plana", titleEnglish: "Flat View", detail: "Archivos de subcarpetas en una lista", detailEnglish: "List all subfolder files in one view", group: .view,
               defaultChord: .init(keyCode: 3, character: "f", command: true, shift: true)),
-        .init(id: "view.refresh", title: "Actualizar carpeta", titleEnglish: "Refresh Folder", detail: "Recarga el panel activo", detailEnglish: "Reload the active pane", group: .view,
-              defaultChord: .init(keyCode: 15, character: "r", command: true, shift: true), isEditable: true),
+        .init(id: "view.refresh", title: "Actualizar carpeta", titleEnglish: "Refresh Folder", detail: "⌘R recarga el panel activo", detailEnglish: "⌘R reloads the active pane", group: .view,
+              defaultChord: .init(keyCode: 15, character: "r", command: true), isEditable: true),
     ]
 
     public static func definition(id: String) -> AppHotkeyDefinition? {

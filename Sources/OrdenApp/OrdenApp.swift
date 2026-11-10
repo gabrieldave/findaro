@@ -336,7 +336,7 @@ private struct FindaroCommands: Commands {
                 .keyboardShortcut("t", modifiers: [.command, .option])
                 .disabled(browser == nil)
             Button(L10n.s("Renombrar", "Rename")) { browser?.promptRename() }
-                .keyboardShortcut("r", modifiers: .command)
+                .keyboardShortcut("r", modifiers: .control)
                 .disabled(browser == nil)
             Button(L10n.s("Duplicar", "Duplicate")) { browser?.duplicateSelection() }
                 .disabled(browser == nil)

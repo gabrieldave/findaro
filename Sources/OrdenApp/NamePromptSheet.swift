@@ -58,7 +58,7 @@ enum NamePromptKind {
         switch self {
         case .newFolder: return L10n.s("Atajo ⇧⌘N", "Shortcut ⇧⌘N")
         case .newFile: return L10n.s("Atajo ⌘N", "Shortcut ⌘N")
-        case .rename: return L10n.s("Atajo ⌘R · F2", "Shortcut ⌘R · F2")
+        case .rename: return L10n.s("Atajo ⌃R · F2", "Shortcut ⌃R · F2")
         }
     }
 }

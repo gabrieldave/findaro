@@ -2300,8 +2300,8 @@ private struct BrowserToolbarModifier: ViewModifier {
                 } label: {
                     Label(L10n.s("Actualizar", "Refresh"), systemImage: "arrow.clockwise")
                 }
-                .keyboardShortcut("r", modifiers: [.command, .shift])
-                .help(L10n.s("Actualizar esta carpeta (⌘⇧R)", "Refresh this folder (⌘⇧R)"))
+                .keyboardShortcut("r", modifiers: .command)
+                .help(L10n.s("Actualizar esta carpeta (⌘R)", "Refresh this folder (⌘R)"))
             }
         }
     }
@@ -2680,8 +2680,8 @@ struct SettingsView: View {
                         ))
                         .font(.body.weight(.semibold))
                         Text(L10n.s(
-                            "Incluye Renombrar ⌘R, Papelera ⌫, Esc Esc bandeja, Actualizar ⌘⇧R y el resto.",
-                            "Includes Rename ⌘R, Trash ⌫, Esc Esc tray, Refresh ⌘⇧R, and the rest."
+                            "Incluye Actualizar ⌘R, Renombrar ⌃R, Papelera ⌫, Esc Esc bandeja y el resto.",
+                            "Includes Refresh ⌘R, Rename ⌃R, Trash ⌫, Esc Esc tray, and the rest."
                         ))
                         .font(.caption)
                         .foregroundStyle(.secondary)

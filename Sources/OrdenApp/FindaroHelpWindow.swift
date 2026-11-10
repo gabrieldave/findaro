@@ -111,7 +111,7 @@ public struct FindaroHelpView: View {
                 bullet(L10n.s("Arrastre de Marquesina: Haz clic y arrastra sobre el fondo vacío para envolver múltiples archivos.", "Marquee Drag: Click and drag on empty background to select multiple items."))
                 bullet(L10n.s("Deshacer selección: Escape (⎋) quita la selección. Dos Esc seguidos vacían la bandeja.", "Clear selection: Escape (⎋) deselects. Double Esc clears the tray."))
                 bullet(L10n.s("Borrar: ⌫ manda la selección a la Papelera (estilo Windows). ⌘Z la restaura; puedes deshacer varios pasos.", "Delete: ⌫ moves selection to Trash (Windows-style). ⌘Z restores; multi-level undo."))
-                bullet(L10n.s("Renombrar: ⌘R (mano izquierda) o F2. Solo editas el nombre; la extensión se conserva.", "Rename: ⌘R (left hand) or F2. Edit the name only; the extension is kept."))
+                bullet(L10n.s("Renombrar: ⌃R (mano izquierda) o F2. Solo editas el nombre; la extensión se conserva. ⌘R actualiza la carpeta.", "Rename: ⌃R (left hand) or F2. Edit the name only; extension is kept. ⌘R refreshes the folder."))
             }
 
         case .tabs:
