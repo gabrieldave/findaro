@@ -1753,15 +1753,21 @@ struct FileBrowserPane: View {
     }
 
     private var header: some View {
+        // Misma geometría que FileRowButton: Nombre flexible + metas fijas + chrome 28.
+        // Sin maxWidth infinity el HStack se queda al ancho intrínseco y las cabeceras
+        // quedan a la izquierda mientras las filas sí empujan las columnas a la derecha.
         HStack(spacing: metrics.isCompact ? 8 : 12) {
             Text(L10n.s("Nombre / ruta", "Name / Path"))
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 12)
+                .layoutPriority(1)
 
             ForEach(visibleListColumns) { column in
                 let w = metrics.isCompact ? column.compactWidth : column.width
                 if w > 0 {
                     Text(column.shortLabelLocalized)
                         .frame(width: w, alignment: column == .size ? .trailing : .leading)
+                        .layoutPriority(2)
                 }
             }
 
@@ -1784,12 +1790,12 @@ struct FileBrowserPane: View {
             }
             .menuStyle(.borderlessButton)
             .help(L10n.s("Mostrar u ocultar columnas", "Show or hide columns"))
-            .padding(.trailing, 4)
+            .padding(.trailing, 10)
         }
         .font(.caption.weight(.semibold))
         .foregroundStyle(.secondary)
-        .padding(.horizontal, metrics.contentPadding)
         .padding(.vertical, metrics.isCompact ? 6 : 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -1905,6 +1911,7 @@ struct FileRowButton: View {
                 if w > 0 {
                     columnCell(column)
                         .frame(width: w, alignment: column == .size ? .trailing : .leading)
+                        .layoutPriority(2)
                 }
             }
 

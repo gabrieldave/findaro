@@ -67,7 +67,8 @@ public enum ListColumn: String, Codable, Sendable, CaseIterable, Identifiable {
     public var width: CGFloat {
         switch self {
         case .kind: return 100
-        case .dateAdded, .dateModified, .dateCreated, .dateLastOpened: return 130
+        // Cabe "5 Oct 2026 at 8:48 a.m." / "5 oct 2026, 8:48" sin empujar Size.
+        case .dateAdded, .dateModified, .dateCreated, .dateLastOpened: return 168
         case .size: return 84
         }
     }
@@ -75,7 +76,7 @@ public enum ListColumn: String, Codable, Sendable, CaseIterable, Identifiable {
     public var compactWidth: CGFloat {
         switch self {
         case .kind: return 0 // oculto en compacto salvo size/dates
-        case .dateAdded, .dateModified, .dateCreated, .dateLastOpened: return 108
+        case .dateAdded, .dateModified, .dateCreated, .dateLastOpened: return 132
         case .size: return 72
         }
     }
