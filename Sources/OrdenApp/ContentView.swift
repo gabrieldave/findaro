@@ -1581,53 +1581,60 @@ struct FileBrowserPane: View {
     private var marqueeGesture: some Gesture {
         // minimumDistance > 0: el clic limpio llega al botón (1 archivo).
         // Marquee solo tras rectángulo intencional (marqueeCommitSize).
+        // Sobre un archivo: apretar + mover = arrastre nativo (Finder); soltar sin mover = solo selección.
         DragGesture(minimumDistance: PressDragSelectLogic.moveThreshold, coordinateSpace: .named(listCoordinateSpace))
             .onChanged { value in
                 if marqueeStart == nil {
                     let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
-                    // ⌘ es modo naranja (suma/quita 1), NUNCA marquee — eso seleccionaba vecinos.
-                    if flags.contains(.command), !browser.hasArmedFileDrag {
+                    let hit = entryAtY(value.startLocation.y)
+                    let hitSelected: Bool = {
+                        guard let hit else { return false }
+                        return isSecondary
+                            ? browser.secondarySelectedIDs.contains(hit.id)
+                            : browser.selectedIDs.contains(hit.id)
+                    }()
+                    let selectedPaths = isSecondary
+                        ? browser.secondarySelectedEntries.map(\.path)
+                        : browser.selectedEntries.map(\.path)
+                    switch PressDragSelectLogic.startAction(
+                        hitID: hit?.id,
+                        hitPath: hit?.path,
+                        hitIsSelected: hitSelected,
+                        selectedPaths: selectedPaths,
+                        commandHeld: flags.contains(.command),
+                        shiftHeld: flags.contains(.shift),
+                        hasArmedFileDrag: browser.hasArmedFileDrag,
+                        armedPaths: browser.peekArmedFileDrag(),
+                        isArming: browser.fileDragArmingPath != nil
+                    ) {
+                    case .ignore:
                         return
-                    }
-                    // Con modo naranja: arrastre mueve archivos (no marquee)
-                    if browser.hasArmedFileDrag {
+                    case .beginFileDrag(let paths, let selectOnlyID):
+                        if let selectOnlyID {
+                            if isSecondary {
+                                browser.selectSecondaryOnly(selectOnlyID)
+                            } else {
+                                browser.selectOnly(selectOnlyID)
+                            }
+                        }
+                        folderDragPaths = paths
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
-                        folderDragPaths = browser.peekArmedFileDrag()
                         folderDragStarted = false
+                        marqueeCommitted = false
                         return
+                    case .beginMarquee(let additive):
+                        marqueeStart = value.startLocation
+                        marqueeCurrent = value.location
+                        folderDragPaths = []
+                        marqueeCommitted = false
+                        marqueeStartEntryID = hit?.id
+                        marqueeAdditive = additive
+                        marqueeBase = additive
+                            ? (isSecondary ? browser.secondarySelectedIDs : browser.selectedIDs)
+                            : []
+                        // No limpiar selección hasta confirmar marquee (si no, un temblor deja multi raro).
                     }
-                    if browser.fileDragArmingPath != nil {
-                        return
-                    }
-
-                    // Arrastre sobre fila ya seleccionada: arrastre nativo inmediato de los archivos seleccionados
-                    if let entry = entryAtY(value.startLocation.y) {
-                        let isSelected = isSecondary
-                            ? browser.secondarySelectedIDs.contains(entry.id)
-                            : browser.selectedIDs.contains(entry.id)
-                        if isSelected {
-                            folderDragPaths = isSecondary
-                                ? browser.secondarySelectedEntries.map(\.path)
-                                : browser.selectedEntries.map(\.path)
-                            marqueeStart = value.startLocation
-                            marqueeCurrent = value.location
-                            folderDragStarted = false
-                            return
-                        }
-                    }
-
-                    // Arrastre sobre fila no seleccionada o vacío: inicia selección marquesina (como Finder)
-                    marqueeStart = value.startLocation
-                    marqueeCurrent = value.location
-                    folderDragPaths = []
-                    marqueeCommitted = false
-                    marqueeStartEntryID = entryAtY(value.startLocation.y)?.id
-                    marqueeAdditive = flags.contains(.shift)
-                    marqueeBase = marqueeAdditive
-                        ? (isSecondary ? browser.secondarySelectedIDs : browser.selectedIDs)
-                        : []
-                    // No limpiar selección hasta confirmar marquee (si no, un temblor deja multi raro).
                 }
 
                 if !folderDragPaths.isEmpty {

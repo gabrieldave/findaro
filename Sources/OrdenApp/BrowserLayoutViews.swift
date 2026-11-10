@@ -237,30 +237,35 @@ struct IconsBrowserView: View {
             .onChanged { value in
                 if marqueeStart == nil {
                     let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
-                    if flags.contains(.command), !browser.hasArmedFileDrag {
+                    let hit = iconEntry(at: value.startLocation)
+                    switch PressDragSelectLogic.startAction(
+                        hitID: hit?.id,
+                        hitPath: hit?.path,
+                        hitIsSelected: hit.map { browser.selectedIDs.contains($0.id) } ?? false,
+                        selectedPaths: browser.selectedEntries.map(\.path),
+                        commandHeld: flags.contains(.command),
+                        shiftHeld: flags.contains(.shift),
+                        hasArmedFileDrag: browser.hasArmedFileDrag,
+                        armedPaths: browser.peekArmedFileDrag(),
+                        isArming: browser.fileDragArmingPath != nil
+                    ) {
+                    case .ignore:
                         return
-                    }
-                    if browser.hasArmedFileDrag {
+                    case .beginFileDrag(let paths, let selectOnlyID):
+                        if let selectOnlyID { browser.selectOnly(selectOnlyID) }
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
-                        folderDragPaths = browser.peekArmedFileDrag()
+                        folderDragPaths = paths
                         folderDragStarted = false
                         return
-                    }
-                    if browser.fileDragArmingPath != nil { return }
-                    if let entry = iconEntry(at: value.startLocation), browser.selectedIDs.contains(entry.id) {
+                    case .beginMarquee(let additive):
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
-                        folderDragPaths = browser.selectedEntries.map(\.path)
-                        folderDragStarted = false
-                        return
+                        folderDragPaths = []
+                        marqueeAdditive = additive
+                        marqueeBase = additive ? browser.selectedIDs : []
+                        if !additive { browser.clearSelection() }
                     }
-                    marqueeStart = value.startLocation
-                    marqueeCurrent = value.location
-                    folderDragPaths = []
-                    marqueeAdditive = flags.contains(.shift)
-                    marqueeBase = marqueeAdditive ? browser.selectedIDs : []
-                    if !marqueeAdditive { browser.clearSelection() }
                 }
                 if !folderDragPaths.isEmpty {
                     let dist = hypot(value.translation.width, value.translation.height)
@@ -553,30 +558,35 @@ private struct ColumnPane: View {
             .onChanged { value in
                 if marqueeStart == nil {
                     let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
-                    if flags.contains(.command), !browser.hasArmedFileDrag {
+                    let hit = entryAtY(value.startLocation.y)
+                    switch PressDragSelectLogic.startAction(
+                        hitID: hit?.id,
+                        hitPath: hit?.path,
+                        hitIsSelected: hit.map { browser.selectedIDs.contains($0.id) } ?? false,
+                        selectedPaths: browser.selectedEntries.map(\.path),
+                        commandHeld: flags.contains(.command),
+                        shiftHeld: flags.contains(.shift),
+                        hasArmedFileDrag: browser.hasArmedFileDrag,
+                        armedPaths: browser.peekArmedFileDrag(),
+                        isArming: browser.fileDragArmingPath != nil
+                    ) {
+                    case .ignore:
                         return
-                    }
-                    if browser.hasArmedFileDrag {
+                    case .beginFileDrag(let paths, let selectOnlyID):
+                        if let selectOnlyID { browser.selectOnly(selectOnlyID) }
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
-                        folderDragPaths = browser.peekArmedFileDrag()
+                        folderDragPaths = paths
                         folderDragStarted = false
                         return
-                    }
-                    if browser.fileDragArmingPath != nil { return }
-                    if let entry = entryAtY(value.startLocation.y), browser.selectedIDs.contains(entry.id) {
+                    case .beginMarquee(let additive):
                         marqueeStart = value.startLocation
                         marqueeCurrent = value.location
-                        folderDragPaths = browser.selectedEntries.map(\.path)
-                        folderDragStarted = false
-                        return
+                        folderDragPaths = []
+                        marqueeAdditive = additive
+                        marqueeBase = additive ? browser.selectedIDs : []
+                        if !additive { browser.clearSelection() }
                     }
-                    marqueeStart = value.startLocation
-                    marqueeCurrent = value.location
-                    folderDragPaths = []
-                    marqueeAdditive = flags.contains(.shift)
-                    marqueeBase = marqueeAdditive ? browser.selectedIDs : []
-                    if !marqueeAdditive { browser.clearSelection() }
                 }
                 if !folderDragPaths.isEmpty {
                     let dist = hypot(value.translation.width, value.translation.height)
