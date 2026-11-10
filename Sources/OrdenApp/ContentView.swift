@@ -210,7 +210,8 @@ struct ContentView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if browser.hasActiveViewFilters {
+            // Con solo la carpeta inteligente abierta basta su propio banner (Editar / Ver carpeta completa).
+            if browser.hasActiveViewFilters && (browser.activeSmartFolder == nil || browser.hasFiltersBeyondSmartFolder) {
                 ActiveFiltersBar()
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 16)
@@ -682,6 +683,20 @@ struct ActiveFiltersBar: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
             Spacer(minLength: 8)
+            if canSaveAsSmartFolder {
+                Button {
+                    browser.promptSaveCurrentViewAsSmartFolder()
+                } label: {
+                    Label(L10n.s("Guardar en Favoritos", "Save to Favorites"), systemImage: "star.fill")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
+                .help(L10n.s(
+                    "Convierte esta búsqueda en una carpeta inteligente de Favoritos: un clic y vuelves a ver solo estos archivos.",
+                    "Turn this search into a smart folder in Favorites: one click brings these files back."
+                ))
+            }
             Button {
                 browser.resetToNormalView()
             } label: {
@@ -703,8 +718,20 @@ struct ActiveFiltersBar: View {
         )
     }
 
+    /// Búsqueda, Tipo, «Descargados» o atajo → se puede guardar como carpeta inteligente.
+    private var canSaveAsSmartFolder: Bool {
+        guard browser.activeSmartFolder == nil, !browser.showDeepSearchPanel else { return false }
+        return !browser.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || (browser.categoryFilter != nil && browser.categoryFilter != .folder)
+            || browser.downloadsTodayMode
+            || browser.activeAssistantShortcut != nil
+    }
+
     private var filterSummary: String {
         var parts: [String] = []
+        if let smart = browser.activeSmartFolder {
+            parts.append(L10n.s("carpeta inteligente «\(smart.name)»", "smart folder “\(smart.name)”"))
+        }
         if browser.showDeepSearchPanel {
             parts.append(L10n.s("búsqueda subcarpetas", "subfolder search"))
         }
@@ -725,6 +752,79 @@ struct ActiveFiltersBar: View {
         }
         if parts.isEmpty { return L10n.s("Filtros activos · más nuevo arriba", "Active filters · newest on top") }
         return L10n.s("Activo: ", "Active: ") + parts.joined(separator: " · ") + L10n.s(" · más nuevo arriba", " · newest on top")
+    }
+}
+
+// MARK: - Carpeta inteligente abierta
+
+struct SmartFolderBanner: View {
+    @EnvironmentObject private var browser: BrowserModel
+    let folder: SmartFolder
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: folder.symbolName)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Color(hex: folder.tintHex))
+                .frame(width: 26)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(folder.name)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    if browser.smartFolderLoading {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text(L10n.s("Buscando…", "Searching…"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(countLabel)
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(OrdenTheme.accent.opacity(0.18), in: Capsule())
+                    }
+                }
+                Text(folder.summaryLocalized)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(folder.summaryLocalized)
+            }
+            Spacer(minLength: 8)
+            Button {
+                browser.editSmartFolder(folder)
+            } label: {
+                Label(L10n.s("Editar", "Edit"), systemImage: "slider.horizontal.3")
+            }
+            .controlSize(.regular)
+            .help(L10n.s("Cambiar tipo, extensiones, fecha o carpeta", "Change type, extensions, date or folder"))
+            Button {
+                browser.exitSmartFolder()
+            } label: {
+                Label(L10n.s("Ver carpeta completa", "Show whole folder"), systemImage: "folder")
+            }
+            .controlSize(.regular)
+            .help(L10n.s("Sale de la carpeta inteligente y muestra todo · Esc", "Leave the smart folder and show everything · Esc"))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(OrdenTheme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(OrdenTheme.accent.opacity(0.30), lineWidth: 1)
+        )
+    }
+
+    private var countLabel: String {
+        let n = browser.visibleEntries.count
+        var label = n == 1 ? L10n.s("1 archivo", "1 file") : L10n.s("\(n) archivos", "\(n) files")
+        if browser.smartFolderTruncated {
+            label += L10n.s(" (primeros)", " (first ones)")
+        }
+        return label
     }
 }
 
@@ -784,7 +884,9 @@ struct FolderStatsBar: View {
                     .foregroundStyle(.secondary)
             }
 
-            if let shortcut = browser.activeAssistantShortcut {
+            if let smart = browser.activeSmartFolder {
+                SmartFolderBanner(folder: smart)
+            } else if let shortcut = browser.activeAssistantShortcut {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
                         .foregroundStyle(.orange)
@@ -1012,6 +1114,8 @@ struct SidebarView: View {
                 sidebarButton(item, isFavoriteSlot: true)
             }
 
+            smartFoldersBlock
+
             Text(favoritesDropTargeted ? L10n.s("Suelta para fijar", "Drop to pin") : L10n.s("Usa «A Favoritos» o suelta desde Finder", "Use «Add to Favorites» or drop from Finder"))
                 .font(.caption2)
                 .foregroundStyle(favoritesDropTargeted ? OrdenTheme.accent : .secondary)
@@ -1110,7 +1214,139 @@ struct SidebarView: View {
         }
     }
 
+    // MARK: Carpetas inteligentes (dentro de Favoritos)
+
+    @ViewBuilder
+    private var smartFoldersBlock: some View {
+        if !browser.smartFolders.isEmpty {
+            HStack(spacing: 4) {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 8, weight: .bold))
+                Text(L10n.s("INTELIGENTES", "SMART"))
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(0.6)
+            }
+            .foregroundStyle(OrdenTheme.textMuted)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 2)
+            .help(L10n.s(
+                "Búsquedas guardadas: un clic muestra solo esos archivos. No mueven ni copian nada.",
+                "Saved searches: one click shows only those files. Nothing is moved or copied."
+            ))
+
+            ForEach(browser.smartFolders) { folder in
+                smartFolderButton(folder)
+            }
+        }
+
+        Button {
+            browser.promptNewSmartFolder()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "plus.rectangle.on.folder")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 22, alignment: .center)
+                Text(L10n.s("Nueva carpeta inteligente…", "New Smart Folder…"))
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(OrdenTheme.accent)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 8)
+        .padding(.top, 2)
+        .help(L10n.s(
+            "Crea una carpeta que muestra solo lo que eliges: imágenes, PDF, ZIP, lo descargado hoy, cualquier extensión…",
+            "Create a folder that shows only what you choose: images, PDFs, ZIPs, today's downloads, any extension…"
+        ))
+    }
+
+    private func smartFolderButton(_ folder: SmartFolder) -> some View {
+        let active = browser.isSmartFolderActive(folder)
+        let tint = Color(hex: folder.tintHex)
+        return Button {
+            // Abrir (o, si ya está abierta, volver a buscar por si hay archivos nuevos).
+            browser.openSmartFolder(folder)
+        } label: {
+            HStack(spacing: 10) {
+                ZStack(alignment: .bottomTrailing) {
+                    Image(systemName: folder.symbolName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(tint)
+                        .frame(width: 22, alignment: .center)
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundStyle(OrdenTheme.textMuted)
+                        .offset(x: 3, y: 3)
+                }
+                Text(folder.name)
+                    .font(.system(size: 13, weight: active ? .semibold : .medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .layoutPriority(1)
+                Spacer(minLength: 0)
+                if active && browser.smartFolderLoading {
+                    ProgressView()
+                        .controlSize(.mini)
+                } else if active {
+                    Text("\(browser.visibleEntries.count)")
+                        .font(.caption2.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                active ? OrdenTheme.sidebarActiveFill : Color.clear,
+                in: RoundedRectangle(cornerRadius: OrdenTheme.radiusControl, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: OrdenTheme.radiusControl, style: .continuous)
+                    .strokeBorder(active ? OrdenTheme.accent.opacity(0.35) : Color.clear, lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 8)
+        .help("\(folder.name)\n\(folder.summaryLocalized)")
+        .accessibilityAddTraits(active ? [.isSelected] : [])
+        .contextMenu {
+            Button(L10n.s("Abrir", "Open")) {
+                browser.openSmartFolder(folder)
+            }
+            Button(L10n.s("Editar…", "Edit…")) {
+                browser.editSmartFolder(folder)
+            }
+            Button(L10n.s("Duplicar…", "Duplicate…")) {
+                browser.duplicateSmartFolder(folder)
+            }
+            Divider()
+            Button(L10n.s("Mover arriba", "Move Up")) {
+                browser.moveSmartFolder(folder, direction: -1)
+            }
+            .disabled(browser.smartFolders.first?.id == folder.id)
+            Button(L10n.s("Mover abajo", "Move Down")) {
+                browser.moveSmartFolder(folder, direction: 1)
+            }
+            .disabled(browser.smartFolders.last?.id == folder.id)
+            Divider()
+            Button(L10n.s("Quitar de Favoritos (no borra archivos)", "Remove from Favorites (keeps files)"), role: .destructive) {
+                browser.deleteSmartFolder(folder)
+            }
+        }
+    }
+
     private func isActive(_ path: String) -> Bool {
+        // Con una carpeta inteligente abierta, la carpeta normal no aparece marcada.
+        if browser.activeSmartFolder != nil { return false }
         let a = (path as NSString).standardizingPath
         let b = (browser.currentPath as NSString).standardizingPath
         return a == b
@@ -1180,6 +1416,15 @@ struct FileBrowserPane: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
+            } else if paneEntries.isEmpty, !isSecondary, browser.smartFolderLoading {
+                VStack(spacing: 10) {
+                    ProgressView()
+                    Text(L10n.s("Buscando en subcarpetas…", "Searching subfolders…"))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             } else if paneEntries.isEmpty && (isSecondary || browser.viewMode != .columns) {
                 ContentUnavailableView(
                     L10n.s("Vacío", "Empty"),
@@ -1575,18 +1820,11 @@ struct FileRowButton: View {
             .padding(.vertical, metrics.isCompact ? 10 : 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
-            .simultaneousGesture(
-                TapGesture(count: 2).onEnded {
-                    ensureSelectedAlone()
-                    if isSecondary {
-                        browser.openSecondaryEntry(entry)
-                    } else {
-                        browser.activateEntry(entry)
-                    }
-                }
-            )
-            .onTapGesture(count: 1) {
-                selectRow()
+            // UN solo gesto de clic: selecciona al instante. El doble clic se reconoce por el
+            // `clickCount` del evento (2.º clic) en vez de `TapGesture(count: 2)`, que obligaba
+            // a SwiftUI a esperar el intervalo de doble clic antes de seleccionar (la demora).
+            .onTapGesture {
+                handleRowTap()
             }
 
             Button {
@@ -1605,7 +1843,6 @@ struct FileRowButton: View {
         .opacity(isCut ? 0.42 : 1)
         .background(rowBackground)
         .fileDragArmHighlight(path: entry.path)
-        .reportFileDragArmFrame(path: entry.path)
         .folderDropTarget(entry: entry)
         .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu {
@@ -1753,6 +1990,24 @@ struct FileRowButton: View {
             return "—"
         }
         return FolderSizer.format(entry.size)
+    }
+
+    /// 1.er clic → selecciona ya. 2.º clic del mismo doble clic (sin ⌘/⇧) → abre.
+    private func handleRowTap() {
+        let clicks = FileDragArmMonitor.shared.currentClickCount()
+        if clicks == 2 {
+            let mods = FileDragArmMonitor.shared.effectiveClickModifiers()
+            if !mods.command, !mods.shift {
+                ensureSelectedAlone()
+                if isSecondary {
+                    browser.openSecondaryEntry(entry)
+                } else {
+                    browser.activateEntry(entry)
+                }
+                return
+            }
+        }
+        selectRow()
     }
 
     private func selectRow() {
@@ -1980,6 +2235,10 @@ private struct BrowserDialogsModifier: ViewModifier {
             }
             .sheet(isPresented: $browser.showSaveTemplateDialog) {
                 SaveTemplateSheet()
+                    .environmentObject(browser)
+            }
+            .sheet(item: $browser.smartFolderDraft) { draft in
+                SmartFolderSheet(initial: draft, isNew: browser.smartFolderDraftIsNew)
                     .environmentObject(browser)
             }
             .sheet(item: $browser.pendingMergePreview) { preview in

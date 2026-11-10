@@ -49,6 +49,24 @@ final class FileDragArmMonitor {
     /// Teclas pulsadas en el último mouseDown (ver `ClickModifierMemory`).
     private(set) var clickMemory = ClickModifierMemory()
 
+    /// `clickCount` del último mouseDown (1 = clic, 2 = doble clic) y cuándo ocurrió.
+    private var lastMouseDownClickCount: Int = 1
+    private var lastMouseDownAt: TimeInterval = 0
+
+    /// Número de clic del gesto que SwiftUI está procesando ahora (1, 2, 3…).
+    /// Permite resolver el doble clic SIN `TapGesture(count: 2)`: ese gesto obliga a SwiftUI
+    /// a esperar el intervalo de doble clic del sistema antes de entregar el clic simple,
+    /// y eso era la demora al seleccionar un archivo.
+    func currentClickCount() -> Int {
+        if let event = NSApp.currentEvent,
+           event.type == .leftMouseUp || event.type == .leftMouseDown {
+            return max(1, event.clickCount)
+        }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now - lastMouseDownAt <= NSEvent.doubleClickInterval + 0.5 else { return 1 }
+        return max(1, lastMouseDownClickCount)
+    }
+
     /// Teclas efectivas del clic que SwiftUI está procesando ahora.
     func effectiveClickModifiers() -> ClickModifierMemory.Modifiers {
         let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
@@ -80,6 +98,8 @@ final class FileDragArmMonitor {
             ),
             at: event.timestamp
         )
+        lastMouseDownClickCount = event.clickCount
+        lastMouseDownAt = event.timestamp
         return event
     }
 
@@ -193,12 +213,9 @@ private struct FileDragArmFrameReader: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: FileDragArmFrameNSView, context: Context) {
+        // Antes: cada re-render (cada clic de selección) forzaba un layout por fila visible.
+        // `layout()` / `setFrameSize` ya reportan el frame cuando cambia de verdad.
         nsView.path = path
-        DispatchQueue.main.async {
-            nsView.needsLayout = true
-            nsView.layoutSubtreeIfNeeded()
-            nsView.report()
-        }
     }
 }
 
@@ -214,10 +231,16 @@ extension View {
         onAppear { FileDragArmMonitor.shared.attach(browser: browser) }
     }
 
-    /// Doble clic ligado a la fila SwiftUI (no a frames AppKit).
+    /// Doble clic ligado a la celda SwiftUI (no a frames AppKit).
+    /// Un `TapGesture` simple simultáneo + `clickCount` del evento: el clic simple del botón
+    /// hijo ya no espera al intervalo de doble clic (antes `highPriorityGesture(count: 2)`
+    /// retrasaba cada selección ~0,5 s o más, según Ajustes del Sistema).
     func fileOpenOnDoubleClick(entry: FileEntry, browser: BrowserModel) -> some View {
-        highPriorityGesture(
-            TapGesture(count: 2).onEnded {
+        simultaneousGesture(
+            TapGesture().onEnded {
+                guard FileDragArmMonitor.shared.currentClickCount() == 2 else { return }
+                let mods = FileDragArmMonitor.shared.effectiveClickModifiers()
+                guard !mods.command, !mods.shift else { return }
                 browser.selectOnly(entry.id)
                 browser.activateEntry(entry)
             }

@@ -132,6 +132,14 @@ public struct FindaroHelpView: View {
                 bullet(L10n.s("Fijar orden global: Aplica el criterio de ordenación actual como regla predeterminada en todas las carpetas.", "Set Global Sort: Applies current sort order across all folders."))
                 bullet(L10n.s("Atajos de fecha y tipo: Filtra instantáneamente por imágenes de hoy, documentos recientes o más pesados.", "Shortcuts by type/date: Filter instantly for today's images, recent docs, or largest files."))
             }
+            helpSectionHeader(title: L10n.s("Carpetas inteligentes", "Smart Folders"), icon: "folder.badge.gearshape")
+            Text(L10n.s("Búsquedas guardadas en Favoritos. Un clic y ves solo esos archivos; no se mueve ni se copia nada.", "Searches saved in Favorites. One click shows only those files; nothing is moved or copied."))
+            helpCard {
+                bullet(L10n.s("Crear: en Favoritos pulsa «Nueva carpeta inteligente…» y elige tipo (Imágenes, PDF, ZIP…), cualquier extensión, texto del nombre y fecha (hoy, ayer, 7 o 30 días).", "Create: in Favorites click «New Smart Folder…» and pick type (Images, PDF, ZIP…), any extension, name text and date (today, yesterday, 7 or 30 days)."))
+                bullet(L10n.s("Desde una búsqueda: con un filtro, Tipo o «Descargados» activo, pulsa «Guardar en Favoritos».", "From a search: with a filter, Type or «Downloads» active, click «Save to Favorites»."))
+                bullet(L10n.s("Subcarpetas: actívalo para buscar también dentro de todas las carpetas de adentro.", "Subfolders: turn it on to also look inside every folder within."))
+                bullet(L10n.s("Editar o quitar: clic derecho sobre la carpeta inteligente. Quitarla no borra ningún archivo.", "Edit or remove: right-click the smart folder. Removing it never deletes files."))
+            }
 
         case .hotkeys:
             helpSectionHeader(title: L10n.s("Atajos de Teclado", "Keyboard Shortcuts"), icon: "command")

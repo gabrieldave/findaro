@@ -279,6 +279,14 @@ private struct FindaroCommands: Commands {
                 browser?.pickFolderAsFavorite()
             }
             .disabled(browser == nil)
+            Button(L10n.s("Nueva carpeta inteligente…", "New Smart Folder…")) {
+                browser?.promptNewSmartFolder()
+            }
+            .disabled(browser == nil)
+            Button(L10n.s("Guardar búsqueda actual como carpeta inteligente…", "Save Current Search as Smart Folder…")) {
+                browser?.promptSaveCurrentViewAsSmartFolder()
+            }
+            .disabled(browser == nil)
         }
 
         CommandMenu(L10n.s("Archivo+", "File+")) {

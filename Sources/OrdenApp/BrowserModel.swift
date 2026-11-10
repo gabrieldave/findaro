@@ -14,23 +14,63 @@ struct OpenWithApp: Identifiable, Hashable {
 @MainActor
 final class BrowserModel: ObservableObject {
     @Published var currentPath: String
-    @Published var entries: [FileEntry] = []
+    @Published var entries: [FileEntry] = [] {
+        didSet { invalidateVisibleEntries() }
+    }
     @Published var selectedIDs: Set<String> = []
-    @Published var rule: SortRule
+    /// Valor inicial real lo pone `init` (regla de la carpeta de arranque).
+    @Published var rule: SortRule = .downloads {
+        didSet { invalidateVisibleEntries() }
+    }
     @Published var errorMessage: String?
-    @Published var searchText: String = ""
+    @Published var searchText: String = "" {
+        didSet { invalidateVisibleEntries() }
+    }
     /// `nil` = todos los tipos. Filtra la lista visible por categoría.
-    @Published var categoryFilter: FileCategory? = nil
+    @Published var categoryFilter: FileCategory? = nil {
+        didSet { invalidateVisibleEntries() }
+    }
     @Published var statusMessage: String?
     @Published var folderTotalBytes: Int64 = 0
     @Published var isMeasuringSizes = false
     @Published var sizeMeasurementsIncomplete = false
     @Published var cleanupMode = false
     /// Modo exclusivo: solo ítems agregados/creados hoy en esta carpeta (descargas del día).
-    @Published var downloadsTodayMode = false
+    @Published var downloadsTodayMode = false {
+        didSet { invalidateVisibleEntries() }
+    }
     /// Atajo del asistente activo (tipo + fechas).
-    @Published var activeAssistantShortcut: AssistantShortcut? = nil
+    @Published var activeAssistantShortcut: AssistantShortcut? = nil {
+        didSet { invalidateVisibleEntries() }
+    }
     @Published var assistantShortcuts: [AssistantShortcut] = []
+
+    // MARK: Carpetas inteligentes (búsquedas guardadas en Favoritos)
+    @Published var smartFolders: [SmartFolder] = []
+    /// Carpeta inteligente abierta ahora (nil = carpeta normal).
+    @Published var activeSmartFolder: SmartFolder? = nil {
+        didSet { invalidateVisibleEntries() }
+    }
+    /// Buscando en subcarpetas para la carpeta inteligente.
+    @Published var smartFolderLoading = false
+    /// La búsqueda llegó al tope (hay más resultados de los mostrados).
+    @Published var smartFolderTruncated = false
+    /// Borrador de la hoja «Nueva / Editar carpeta inteligente» (nil = hoja cerrada).
+    @Published var smartFolderDraft: SmartFolder? = nil
+    @Published var smartFolderDraftIsNew = true
+    private var smartLoadTask: Task<Void, Never>?
+    private var smartLoadGeneration = 0
+
+    // MARK: Caché de la lista visible
+    /// `visibleEntries` se consulta muchas veces por render (filas, cabecera, estado, selección).
+    /// Antes se reordenaba toda la carpeta en CADA consulta → cada clic recalculaba miles de
+    /// comparaciones. Ahora se calcula una vez y se invalida solo cuando cambia algo que la afecta.
+    private var visibleEntriesCache: [FileEntry]?
+    private var visibleEntriesCacheDay: Date?
+
+    private func invalidateVisibleEntries() {
+        visibleEntriesCache = nil
+    }
 
     // MARK: Dual pane (dos carpetas lado a lado para mover)
     enum PaneFocus: String, Equatable {
@@ -266,6 +306,7 @@ final class BrowserModel: ObservableObject {
         self.flattenFolderView = store.preferences.flattenFolderView
         self.assistantShortcuts = store.preferences.assistantShortcuts
         self.viewTemplates = store.preferences.viewTemplates
+        self.smartFolders = store.preferences.smartFolders
         L10n.activeLanguage = store.preferences.appLanguage
         UserDefaults.standard.set(store.preferences.appLanguage.rawValue, forKey: "findaro_app_language")
         self.columnPaths = [start]
@@ -319,11 +360,21 @@ final class BrowserModel: ObservableObject {
         UserDefaults.standard.set(prefs.appLanguage.rawValue, forKey: "findaro_app_language")
         self.assistantShortcuts = prefs.assistantShortcuts
         self.viewTemplates = prefs.viewTemplates
+        self.smartFolders = prefs.smartFolders
+        if let active = activeSmartFolder {
+            // Editada en otra ventana → aplicar; borrada → salir.
+            if let updated = prefs.smartFolders.first(where: { $0.id == active.id }) {
+                if updated != active { activeSmartFolder = updated }
+            } else {
+                activeSmartFolder = nil
+            }
+        }
         self.showRowPaths = prefs.showRowPaths
         self.explorerKeyboardProfile = prefs.explorerKeyboardProfile
         self.showHiddenFiles = prefs.showHiddenFiles
         self.flattenFolderView = prefs.flattenFolderView
-        self.viewMode = prefs.viewMode
+        // Una carpeta inteligente abierta se ve en Lista aunque la preferencia sea Columnas.
+        self.viewMode = (activeSmartFolder != nil && prefs.viewMode == .columns) ? .list : prefs.viewMode
         if !prefs.folderOverrides.keys.contains(currentPath) {
             self.rule = prefs.globalRule
         }
@@ -340,6 +391,17 @@ final class BrowserModel: ObservableObject {
             || downloadsTodayMode
             || cleanupMode
             || activeAssistantShortcut != nil
+            || activeSmartFolder != nil
+            || showDeepSearchPanel
+    }
+
+    /// Filtros encima de la carpeta inteligente (búsqueda, Tipo, Descargados…).
+    var hasFiltersBeyondSmartFolder: Bool {
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || categoryFilter != nil
+            || downloadsTodayMode
+            || cleanupMode
+            || activeAssistantShortcut != nil
             || showDeepSearchPanel
     }
 
@@ -350,6 +412,9 @@ final class BrowserModel: ObservableObject {
         }
         searchText = ""
         categoryFilter = nil
+        if activeSmartFolder != nil {
+            exitSmartFolder()
+        }
         if downloadsTodayMode {
             downloadsTodayMode = false
         }
@@ -426,6 +491,17 @@ final class BrowserModel: ObservableObject {
             }
         )
         measureTask?.cancel()
+
+        // Carpeta inteligente con subcarpetas: se busca en segundo plano (no congela la ventana).
+        if let smart = activeSmartFolder, smart.includeSubfolders {
+            reloadSmartFolderInBackground(smart, preserveSelection: preserveSelection)
+            if dualPaneEnabled, sameFolder(currentPath, secondaryPath) {
+                reloadSecondary(preserveSelection: true, fromWatcher: true)
+            }
+            return
+        }
+        cancelSmartFolderLoad()
+
         do {
             let loaded = try loadEntries(at: currentPath)
             var nextEntries = SortEngine.sort(loaded, by: rule)
@@ -655,15 +731,38 @@ final class BrowserModel: ObservableObject {
     }
 
     var visibleEntries: [FileEntry] {
+        // «Hoy» cambia a medianoche: la caché también.
+        let today = Calendar.current.startOfDay(for: Date())
+        if let cached = visibleEntriesCache, visibleEntriesCacheDay == today {
+            return cached
+        }
+        let computed = computeVisibleEntries()
+        visibleEntriesCache = computed
+        visibleEntriesCacheDay = today
+        return computed
+    }
+
+    private func computeVisibleEntries() -> [FileEntry] {
+        // Carpeta inteligente: primero sus reglas; encima se pueden sumar los demás filtros.
+        let source: [FileEntry]
+        if let smart = activeSmartFolder {
+            let now = Date()
+            source = entries.filter { smart.matches($0, now: now) }
+        } else {
+            source = entries
+        }
         let base: [FileEntry]
         if let shortcut = activeAssistantShortcut {
-            let matched = entries.filter { shortcut.matches($0) }
+            let matched = source.filter { shortcut.matches($0) }
             base = matched
         } else if downloadsTodayMode {
             // Exclusivo: oculta todo lo que no sea actividad de hoy
-            base = entries.filter { DownloadDayFilter.isActivityToday($0) }
+            base = source.filter { DownloadDayFilter.isActivityToday($0) }
+        } else if activeSmartFolder != nil {
+            // Se ordena abajo (lo más nuevo arriba).
+            base = source
         } else {
-            base = SortEngine.sort(entries, by: rule)
+            base = SortEngine.sort(source, by: rule)
         }
         let typed: [FileEntry]
         if activeAssistantShortcut != nil {
@@ -694,7 +793,8 @@ final class BrowserModel: ObservableObject {
 
     /// Descarga hoy, tipo, búsqueda o atajo del asistente.
     private var isFilterSortingNewestFirst: Bool {
-        downloadsTodayMode
+        activeSmartFolder != nil
+            || downloadsTodayMode
             || categoryFilter != nil
             || activeAssistantShortcut != nil
             || !Self.filterNeedles(from: searchText).isEmpty
@@ -1023,6 +1123,19 @@ final class BrowserModel: ObservableObject {
         }
         let target = (path as NSString).standardizingPath
         let current = (currentPath as NSString).standardizingPath
+        if activeSmartFolder != nil {
+            // Ir a una carpeta normal siempre sale de la carpeta inteligente
+            // (aunque sea la misma ruta: clic en Favoritos sobre su carpeta raíz).
+            cancelSmartFolderLoad()
+            activeSmartFolder = nil
+            if target == current {
+                selectedIDs = []
+                selectionAnchorID = nil
+                selectionFocusID = nil
+                reload()
+                return
+            }
+        }
         guard target != current else { return }
         // Al cambiar de carpeta, quita el filtro Tipo para no “perder” archivos.
         categoryFilter = nil
@@ -1174,6 +1287,10 @@ final class BrowserModel: ObservableObject {
         guard !right.isEmpty, left != right else {
             statusMessage = L10n.s("No hay carpetas distintas para intercambiar", "No distinct folders to swap")
             return
+        }
+        if activeSmartFolder != nil {
+            cancelSmartFolderLoad()
+            activeSmartFolder = nil
         }
         currentPath = right
         secondaryPath = left
@@ -2878,6 +2995,315 @@ final class BrowserModel: ObservableObject {
         downloadsTodayMode = false
         statusMessage = L10n.s("Saliste del modo Descargados", "Exited Downloads mode")
         objectWillChange.send()
+    }
+
+    // MARK: - Carpetas inteligentes
+
+    /// Abre una carpeta inteligente en el panel Origen.
+    func openSmartFolder(_ folder: SmartFolder) {
+        if dualPaneEnabled { focusedPane = .primary }
+        let root = (folder.rootPath as NSString).standardizingPath
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: root, isDirectory: &isDir), isDir.boolValue else {
+            statusMessage = L10n.s(
+                "La carpeta de «\(folder.name)» ya no existe. Edítala para elegir otra.",
+                "The folder for “\(folder.name)” no longer exists. Edit it to pick another."
+            )
+            return
+        }
+        if showDeepSearchPanel || deepSearchRunning {
+            clearDeepSearch()
+        }
+        let current = (currentPath as NSString).standardizingPath
+        if root != current || activeSmartFolder == nil {
+            pushHistoryBeforeLeavingCurrent()
+        }
+        // Columnas carga cada columna del disco: la carpeta inteligente se ve en Lista.
+        if viewMode == .columns {
+            viewMode = .list
+        }
+        cleanupMode = false
+        downloadsTodayMode = false
+        activeAssistantShortcut = nil
+        categoryFilter = nil
+        searchText = ""
+        currentPath = root
+        rule = store.preferences.rule(for: root)
+        columnPaths = [root]
+        selectedIDs = []
+        selectionAnchorID = nil
+        selectionFocusID = nil
+        smartFolderTruncated = false
+        activeSmartFolder = folder
+        reload()
+        refreshHistoryFlags()
+        if !folder.includeSubfolders {
+            announceSmartFolderCount()
+        }
+    }
+
+    func exitSmartFolder() {
+        guard activeSmartFolder != nil else { return }
+        cancelSmartFolderLoad()
+        activeSmartFolder = nil
+        smartFolderTruncated = false
+        selectedIDs = []
+        selectionAnchorID = nil
+        selectionFocusID = nil
+        reload()
+        statusMessage = L10n.s("Saliste de la carpeta inteligente", "Left the smart folder")
+    }
+
+    func isSmartFolderActive(_ folder: SmartFolder) -> Bool {
+        activeSmartFolder?.id == folder.id
+    }
+
+    private func announceSmartFolderCount() {
+        guard let smart = activeSmartFolder else { return }
+        let n = visibleEntries.count
+        var msg = n == 1
+            ? L10n.s("«\(smart.name)»: 1 archivo", "“\(smart.name)”: 1 file")
+            : L10n.s("«\(smart.name)»: \(n) archivos", "“\(smart.name)”: \(n) files")
+        if smartFolderTruncated {
+            msg += L10n.s(" (se muestran los primeros)", " (showing the first ones)")
+        }
+        statusMessage = msg
+    }
+
+    private func cancelSmartFolderLoad() {
+        smartLoadTask?.cancel()
+        smartLoadTask = nil
+        smartLoadGeneration &+= 1
+        if smartFolderLoading { smartFolderLoading = false }
+    }
+
+    private func reloadSmartFolderInBackground(_ folder: SmartFolder, preserveSelection: Bool) {
+        smartLoadTask?.cancel()
+        smartLoadGeneration &+= 1
+        let generation = smartLoadGeneration
+        let root = currentPath
+        let includeHidden = showHiddenFiles
+        smartFolderLoading = true
+        if !preserveSelection {
+            entries = []
+        }
+        smartLoadTask = Task.detached(priority: .userInitiated) { [weak self] in
+            let result = SmartFolderSearch.collect(
+                folder: folder,
+                root: root,
+                includeHidden: includeHidden,
+                isCancelled: { Task.isCancelled }
+            )
+            if Task.isCancelled { return }
+            await self?.finishSmartFolderLoad(
+                result.entries,
+                truncated: result.truncated,
+                generation: generation,
+                preserveSelection: preserveSelection
+            )
+        }
+    }
+
+    private func finishSmartFolderLoad(
+        _ found: [FileEntry],
+        truncated: Bool,
+        generation: Int,
+        preserveSelection: Bool
+    ) {
+        guard generation == smartLoadGeneration, activeSmartFolder != nil else { return }
+        smartLoadTask = nil
+        smartFolderLoading = false
+        smartFolderTruncated = truncated
+        let previous = selectedIDs
+        entries = SortEngine.sort(found, by: rule)
+        errorMessage = nil
+        folderTotalBytes = entries.reduce(Int64(0)) { $0 + $1.size }
+        if preserveSelection {
+            selectedIDs = previous.intersection(Set(entries.map(\.id)))
+            if let focus = selectionFocusID, !selectedIDs.contains(focus) {
+                selectionFocusID = selectedIDs.first
+            }
+            if let anchor = selectionAnchorID, !selectedIDs.contains(anchor) {
+                selectionAnchorID = selectedIDs.first
+            }
+        } else {
+            announceSmartFolderCount()
+        }
+    }
+
+    // Hoja de creación / edición
+
+    /// Hoja vacía (con la carpeta actual como lugar de búsqueda).
+    func promptNewSmartFolder() {
+        guard smartFolders.count < SmartFolder.maxCount else {
+            statusMessage = L10n.s(
+                "Llegaste al máximo de \(SmartFolder.maxCount) carpetas inteligentes",
+                "You reached the maximum of \(SmartFolder.maxCount) smart folders"
+            )
+            return
+        }
+        smartFolderDraft = SmartFolder(name: "", rootPath: activeSmartFolder?.rootPath ?? currentPath)
+        smartFolderDraftIsNew = true
+    }
+
+    /// Convierte lo que estás viendo (búsqueda, filtro Tipo, «Descargados hoy») en una carpeta inteligente.
+    func promptSaveCurrentViewAsSmartFolder() {
+        guard smartFolders.count < SmartFolder.maxCount else {
+            promptNewSmartFolder()
+            return
+        }
+        var draft = SmartFolder(name: "", rootPath: currentPath)
+        if let smart = activeSmartFolder {
+            draft = smart
+            draft.id = UUID()
+            draft.createdAt = Date()
+        }
+        if let shortcut = activeAssistantShortcut {
+            draft.categories = shortcut.categories
+            draft.dateWindow = shortcut.dateWindow
+        }
+        if let categoryFilter, categoryFilter != .folder {
+            draft.categories = [categoryFilter]
+        }
+        if downloadsTodayMode {
+            draft.dateWindow = .today
+        }
+        // «pdf» / «*.zip» → extensión · «imágenes» → tipo · otro texto → «el nombre contiene».
+        let fromText = SmartFolder.criteria(fromSearchText: searchText)
+        if !fromText.categories.isEmpty {
+            draft.categories = Array(Set(draft.categories + fromText.categories)).sorted()
+        }
+        if !fromText.extensions.isEmpty {
+            draft.extensions = SmartFolder.normalizeExtensions(draft.extensions + fromText.extensions)
+        }
+        if !fromText.nameContains.isEmpty {
+            draft.nameContains = fromText.nameContains
+        }
+        draft.name = draft.hasCriteria ? draft.suggestedName : ""
+        smartFolderDraft = draft
+        smartFolderDraftIsNew = true
+    }
+
+    /// Guardar la búsqueda de «Buscar en subcarpetas» (⌘4) como carpeta inteligente.
+    func promptSaveDeepSearchAsSmartFolder() {
+        let text = deepSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let root = deepSearchRoot.isEmpty ? currentPath : deepSearchRoot
+        var draft = SmartFolder(name: "", rootPath: root, includeSubfolders: true)
+        let fromText = SmartFolder.criteria(fromSearchText: text)
+        draft.categories = fromText.categories
+        draft.extensions = fromText.extensions
+        draft.nameContains = fromText.nameContains
+        draft.name = draft.hasCriteria ? draft.suggestedName : ""
+        smartFolderDraft = draft
+        smartFolderDraftIsNew = true
+    }
+
+    func editSmartFolder(_ folder: SmartFolder) {
+        smartFolderDraft = folder
+        smartFolderDraftIsNew = false
+    }
+
+    func cancelSmartFolderDraft() {
+        smartFolderDraft = nil
+    }
+
+    /// Guarda el borrador. Devuelve un mensaje de error si falta algo.
+    @discardableResult
+    func saveSmartFolderDraft(open shouldOpen: Bool = true) -> String? {
+        guard var draft = smartFolderDraft else { return nil }
+        draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        draft.rootPath = (draft.rootPath as NSString).standardizingPath
+        draft.extensions = SmartFolder.normalizeExtensions(draft.extensions)
+        guard draft.hasCriteria else {
+            return L10n.s(
+                "Elige al menos un tipo, una extensión, un texto o una fecha.",
+                "Pick at least one type, extension, text or date."
+            )
+        }
+        if draft.name.isEmpty {
+            draft.name = draft.suggestedName
+        }
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: draft.rootPath, isDirectory: &isDir), isDir.boolValue else {
+            return L10n.s("La carpeta elegida no existe.", "The chosen folder does not exist.")
+        }
+        let isNew = !smartFolders.contains { $0.id == draft.id }
+        if isNew, smartFolders.count >= SmartFolder.maxCount {
+            return L10n.s(
+                "Máximo \(SmartFolder.maxCount) carpetas inteligentes.",
+                "Maximum \(SmartFolder.maxCount) smart folders."
+            )
+        }
+        let saved = draft
+        store.update { prefs in
+            if let index = prefs.smartFolders.firstIndex(where: { $0.id == saved.id }) {
+                prefs.smartFolders[index] = saved
+            } else {
+                prefs.smartFolders.append(saved)
+            }
+        }
+        smartFolders = store.preferences.smartFolders
+        smartFolderDraft = nil
+        statusMessage = isNew
+            ? L10n.s("Carpeta inteligente creada: \(saved.name)", "Smart folder created: \(saved.name)")
+            : L10n.s("Carpeta inteligente actualizada: \(saved.name)", "Smart folder updated: \(saved.name)")
+        if shouldOpen || activeSmartFolder?.id == saved.id {
+            openSmartFolder(saved)
+        }
+        return nil
+    }
+
+    /// Quita la carpeta inteligente de Favoritos. No toca ningún archivo.
+    func deleteSmartFolder(_ folder: SmartFolder) {
+        if activeSmartFolder?.id == folder.id {
+            exitSmartFolder()
+        }
+        store.update { prefs in
+            prefs.smartFolders.removeAll { $0.id == folder.id }
+        }
+        smartFolders = store.preferences.smartFolders
+        statusMessage = L10n.s(
+            "Quitada «\(folder.name)» (tus archivos siguen donde estaban)",
+            "Removed “\(folder.name)” (your files are untouched)"
+        )
+    }
+
+    func duplicateSmartFolder(_ folder: SmartFolder) {
+        var copy = folder
+        copy.id = UUID()
+        copy.createdAt = Date()
+        copy.name = L10n.s("\(folder.name) copia", "\(folder.name) copy")
+        smartFolderDraft = copy
+        smartFolderDraftIsNew = true
+    }
+
+    func moveSmartFolder(_ folder: SmartFolder, direction: Int) {
+        guard let index = smartFolders.firstIndex(where: { $0.id == folder.id }) else { return }
+        let target = index + direction
+        guard smartFolders.indices.contains(target) else { return }
+        store.update { prefs in
+            guard prefs.smartFolders.indices.contains(index),
+                  prefs.smartFolders.indices.contains(target) else { return }
+            prefs.smartFolders.swapAt(index, target)
+        }
+        smartFolders = store.preferences.smartFolders
+    }
+
+    /// Cuenta rápida para la hoja: coincidencias en el primer nivel de la carpeta (sin subcarpetas).
+    func smartFolderPreviewCount(_ draft: SmartFolder) -> Int? {
+        guard draft.hasCriteria else { return nil }
+        let root = (draft.rootPath as NSString).standardizingPath
+        let source: [FileEntry]
+        if sameFolder(root, currentPath), activeSmartFolder == nil, !flattenFolderView {
+            source = entries
+        } else {
+            guard let loaded = try? DirectoryLoader.load(path: root, includeHidden: showHiddenFiles) else { return nil }
+            source = loaded
+        }
+        var oneLevel = draft
+        oneLevel.includeSubfolders = false
+        let now = Date()
+        return source.filter { oneLevel.matches($0, now: now) }.count
     }
 
     // MARK: Atajos del asistente

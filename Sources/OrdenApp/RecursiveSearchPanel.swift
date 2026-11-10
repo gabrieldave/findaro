@@ -22,6 +22,20 @@ struct RecursiveSearchPanel: View {
                     Button(L10n.s("Detener", "Stop")) { browser.cancelDeepSearch() }
                         .controlSize(.small)
                 }
+                if !browser.deepSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Button {
+                        browser.promptSaveDeepSearchAsSmartFolder()
+                    } label: {
+                        Label(L10n.s("Guardar en Favoritos", "Save to Favorites"), systemImage: "star.fill")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                    .help(L10n.s(
+                        "Guarda esta búsqueda como carpeta inteligente en Favoritos (incluye subcarpetas)",
+                        "Save this search as a smart folder in Favorites (includes subfolders)"
+                    ))
+                }
                 Button {
                     browser.clearDeepSearch()
                 } label: {

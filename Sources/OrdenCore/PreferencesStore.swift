@@ -31,6 +31,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public var globalHotkeyFolderPath: String?
     /// Idioma de la interfaz (auto, es, en).
     public var appLanguage: AppLanguage
+    /// Carpetas inteligentes (búsquedas guardadas) que aparecen en Favoritos.
+    public var smartFolders: [SmartFolder]
 
     public init(
         schemaVersion: Int = 17,
@@ -49,7 +51,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         viewTemplates: [ViewTemplate] = ViewTemplate.factoryDefaults(),
         keyboardHotkeyOverrides: [String: KeyChord] = [:],
         globalHotkeyFolderPath: String? = nil,
-        appLanguage: AppLanguage = .english
+        appLanguage: AppLanguage = .english,
+        smartFolders: [SmartFolder] = []
     ) {
         self.schemaVersion = schemaVersion
         self.globalRule = globalRule
@@ -68,6 +71,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         self.keyboardHotkeyOverrides = keyboardHotkeyOverrides
         self.globalHotkeyFolderPath = globalHotkeyFolderPath
         self.appLanguage = appLanguage
+        self.smartFolders = smartFolders
     }
 
     /// Override de carpeta si existe; si no, el global (estilo Descargas por defecto).
@@ -85,7 +89,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode, showRowPaths,
              explorerKeyboardProfile, showHiddenFiles, flattenFolderView, assistantShortcuts,
              ollamaEnabled, ollamaModel, viewTemplates, keyboardHotkeyOverrides, globalHotkeyFolderPath,
-             appLanguage
+             appLanguage, smartFolders
     }
 
     public init(from decoder: Decoder) throws {
@@ -110,6 +114,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         globalHotkeyFolderPath = try c.decodeIfPresent(String.self, forKey: .globalHotkeyFolderPath)
         let decodedLang = try c.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? .english
         appLanguage = (decodedLang == .auto) ? .english : decodedLang
+        // Tolerante: si el bloque falla, no se pierde el resto de preferencias.
+        smartFolders = (try? c.decodeIfPresent([SmartFolder].self, forKey: .smartFolders)) ?? []
     }
 }
 
@@ -282,6 +288,9 @@ public final class PreferencesStore: @unchecked Sendable {
         // Tope duro: gente crea muchos; no dejamos crecer sin límite.
         if next.assistantShortcuts.count > AssistantShortcut.maxCount {
             next.assistantShortcuts = Array(next.assistantShortcuts.prefix(AssistantShortcut.maxCount))
+        }
+        if next.smartFolders.count > SmartFolder.maxCount {
+            next.smartFolders = Array(next.smartFolders.prefix(SmartFolder.maxCount))
         }
         if next.viewTemplates.count > ViewTemplate.maxCount {
             next.viewTemplates = Array(next.viewTemplates.prefix(ViewTemplate.maxCount))
