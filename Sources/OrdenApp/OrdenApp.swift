@@ -143,7 +143,7 @@ private struct FindaroCommands: Commands {
         }
 
         CommandGroup(after: .pasteboard) {
-            Button(L10n.s("Deshacer movimiento", "Undo File Operation")) { browser?.undoLastFileOp() }
+            Button(L10n.s("Deshacer", "Undo")) { browser?.undoLastFileOp() }
                 .keyboardShortcut("z", modifiers: .command)
                 .disabled(!(browser?.canUndo ?? false))
             Button(L10n.s("Copiar a bandeja", "Copy to Tray")) { browser?.addSelectionToShelf(intent: .copy) }
@@ -331,8 +331,8 @@ private struct FindaroCommands: Commands {
                 Button(L10n.s("Eliminar para siempre", "Delete Permanently")) { browser?.permanentlyDeleteSelection(confirm: true) }
                     .disabled(browser == nil)
             } else {
+                // Atajo ⌫ solo vía SelectionCancelMonitor (si va en el menú, roba ⌫ a los campos de texto).
                 Button(L10n.s("Mover a la Papelera", "Move to Trash")) { browser?.moveSelectionToTrash() }
-                    .keyboardShortcut(.delete, modifiers: .command)
                     .disabled(browser == nil)
             }
             Divider()

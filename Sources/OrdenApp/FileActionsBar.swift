@@ -143,7 +143,7 @@ struct FileActionsBar: View {
                         browser.restoreSelectionFromTrash()
                     }
                 } else {
-                    chip(L10n.s("Papelera", "Trash"), L10n.s("Basura", "Trash"), "trash", role: .destructive, help: L10n.s("Papelera · ⌘⌫", "Move to Trash · ⌘⌫"), enabled: browser.activeHasSelection) {
+                    chip(L10n.s("Papelera", "Trash"), L10n.s("Basura", "Trash"), "trash", role: .destructive, help: L10n.s("Papelera · ⌫ · ⌘Z restaura", "Move to Trash · ⌫ · ⌘Z restores"), enabled: browser.activeHasSelection) {
                         browser.moveSelectionToTrash()
                     }
                 }

@@ -109,8 +109,12 @@ struct ContentView: View {
             return .handled
         }
         .onKeyPress(keys: [.delete], phases: .down) { press in
-            guard press.modifiers.contains(.command) else { return .ignored }
+            // ⌫ solo (estilo Windows). En campos de texto no interceptar.
+            guard press.modifiers.isEmpty else { return .ignored }
             guard !browser.hasModalSheet else { return .ignored }
+            if FindaroTextInput.isEditing || browser.isAssistantFocused || browser.pathOmniboxEditing {
+                return .ignored
+            }
             browser.moveSelectionToTrash()
             return .handled
         }

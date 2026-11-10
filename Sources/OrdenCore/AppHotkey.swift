@@ -215,7 +215,7 @@ public enum AppHotkeyCatalog {
               defaultChord: .init(keyCode: 124, command: true, option: true)),
 
         // Archivos
-        .init(id: "files.undo", title: "Deshacer", titleEnglish: "Undo", detail: "Deshace el último movimiento/copia", detailEnglish: "Undo last move/copy operation", group: .files,
+        .init(id: "files.undo", title: "Deshacer", titleEnglish: "Undo", detail: "⌘Z: restaura movimiento, copia o Papelera (varios niveles)", detailEnglish: "⌘Z: undo move, copy, or Trash (multi-level)", group: .files,
               defaultChord: .init(keyCode: 6, character: "z", command: true)),
         .init(id: "files.copy", title: "Copiar a bandeja", titleEnglish: "Copy to Tray", detail: "Copia la selección a la bandeja", detailEnglish: "Copy selection to clipboard tray", group: .files,
               defaultChord: .init(keyCode: 8, character: "c", command: true)),
@@ -237,8 +237,8 @@ public enum AppHotkeyCatalog {
               defaultChord: .init(keyCode: 125, command: true)),
         .init(id: "files.quickLook", title: "Vista rápida", titleEnglish: "Quick Look", detail: "Quick Look del archivo", detailEnglish: "Preview file with Quick Look", group: .files,
               defaultChord: .init(keyCode: 49)),
-        .init(id: "files.trash", title: "Mover a la Papelera", titleEnglish: "Move to Trash", detail: "Envía la selección a la Papelera", detailEnglish: "Send selection to Trash", group: .files,
-              defaultChord: .init(keyCode: 51, command: true)),
+        .init(id: "files.trash", title: "Mover a la Papelera", titleEnglish: "Move to Trash", detail: "⌫ envía la selección a la Papelera (como Windows)", detailEnglish: "⌫ sends selection to Trash (Windows-style)", group: .files,
+              defaultChord: .init(keyCode: 51)),
         .init(id: "files.restore", title: "Sacar de la Papelera", titleEnglish: "Restore from Trash", detail: "Restaura la selección fuera del basurero", detailEnglish: "Restore selection out of Trash", group: .files,
               defaultChord: .init(keyCode: 51, command: true, option: true)),
         .init(id: "files.renameF2", title: "Renombrar (F2)", titleEnglish: "Rename (F2)", detail: "Renombra el ítem seleccionado", detailEnglish: "Rename selected item", group: .files,

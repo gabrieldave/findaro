@@ -114,9 +114,9 @@ final class BrowserModel: ObservableObject {
     /// Carpeta bajo el cursor al arrastrar (drop para meter adentro).
     @Published var folderDropTargetPath: String?
 
-    /// Historial para ⌘Z (mover/copiar).
+    /// Historial para ⌘Z (mover/copiar/Papelera).
     private var undoStack: [UndoRecord] = []
-    private let undoLimit = 30
+    private let undoLimit = 50
 
     private enum UndoRecord {
         /// Mover: deshacer = devolver `to` → `from`.
@@ -3942,32 +3942,42 @@ final class BrowserModel: ObservableObject {
         clearActiveSelection()
 
         Task {
-            var moved = 0
+            var pairs: [FileOps.TransferPair] = []
             var failures: [String] = []
             for item in snapshot {
                 do {
-                    try await Task.detached(priority: .userInitiated) {
+                    let trashPath = try await Task.detached(priority: .userInitiated) { () -> String in
+                        var resulting: NSURL?
                         try FileManager.default.trashItem(
                             at: URL(fileURLWithPath: item.path),
-                            resultingItemURL: nil
+                            resultingItemURL: &resulting
                         )
+                        return (resulting as URL?)?.path ?? ""
                     }.value
-                    moved += 1
+                    if trashPath.isEmpty {
+                        failures.append("\(item.name): sin ruta en Papelera")
+                    } else {
+                        pairs.append(.init(from: item.path, to: trashPath))
+                    }
                 } catch {
                     failures.append("\(item.name): \(error.localizedDescription)")
                 }
             }
             await MainActor.run {
+                if !pairs.isEmpty {
+                    self.pushUndo(.moved(pairs: pairs))
+                }
                 self.reload()
                 if self.dualPaneEnabled {
                     self.reloadSecondary()
                 }
                 var parts: [String] = []
-                if moved > 0 {
+                if !pairs.isEmpty {
                     let whereLabel = trashedSecondary ? (L10n.isEnglish ? " (Destination)" : " (Destino)") : ""
+                    let moved = pairs.count
                     parts.append(moved == 1
-                        ? L10n.s("1 elemento a la Papelera\(whereLabel)", "1 item moved to Trash\(whereLabel)")
-                        : L10n.s("\(moved) elementos a la Papelera\(whereLabel)", "\(moved) items moved to Trash\(whereLabel)"))
+                        ? L10n.s("1 elemento a la Papelera\(whereLabel) · ⌘Z restaura", "1 item moved to Trash\(whereLabel) · ⌘Z restores")
+                        : L10n.s("\(moved) elementos a la Papelera\(whereLabel) · ⌘Z restaura", "\(moved) items moved to Trash\(whereLabel) · ⌘Z restores"))
                 }
                 if !failures.isEmpty {
                     parts.append(L10n.s("Fallaron \(failures.count): ", "Failed \(failures.count): ") + failures.prefix(3).joined(separator: "; "))
@@ -4800,7 +4810,7 @@ final class BrowserModel: ObservableObject {
 
     var canUndo: Bool { !undoStack.isEmpty }
 
-    /// ⌘Z — deshacer último movimiento/copia (como Explorer).
+    /// ⌘Z — deshacer último movimiento/copia/Papelera (varios niveles).
     func undoLastFileOp() {
         guard let record = undoStack.last else {
             statusMessage = L10n.s("Nada que deshacer", "Nothing to undo")
