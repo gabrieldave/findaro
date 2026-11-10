@@ -131,7 +131,7 @@ private struct FindaroCommands: Commands {
             Button(L10n.s("Ayuda de Findaro", "Findaro Help")) {
                 FindaroHelpWindow.show()
             }
-            .keyboardShortcut("?", modifiers: .command)
+            .keyboardShortcut("?", modifiers: [.command, .shift])
         }
 
         CommandGroup(replacing: .newItem) {
@@ -336,6 +336,7 @@ private struct FindaroCommands: Commands {
                 .keyboardShortcut("t", modifiers: [.command, .option])
                 .disabled(browser == nil)
             Button(L10n.s("Renombrar", "Rename")) { browser?.promptRename() }
+                .keyboardShortcut("r", modifiers: .command)
                 .disabled(browser == nil)
             Button(L10n.s("Duplicar", "Duplicate")) { browser?.duplicateSelection() }
                 .disabled(browser == nil)

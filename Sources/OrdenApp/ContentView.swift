@@ -2300,7 +2300,8 @@ private struct BrowserToolbarModifier: ViewModifier {
                 } label: {
                     Label(L10n.s("Actualizar", "Refresh"), systemImage: "arrow.clockwise")
                 }
-                .help(L10n.s("Actualizar esta carpeta y avisarte en el asistente", "Refresh current folder and notify assistant"))
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+                .help(L10n.s("Actualizar esta carpeta (⌘⇧R)", "Refresh this folder (⌘⇧R)"))
             }
         }
     }
@@ -2670,6 +2671,29 @@ struct SettingsView: View {
 
     private var settingsShortcuts: some View {
         List {
+            Section {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L10n.s(
+                            "\(AppHotkeyCatalog.catalog.count) atajos de teclado",
+                            "\(AppHotkeyCatalog.catalog.count) keyboard shortcuts"
+                        ))
+                        .font(.body.weight(.semibold))
+                        Text(L10n.s(
+                            "Incluye Renombrar ⌘R, Papelera ⌫, Esc Esc bandeja, Actualizar ⌘⇧R y el resto.",
+                            "Includes Rename ⌘R, Trash ⌫, Esc Esc tray, Refresh ⌘⇧R, and the rest."
+                        ))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button(L10n.s("Restaurar teclado", "Restore Shortcuts")) {
+                        browser.restoreDefaultKeyboardHotkeys()
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
             ForEach(AppHotkeyGroup.allCases, id: \.self) { group in
                 let items = AppHotkeyCatalog.catalog.filter { $0.group == group }
                 if !items.isEmpty {
@@ -2678,21 +2702,13 @@ struct SettingsView: View {
                             keyboardHotkeyRow(def)
                         }
                     } header: {
-                        if group == AppHotkeyGroup.allCases.first {
-                            HStack {
-                                Text(group.titleLocalized)
-                                Spacer()
-                                Button(L10n.s("Restaurar teclado", "Restore Shortcuts")) {
-                                    browser.restoreDefaultKeyboardHotkeys()
-                                }
-                                .font(.caption)
-                            }
-                        } else {
-                            Text(group.titleLocalized)
-                        }
+                        Text("\(group.titleLocalized) · \(items.count)")
                     } footer: {
                         if group == .view {
-                            Text(L10n.s("Clic para cambiar la tecla. Reinicia Findaro si el menú de macOS no se actualiza.", "Click to change shortcut key. Relaunch Findaro if the macOS menu does not refresh immediately."))
+                            Text(L10n.s(
+                                "Clic en una fila para cambiar la tecla. Reinicia Findaro si el menú de macOS no se actualiza.",
+                                "Click a row to change the key. Relaunch Findaro if the macOS menu does not refresh."
+                            ))
                         }
                     }
                 }

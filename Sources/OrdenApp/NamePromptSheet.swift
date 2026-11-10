@@ -27,7 +27,7 @@ enum NamePromptKind {
         switch self {
         case .newFolder: return L10n.s("Se crea dentro de la carpeta actual", "Created inside the current folder")
         case .newFile: return L10n.s("Archivo vacío en la carpeta actual", "Empty file inside the current folder")
-        case .rename: return L10n.s("Cambia el nombre del elemento seleccionado", "Changes the name of the selected item")
+        case .rename: return L10n.s("Solo el nombre; la extensión se conserva", "Name only; extension is kept")
         }
     }
 
@@ -58,7 +58,7 @@ enum NamePromptKind {
         switch self {
         case .newFolder: return L10n.s("Atajo ⇧⌘N", "Shortcut ⇧⌘N")
         case .newFile: return L10n.s("Atajo ⌘N", "Shortcut ⌘N")
-        case .rename: return nil
+        case .rename: return L10n.s("Atajo ⌘R · F2", "Shortcut ⌘R · F2")
         }
     }
 }
@@ -122,7 +122,11 @@ struct NamePromptSheet: View {
         case .newFile:
             Text(L10n.s("Sin extensión se usa .txt. Puedes poner .md, .json, .csv, etc.", "Without extension, .txt is used. You can enter .md, .json, .csv, etc."))
         case .rename:
-            Text(L10n.s("Mantén la extensión si quieres conservar el tipo de archivo.", "Keep the extension to preserve file type."))
+            if let ext = browser.renamePreservedExtension, !ext.isEmpty {
+                Text(L10n.s("Se conserva automáticamente «.\(ext)».", "«.\(ext)» is kept automatically."))
+            } else {
+                Text(L10n.s("Carpeta o sin extensión: editas el nombre completo.", "Folder or no extension: edit the full name."))
+            }
         }
     }
 
@@ -140,7 +144,7 @@ struct NamePromptSheet: View {
             ]
         case .rename:
             return [
-                .init(icon: "checkmark.circle.fill", tint: .green, text: L10n.s("Solo cambia el nombre; la ubicación se mantiene.", "Only changes the name; location remains unchanged.")),
+                .init(icon: "checkmark.circle.fill", tint: .green, text: L10n.s("Solo cambia el nombre; la extensión y la ubicación se mantienen.", "Only the name changes; extension and location stay.")),
                 .init(icon: "xmark.circle.fill", tint: .secondary, text: L10n.s("No puede coincidir con otro nombre ya usado aquí.", "Cannot match an existing name in this folder."))
             ]
         }
@@ -153,6 +157,7 @@ struct NamePromptSheet: View {
         case .rename:
             browser.showRenameDialog = false
             browser.renameTargetPath = nil
+            browser.renamePreservedExtension = nil
         }
     }
 

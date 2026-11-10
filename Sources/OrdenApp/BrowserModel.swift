@@ -152,6 +152,8 @@ final class BrowserModel: ObservableObject {
     @Published var nameDraft = ""
     /// Ruta pendiente de renombrar (si el diálogo está abierto).
     @Published var renameTargetPath: String?
+    /// Extensión original a conservar al renombrar (nil = carpeta / sin extensión / dotfile).
+    @Published var renamePreservedExtension: String?
     /// Se incrementa con Esc / cancelar para resetear gestos (marquee).
     @Published var selectionCancelToken: Int = 0
     @Published var viewMode: BrowserViewMode
@@ -1691,6 +1693,7 @@ final class BrowserModel: ObservableObject {
         if showRenameDialog {
             showRenameDialog = false
             renameTargetPath = nil
+            renamePreservedExtension = nil
             return true
         }
         if showSaveTemplateDialog {
@@ -4293,15 +4296,45 @@ final class BrowserModel: ObservableObject {
             return
         }
         renameTargetPath = entry.path
-        nameDraft = entry.name
+        let parts = Self.renameEditParts(name: entry.name, isDirectory: entry.isDirectory)
+        nameDraft = parts.base
+        renamePreservedExtension = parts.ext
         showRenameDialog = true
+    }
+
+    /// Como Finder: editar solo el nombre; la última extensión se conserva.
+    static func renameEditParts(name: String, isDirectory: Bool) -> (base: String, ext: String?) {
+        if isDirectory { return (name, nil) }
+        let ns = name as NSString
+        let ext = ns.pathExtension
+        let base = ns.deletingPathExtension as String
+        // Sin extensión, o dotfile tipo «.env» / «.gitignore» → editar el nombre completo.
+        if ext.isEmpty || base.isEmpty || base == "." {
+            return (name, nil)
+        }
+        if name.hasPrefix("."), !name.dropFirst().contains(".") {
+            return (name, nil)
+        }
+        return (base, ext)
     }
 
     func commitRenameFromDraft() {
         guard ensureLicenseAllowsWrite() else { return }
         guard let path = renameTargetPath else { return }
-        let newName = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !newName.isEmpty else { return }
+        let draft = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !draft.isEmpty else { return }
+        let newName: String
+        if let ext = renamePreservedExtension, !ext.isEmpty {
+            let typedExt = (draft as NSString).pathExtension
+            // Si el usuario ya escribió la misma extensión, no duplicar.
+            if !typedExt.isEmpty, typedExt.caseInsensitiveCompare(ext) == .orderedSame {
+                newName = draft
+            } else {
+                newName = "\(draft).\(ext)"
+            }
+        } else {
+            newName = draft
+        }
         let intoSecondary = dualPaneEnabled && paneForPath(path) == .secondary
         do {
             let newPath = try FileOps.rename(path: path, to: newName)
@@ -4320,6 +4353,7 @@ final class BrowserModel: ObservableObject {
             statusMessage = L10n.s("No se pudo renombrar: \(error.localizedDescription)", "Could not rename: \(error.localizedDescription)")
         }
         renameTargetPath = nil
+        renamePreservedExtension = nil
     }
 
     func duplicateSelection() {

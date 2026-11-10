@@ -210,8 +210,12 @@ enum SelectionCancelMonitor {
                 return nil
             }
 
-            if hit("files.renameF2") {
+            if hit("files.rename") || hit("files.renameF2") {
                 browser.promptRename()
+                return nil
+            }
+            if hit("view.refresh") {
+                browser.reloadFromUser()
                 return nil
             }
 
