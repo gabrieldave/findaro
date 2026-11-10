@@ -3596,9 +3596,16 @@ final class BrowserModel: ObservableObject {
     }
 
     func setAppLanguage(_ lang: AppLanguage) {
-        store.update { $0.appLanguage = lang }
+        if store.preferences.appLanguage != lang {
+            store.update { $0.appLanguage = lang }
+        }
         L10n.activeLanguage = lang
         UserDefaults.standard.set(lang.rawValue, forKey: "findaro_app_language")
+        if lang == .auto {
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        } else {
+            UserDefaults.standard.set([lang.isEnglish ? "en" : "es"], forKey: "AppleLanguages")
+        }
         objectWillChange.send()
     }
 

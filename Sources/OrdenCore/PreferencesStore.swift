@@ -116,8 +116,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
             ?? ViewTemplate.factoryDefaults()
         keyboardHotkeyOverrides = try c.decodeIfPresent([String: KeyChord].self, forKey: .keyboardHotkeyOverrides) ?? [:]
         globalHotkeyFolderPath = try c.decodeIfPresent(String.self, forKey: .globalHotkeyFolderPath)
-        let decodedLang = try c.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? .english
-        appLanguage = (decodedLang == .auto) ? .english : decodedLang
+        // Conservar `.auto` (sigue el idioma del Mac); no degradar a inglés.
+        appLanguage = try c.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? .english
         // Tolerante: si el bloque falla, no se pierde el resto de preferencias.
         smartFolders = (try? c.decodeIfPresent([SmartFolder].self, forKey: .smartFolders)) ?? []
         listColumns = ListColumn.sanitize(

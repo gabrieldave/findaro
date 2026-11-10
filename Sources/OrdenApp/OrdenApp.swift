@@ -11,9 +11,12 @@ struct OrdenApp: App {
     init() {
         let storedLang = PreferencesStore.shared.preferences.appLanguage
         L10n.activeLanguage = storedLang
-        let langCode = storedLang.isEnglish ? "en" : "es"
-        UserDefaults.standard.set([langCode], forKey: "AppleLanguages")
         UserDefaults.standard.set(storedLang.rawValue, forKey: "findaro_app_language")
+        if storedLang == .auto {
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        } else {
+            UserDefaults.standard.set([storedLang.isEnglish ? "en" : "es"], forKey: "AppleLanguages")
+        }
 
         // T-03: Iniciar comprobación periódica (cada 24h) y comprobación al inicio
         LicenseStore.shared.startPeriodicCheck()
@@ -60,12 +63,18 @@ private struct FindaroCommands: Commands {
     }
 
     private func setGlobalLanguage(_ lang: AppLanguage) {
-        PreferencesStore.shared.update { $0.appLanguage = lang }
-        L10n.activeLanguage = lang
-        let langCode = lang.isEnglish ? "en" : "es"
-        UserDefaults.standard.set([langCode], forKey: "AppleLanguages")
-        UserDefaults.standard.set(lang.rawValue, forKey: "findaro_app_language")
+        // Primero el flag de UI (@AppStorage) para que la palomita no parpadee a English
+        // mientras PreferencesStore notifica y BrowserModel sincroniza.
         appLangStorage = lang.rawValue
+        UserDefaults.standard.set(lang.rawValue, forKey: "findaro_app_language")
+        L10n.activeLanguage = lang
+        if lang == .auto {
+            // Sin override: la app sigue Locale.preferredLanguages.
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        } else {
+            UserDefaults.standard.set([lang.isEnglish ? "en" : "es"], forKey: "AppleLanguages")
+        }
+        PreferencesStore.shared.update { $0.appLanguage = lang }
         browser?.setAppLanguage(lang)
         AppMenuLocalizer.applyLocalization()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -75,12 +84,16 @@ private struct FindaroCommands: Commands {
 
     @ViewBuilder
     private func languageMenuItem(_ lang: AppLanguage, title: String) -> some View {
-        // Toggle en menú macOS = palomita nativa a la izquierda; se actualiza con @AppStorage.
-        Toggle(isOn: Binding(
-            get: { currentLanguage == lang },
-            set: { _ in setGlobalLanguage(lang) }
-        )) {
-            Text(title)
+        Button {
+            setGlobalLanguage(lang)
+        } label: {
+            HStack {
+                Text(title)
+                Spacer(minLength: 12)
+                if currentLanguage == lang {
+                    Image(systemName: "checkmark")
+                }
+            }
         }
     }
 

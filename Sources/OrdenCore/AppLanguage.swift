@@ -9,7 +9,7 @@ public enum AppLanguage: String, Codable, Sendable, CaseIterable {
     public var displayName: String {
         switch self {
         case .auto:
-            return isEnglish ? "Automatic (System)" : "Automático (según sistema)"
+            return isEnglish ? "Automatic (System)" : "Automático (Sistema)"
         case .spanish:
             return "Español"
         case .english:
@@ -17,6 +17,7 @@ public enum AppLanguage: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    /// Inglés efectivo de la UI. En `.auto` sigue el idioma preferido del Mac (`es*` → español).
     public var isEnglish: Bool {
         switch self {
         case .english:
@@ -24,9 +25,14 @@ public enum AppLanguage: String, Codable, Sendable, CaseIterable {
         case .spanish:
             return false
         case .auto:
-            return true
-
+            return Self.systemPrefersEnglish
         }
+    }
+
+    /// `true` si el sistema prefiere inglés (o un idioma no español).
+    public static var systemPrefersEnglish: Bool {
+        let preferred = Locale.preferredLanguages.first?.lowercased() ?? "en"
+        return !preferred.hasPrefix("es")
     }
 }
 
