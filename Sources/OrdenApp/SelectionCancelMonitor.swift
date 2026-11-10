@@ -113,7 +113,7 @@ enum SelectionCancelMonitor {
                 return nil
             }
 
-            // Esc → búsqueda → filtros → selección → bandeja (2.º Esc)
+            // Esc → búsqueda → filtros → selección; Esc Esc seguidos → bandeja
             if hit("files.cancel") {
                 if browser.showDeepSearchPanel {
                     browser.clearDeepSearch()

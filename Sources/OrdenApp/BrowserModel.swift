@@ -137,6 +137,8 @@ final class BrowserModel: ObservableObject {
     @Published var selectionAnchorID: String?
     /// Tras ⌘+clic del monitor AppKit, ignorar el clic SwiftUI que llega sin modificadores y te deja 1 solo.
     private var ignorePlainSelectUntil: Date?
+    /// Marca el último Esc de cancelación para detectar Esc Esc seguidos → vaciar bandeja.
+    private var lastCancelEscAt: Date?
     /// Último ⌘+clic aplicado: evita que UN clic físico alterne dos veces (seleccionar y quitar al instante).
     private var lastCommandToggle: (id: String, mouseDownAt: TimeInterval, appliedAt: TimeInterval)?
     /// Cursor de teclado: fila activa al navegar con flechas (con o sin ⇧).
@@ -1122,16 +1124,25 @@ final class BrowserModel: ObservableObject {
             || folderDropTargetPath != nil
     }
 
-    /// Esc en cascada: selección primero; si ya no hay, vacía la bandeja (2.º Esc).
+    /// Esc: quita selección. Dos Esc seguidos (~0,5 s) vacían la bandeja.
     func cancelSelectionOrClearTray() {
-        if hasCancellableSelection {
-            cancelSelection()
-            return
+        let now = Date()
+        if let last = lastCancelEscAt {
+            let dt = now.timeIntervalSince(last)
+            // Mismo keyDown puede llegar por NSEvent + SwiftUI/menú: no contar como doble.
+            if dt < 0.05 { return }
+            if dt < 0.55 {
+                lastCancelEscAt = nil
+                if !shelf.isEmpty {
+                    clearShelf()
+                }
+                if hasCancellableSelection {
+                    cancelSelection()
+                }
+                return
+            }
         }
-        if !shelf.isEmpty {
-            clearShelf()
-            return
-        }
+        lastCancelEscAt = now
         cancelSelection()
     }
 
