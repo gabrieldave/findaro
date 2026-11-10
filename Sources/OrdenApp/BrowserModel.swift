@@ -627,6 +627,8 @@ final class BrowserModel: ObservableObject {
         } else if mods.command {
             commandToggleSelect(to: id)
         } else if multiSelectMode {
+            // AppKit ya aplicó el toggle en mouseDown; el TapGesture no debe deshacerlo.
+            if let until = ignorePlainSelectUntil, Date() < until { return }
             toggleSelection(id)
             if hasArmedFileDrag { syncArmedWithSelection() }
         } else {
@@ -1427,9 +1429,11 @@ final class BrowserModel: ObservableObject {
         } else if mods.command {
             commandToggleSelect(to: id, pane: .secondary)
         } else if multiSelectMode {
+            if let until = ignorePlainSelectUntil, Date() < until { return }
             toggleSecondarySelection(id)
             if hasArmedFileDrag { syncArmedWithSelection() }
         } else {
+            if let until = ignorePlainSelectUntil, Date() < until { return }
             if hasArmedFileDrag { clearArmedFileDrag() }
             selectSecondaryOnly(id)
         }

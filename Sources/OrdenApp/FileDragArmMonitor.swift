@@ -166,21 +166,11 @@ final class FileDragArmMonitor {
             && browser.secondaryEntries.contains(where: { $0.path == path })
         let useSecondary = inSecondary && (!inPrimary || browser.focusedPane == .secondary)
 
-        // ⌘ / ⇧ al mouseDown — sin esperar al TapGesture de SwiftUI (sensación Finder).
-        if flags.contains(.shift) || flags.contains(.command) {
-            if useSecondary {
-                browser.clickSelectSecondary(path)
-            } else if inPrimary {
-                browser.clickSelect(path)
-            }
-            return event
-        }
-
-        // Clic simple: selección al instante.
+        // Clic al mouseDown: ⌘/⇧/Modo varios vía clickSelect* (antes selectOnly ignoraba «Varios»).
+        // noteCommandClickHandled evita que el TapGesture SwiftUI vuelva a toggleear (quita lo que sumó).
         if useSecondary {
-            if browser.secondarySelectedIDs != [path] {
-                browser.selectSecondaryOnly(path)
-            }
+            browser.clickSelectSecondary(path)
+            browser.noteCommandClickHandled()
             if hit.kind == .name {
                 pressPath = path
                 pressPoint = event.locationInWindow
@@ -188,9 +178,8 @@ final class FileDragArmMonitor {
                 pressArmedFileDrag = true
             }
         } else if inPrimary {
-            if browser.selectedIDs != [path] {
-                browser.selectOnly(path)
-            }
+            browser.clickSelect(path)
+            browser.noteCommandClickHandled()
             if hit.kind == .name {
                 pressPath = path
                 pressPoint = event.locationInWindow
