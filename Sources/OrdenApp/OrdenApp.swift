@@ -311,7 +311,9 @@ private struct FindaroCommands: Commands {
             Button(L10n.s("Seleccionar todos", "Select All")) { browser?.selectAllVisible() }
                 .keyboardShortcut("a", modifiers: .command)
                 .disabled(browser == nil)
-            Button(L10n.s("Quitar selección", "Deselect All")) { browser?.cancelSelection() }
+            Button(L10n.s("Quitar selección / bandeja", "Deselect / Clear Tray")) {
+                browser?.cancelSelectionOrClearTray()
+            }
                 .keyboardShortcut(.escape, modifiers: [])
                 .disabled(browser == nil)
             Button(L10n.s("Modo varios", "Multi-Select Mode")) { browser?.multiSelectMode.toggle() }

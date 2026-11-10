@@ -140,7 +140,7 @@ struct ContentView: View {
                 browser.dismissModalSheet()
                 return .handled
             }
-            browser.cancelSelection()
+            browser.cancelSelectionOrClearTray()
             return .handled
         }
         .onKeyPress(keys: [.leftArrow], phases: .down) { press in

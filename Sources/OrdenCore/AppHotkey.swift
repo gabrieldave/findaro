@@ -247,7 +247,7 @@ public enum AppHotkeyCatalog {
               defaultChord: .init(keyCode: 36)),
         .init(id: "files.selectAll", title: "Seleccionar todos", titleEnglish: "Select All", detail: "Marca todos los visibles", detailEnglish: "Select all visible items", group: .files,
               defaultChord: .init(keyCode: 0, character: "a", command: true)),
-        .init(id: "files.cancel", title: "Quitar selección / salir", titleEnglish: "Clear Selection / Exit", detail: "Esc: filtros, búsqueda o selección", detailEnglish: "Esc: clear filters, search, or selection", group: .files,
+        .init(id: "files.cancel", title: "Quitar selección / bandeja", titleEnglish: "Clear Selection / Tray", detail: "Esc: filtros → selección → bandeja", detailEnglish: "Esc: filters → selection → tray", group: .files,
               defaultChord: .init(keyCode: 53)),
         .init(id: "files.favorite", title: "Añadir a Favoritos", titleEnglish: "Add to Favorites", detail: "Favorito la carpeta actual", detailEnglish: "Bookmark current folder", group: .files,
               defaultChord: .init(keyCode: 17, character: "t", command: true, shift: true)),

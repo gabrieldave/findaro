@@ -113,7 +113,7 @@ enum SelectionCancelMonitor {
                 return nil
             }
 
-            // Esc → búsqueda → otros filtros → selección / modo naranja
+            // Esc → búsqueda → filtros → selección → bandeja (2.º Esc)
             if hit("files.cancel") {
                 if browser.showDeepSearchPanel {
                     browser.clearDeepSearch()
@@ -123,7 +123,7 @@ enum SelectionCancelMonitor {
                     browser.resetToNormalView()
                     return nil
                 }
-                browser.cancelSelection()
+                browser.cancelSelectionOrClearTray()
                 return nil
             }
 

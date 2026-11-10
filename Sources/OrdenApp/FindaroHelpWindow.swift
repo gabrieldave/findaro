@@ -98,7 +98,7 @@ public struct FindaroHelpView: View {
                 bullet(L10n.s("Mover al Destino (⌘⇧M): Transfiere la selección del panel activo al secundario.", "Move to Destination (⌘⇧M): Transfers active selection to destination pane."))
                 bullet(L10n.s("Copiar al Destino (⌘⌥C): Duplica la selección hacia la carpeta del panel secundario.", "Copy to Destination (⌘⌥C): Duplicates selection into destination folder."))
                 bullet(L10n.s("Arrastrar y Soltar: Arrastra cualquier archivo directamente de un panel al otro sin esperas.", "Drag & Drop: Drag files directly from one pane to the other."))
-                bullet(L10n.s("Bandeja de Corte y Pega: Agrega archivos con ⌘C / ⌘X y pégalos en cualquier destino con ⌘V.", "Clipboard Tray: Cut/copy files with ⌘C / ⌘X and paste anywhere with ⌘V."))
+                bullet(L10n.s("Bandeja de Corte y Pega: Agrega archivos con ⌘C / ⌘X y pégalos en cualquier destino con ⌘V. Esc otra vez (sin selección) vacía la bandeja.", "Clipboard Tray: Cut/copy with ⌘C / ⌘X and paste with ⌘V. Press Esc again (nothing selected) to clear the tray."))
             }
 
         case .selection:
@@ -109,7 +109,7 @@ public struct FindaroHelpView: View {
                 bullet(L10n.s("⌘ + Clic: Alterna la selección de un elemento individual sin deseleccionar los demás.", "⌘ + Click: Toggles individual item selection without clearing."))
                 bullet(L10n.s("⇧ + Clic / ⇧ + Flechas: Extiende la selección en bloque contiguo desde el ancla.", "⇧ + Click / ⇧ + Arrows: Extends contiguous selection block."))
                 bullet(L10n.s("Arrastre de Marquesina: Haz clic y arrastra sobre el fondo vacío para envolver múltiples archivos.", "Marquee Drag: Click and drag on empty background to select multiple items."))
-                bullet(L10n.s("Deshacer selección: Pulsa la tecla Escape (⎋) para deseleccionar todo.", "Clear selection: Press Escape (⎋) to deselect all."))
+                bullet(L10n.s("Deshacer selección: Escape (⎋) quita la selección; si ya no hay nada seleccionado y la bandeja tiene ítems, el siguiente Esc la vacía.", "Clear selection: Escape (⎋) deselects; if nothing is selected and the tray has items, the next Esc clears it."))
             }
 
         case .tabs:

@@ -1113,6 +1113,28 @@ final class BrowserModel: ObservableObject {
         statusMessage = L10n.s("Selección cancelada", "Selection cleared")
     }
 
+    /// ¿Hay algo de selección / drag / marquee pendiente de cancelar?
+    var hasCancellableSelection: Bool {
+        !selectedIDs.isEmpty
+            || !secondarySelectedIDs.isEmpty
+            || !fileDragArmedPaths.isEmpty
+            || multiSelectMode
+            || folderDropTargetPath != nil
+    }
+
+    /// Esc en cascada: selección primero; si ya no hay, vacía la bandeja (2.º Esc).
+    func cancelSelectionOrClearTray() {
+        if hasCancellableSelection {
+            cancelSelection()
+            return
+        }
+        if !shelf.isEmpty {
+            clearShelf()
+            return
+        }
+        cancelSelection()
+    }
+
     /// Clic en zona vacía: no cancelar si hay ⌘/⇧ (evita apagar el naranja al soltar ⌘+clic).
     /// En doble panel también enfoca el panel donde se hizo clic.
     func cancelSelectionFromBackgroundTap(activating pane: PaneFocus? = nil) {
