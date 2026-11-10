@@ -47,7 +47,9 @@ public enum ArchiveOps {
         try fm.createDirectory(atPath: staging, withIntermediateDirectories: true)
 
         do {
+            try preflightArchiveEntries(kind: kind, archivePath: archivePath)
             try runExtract(kind: kind, archivePath: archivePath, into: staging)
+            try validateExtractedTree(in: staging)
             let result = try settleExtractedContents(from: staging, parent: parent, preferredStem: archiveStem(for: archivePath))
             try? fm.removeItem(atPath: staging)
             return result
@@ -87,10 +89,10 @@ public enum ArchiveOps {
         switch kind {
         case .zip:
             process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-            process.arguments = ["-x", "-k", archivePath, staging]
+            process.arguments = ["-x", "-k", "--", archivePath, staging]
         case .tar:
             process.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
-            process.arguments = ["-xf", archivePath, "-C", staging]
+            process.arguments = ["--no-same-permissions", "-xf", archivePath, "-C", staging]
         }
         let err = Pipe()
         process.standardError = err
@@ -105,6 +107,91 @@ public enum ArchiveOps {
             let msg = String(data: err.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             throw Error.failed(msg?.isEmpty == false ? msg! : "Falló la descompresión")
+        }
+    }
+
+    /// Inspecciona nombres de entradas antes de extraer para rechazar rutas absolutas o saltos «..».
+    private static func preflightArchiveEntries(kind: Kind, archivePath: String) throws {
+        let process = Process()
+        switch kind {
+        case .zip:
+            guard FileManager.default.isExecutableFile(atPath: "/usr/bin/zipinfo") else { return }
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/zipinfo")
+            process.arguments = ["-1", "--", archivePath]
+        case .tar:
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
+            process.arguments = ["-tf", archivePath]
+        }
+        let out = Pipe()
+        let err = Pipe()
+        process.standardOutput = out
+        process.standardError = err
+        do {
+            try process.run()
+        } catch {
+            return
+        }
+        let outData = out.fileHandleForReading.readDataToEndOfFile()
+        _ = err.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0,
+              let listing = String(data: outData, encoding: .utf8) else {
+            return
+        }
+        for rawLine in listing.split(whereSeparator: { $0 == "\n" || $0 == "\r" }) {
+            let entry = String(rawLine)
+            if entry.hasPrefix("/") || entry.hasPrefix("~") {
+                throw Error.failed("Archivo bloqueado por seguridad: contiene rutas absolutas (\(entry))")
+            }
+            let segments = entry.split(separator: "/", omittingEmptySubsequences: false)
+            if segments.contains("..") {
+                throw Error.failed("Archivo bloqueado por seguridad: contiene rutas fuera de destino (\(entry))")
+            }
+        }
+    }
+
+    /// Recorre el árbol extraído sin seguir enlaces simbólicos externos y rechaza cualquier escape fuera de `staging`.
+    private static func validateExtractedTree(in staging: String) throws {
+        let fm = FileManager.default
+        let stagingCanonical = URL(fileURLWithPath: staging).standardizedFileURL.resolvingSymlinksInPath().path
+        let prefix = stagingCanonical.hasSuffix("/") ? stagingCanonical : stagingCanonical + "/"
+
+        guard let enumerator = fm.enumerator(
+            at: URL(fileURLWithPath: stagingCanonical, isDirectory: true),
+            includingPropertiesForKeys: [.isSymbolicLinkKey],
+            options: []
+        ) else {
+            throw Error.failed("No se pudo verificar el contenido extraído")
+        }
+
+        while let itemURL = enumerator.nextObject() as? URL {
+            let standardized = itemURL.standardizedFileURL.path
+            guard standardized == stagingCanonical || standardized.hasPrefix(prefix) else {
+                throw Error.failed("Archivo bloqueado por seguridad: una entrada escapó de la carpeta temporal")
+            }
+            let values = try? itemURL.resourceValues(forKeys: [.isSymbolicLinkKey])
+            if values?.isSymbolicLink == true {
+                enumerator.skipDescendants()
+                let linkDest = try fm.destinationOfSymbolicLink(atPath: itemURL.path)
+                let resolvedTarget: String
+                if linkDest.hasPrefix("/") {
+                    resolvedTarget = URL(fileURLWithPath: linkDest).standardizedFileURL.resolvingSymlinksInPath().path
+                } else {
+                    resolvedTarget = itemURL.deletingLastPathComponent()
+                        .appendingPathComponent(linkDest)
+                        .standardizedFileURL
+                        .resolvingSymlinksInPath()
+                        .path
+                }
+                guard resolvedTarget == stagingCanonical || resolvedTarget.hasPrefix(prefix) else {
+                    throw Error.failed("Archivo bloqueado por seguridad: contiene un enlace simbólico que apunta fuera de la carpeta (\(itemURL.lastPathComponent))")
+                }
+            } else {
+                let resolved = itemURL.standardizedFileURL.resolvingSymlinksInPath().path
+                guard resolved == stagingCanonical || resolved.hasPrefix(prefix) else {
+                    throw Error.failed("Archivo bloqueado por seguridad: ruta fuera del área de extracción (\(itemURL.lastPathComponent))")
+                }
+            }
         }
     }
 

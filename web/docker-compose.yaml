@@ -2,7 +2,7 @@ services:
   app:
     build: .
     ports:
-      - "3047:3000"
+      - "127.0.0.1:3047:3000"
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m

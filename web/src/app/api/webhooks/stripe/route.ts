@@ -131,6 +131,7 @@ export const POST = handle(async (req) => {
     amountTotal: typeof session.amount_total === "number" ? session.amount_total : null,
     currency: typeof session.currency === "string" ? session.currency : null,
     appId: metadata.app_id || metadata.tradingAppSlug || null,
+    lang: metadata.lang === "es" ? "es" : metadata.lang === "en" ? "en" : null,
     });
   } catch (err) {
     await releaseEvent();

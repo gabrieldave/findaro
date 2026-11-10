@@ -170,6 +170,7 @@ function ComprarInner() {
           name,
           email,
           tier: selectedTier,
+          lang,
           referralCode: hasDiscount ? referralCode.trim() : undefined,
           utm_source: utmSource || cookieUtm.utm_source,
           utm_medium: utmMedium || cookieUtm.utm_medium,
@@ -343,11 +344,11 @@ function ComprarInner() {
         <footer style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid #1e293b", textAlign: "center", fontSize: 12, color: "#64748b" }}>
           <div>{t.footerNote}</div>
           <div style={{ marginTop: 6, display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
-            <Link href="/terminos" style={{ color: "#94a3b8", textDecoration: "underline" }}>{t.terms}</Link>
+            <Link href={`/terminos?lang=${lang}`} style={{ color: "#94a3b8", textDecoration: "underline" }}>{t.terms}</Link>
             <span>·</span>
-            <Link href="/privacidad" style={{ color: "#94a3b8", textDecoration: "underline" }}>{t.privacy}</Link>
+            <Link href={`/privacidad?lang=${lang}`} style={{ color: "#94a3b8", textDecoration: "underline" }}>{t.privacy}</Link>
             <span>·</span>
-            <Link href="/reembolso" style={{ color: "#94a3b8", textDecoration: "underline" }}>{t.refund}</Link>
+            <Link href={`/reembolso?lang=${lang}`} style={{ color: "#94a3b8", textDecoration: "underline" }}>{t.refund}</Link>
             <span>·</span>
             <a href={isEn ? "mailto:support@findaro.iareal.net" : "mailto:soporte@findaro.iareal.net"} style={{ color: "#94a3b8", textDecoration: "underline" }}>{t.contact}</a>
           </div>

@@ -27,8 +27,11 @@ const prepare = node({
       language: 'javaScript',
       jsCode: `const body = $input.item.json.body || $input.item.json;
 const headers = $input.item.json.headers || {};
-const sessionId = body.sessionId || body.session_id;
-if (!sessionId) throw new Error('sessionId requerido');
+const rawSessionId = String(body.sessionId || body.session_id || '').trim();
+if (!/^cs_(test|live)_[A-Za-z0-9]{10,120}$/.test(rawSessionId)) {
+  throw new Error('sessionId inválido o ausente');
+}
+const sessionId = encodeURIComponent(rawSessionId);
 const getEnv = (name) => {
   let v;
   try { v = $env[name]; } catch (e) { v = undefined; }
@@ -99,6 +102,7 @@ const paymentIntent = typeof s.payment_intent === 'string' ? s.payment_intent : 
 const amountTotal = typeof s.amount_total === 'number' ? s.amount_total : null;
 const currency = typeof s.currency === 'string' ? s.currency.toLowerCase() : null;
 const appId = s.metadata?.app_id || s.metadata?.tradingAppSlug || null;
+const lang = s.metadata?.lang === 'en' ? 'en' : s.metadata?.lang === 'es' ? 'es' : null;
 return [{ json: {
   success: true,
   data: {
@@ -111,6 +115,7 @@ return [{ json: {
     amountTotal,
     currency,
     appId,
+    lang,
   }
 } }];`,
     },

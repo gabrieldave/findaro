@@ -3,7 +3,7 @@ import { issueDownloadToken } from "./download";
 import { sendPurchaseConfirmationEmail } from "./email";
 import { recordEvent } from "./events";
 import { issueProLicense, mintReferralCode } from "./license";
-import { incrementPromoIfEligible, LicenseTier } from "./pricing";
+import { incrementPromoIfEligible, LicenseTier, referralDiscountForTier } from "./pricing";
 import { PUBLIC_APP_URL } from "./site";
 
 export async function fulfillPaidOrder(opts: {
@@ -15,6 +15,7 @@ export async function fulfillPaidOrder(opts: {
   amountTotal?: number | null;
   currency?: string | null;
   appId?: string | null;
+  lang?: "en" | "es" | null;
 }) {
   // Validación estricta de metadatos de aplicación
   if (opts.appId && opts.appId !== "findaro") {
@@ -124,11 +125,12 @@ export async function fulfillPaidOrder(opts: {
           [order.referral_code.trim()],
         );
         if (referrer.rows[0] && referrer.rows[0].id !== order.customer_id) {
+          const appliedDiscount = referralDiscountForTier((order.tier as LicenseTier) || "personal");
           await query(
             `INSERT INTO referrals (referrer_customer_id, referred_order_id, referral_code, discount_applied_usd, commission_amount_usd, status)
-             VALUES ($1, $2, $3, 4.00, 10.00, 'pending')
+             VALUES ($1, $2, $3, $4, 10.00, 'pending')
              ON CONFLICT DO NOTHING`,
-            [referrer.rows[0].id, order.id, order.referral_code.trim().toUpperCase()],
+            [referrer.rows[0].id, order.id, order.referral_code.trim().toUpperCase(), appliedDiscount],
           );
         }
       }
@@ -186,6 +188,7 @@ export async function fulfillPaidOrder(opts: {
         referralLink,
         seats: pro.seats,
         tier: orderTier,
+        lang: opts.lang === "es" ? "es" : "en",
       });
       if (emailRes.success) {
         await query(`UPDATE orders SET email_sent_at = now() WHERE id = $1`, [order.id]);

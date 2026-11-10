@@ -45,4 +45,34 @@ final class ArchiveOpsTests: XCTestCase {
         XCTAssertTrue(fm.fileExists(atPath: (result as NSString).appendingPathComponent("nota.txt")))
         XCTAssertTrue(fm.fileExists(atPath: zipPath), "el zip original se conserva")
     }
+
+    func testExtractRejectsSymlinkEscapingOutsideStaging() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("findaro-archive-symlink-\(UUID().uuidString)", isDirectory: true)
+        let outside = fm.temporaryDirectory.appendingPathComponent("findaro-outside-\(UUID().uuidString)", isDirectory: true)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        try fm.createDirectory(at: outside, withIntermediateDirectories: true)
+        defer {
+            try? fm.removeItem(at: root)
+            try? fm.removeItem(at: outside)
+        }
+
+        let payloadDir = root.appendingPathComponent("payload", isDirectory: true)
+        try fm.createDirectory(at: payloadDir, withIntermediateDirectories: true)
+        let evilLink = payloadDir.appendingPathComponent("escape_link")
+        try fm.createSymbolicLink(at: evilLink, withDestinationURL: outside)
+
+        let tarPath = root.appendingPathComponent("evil.tar").path
+        let tar = Process()
+        tar.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
+        tar.currentDirectoryURL = root
+        tar.arguments = ["-cf", tarPath, "payload"]
+        try tar.run()
+        tar.waitUntilExit()
+        XCTAssertEqual(tar.terminationStatus, 0)
+        try fm.removeItem(at: payloadDir)
+
+        XCTAssertThrowsError(try ArchiveOps.extract(archivePath: tarPath))
+        XCTAssertFalse(fm.fileExists(atPath: root.appendingPathComponent("payload").path))
+    }
 }

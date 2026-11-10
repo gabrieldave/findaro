@@ -5,30 +5,43 @@ export type LicenseTier = "personal" | "family";
 export type TierInfo = {
   tier: LicenseTier;
   name: string;
+  nameEn: string;
   seats: number;
   priceUsd: number;
   discountedUsd: number;
+  referralDiscountUsd: number;
   description: string;
+  descriptionEn: string;
 };
 
 export const TIERS: Record<LicenseTier, TierInfo> = {
   personal: {
     tier: "personal",
     name: "Plan Personal",
+    nameEn: "Personal Plan",
     seats: 2,
     priceUsd: 39,
     discountedUsd: 35,
+    referralDiscountUsd: 4,
     description: "2 Macs incluidas · De por vida · Actualizaciones automáticas",
+    descriptionEn: "2 Macs included · Lifetime license · Automatic updates",
   },
   family: {
     tier: "family",
     name: "Plan Familiar",
+    nameEn: "Family Plan",
     seats: 5,
     priceUsd: 59,
     discountedUsd: 53,
+    referralDiscountUsd: 6,
     description: "5 Macs incluidas · De por vida · Soporte prioritario",
+    descriptionEn: "5 Macs included · Lifetime license · Priority support",
   },
 };
+
+export function referralDiscountForTier(tier: LicenseTier): number {
+  return TIERS[tier]?.referralDiscountUsd ?? 4;
+}
 
 export type PromoOffer = {
   amountUsd: number;
@@ -74,7 +87,16 @@ export async function currentOffer(tier: LicenseTier = "personal"): Promise<Prom
   const isPromo = sold < limit;
   const remaining = Math.max(0, limit - sold);
 
-  const basePrice = tier === "family" ? regular : promo;
+  // Durante la promo: Personal = promo ($39), Familiar = regular ($59).
+  // Cuando se agota la promo: Personal sube a regular ($59) y Familiar mantiene diferencial (+$20 = $79).
+  const basePrice = isPromo
+    ? tier === "family"
+      ? regular
+      : promo
+    : tier === "family"
+      ? regular + 20
+      : regular;
+
   const labelEn = isPromo
     ? `Launch price: $${basePrice} USD (${TIERS[tier].seats} Macs)`
     : `Lifetime License: $${basePrice} USD (${TIERS[tier].seats} Macs)`;

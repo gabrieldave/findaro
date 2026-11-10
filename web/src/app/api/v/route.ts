@@ -1,11 +1,20 @@
 import { handle, ok } from "@/lib/api";
 import { recordEvent } from "@/lib/events";
+import { limitByIp } from "@/lib/ratelimit";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function cleanField(val: string | undefined, fallback: string, maxLen = 128): string {
+  const trimmed = (val || "").trim().slice(0, maxLen);
+  return trimmed || fallback;
+}
+
 export const POST = handle(async (req) => {
+  const limited = limitByIp(req, "visit-event", 60, 10 * 60_000);
+  if (limited) return limited;
+
   const body = (await req.json().catch(() => null)) as {
     visit_id?: string;
     utm_source?: string;
@@ -15,12 +24,16 @@ export const POST = handle(async (req) => {
     lang?: string;
   } | null;
 
-  const visitId = (body?.visit_id && body.visit_id.trim()) || crypto.randomUUID();
-  const utmSource = (body?.utm_source || "unknown").trim();
-  const utmMedium = (body?.utm_medium || "unknown").trim();
-  const utmCampaign = (body?.utm_campaign || "unknown").trim();
-  const utmContent = (body?.utm_content || "unknown").trim();
-  const lang = (body?.lang || "es").trim();
+  const rawVisitId = (body?.visit_id || "").trim();
+  const visitId =
+    rawVisitId && /^[A-Za-z0-9_-]{8,80}$/.test(rawVisitId)
+      ? rawVisitId
+      : crypto.randomUUID();
+  const utmSource = cleanField(body?.utm_source, "unknown");
+  const utmMedium = cleanField(body?.utm_medium, "unknown");
+  const utmCampaign = cleanField(body?.utm_campaign, "unknown");
+  const utmContent = cleanField(body?.utm_content, "unknown");
+  const lang = body?.lang === "en" ? "en" : "es";
 
   await recordEvent({
     name: "visit",

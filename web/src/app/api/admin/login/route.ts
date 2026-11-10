@@ -1,12 +1,11 @@
 import { createHash, timingSafeEqual } from "crypto";
-import { fail, handle, ok } from "@/lib/api";
+import { fail, handle, ok, verifySameOrigin } from "@/lib/api";
 import { signAdminCookie } from "@/lib/download";
 import { limitByIp } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Comparación en tiempo constante (evita adivinar el secreto midiendo tiempos de respuesta). */
 function safeEqual(a: string, b: string): boolean {
   const ha = createHash("sha256").update(a).digest();
   const hb = createHash("sha256").update(b).digest();
@@ -14,7 +13,8 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export const POST = handle(async (req) => {
-  // Límite de peticiones. Fuerza bruta: 5 intentos cada 15 min por IP.
+  if (!verifySameOrigin(req)) return fail("Origen no permitido", 403);
+
   const limited = limitByIp(req, "admin-login", 5, 15 * 60_000);
   if (limited) return limited;
 
@@ -27,10 +27,8 @@ export const POST = handle(async (req) => {
   const setup = process.env.ADMIN_SETUP_SECRET || "";
   const allowed = (process.env.ADMIN_EMAIL || "").toLowerCase();
 
-  // Secreto corto = adivinable: exigir al menos 24 caracteres y un correo de admin configurado.
   if (setup.length < 24 || !allowed) return fail("Panel de administración no configurado", 503);
   if (!safeEqual(secret, setup)) {
-    // Frenar fuerza bruta (no hay rate limit global en esta app).
     await new Promise((r) => setTimeout(r, 1500));
     return fail("No autorizado", 401);
   }
@@ -41,7 +39,7 @@ export const POST = handle(async (req) => {
   res.cookies.set("findaro_admin", cookie, {
     httpOnly: true,
     secure: true,
-    sameSite: "lax",
+    sameSite: "strict",
     path: "/",
     maxAge: 7 * 24 * 60 * 60,
   });

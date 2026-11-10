@@ -34,4 +34,12 @@ final class AgentPolicyTests: XCTestCase {
         try fm.createSymbolicLink(at: link, withDestinationURL: outside)
         XCTAssertFalse(AgentPolicy.isSameOrDescendant(link.path, of: inside.path))
     }
+
+    func testOpenFileRequiresApprovalForExecutablesAndInstallers() {
+        XCTAssertEqual(AgentPolicy.risk(for: .openFile, arguments: ["path": "/Users/me/Downloads/Installer.pkg"]), .write)
+        XCTAssertEqual(AgentPolicy.risk(for: .openFile, arguments: ["path": "/Users/me/Downloads/Evil.app"]), .write)
+        XCTAssertEqual(AgentPolicy.risk(for: .openFile, arguments: ["path": "/Users/me/Downloads/run.command"]), .write)
+        XCTAssertEqual(AgentPolicy.risk(for: .openFile, arguments: [:]), .write)
+        XCTAssertEqual(AgentPolicy.risk(for: .openFile, arguments: ["path": "/Users/me/Downloads/reporte.pdf"]), .read)
+    }
 }

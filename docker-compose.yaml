@@ -5,7 +5,7 @@ services:
       context: ./web
       dockerfile: Dockerfile
     ports:
-      - "3047:3000"
+      - "127.0.0.1:3047:3000"
     networks:
       - coolify
     read_only: true

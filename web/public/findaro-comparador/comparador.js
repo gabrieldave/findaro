@@ -54,7 +54,7 @@
   };
 
   if (isEn) {
-    Object.assign(newNames, {"3":"Source / Destination dual panes","8":"Cut ⌘X and paste ⌘V","11":"SHA-256 transfer integrity","12":"Batch recovery after transfer failure","13":"Smart Merge with conflict preview","15":"Approval before AI changes files","17":"Optional local AI with Ollama","18":"Local push-to-talk voice","22":"Search inside subfolders","34":"Windows-style keyboard shortcuts","46":"FTP / SFTP / remote connections"});
+    Object.assign(newNames, {"1": "Native macOS application (Swift)", "2": "Apple Silicon native (M1/M2/M3/M4)", "3": "Dual synchronized panes (source/destination)", "4": "Dedicated move/copy actions between panes", "5": "50/50 split panes with visible focus", "6": "Instant directory swap between panes", "7": "Drag & drop from Finder or between panes", "8": "True ⌘X cut & paste with clipboard tray", "9": "Visual clipboard tray before committing changes", "10": "Transfer queue with real-time speed & progress", "11": "SHA-256 cryptographic verification before & after copy/move", "12": "Automatic batch rollback on transfer failure", "13": "Smart Merge with visual diff of new, identical, & conflicting files", "14": "Post-merge verification and undo", "15": "User confirmation before destructive or write operations", "16": "Strict path policy boundary for agent operations", "17": "Optional private on-device chat with Ollama", "18": "Voice with Apple's speech recognition on your Mac (⌃Space and mic button)", "19": "Content search via local agent", "20": "AI actions: organize, create, copy, move and rename", "21": "Works without installing Ollama", "22": "Recursive search by name across subfolders", "23": "Filter by category and file type", "24": "Filter downloaded or added today", "25": "Largest files first", "26": "Dedicated search shortcuts by type and date", "27": "Instant filter in active folder", "28": "Persistent search history", "29": "Four views: list, icons, columns, and gallery", "30": "One-click Trash restore to original path", "31": "Native multi-selection (⌘, ⇧, marquee) and direct drag & drop", "32": "Editable path bar / omnibox and breadcrumbs", "33": "Customizable keyboard shortcuts", "34": "Windows Explorer keyboard profile", "35": "Global hotkey to toggle FINDARO", "36": "Persistent favorites with fixed sidebar", "37": "FSEvents: live updates when files change", "38": "Quick Look and instant preview", "39": "ZIP: compress and extract", "40": "TAR extraction", "41": "Create file/folder, rename, duplicate", "42": "Undo move, copy, and Smart Merge via ⌘Z", "43": "Send selection to Dropover", "44": "Toggle hidden files visibility", "45": "App with native auto-update channel", "46": "Built-in FTP/SFTP/WebDAV/S3 remote connections", "47": "Two-way bidirectional folder sync", "48": "Batch file renaming with rules and regex", "49": "Browse archive files as virtual folders", "50": "Embedded terminal and remote operations"}, {"3":"Source / Destination dual panes","8":"Cut ⌘X and paste ⌘V","11":"SHA-256 transfer integrity","12":"Batch recovery after transfer failure","13":"Smart Merge with conflict preview","15":"Approval before AI changes files","17":"Optional local AI with Ollama","18":"Local push-to-talk voice","22":"Search inside subfolders","34":"Windows-style keyboard shortcuts","46":"FTP / SFTP / remote connections"});
     Object.assign(descriptions, {"3":"Keep source and destination folders visible together.","8":"A visible tray for familiar Windows-style file cutting.","11":"Checks that transferred files retain their contents.","12":"Attempts to roll back the transfer batch after an error.","13":"Previews new, identical and conflicting items before merging.","15":"The assistant requests approval before writing changes.","17":"Optional local AI. All file management works without it.","18":"Dictation and commands without a remote voice server.","22":"Recursive filename search across nested folders.","34":"Helpful controls for people coming from Windows.","46":"An advantage of several alternatives not offered by FINDARO."});
   }
 
@@ -74,13 +74,15 @@
     return n;
   }
 
-  function status(raw, primary) {
+  function status(raw, primary, undocumented) {
     const key = raw === "Sí" || raw === "Yes" ? "yes" : raw === "Similar" ? "similar" : "nd";
     const label = key === "yes"
       ? (isEn ? "Included" : "Incluido")
       : key === "similar"
         ? "Similar"
-        : (isEn ? "Not documented" : "No documentado");
+        : primary && undocumented
+          ? (isEn ? "Not documented" : "No documentado")
+          : (isEn ? "Not included" : "No incluye");
     return el("span", "status " + key + (primary && key === "yes" ? " findaro" : ""), label);
   }
 
@@ -97,7 +99,7 @@
     for (const f of subset) {
       const item = el(
         "div",
-        "feature-row" + (f.grupo === "Competencia fuerte" ? " caution" : ""),
+        "feature-row" + ((f.grupo === "Competencia fuerte" || f.grupo === "Where rivals excel") ? " caution" : ""),
       );
       const block = el("div");
       block.appendChild(el("div", "feature-name", newNames[f.id] || f.funcion));
@@ -106,7 +108,7 @@
       }
       item.append(
         block,
-        status(f.findaro, true, f.grupo === "Competencia fuerte"),
+        status(f.findaro, true, (f.grupo === "Competencia fuerte" || f.grupo === "Where rivals excel")),
         status(f[key], false),
       );
       rows.appendChild(item);

@@ -291,21 +291,14 @@ private struct FindaroCommands: Commands {
 
         CommandMenu(L10n.s("Archivo+", "File+")) {
             Button(L10n.s("Nueva ventana", "New Window")) { openWindow(id: "browser") }
-                .keyboardShortcut("n", modifiers: [.command, .option])
             Button(L10n.s("Nueva pestaña", "New Tab")) { session?.addTab() }
-                .keyboardShortcut("t", modifiers: .command)
             Button(L10n.s("Cerrar pestaña", "Close Tab")) { session?.closeActiveTab() }
-                .keyboardShortcut("w", modifiers: .command)
             Button(L10n.s("Pestaña siguiente", "Next Tab")) { session?.selectNextTab() }
-                .keyboardShortcut("]", modifiers: [.command, .shift])
             Button(L10n.s("Pestaña anterior", "Previous Tab")) { session?.selectPreviousTab() }
-                .keyboardShortcut("[", modifiers: [.command, .shift])
             Divider()
             Button(L10n.s("Nuevo archivo", "New File")) { browser?.promptNewFile() }
-                .keyboardShortcut("n", modifiers: .command)
                 .disabled(browser == nil)
             Button(L10n.s("Nueva carpeta", "New Folder")) { browser?.promptNewFolder() }
-                .keyboardShortcut("n", modifiers: [.command, .shift])
                 .disabled(browser == nil)
             Button(L10n.s("Abrir Terminal aquí", "Open Terminal Here")) { browser?.openTerminalHere() }
                 .keyboardShortcut("t", modifiers: [.command, .option])
@@ -313,7 +306,6 @@ private struct FindaroCommands: Commands {
             Button(L10n.s("Renombrar", "Rename")) { browser?.promptRename() }
                 .disabled(browser == nil)
             Button(L10n.s("Duplicar", "Duplicate")) { browser?.duplicateSelection() }
-                .keyboardShortcut("d", modifiers: .command)
                 .disabled(browser == nil)
             Divider()
             Button(L10n.s("Seleccionar todos", "Select All")) { browser?.selectAllVisible() }

@@ -129,6 +129,9 @@ public struct AgentToolCall: Equatable, Sendable, Identifiable, Codable {
         case .renameFiles:
             guard let path = arguments["path"] ?? pathsArgument.first else { return nil }
             return "Elemento: \(path)"
+        case .openFile:
+            guard let path = arguments["path"] ?? pathsArgument.first else { return nil }
+            return "Ejecutar / abrir: \(path)"
         default:
             return nil
         }
@@ -145,6 +148,9 @@ public struct AgentToolCall: Equatable, Sendable, Identifiable, Codable {
         case .renameFiles:
             guard let path = arguments["path"] ?? pathsArgument.first else { return nil }
             return "Item: \(path)"
+        case .openFile:
+            guard let path = arguments["path"] ?? pathsArgument.first else { return nil }
+            return "Launch / open: \(path)"
         default:
             return nil
         }
@@ -182,9 +188,37 @@ public struct AgentPlan: Equatable, Sendable, Identifiable {
 }
 
 public enum AgentPolicy {
-    public static func risk(for name: AgentToolName) -> AgentRisk {
+    /// Extensiones que en macOS lanzan ejecutables, instaladores, scripts o ubicaciones de red al abrirse.
+    public static let executableOrInstallerExtensions: Set<String> = [
+        "app", "pkg", "mpkg", "dmg", "iso", "img", "sparseimage", "sparsebundle",
+        "command", "tool", "terminal", "sh", "zsh", "bash", "csh", "ksh",
+        "scpt", "scptd", "applescript", "workflow", "action",
+        "webloc", "inetloc", "fileloc", "jar", "py", "rb", "pl", "php"
+    ]
+
+    /// Determina si abrir una ruta puede ejecutar código o lanzar un instalador y por tanto exige aprobación.
+    public static func requiresApprovalToOpen(_ path: String) -> Bool {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return true }
+        let ext = (trimmed as NSString).pathExtension.lowercased()
+        if executableOrInstallerExtensions.contains(ext) {
+            return true
+        }
+        var isDir: ObjCBool = false
+        if FileManager.default.fileExists(atPath: trimmed, isDirectory: &isDir), !isDir.boolValue {
+            if FileManager.default.isExecutableFile(atPath: trimmed) {
+                return true
+            }
+        }
+        return false
+    }
+
+    public static func risk(for name: AgentToolName, arguments: [String: String] = [:]) -> AgentRisk {
         switch name {
-        case .searchFiles, .searchContent, .listDirectory, .getFileMetadata, .openFile, .previewFile, .getStorageUsage, .findDuplicates:
+        case .openFile:
+            let path = arguments["path"] ?? ""
+            return requiresApprovalToOpen(path) ? .write : .read
+        case .searchFiles, .searchContent, .listDirectory, .getFileMetadata, .previewFile, .getStorageUsage, .findDuplicates:
             return .read
         case .createDirectory, .copyFiles, .moveFiles, .renameFiles, .organizeFiles:
             return .write

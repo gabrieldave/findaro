@@ -1,30 +1,68 @@
 import { fail } from "./api";
 
 /**
- * Límite de peticiones en memoria (ventana fija). La web corre en UN solo contenedor
- * (Coolify), así que un mapa en memoria es suficiente; se reinicia al redesplegar.
- * Protege el envío de correos de /api/trial, el login de admin y la API de licencias
- * contra abuso y fuerza bruta.
+ * Límite de peticiones en memoria (ventana fija) con tope de cardinalidad.
+ * Con el puerto del contenedor enlazado a 127.0.0.1, el tráfico público solo entra
+ * por el reverse proxy / Cloudflare, evitando falsificación directa de cabeceras.
  */
 type Bucket = { count: number; resetAt: number };
 const buckets = new Map<string, Bucket>();
+const MAX_BUCKETS = 50_000;
 let lastSweep = 0;
 
 function sweep(now: number) {
-  if (now - lastSweep < 60_000) return;
+  if (now - lastSweep < 60_000 && buckets.size < MAX_BUCKETS) return;
   lastSweep = now;
-  for (const [k, b] of buckets) if (b.resetAt <= now) buckets.delete(k);
+  for (const [k, b] of buckets) {
+    if (b.resetAt <= now) buckets.delete(k);
+  }
+  if (buckets.size >= MAX_BUCKETS) {
+    const excess = buckets.size - MAX_BUCKETS + 1000;
+    let removed = 0;
+    for (const k of buckets.keys()) {
+      buckets.delete(k);
+      removed += 1;
+      if (removed >= excess) break;
+    }
+  }
 }
 
-/** IP real del cliente detrás de Cloudflare / proxy de Coolify. */
+function sanitizeIp(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim().slice(0, 64);
+  if (!trimmed) return null;
+  if (/^[0-9a-fA-F:.]+$/.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+  return null;
+}
+
+/**
+ * IP real del cliente detrás de Cloudflare / proxy inverso de Coolify.
+ * Solo confía en `cf-connecting-ip` cuando viene acompañada de `cf-ray`
+ * (y no se ha desactivado explícitamente TRUST_CLOUDFLARE_HEADERS=false).
+ */
 export function clientIp(req: Request): string {
   const h = req.headers;
-  return (
-    h.get("cf-connecting-ip") ||
-    h.get("x-real-ip") ||
-    (h.get("x-forwarded-for") || "").split(",")[0].trim() ||
-    "unknown"
-  );
+  const trustCf = process.env.TRUST_CLOUDFLARE_HEADERS !== "false";
+  if (trustCf && h.get("cf-ray")) {
+    const cfIp = sanitizeIp(h.get("cf-connecting-ip"));
+    if (cfIp) return cfIp;
+  }
+
+  const xff = h.get("x-forwarded-for");
+  if (xff) {
+    const hops = xff
+      .split(",")
+      .map((part) => sanitizeIp(part))
+      .filter((ip): ip is string => Boolean(ip));
+    // Último salto añadido por el reverse proxy local confiable
+    if (hops.length > 0) {
+      return hops[hops.length - 1];
+    }
+  }
+
+  return sanitizeIp(h.get("x-real-ip")) || "unknown";
 }
 
 /** Devuelve true si la petición está dentro del límite; false si lo excede. */

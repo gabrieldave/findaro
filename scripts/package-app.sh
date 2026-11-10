@@ -43,6 +43,7 @@ CFBundleName = "Findaro";
 NSHumanReadableCopyright = "Copyright © 2026 Findaro. All rights reserved.";
 NSSpeechRecognitionUsageDescription = "Findaro uses on-device speech recognition for the push-to-talk assistant.";
 NSMicrophoneUsageDescription = "Findaro uses your microphone only while holding the dictation button.";
+NSAppleEventsUsageDescription = "Findaro asks Finder to empty the Trash and restore items from it.";
 STRINGS
 
 cat > "$APP_DIR/Contents/Resources/es.lproj/InfoPlist.strings" << 'STRINGS'

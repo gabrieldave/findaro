@@ -129,10 +129,16 @@ public enum SortSaveScope: String, Sendable {
 public final class PreferencesStore: @unchecked Sendable {
     public static let shared = PreferencesStore()
 
+    private let lock = NSLock()
     private let url: URL
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
-    public private(set) var preferences: OrdenPreferences
+    private var _preferences: OrdenPreferences
+    public var preferences: OrdenPreferences {
+        lock.lock()
+        defer { lock.unlock() }
+        return _preferences
+    }
 
     public init(fileName: String = "preferences.json", directory: URL? = nil) {
         let dir: URL
@@ -147,12 +153,12 @@ public final class PreferencesStore: @unchecked Sendable {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         if let data = try? Data(contentsOf: url),
            let decoded = try? decoder.decode(OrdenPreferences.self, from: data) {
-            preferences = Self.migrate(decoded)
-            if preferences != decoded {
+            _preferences = Self.migrate(decoded)
+            if _preferences != decoded {
                 save()
             }
         } else {
-            preferences = Self.freshDefaults()
+            _preferences = Self.freshDefaults()
             save()
         }
     }
@@ -161,42 +167,61 @@ public final class PreferencesStore: @unchecked Sendable {
     public static let preferencesDidChangeNotification = Notification.Name("app.findaro.preferencesDidChange")
 
     /// Último error de persistencia (nil = OK). La UI puede mostrar `lastSaveError`.
-    public private(set) var lastSaveError: String?
+    private var _lastSaveError: String?
+    public var lastSaveError: String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return _lastSaveError
+    }
 
     /// Recarga las preferencias desde el archivo en disco.
     @discardableResult
     public func reloadFromDisk() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
         guard let data = try? Data(contentsOf: url),
               let decoded = try? decoder.decode(OrdenPreferences.self, from: data) else {
             return false
         }
-        preferences = Self.migrate(decoded)
+        _preferences = Self.migrate(decoded)
         return true
     }
 
     public func update(_ mutate: (inout OrdenPreferences) -> Void) {
-        mutate(&preferences)
+        var didSave = false
+        lock.lock()
+        mutate(&_preferences)
         do {
-            try saveThrowing()
-            lastSaveError = nil
-            NotificationCenter.default.post(name: Self.preferencesDidChangeNotification, object: self)
+            let data = try encoder.encode(_preferences)
+            try data.write(to: url, options: .atomic)
+            _lastSaveError = nil
+            didSave = true
         } catch {
-            lastSaveError = error.localizedDescription
+            _lastSaveError = error.localizedDescription
+        }
+        lock.unlock()
+        if didSave {
+            NotificationCenter.default.post(name: Self.preferencesDidChangeNotification, object: self)
         }
     }
 
     /// Guarda y propaga el error (tests / callers que deben fallar cerrado).
     public func saveThrowing() throws {
-        let data = try encoder.encode(preferences)
+        lock.lock()
+        defer { lock.unlock() }
+        let data = try encoder.encode(_preferences)
         try data.write(to: url, options: .atomic)
     }
 
     private func save() {
+        lock.lock()
+        defer { lock.unlock() }
         do {
-            try saveThrowing()
-            lastSaveError = nil
+            let data = try encoder.encode(_preferences)
+            try data.write(to: url, options: .atomic)
+            _lastSaveError = nil
         } catch {
-            lastSaveError = error.localizedDescription
+            _lastSaveError = error.localizedDescription
         }
     }
 

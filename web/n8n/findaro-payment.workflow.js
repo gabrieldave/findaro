@@ -97,9 +97,10 @@ const prepareSession = node({
       jsCode: `const input = $input.item.json;
 const data = input.data || {};
 
-// Validar y fijar importe en servidor según tier (personal o family)
+// Validar y fijar importe en servidor según tier (incluye precios promo y post-promo con/sin referido)
 const tier = data.tier === 'family' ? 'family' : 'personal';
-const validAmounts = tier === 'family' ? [59, 53] : [39, 35];
+const lang = data.lang === 'en' ? 'en' : 'es';
+const validAmounts = tier === 'family' ? [59, 53, 79, 73] : [39, 35, 59, 55];
 const requestedAmount = Number(data.amount);
 if (!validAmounts.includes(requestedAmount)) {
   throw new Error('Importe inválido para el tier ' + tier + ': ' + requestedAmount);
@@ -109,12 +110,15 @@ const amount = Math.round(requestedAmount * 100);
 const currency = (data.currency || 'usd').toLowerCase();
 if (currency !== 'usd') throw new Error('Moneda no soportada: ' + currency);
 
-const title = data.serviceTitle || (tier === 'family' ? 'FINDARO — Plan Familiar (5 Macs)' : 'FINDARO — Plan Personal (2 Macs)');
-const description = data.serviceDescription || 'Licencia de por vida con actualizaciones';
+const defaultTitle = lang === 'en'
+  ? (tier === 'family' ? 'FINDARO — Family Plan (5 Macs)' : 'FINDARO — Personal Plan (2 Macs)')
+  : (tier === 'family' ? 'FINDARO — Plan Familiar (5 Macs)' : 'FINDARO — Plan Personal (2 Macs)');
+const title = data.serviceTitle || defaultTitle;
+const description = data.serviceDescription || (lang === 'en' ? 'Lifetime license with automatic updates' : 'Licencia de por vida con actualizaciones');
 const formParams = [];
 formParams.push('payment_method_types[]=card');
 formParams.push('mode=payment');
-formParams.push('locale=es');
+formParams.push('locale=' + lang);
 formParams.push('success_url=' + encodeURIComponent(data.successUrl));
 formParams.push('cancel_url=' + encodeURIComponent(data.cancelUrl));
 if (data.customerEmail) formParams.push('customer_email=' + encodeURIComponent(data.customerEmail));
@@ -125,6 +129,7 @@ formParams.push('line_items[0][price_data][unit_amount]=' + amount);
 formParams.push('line_items[0][quantity]=1');
 formParams.push('metadata[app_id]=findaro');
 formParams.push('metadata[tier]=' + tier);
+formParams.push('metadata[lang]=' + lang);
 if (data.serviceId) formParams.push('metadata[service_id]=' + encodeURIComponent(String(data.serviceId)));
 if (data.customerEmail) formParams.push('metadata[customer_email]=' + encodeURIComponent(data.customerEmail));
 if (data.customerName) formParams.push('metadata[customer_name]=' + encodeURIComponent(data.customerName));

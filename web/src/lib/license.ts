@@ -1,5 +1,5 @@
 import { createHash, createPrivateKey, createPublicKey, randomBytes, sign, verify } from "crypto";
-import { query } from "./db";
+import { query, withTransaction } from "./db";
 import { LicenseTier, TIERS } from "./pricing";
 
 const TRIAL_DAYS = 5;
@@ -260,35 +260,52 @@ export async function registerActivation(
   const trimmedMachine = machineId.trim();
   if (!trimmedMachine) return { success: false, activeCount: 0, maxSeats, error: "machineId vacío" };
 
-  const current = await getActivations(licenseId);
-  const existing = current.find((a) => a.machine_id === trimmedMachine);
-
-  if (existing) {
-    await query(
-      `UPDATE license_activations SET last_seen_at = now(), machine_name = COALESCE(NULLIF($2,''), machine_name)
-       WHERE license_id = $1 AND machine_id = $3`,
-      [licenseId, machineName, trimmedMachine],
+  return withTransaction(async (client) => {
+    // Bloquear la fila de la licencia para serializar activaciones concurrentes (evita TOCTOU de asientos)
+    const lockRes = await client.query<{ id: string; seats: number; revoked: boolean }>(
+      `SELECT id, seats, revoked FROM licenses WHERE id = $1 FOR UPDATE`,
+      [licenseId],
     );
-    return { success: true, activeCount: current.length, maxSeats };
-  }
+    const licRow = lockRes.rows[0];
+    if (!licRow || licRow.revoked) {
+      return { success: false, activeCount: 0, maxSeats, error: "Licencia no disponible o revocada." };
+    }
+    const effectiveMaxSeats = licRow.seats > 0 ? licRow.seats : maxSeats;
 
-  if (current.length >= maxSeats) {
-    return {
-      success: false,
-      activeCount: current.length,
-      maxSeats,
-      error: `Límite de Macs alcanzado (${current.length}/${maxSeats}). Desactiva otra Mac en Preferencias > Licencia o actualiza a Plan Familiar.`,
-    };
-  }
+    const { rows: current } = await client.query<{ machine_id: string }>(
+      `SELECT machine_id FROM license_activations WHERE license_id = $1 ORDER BY activated_at ASC`,
+      [licenseId],
+    );
+    const existing = current.find((a) => a.machine_id === trimmedMachine);
 
-  await query(
-    `INSERT INTO license_activations (license_id, machine_id, machine_name)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (license_id, machine_id) DO UPDATE SET last_seen_at = now()`,
-    [licenseId, trimmedMachine, machineName || "Mac"],
-  );
+    if (existing) {
+      await client.query(
+        `UPDATE license_activations
+         SET last_seen_at = now(), machine_name = COALESCE(NULLIF($2,''), machine_name)
+         WHERE license_id = $1 AND machine_id = $3`,
+        [licenseId, machineName, trimmedMachine],
+      );
+      return { success: true, activeCount: current.length, maxSeats: effectiveMaxSeats };
+    }
 
-  return { success: true, activeCount: current.length + 1, maxSeats };
+    if (current.length >= effectiveMaxSeats) {
+      return {
+        success: false,
+        activeCount: current.length,
+        maxSeats: effectiveMaxSeats,
+        error: `Límite de Macs alcanzado (${current.length}/${effectiveMaxSeats}). Desactiva otra Mac en Preferencias > Licencia o actualiza a Plan Familiar.`,
+      };
+    }
+
+    await client.query(
+      `INSERT INTO license_activations (license_id, machine_id, machine_name)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (license_id, machine_id) DO UPDATE SET last_seen_at = now()`,
+      [licenseId, trimmedMachine, machineName || "Mac"],
+    );
+
+    return { success: true, activeCount: current.length + 1, maxSeats: effectiveMaxSeats };
+  });
 }
 
 export async function removeActivation(licenseId: string, machineId: string) {

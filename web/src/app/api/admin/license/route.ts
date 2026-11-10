@@ -1,4 +1,4 @@
-import { fail, handle, ok } from "@/lib/api";
+import { fail, handle, ok, verifySameOrigin } from "@/lib/api";
 import { query } from "@/lib/db";
 import { verifyAdminCookie } from "@/lib/download";
 
@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 /** Acción administrativa sobre una licencia: revocar (kill-switch), restaurar o limpiar asientos */
 export const POST = handle(async (req) => {
+  if (!verifySameOrigin(req)) return fail("Origen no permitido", 403);
   const cookie = req.headers.get("cookie") || "";
   const match = cookie.match(/(?:^|;\s*)findaro_admin=([^;]+)/);
   const email = verifyAdminCookie(match?.[1]);

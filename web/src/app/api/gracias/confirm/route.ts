@@ -1,21 +1,36 @@
 import { fail, handle, ok } from "@/lib/api";
 import { fulfillPaidOrder } from "@/lib/fulfill";
+import { detectLanguageFromHeaders } from "@/lib/geo";
+import { limitByIp } from "@/lib/ratelimit";
 import { VERIFY_GATEWAY_URL } from "@/lib/site";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const STRIPE_SESSION_REGEX = /^cs_(test|live)_[A-Za-z0-9]{10,120}$/;
+const LICENSE_EXPOSURE_WINDOW_MS = 30 * 60 * 1000;
+
 export const POST = handle(async (req) => {
+  const limited = limitByIp(req, "gracias-confirm", 30, 10 * 60_000);
+  if (limited) return limited;
+
   const body = (await req.json().catch(() => null)) as {
     sessionId?: string;
+    lang?: string;
   } | null;
-  const sessionId = (body?.sessionId || "").trim();
-  if (!sessionId) return fail("sessionId requerido", 400);
 
-  // Recuperación idempotente directa si la orden ya está marcada como 'paid' (ADR-04)
+  const cookieHeader = req.headers.get("cookie") || "";
+  const cookieLangMatch = cookieHeader.match(/(?:^|;\s*)findaro_lang=(en|es)/);
+  const lang = detectLanguageFromHeaders(req.headers, cookieLangMatch?.[1], body?.lang);
+
+  const sessionId = (body?.sessionId || "").trim();
+  if (!sessionId || !STRIPE_SESSION_REGEX.test(sessionId)) {
+    return fail(lang === "en" ? "Invalid sessionId" : "sessionId inválido", 400);
+  }
+
   const { query } = await import("@/lib/db");
-  const existingOrder = await query<{ id: string; status: string }>(
-    `SELECT id, status FROM orders WHERE stripe_session_id = $1 LIMIT 1`,
+  const existingOrder = await query<{ id: string; status: string; paid_at: Date | null }>(
+    `SELECT id, status, paid_at FROM orders WHERE stripe_session_id = $1 LIMIT 1`,
     [sessionId],
   );
 
@@ -24,8 +39,20 @@ export const POST = handle(async (req) => {
       sessionId,
       orderId: existingOrder.rows[0].id,
       appId: "findaro",
+      lang,
     });
     if (recoveryResult) {
+      const paidAtMs = existingOrder.rows[0].paid_at
+        ? new Date(existingOrder.rows[0].paid_at).getTime()
+        : Date.now();
+      if (Date.now() - paidAtMs > LICENSE_EXPOSURE_WINDOW_MS) {
+        return ok({
+          ...recoveryResult,
+          licenseKey: "",
+          signed: "",
+          keyDeliveredByEmail: true,
+        });
+      }
       return ok(recoveryResult);
     }
   }
@@ -53,15 +80,26 @@ export const POST = handle(async (req) => {
       amountTotal?: number | null;
       currency?: string | null;
       appId?: string | null;
+      lang?: "en" | "es" | null;
     };
   } | null;
 
   if (!verifyRes.ok || !verifyJson?.success || !verifyJson.data?.paid) {
-    return fail("Pago aún no confirmado. Si Stripe ya cobró, espera unos segundos.", 402);
+    return fail(
+      lang === "en"
+        ? "Payment not yet confirmed. If Stripe already charged you, please wait a few seconds."
+        : "Pago aún no confirmado. Si Stripe ya cobró, espera unos segundos.",
+      402,
+    );
+  }
+
+  const verifiedSessionId = verifyJson.data.sessionId || sessionId;
+  if (!STRIPE_SESSION_REGEX.test(verifiedSessionId)) {
+    return fail("Sesión de verificación inválida", 400);
   }
 
   const result = await fulfillPaidOrder({
-    sessionId: verifyJson.data.sessionId || sessionId,
+    sessionId: verifiedSessionId,
     paymentIntent: verifyJson.data.paymentIntent,
     email: verifyJson.data.email,
     name: verifyJson.data.name,
@@ -69,7 +107,8 @@ export const POST = handle(async (req) => {
     amountTotal: verifyJson.data.amountTotal,
     currency: verifyJson.data.currency,
     appId: verifyJson.data.appId,
+    lang: verifyJson.data.lang || lang,
   });
-  if (!result) return fail("No se pudo generar descarga", 500);
+  if (!result) return fail(lang === "en" ? "Could not generate download" : "No se pudo generar descarga", 500);
   return ok(result);
 });

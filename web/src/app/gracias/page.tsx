@@ -11,6 +11,7 @@ type ConfirmData = {
   seats: number;
   referralCode?: string;
   referralLink?: string;
+  keyDeliveredByEmail?: boolean;
 };
 
 function GraciasInner() {
@@ -76,7 +77,7 @@ function GraciasInner() {
         const res = await fetch("/api/gracias/confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId }),
+          body: JSON.stringify({ sessionId, lang: isEn ? "en" : "es" }),
         });
         const json = await res.json();
         if (json.ok && json.data?.downloadUrl) {
@@ -124,39 +125,57 @@ function GraciasInner() {
               <div style={{ fontSize: 13, color: "#94a3b8", fontWeight: 600 }}>
                 {t.keyTitle(data.seats)}
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  background: "#0b1220",
-                  padding: "10px 14px",
-                  borderRadius: 8,
-                  marginTop: 6,
-                  border: "1px solid #334155",
-                }}
-              >
-                <code style={{ fontSize: 15, fontWeight: "bold", color: "#38bdf8", wordBreak: "break-all" }}>
-                  {data.licenseKey}
-                </code>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(data.licenseKey, "key")}
+              {data.keyDeliveredByEmail || !data.licenseKey ? (
+                <div
                   style={{
-                    marginLeft: 10,
-                    background: copiedKey ? "#22c55e" : "#2563eb",
-                    color: "#fff",
-                    border: "none",
-                    padding: "6px 12px",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 600,
+                    background: "#0b1220",
+                    padding: "12px 14px",
+                    borderRadius: 8,
+                    marginTop: 6,
+                    border: "1px solid #334155",
+                    fontSize: 13,
+                    color: "#cbd5e1",
                   }}
                 >
-                  {copiedKey ? t.copied : t.copyKey}
-                </button>
-              </div>
+                  {isEn
+                    ? "For your security, your license key is only displayed immediately after checkout and has already been delivered to your email inbox."
+                    : "Por tu seguridad, la clave de licencia solo se muestra en pantalla justo después del pago y ya fue enviada a tu correo electrónico."}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    background: "#0b1220",
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    marginTop: 6,
+                    border: "1px solid #334155",
+                  }}
+                >
+                  <code style={{ fontSize: 15, fontWeight: "bold", color: "#38bdf8", wordBreak: "break-all" }}>
+                    {data.licenseKey}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(data.licenseKey, "key")}
+                    style={{
+                      marginLeft: 10,
+                      background: copiedKey ? "#22c55e" : "#2563eb",
+                      color: "#fff",
+                      border: "none",
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {copiedKey ? t.copied : t.copyKey}
+                  </button>
+                </div>
+              )}
               <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
                 {t.keyHelp}
               </div>

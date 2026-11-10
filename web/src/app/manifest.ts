@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "FINDARO",
     short_name: "Findaro",
-    description: "Explorador de archivos inteligente para Mac",
+    description: "AI-Powered Dual-Pane File Manager for Mac · Explorador de archivos para macOS",
     start_url: "/",
     display: "standalone",
     background_color: "#0B1220",

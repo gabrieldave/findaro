@@ -8,6 +8,7 @@ export type CheckoutInput = {
   orderId: string;
   isPromo: boolean;
   tier?: LicenseTier;
+  lang?: "en" | "es";
 };
 
 export async function createCheckoutSession(input: CheckoutInput): Promise<{
@@ -15,7 +16,16 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<{
   sessionId: string;
 }> {
   const tier = input.tier || "personal";
+  const lang = input.lang === "es" ? "es" : "en";
+  const isEn = lang === "en";
   const tierInfo = TIERS[tier];
+
+  const serviceTitle = isEn
+    ? `${PRODUCT_NAME} — ${tierInfo.nameEn} (${tierInfo.seats} Macs)`
+    : `${PRODUCT_NAME} — ${tierInfo.name} (${tierInfo.seats} Macs)`;
+  const serviceDescription = isEn
+    ? `${tierInfo.descriptionEn}. One-time lifetime payment.`
+    : `${tierInfo.description}. Pago único de por vida.`;
 
   const body = {
     appId: APP_ID,
@@ -23,17 +33,19 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<{
     data: {
       amount: input.amountUsd,
       currency: "usd",
-      serviceTitle: `${PRODUCT_NAME} — ${tierInfo.name} (${tierInfo.seats} Macs)`,
-      serviceDescription: `${tierInfo.description}. Pago único de por vida.`,
+      lang,
+      serviceTitle,
+      serviceDescription,
       serviceId: input.orderId,
       customerEmail: input.customerEmail,
       customerName: input.customerName,
-      successUrl: `${PUBLIC_APP_URL}/gracias?session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${PUBLIC_APP_URL}/comprar?cancel=1`,
+      successUrl: `${PUBLIC_APP_URL}/gracias?session_id={CHECKOUT_SESSION_ID}&lang=${lang}`,
+      cancelUrl: `${PUBLIC_APP_URL}/comprar?cancel=1&lang=${lang}`,
       metadata: {
         purchaseId: input.orderId,
         tradingAppSlug: APP_ID,
         tier,
+        lang,
       },
     },
   };
@@ -55,7 +67,7 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<{
     | null;
 
   if (!res.ok || !json?.success || !json.data?.url || !json.data.sessionId) {
-    throw new Error(json?.error || "No se pudo crear la sesión de pago");
+    throw new Error(json?.error || (isEn ? "Could not create checkout session" : "No se pudo crear la sesión de pago"));
   }
 
   return { url: json.data.url, sessionId: json.data.sessionId };

@@ -1783,7 +1783,7 @@ final class BrowserModel: ObservableObject {
             } else {
                 let proc = Process()
                 proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-                proc.arguments = [path]
+                proc.arguments = ["--", path]
                 do {
                     try proc.run()
                     statusMessage = L10n.s("Abrí «\(fileURL.lastPathComponent)»", "Opened «\(fileURL.lastPathComponent)»")
@@ -2143,7 +2143,7 @@ final class BrowserModel: ObservableObject {
         }
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        proc.arguments = ["-a", "Terminal", path]
+        proc.arguments = ["-a", "Terminal", "--", path]
         do {
             try proc.run()
             statusMessage = L10n.s("Terminal en \((path as NSString).lastPathComponent)", "Terminal in \((path as NSString).lastPathComponent)")
@@ -2309,6 +2309,15 @@ final class BrowserModel: ObservableObject {
                       AgentPolicy.isPathWithinScope(path, root: currentPath) else {
                     return L10n.s("No puedo renombrar elementos fuera de la carpeta actual.", "Cannot rename items outside current folder.")
                 }
+            case .openFile:
+                let path = step.arguments["path"] ?? step.pathsArgument.first ?? ""
+                if path.isEmpty {
+                    return L10n.s("Selecciona o indica el archivo que quieres abrir.", "Select or specify the file you want to open.")
+                }
+                guard AgentPolicy.isPathAllowed(path),
+                      AgentPolicy.isPathWithinScope(path, root: currentPath) else {
+                    return L10n.s("No puedo abrir elementos fuera de la carpeta actual.", "Cannot open items outside current folder.")
+                }
             default:
                 break
             }
@@ -2345,6 +2354,17 @@ final class BrowserModel: ObservableObject {
                     args["destination"] = (currentPath as NSString).appendingPathComponent(destination)
                 }
                 steps.append(AgentToolCall(name: step.name, arguments: args, risk: step.risk))
+            case .openFile:
+                var args = step.arguments
+                if let raw = args["path"], !raw.isEmpty {
+                    if !raw.hasPrefix("/") && !raw.hasPrefix("~") {
+                        args["path"] = (currentPath as NSString).appendingPathComponent(raw)
+                    }
+                } else if let first = selectedEntries.first {
+                    args["path"] = first.path
+                }
+                let effectiveRisk = AgentPolicy.risk(for: .openFile, arguments: args)
+                steps.append(AgentToolCall(id: step.id, name: .openFile, arguments: args, risk: effectiveRisk))
             default:
                 steps.append(step)
             }
@@ -2444,11 +2464,14 @@ final class BrowserModel: ObservableObject {
                 // Ya se expandió en enrichAgentPlan; si llega aquí, no había archivos.
                 appendAgentReply(L10n.s("No encontré archivos sueltos para organizar por tipo aquí.", "No loose files found to organize by type here."))
             case .openFile:
-                if let p = step.arguments["path"], let entry = entries.first(where: { $0.path == p }) {
+                if let p = step.arguments["path"],
+                   AgentPolicy.isPathAllowed(p),
+                   AgentPolicy.isPathWithinScope(p, root: currentPath),
+                   let entry = entries.first(where: { $0.path == p }) {
                     open(entry)
                     appendAgentReply(L10n.s("Abrí «\(entry.name)». ", "Opened «\(entry.name)». "))
                 } else {
-                    appendAgentReply(L10n.s("No pude abrir ese archivo: no está en la carpeta actual.", "Could not open that file: it is not in the current folder."))
+                    appendAgentReply(L10n.s("No pude abrir ese archivo: no está permitido o no pertenece a la carpeta actual.", "Could not open that file: not permitted or not in the current folder."))
                 }
             case .previewFile:
                 quickLookSelection()
@@ -3551,36 +3574,53 @@ final class BrowserModel: ObservableObject {
         statusMessage = L10n.s("Montando «\(entry.name)»…", "Mounting «\(entry.name)»…")
         let path = entry.path
         Task.detached {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
-            process.arguments = ["attach", path, "-plist", "-nobrowse"]
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = Pipe()
-            do {
-                try process.run()
-                process.waitUntilExit()
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                if let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
-                   let entities = plist["system-entities"] as? [[String: Any]] {
-                    let mountPoint = entities.compactMap { $0["mount-point"] as? String }.first
-                    if let mountPoint, FileManager.default.fileExists(atPath: mountPoint) {
-                        await MainActor.run {
-                            if inSecondary {
-                                self.navigateSecondary(to: mountPoint)
-                            } else {
-                                self.navigate(to: mountPoint)
-                            }
-                            self.statusMessage = L10n.s("Montado: \(URL(fileURLWithPath: mountPoint).lastPathComponent)", "Mounted: \(URL(fileURLWithPath: mountPoint).lastPathComponent)")
+            // hdiutil + stderr drain viven en helper sync (Swift 6: no DispatchSemaphore.wait en async).
+            if let data = Self.attachDiskImagePlist(at: path),
+               let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+               let entities = plist["system-entities"] as? [[String: Any]] {
+                let mountPoint = entities.compactMap { $0["mount-point"] as? String }.first
+                if let mountPoint, FileManager.default.fileExists(atPath: mountPoint) {
+                    await MainActor.run {
+                        if inSecondary {
+                            self.navigateSecondary(to: mountPoint)
+                        } else {
+                            self.navigate(to: mountPoint)
                         }
-                        return
+                        self.statusMessage = L10n.s("Montado: \(URL(fileURLWithPath: mountPoint).lastPathComponent)", "Mounted: \(URL(fileURLWithPath: mountPoint).lastPathComponent)")
                     }
+                    return
                 }
-            } catch {}
+            }
 
             await MainActor.run {
                 self.openFileWithSystem(entry)
             }
+        }
+    }
+
+    /// Adjunta un DMG/ISO con hdiutil y drena stderr en paralelo (contexto sync, compatible con Swift 6).
+    private nonisolated static func attachDiskImagePlist(at path: String) -> Data? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
+        process.arguments = ["attach", "-plist", "-nobrowse", "-noautoopen", "--", path]
+        let pipe = Pipe()
+        let errPipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = errPipe
+        do {
+            try process.run()
+            let errHandle = errPipe.fileHandleForReading
+            let errDone = DispatchSemaphore(value: 0)
+            DispatchQueue.global(qos: .utility).async {
+                _ = errHandle.readDataToEndOfFile()
+                errDone.signal()
+            }
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            errDone.wait()
+            process.waitUntilExit()
+            return data
+        } catch {
+            return nil
         }
     }
 
@@ -3592,7 +3632,7 @@ final class BrowserModel: ObservableObject {
         }
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        proc.arguments = [entry.path]
+        proc.arguments = ["--", entry.path]
         do {
             try proc.run()
             statusMessage = L10n.s("Abrí: \(entry.name)", "Opened: \(entry.name)")
@@ -3734,7 +3774,7 @@ final class BrowserModel: ObservableObject {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
             process.currentDirectoryURL = URL(fileURLWithPath: folder)
-            process.arguments = ["-r", dest] + names
+            process.arguments = ["-r", dest, "--"] + names
             do {
                 try process.run()
                 process.waitUntilExit()

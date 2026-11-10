@@ -81,6 +81,7 @@ function ProbarInner() {
         body: JSON.stringify({
           name,
           email,
+          lang,
           utm_source: utmSource || cookieUtm.utm_source,
           utm_medium: utmMedium || cookieUtm.utm_medium,
           utm_campaign: utmCampaign || cookieUtm.utm_campaign,
