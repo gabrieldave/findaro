@@ -4,11 +4,16 @@ import { issueDownloadToken } from "@/lib/download";
 import { sendTrialConfirmationEmail } from "@/lib/email";
 import { issueTrialLicense, TRIAL_DAYS } from "@/lib/license";
 import { PUBLIC_APP_URL } from "@/lib/site";
+import { hit, limitByIp, tooMany } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export const POST = handle(async (req) => {
+  // Límite de peticiones. Envía correos: 5 por hora por IP.
+  const limited = limitByIp(req, "trial", 5, 60 * 60_000);
+  if (limited) return limited;
+
   const body = (await req.json().catch(() => null)) as {
     email?: string;
     name?: string;
@@ -21,6 +26,8 @@ export const POST = handle(async (req) => {
   const email = (body?.email || "").trim().toLowerCase();
   const name = (body?.name || "").trim() || "Prueba";
   if (!email || !email.includes("@")) return fail("Correo inválido", 400);
+  // Además, máximo 3 envíos por correo al día (evita bombardear el buzón de un tercero).
+  if (!hit(`trial:email:${email}`, 3, 24 * 60 * 60_000)) return tooMany();
 
   const utmSource = (body?.utm_source || "").trim() || null;
   const utmMedium = (body?.utm_medium || "").trim() || null;

@@ -3,11 +3,16 @@ import { query } from "@/lib/db";
 import { mintReferralCode } from "@/lib/license";
 import { createCheckoutSession } from "@/lib/payment";
 import { currentOffer, LicenseTier, TIERS } from "@/lib/pricing";
+import { limitByIp } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export const POST = handle(async (req) => {
+  // Límite de peticiones. Creación de pedidos: 10 por hora por IP.
+  const limited = limitByIp(req, "checkout", 10, 60 * 60_000);
+  if (limited) return limited;
+
   const body = (await req.json().catch(() => null)) as {
     email?: string;
     name?: string;

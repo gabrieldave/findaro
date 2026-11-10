@@ -9,12 +9,17 @@ import {
   signLicensePayload,
   TRIAL_DAYS,
 } from "@/lib/license";
+import { limitByIp } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** La app Mac verifica / activa una clave. Soporte multi-asiento (2 Macs personal / 5 Macs familiar) y prueba de 5 días. */
 export const POST = handle(async (req) => {
+  // Límite de peticiones. Activación/revalidación: 30 cada 10 min por IP.
+  const limited = limitByIp(req, "license-verify", 30, 10 * 60_000);
+  if (limited) return limited;
+
   const body = (await req.json().catch(() => null)) as {
     licenseKey?: string;
     machineId?: string;

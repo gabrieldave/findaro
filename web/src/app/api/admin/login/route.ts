@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "crypto";
 import { fail, handle, ok } from "@/lib/api";
 import { signAdminCookie } from "@/lib/download";
+import { limitByIp } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +14,10 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export const POST = handle(async (req) => {
+  // Límite de peticiones. Fuerza bruta: 5 intentos cada 15 min por IP.
+  const limited = limitByIp(req, "admin-login", 5, 15 * 60_000);
+  if (limited) return limited;
+
   const body = (await req.json().catch(() => null)) as {
     email?: string;
     secret?: string;

@@ -1,5 +1,6 @@
 import { fail, handle, ok } from "@/lib/api";
 import { getOrStartDeviceTrial, signLicensePayload, TRIAL_DAYS } from "@/lib/license";
+import { limitByIp } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +11,10 @@ export const dynamic = "force-dynamic";
  * con plan "trial", el machineId y la caducidad. Reinstalar o borrar el Llavero no la reinicia.
  */
 export const POST = handle(async (req) => {
+  // Límite de peticiones. Primer arranque de la app: 20 por hora por IP.
+  const limited = limitByIp(req, "trial-device", 20, 60 * 60_000);
+  if (limited) return limited;
+
   const body = (await req.json().catch(() => null)) as { machineId?: string } | null;
   const machineId = (body?.machineId || "").trim();
   // IOPlatformUUID: 36 caracteres. Rechazar basura para no llenar la tabla.
