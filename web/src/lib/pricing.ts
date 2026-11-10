@@ -76,10 +76,10 @@ export async function currentOffer(tier: LicenseTier = "personal"): Promise<Prom
 
   const basePrice = tier === "family" ? regular : promo;
   const labelEn = isPromo
-    ? `Launch special: $${basePrice} USD (${TIERS[tier].seats} Macs) · ${remaining} spots remaining`
+    ? `Launch price: $${basePrice} USD (${TIERS[tier].seats} Macs)`
     : `Lifetime License: $${basePrice} USD (${TIERS[tier].seats} Macs)`;
   const labelEs = isPromo
-    ? `Lanzamiento: $${basePrice} USD (${TIERS[tier].seats} Macs) · quedan ${remaining} cupos`
+    ? `Precio de lanzamiento: $${basePrice} USD (${TIERS[tier].seats} Macs)`
     : `Licencia de por vida: $${basePrice} USD (${TIERS[tier].seats} Macs)`;
 
   return {
