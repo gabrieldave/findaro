@@ -108,7 +108,7 @@ final class LicenseStoreTests: XCTestCase {
         switch store.state {
         case .trial(let days, _):
             XCTAssertGreaterThanOrEqual(days, 1)
-            XCTAssertLessThanOrEqual(days, 5)
+            XCTAssertLessThanOrEqual(days, 14)
             XCTAssertTrue(store.state.isUsable)
         default:
             XCTFail("Expected trial state on clean launch, got: \(store.state)")
@@ -127,11 +127,11 @@ final class LicenseStoreTests: XCTestCase {
             dateProvider: { clock.now }
         )
 
-        // Al inicio, dentro de los 5 días
+        // Al inicio, dentro de los 14 días
         XCTAssertTrue(store.state.isUsable)
 
-        // Avanzar el reloj simulado a 6 días en el futuro
-        clock.now = startTime.addingTimeInterval(6 * 24 * 60 * 60)
+        // Avanzar el reloj simulado a 15 días en el futuro
+        clock.now = startTime.addingTimeInterval(15 * 24 * 60 * 60)
         store.evaluateLocalState()
 
         XCTAssertEqual(store.state, .trialExpired)
@@ -221,7 +221,7 @@ final class LicenseStoreTests: XCTestCase {
         let start = Date()
         let clock = TestClock(start)
         let store = LicenseStore(defaults: tempDefaults, keychain: mockKeychain, dateProvider: { clock.now })
-        clock.now = start.addingTimeInterval(6 * 24 * 60 * 60)
+        clock.now = start.addingTimeInterval(15 * 24 * 60 * 60)
         store.evaluateLocalState()
         XCTAssertEqual(store.state, .trialExpired)
         // El usuario atrasa el reloj al día 1.
@@ -250,8 +250,8 @@ final class LicenseStoreTests: XCTestCase {
         tempDefaults.removeObject(forKey: LicenseStore.Keys.trialStart)
         XCTAssertNil(tempDefaults.object(forKey: LicenseStore.Keys.trialStart))
 
-        // Simular paso al día 6 desde el inicio original
-        clock.now = initialTime.addingTimeInterval(6 * 24 * 60 * 60)
+        // Simular paso al día 15 desde el inicio original (fuera de los 14 días)
+        clock.now = initialTime.addingTimeInterval(15 * 24 * 60 * 60)
 
         // Nuevo arranque: debe leer la fecha original del Keychain y detectar vencimiento
         let store2 = LicenseStore(

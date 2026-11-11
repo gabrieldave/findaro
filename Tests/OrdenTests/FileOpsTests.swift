@@ -3,6 +3,11 @@ import OrdenCore
 import Foundation
 
 final class FileOpsTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        LicenseGate.setWriteAllowed(true)
+    }
+
     func testMoveBetweenFolders() throws {
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent("orden-ops-\(UUID().uuidString)", isDirectory: true)

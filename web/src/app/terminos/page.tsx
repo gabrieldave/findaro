@@ -69,11 +69,12 @@ export default async function TerminosPage({ searchParams }: PageProps) {
               Upon purchasing Findaro, you are granted a perpetual, non-exclusive, non-transferable license to install and use the software on macOS computers:
             </p>
             <ul style={{ paddingLeft: "20px", margin: "8px 0" }}>
-              <li><strong>Personal Plan ($39 USD launch):</strong> up to 2 simultaneous Mac computers owned by you.</li>
-              <li><strong>Family / Pro Plan ($59 USD launch):</strong> up to 5 simultaneous Mac computers owned by you or your household.</li>
+              <li><strong>Personal Plan ($29 USD launch):</strong> 1 Mac computer owned by you.</li>
+              <li><strong>Pro Plan ($39 USD launch):</strong> up to 2 simultaneous Mac computers owned by you.</li>
+              <li><strong>Family / Studio Plan ($59 USD launch):</strong> up to 5 simultaneous Mac computers owned by you or your household.</li>
             </ul>
             <p>
-              You may deactivate any Mac at any time from inside the app&apos;s Settings to free up a seat and move your license to a new machine.
+              You may free a seat anytime from <strong>Settings → License</strong> on your Mac, or by contacting support after a wipe/reformat or hardware change.
             </p>
 
             <h2 style={{ fontSize: "16px", color: "#fff", marginTop: "16px" }}>2. No Subscriptions</h2>
@@ -115,11 +116,12 @@ export default async function TerminosPage({ searchParams }: PageProps) {
               Al adquirir Findaro, se te concede una licencia perpetua, no exclusiva e intransferible para instalar y utilizar el software en sistemas macOS:
             </p>
             <ul style={{ paddingLeft: "20px", margin: "8px 0" }}>
-              <li><strong>Plan Personal ($39 USD lanzamiento):</strong> hasta 2 ordenadores Mac simultáneos de tu propiedad.</li>
-              <li><strong>Plan Familiar / Pro ($59 USD lanzamiento):</strong> hasta 5 ordenadores Mac simultáneos de tu propiedad o núcleo familiar.</li>
+              <li><strong>Plan Personal ($29 USD lanzamiento):</strong> 1 ordenador Mac de tu propiedad.</li>
+              <li><strong>Plan Pro ($39 USD lanzamiento):</strong> hasta 2 ordenadores Mac simultáneos de tu propiedad.</li>
+              <li><strong>Plan Familiar / Studio ($59 USD lanzamiento):</strong> hasta 5 ordenadores Mac simultáneos de tu propiedad o núcleo familiar.</li>
             </ul>
             <p>
-              Puedes desactivar cualquier Mac en cualquier momento desde las preferencias de la aplicación para transferir tu cupo a un nuevo equipo.
+              Puedes liberar un equipo desde <strong>Ajustes → Licencia</strong> en tu Mac, o solicitándolo a soporte en caso de formateo o cambio de equipo.
             </p>
 
             <h2 style={{ fontSize: "16px", color: "#fff", marginTop: "16px" }}>2. Sin Suscripciones</h2>

@@ -142,6 +142,13 @@ if [[ -z "$SIGN_ID" ]]; then
   SIGN_ID="$(security find-identity -v -p codesigning 2>/dev/null \
     | awk -F'"' '/Developer ID Application/ {print $2; exit}')"
 fi
+# Limpiar símbolos locales antes de firmar (Hardened Runtime / notary).
+EXE_PATH="$APP_DIR/Contents/MacOS/${PRODUCT_NAME}"
+if [[ -f "$EXE_PATH" ]]; then
+  echo "==> strip -x sobre $EXE_PATH"
+  strip -x "$EXE_PATH" || true
+fi
+
 if [[ -n "$SIGN_ID" ]]; then
   echo "==> Firmando con: $SIGN_ID"
   codesign --force --deep --options runtime --timestamp \

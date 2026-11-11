@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import styles from "../marketing.module.css";
 
 type CustomerRow = {
@@ -22,14 +22,27 @@ type CustomerRow = {
   referred_count: number;
 };
 
+type AdminStats = {
+  revenueUsd: number;
+  paidOrders: number;
+  paidOrdersByTier: Record<string, number>;
+  activeTrials: number;
+  trafficBySource: Array<{ utm_source: string; visits: number; customers: number; paid: number }>;
+  pendingReferrals: { count: number; amountUsd: number };
+};
+
+type FilterTab = "all" | "paid" | "trials" | "revoked";
+
 export default function AdminPage() {
   const [email, setEmail] = useState("");
   const [secret, setSecret] = useState("");
   const [rows, setRows] = useState<CustomerRow[]>([]);
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [offer, setOffer] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [authed, setAuthed] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterTab>("all");
 
   async function loadCustomers() {
     const res = await fetch("/api/admin/customers");
@@ -41,6 +54,7 @@ export default function AdminPage() {
     }
     setAuthed(true);
     setRows(json.data.customers || []);
+    setStats(json.data.stats || null);
     const o = json.data.offer;
     setOffer(
       o ? `${o.label} · vendidos ${o.soldCount}/${o.promoLimit}` : "",
@@ -61,6 +75,14 @@ export default function AdminPage() {
       return;
     }
     await loadCustomers();
+  }
+
+  async function onLogout() {
+    await fetch("/api/admin/logout", { method: "POST" });
+    setAuthed(false);
+    setRows([]);
+    setStats(null);
+    setSecret("");
   }
 
   async function toggleLicense(licenseKey: string, revoke: boolean) {
@@ -98,6 +120,49 @@ export default function AdminPage() {
     }
   }
 
+  const filtered = useMemo(() => {
+    switch (filter) {
+      case "paid":
+        return rows.filter((r) => r.status === "paid");
+      case "trials":
+        return rows.filter((r) => r.license_plan === "trial");
+      case "revoked":
+        return rows.filter((r) => r.license_revoked);
+      default:
+        return rows;
+    }
+  }, [rows, filter]);
+
+  const sourceLabel = (src: string) => {
+    const s = src.toLowerCase();
+    if (s === "x" || s === "twitter") return "X";
+    if (s === "facebook" || s === "fb") return "Facebook";
+    if (s === "direct") return "Directo";
+    return src;
+  };
+
+  const topSources = (stats?.trafficBySource || []).slice(0, 3);
+  const sourceSummary =
+    topSources.length === 0
+      ? "—"
+      : topSources.map((s) => `${sourceLabel(s.utm_source)} ${s.paid}/${s.visits}`).join(" · ");
+
+  const kpiCard = (title: string, value: string, sub?: string) => (
+    <div
+      style={{
+        background: "rgba(15,23,42,0.7)",
+        border: "1px solid #1e293b",
+        borderRadius: 12,
+        padding: "14px 16px",
+        minWidth: 0,
+      }}
+    >
+      <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{value}</div>
+      {sub ? <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>{sub}</div> : null}
+    </div>
+  );
+
   return (
     <main className={styles.page}>
       <div className={styles.cardWide} style={{ maxWidth: 1100 }}>
@@ -126,11 +191,69 @@ export default function AdminPage() {
           </form>
         ) : (
           <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
               <p className={styles.sub} style={{ margin: 0 }}>{offer}</p>
-              <button className={styles.secondary} type="button" onClick={() => void loadCustomers()}>
-                🔄 Actualizar lista
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className={styles.secondary} type="button" onClick={() => void loadCustomers()}>
+                  🔄 Actualizar
+                </button>
+                <button className={styles.secondary} type="button" onClick={() => void onLogout()}>
+                  Cerrar sesión
+                </button>
+              </div>
+            </div>
+
+            {stats && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                  gap: 10,
+                  marginBottom: 16,
+                }}
+              >
+                {kpiCard("Ingresos USD", `$${stats.revenueUsd.toFixed(0)}`)}
+                {kpiCard(
+                  "Licencias Pro Vendidas",
+                  String(stats.paidOrders),
+                  `solo ${stats.paidOrdersByTier.solo || 0} · personal ${stats.paidOrdersByTier.personal || 0} · family ${stats.paidOrdersByTier.family || 0}`,
+                )}
+                {kpiCard("Pruebas Activas 14d", String(stats.activeTrials))}
+                {kpiCard("Origen UTM: X / Facebook / Directo", sourceSummary)}
+                {kpiCard(
+                  "Referidos Pendientes",
+                  String(stats.pendingReferrals.count),
+                  `$${stats.pendingReferrals.amountUsd.toFixed(0)} USD`,
+                )}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+              {(
+                [
+                  ["all", "Todos"],
+                  ["paid", "Pagados"],
+                  ["trials", "Pruebas"],
+                  ["revoked", "Revocados"],
+                ] as Array<[FilterTab, string]>
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setFilter(key)}
+                  style={{
+                    border: filter === key ? "1px solid #38bdf8" : "1px solid #334155",
+                    background: filter === key ? "rgba(56,189,248,0.15)" : "transparent",
+                    color: filter === key ? "#38bdf8" : "#94a3b8",
+                    borderRadius: 999,
+                    padding: "6px 12px",
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
             {actionMsg && (
@@ -153,7 +276,7 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
+                  {filtered.map((r) => (
                     <tr key={r.id}>
                       <td>
                         <strong>{r.name || "Sin nombre"}</strong>
@@ -233,10 +356,10 @@ export default function AdminPage() {
                       </td>
                     </tr>
                   ))}
-                  {rows.length === 0 && (
+                  {filtered.length === 0 && (
                     <tr>
                       <td colSpan={7} style={{ textAlign: "center", padding: 24, color: "#64748b" }}>
-                        No hay clientes registrados aún.
+                        No hay clientes en este filtro.
                       </td>
                     </tr>
                   )}

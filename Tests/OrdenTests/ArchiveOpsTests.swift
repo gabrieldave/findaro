@@ -2,6 +2,11 @@ import XCTest
 @testable import OrdenCore
 
 final class ArchiveOpsTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        LicenseGate.setWriteAllowed(true)
+    }
+
     func testStemStripsCompoundExtensions() {
         XCTAssertEqual(ArchiveOps.archiveStem(for: "/tmp/pack.tar.gz"), "pack")
         XCTAssertEqual(ArchiveOps.archiveStem(for: "/tmp/pack.tgz"), "pack")

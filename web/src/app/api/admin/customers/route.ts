@@ -41,7 +41,8 @@ export const GET = handle(async (req) => {
      FROM customers c
      LEFT JOIN LATERAL (
        SELECT * FROM orders WHERE customer_id = c.id
-       ORDER BY created_at DESC LIMIT 1
+       ORDER BY (status = 'paid') DESC, created_at DESC
+       LIMIT 1
      ) o ON true
      LEFT JOIN LATERAL (
        SELECT * FROM licenses WHERE customer_id = c.id
@@ -57,5 +58,87 @@ export const GET = handle(async (req) => {
      LIMIT 500`,
   );
 
-  return ok({ admin: email, offer, customers: rows });
+  const revenue = await query<{ revenue_usd: string }>(
+    `SELECT COALESCE(SUM(amount_usd), 0)::text AS revenue_usd FROM orders WHERE status = 'paid'`,
+  );
+
+  const paidByTier = await query<{ tier: string; cnt: string }>(
+    `SELECT COALESCE(tier, 'personal') AS tier, COUNT(*)::text AS cnt
+     FROM orders WHERE status = 'paid'
+     GROUP BY COALESCE(tier, 'personal')`,
+  );
+
+  const paidOrders = paidByTier.rows.reduce((acc, r) => acc + Number(r.cnt || 0), 0);
+  const paidOrdersByTier = {
+    solo: 0,
+    personal: 0,
+    family: 0,
+  } as Record<string, number>;
+  for (const r of paidByTier.rows) {
+    paidOrdersByTier[r.tier] = Number(r.cnt || 0);
+  }
+
+  const trials = await query<{ active_trials: string }>(
+    `SELECT (
+        (SELECT COUNT(*) FROM licenses WHERE plan = 'trial' AND revoked = false)
+        +
+        (SELECT COUNT(*) FROM trial_devices WHERE expires_at > now())
+      )::text AS active_trials`,
+  );
+
+  const traffic = await query<{
+    utm_source: string;
+    visits: string;
+    customers: string;
+    paid: string;
+  }>(
+    `WITH visit_src AS (
+       SELECT LOWER(COALESCE(NULLIF(TRIM(props->>'utm_source'), ''), 'direct')) AS src, COUNT(*) AS visits
+       FROM events WHERE name = 'visit'
+       GROUP BY 1
+     ),
+     cust_src AS (
+       SELECT LOWER(COALESCE(NULLIF(TRIM(c.utm_source), ''), 'direct')) AS src,
+              COUNT(DISTINCT c.id) AS customers,
+              COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'paid') AS paid
+       FROM customers c
+       LEFT JOIN orders o ON o.customer_id = c.id
+       GROUP BY 1
+     )
+     SELECT COALESCE(v.src, c.src) AS utm_source,
+            COALESCE(v.visits, 0)::text AS visits,
+            COALESCE(c.customers, 0)::text AS customers,
+            COALESCE(c.paid, 0)::text AS paid
+     FROM visit_src v
+     FULL OUTER JOIN cust_src c ON c.src = v.src
+     ORDER BY COALESCE(v.visits, 0) + COALESCE(c.paid, 0) DESC
+     LIMIT 20`,
+  );
+
+  const pendingRefs = await query<{ cnt: string; amount: string }>(
+    `SELECT COUNT(*)::text AS cnt,
+            COALESCE(SUM(commission_amount_usd), 0)::text AS amount
+     FROM referrals WHERE status = 'pending'`,
+  );
+
+  const trafficBySource = traffic.rows.map((r) => ({
+    utm_source: r.utm_source,
+    visits: Number(r.visits || 0),
+    customers: Number(r.customers || 0),
+    paid: Number(r.paid || 0),
+  }));
+
+  const stats = {
+    revenueUsd: Number(revenue.rows[0]?.revenue_usd || 0),
+    paidOrders,
+    paidOrdersByTier,
+    activeTrials: Number(trials.rows[0]?.active_trials || 0),
+    trafficBySource,
+    pendingReferrals: {
+      count: Number(pendingRefs.rows[0]?.cnt || 0),
+      amountUsd: Number(pendingRefs.rows[0]?.amount || 0),
+    },
+  };
+
+  return ok({ admin: email, offer, customers: rows, stats });
 });

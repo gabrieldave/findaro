@@ -1,6 +1,9 @@
 import { createHash, createPrivateKey, createPublicKey, randomBytes, sign, verify } from "crypto";
 import { query, withTransaction } from "./db";
 import { LicenseTier, TIERS } from "./pricing";
+import { resolveProUpgrade } from "./license-upgrade";
+
+export { PRO_TIER_RANK, resolveProUpgrade } from "./license-upgrade";
 
 const TRIAL_DAYS = Math.max(1, Number(process.env.TRIAL_DAYS || 14));
 
@@ -157,32 +160,31 @@ export async function issueProLicense(opts: {
     [opts.customerId],
   );
   if (existing.rows[0]) {
-    const existingTier = (existing.rows[0].tier as LicenseTier) || tier;
-    const existingSeats = Math.max(existing.rows[0].seats, seats);
+    const existingTier = (existing.rows[0].tier as LicenseTier) || "solo";
+    const { updatedSeats, upgradedTier } = resolveProUpgrade(
+      { seats: existing.rows[0].seats, tier: existingTier },
+      { seats, tier },
+    );
 
-    // Asegurar que seats refleje el tier adecuado
-    if (existingSeats > existing.rows[0].seats) {
-      await query(`UPDATE licenses SET seats = $1, tier = $2 WHERE id = $3`, [
-        existingSeats,
-        existingTier,
-        existing.rows[0].id,
-      ]);
-    }
+    await query(
+      `UPDATE licenses SET seats = $1, tier = $2, order_id = $3 WHERE id = $4`,
+      [updatedSeats, upgradedTier, opts.orderId, existing.rows[0].id],
+    );
 
     const signed = signLicensePayload({
       v: 1,
       plan: "pro",
-      tier: existingTier,
+      tier: upgradedTier,
       email: opts.email,
       key: existing.rows[0].license_key,
-      seats: existingSeats,
+      seats: updatedSeats,
       exp: null,
     });
     return {
       licenseKey: existing.rows[0].license_key,
       signed,
-      seats: existingSeats,
-      tier: existingTier,
+      seats: updatedSeats,
+      tier: upgradedTier,
       reused: true as const,
     };
   }

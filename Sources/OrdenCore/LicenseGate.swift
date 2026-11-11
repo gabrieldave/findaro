@@ -13,7 +13,8 @@ public enum LicenseGateError: LocalizedError, Sendable {
 
 public final class LicenseGate: @unchecked Sendable {
     private static let lock = NSLock()
-    nonisolated(unsafe) private static var _isWriteAllowed: Bool = true
+    /// Fail-closed: escritura bloqueada hasta que LicenseStore valide trial/token.
+    nonisolated(unsafe) private static var _isWriteAllowed: Bool = false
     nonisolated(unsafe) private static var _onWriteBlocked: (@Sendable () -> Void)?
 
     public static func setWriteAllowed(_ allowed: Bool, onBlocked: (@Sendable () -> Void)? = nil) {

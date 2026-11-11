@@ -9,6 +9,10 @@ struct OrdenApp: App {
     @StateObject private var settingsBrowser = BrowserModel()
 
     init() {
+        #if !DEBUG
+        ReleaseIntegrity.hardenAtLaunch()
+        #endif
+
         let storedLang = PreferencesStore.shared.preferences.appLanguage
         L10n.activeLanguage = storedLang
         UserDefaults.standard.set(storedLang.rawValue, forKey: "findaro_app_language")

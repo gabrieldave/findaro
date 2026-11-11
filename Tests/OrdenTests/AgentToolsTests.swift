@@ -2,6 +2,11 @@ import XCTest
 @testable import OrdenCore
 
 final class AgentToolsTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        L10n.activeLanguage = .spanish
+    }
+
     func testInferArchivosHoy() {
         let s = AgentIntentParser.inferShortcut(from: "archivos de hoy")
         XCTAssertNotNil(s)

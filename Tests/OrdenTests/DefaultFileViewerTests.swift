@@ -8,6 +8,7 @@ final class DefaultFileViewerTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        LicenseGate.setWriteAllowed(true)
         // Guardar el valor original real de la Mac para restaurarlo estrictamente al terminar
         originalViewer = CFPreferencesCopyAppValue("NSFileViewer" as CFString, kCFPreferencesAnyApplication) as? String
     }

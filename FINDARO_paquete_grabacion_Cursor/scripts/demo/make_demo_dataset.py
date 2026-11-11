@@ -39,6 +39,38 @@ from pathlib import Path
 MARKER = ".findaro-demo"
 SEED = 20261107
 
+LANG_PACKS = {
+    "es": {
+        "root_default": "FINDARO-Demo-ES",
+        "origin_studio": "Estudio Aurora",
+        "dest_backup": "Respaldo Estudio",
+        "campaign": "Campaña-Otoño-2026",
+        "photos": "Fotos",
+        "selection": "Selección",
+        "video": "Video",
+        "docs": "Documentos",
+        "invoices": "Facturas",
+        "clients": "Clientes",
+        "search_token": "contrato",
+        "merge_note": "6 nuevos, 3 iguales, 2 distintos",
+    },
+    "en": {
+        "root_default": "FINDARO-Demo-EN",
+        "origin_studio": "Aurora Studio",
+        "dest_backup": "Studio Backup",
+        "campaign": "Autumn-Campaign-2026",
+        "photos": "Photos",
+        "selection": "Selection",
+        "video": "Video",
+        "docs": "Documents",
+        "invoices": "Invoices",
+        "clients": "Clients",
+        "search_token": "contract",
+        "merge_note": "6 new, 3 identical, 2 conflicting",
+    },
+}
+
+
 
 # ---------------------------------------------------------------- archivos de contenido
 
@@ -122,6 +154,32 @@ def touch_past(path: Path, days_ago: float) -> None:
 
 
 # ---------------------------------------------------------------- el set
+
+def _rename_demo_to_english(root: Path, pack: dict[str, str]) -> None:
+    """Renombra el dataset ES a nombres EN manteniendo estructura Smart Merge / search."""
+    mapping = {
+        "Estudio Aurora": pack["origin_studio"],
+        "Respaldo Estudio": pack["dest_backup"],
+        "Campaña-Otoño-2026": pack["campaign"],
+        "Fotos": pack["photos"],
+        "Selección": pack["selection"],
+        "Documentos": pack["docs"],
+        "Facturas": pack["invoices"],
+        "Clientes": pack["clients"],
+        "contrato": "contract",
+        "Contrato": "Contract",
+    }
+    # deepest paths first
+    for path in sorted(root.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+        name = path.name
+        new_name = name
+        for old, new in mapping.items():
+            new_name = new_name.replace(old, new)
+        if new_name != name:
+            target = path.with_name(new_name)
+            if not target.exists():
+                path.rename(target)
+
 
 def build(root: Path, video_mb: int) -> dict[str, int]:
     rng = random.Random(SEED)
@@ -244,11 +302,13 @@ def build(root: Path, video_mb: int) -> dict[str, int]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--root", default=str(Path.home() / "Documents" / "FINDARO-Demo"))
+    ap.add_argument("--lang", choices=("es", "en"), default="es", help="idioma del dataset (es|en)")
+    ap.add_argument("--root", default=None, help="ruta raíz (por defecto ~/Documents/FINDARO-Demo-ES|EN)")
     ap.add_argument("--reset", action="store_true", help="borra el set existente (solo si tiene el marcador) y lo recrea")
     ap.add_argument("--video-mb", type=int, default=1200, help="tamaño del video principal en MB (por defecto 1200)")
     a = ap.parse_args()
-    root = Path(a.root).expanduser()
+    pack = LANG_PACKS[a.lang]
+    root = Path(a.root).expanduser() if a.root else (Path.home() / "Documents" / pack["root_default"])
     if root.exists() and any(root.iterdir()):
         if not a.reset:
             print(f"Ya existe {root}. Usa --reset para recrearlo.", file=sys.stderr)
@@ -260,11 +320,14 @@ def main() -> int:
     root.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
     stats = build(root, a.video_mb)
+    if a.lang == "en":
+        _rename_demo_to_english(root, pack)
     print(f"Set creado en {root} ({stats['archivos']} archivos, {time.time() - t0:.0f} s)")
-    print("  ORIGEN : ORIGEN/Estudio Aurora")
-    print("  DESTINO: DESTINO/Respaldo Estudio")
-    print("  Smart Merge: Campaña-Otoño-2026/Documentos → 6 nuevos, 3 iguales, 2 distintos")
-    print("  Búsqueda: «contrato» desde ORIGEN/Estudio Aurora → 8 resultados")
+    print(f"  lang={a.lang}")
+    print(f"  ORIGEN : ORIGEN/{pack['origin_studio']}")
+    print(f"  DESTINO: DESTINO/{pack['dest_backup']}")
+    print(f"  Smart Merge: {pack['campaign']}/{pack['docs']} → {pack['merge_note']}")
+    print(f"  Search: «{pack['search_token']}» from ORIGEN/{pack['origin_studio']} → 8 hits")
     return 0
 
 

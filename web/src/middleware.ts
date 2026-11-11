@@ -92,6 +92,16 @@ export function middleware(request: NextRequest) {
     });
   }
 
+  // 6. Referral code persistence (rewrite de / → landing estática no llega a page.tsx)
+  const refRaw = (searchParams.get('ref') || '').trim();
+  if (/^[A-Za-z0-9-]{3,32}$/.test(refRaw)) {
+    res.cookies.set('findaro_ref', refRaw.toUpperCase(), {
+      maxAge: 60 * 60 * 24 * 30,
+      path: '/',
+      sameSite: 'lax',
+    });
+  }
+
   return res;
 }
 
