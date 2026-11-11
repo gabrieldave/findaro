@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1280" />
+  <title>Findaro Studio Media</title>
+  <link rel="stylesheet" href="./studio.css" />
+</head>
+<body class="theme-midnight">
+  <div class="og-root" id="ogRoot">
+    <div class="og-copy">
+      <div class="brand">FINDARO</div>
+      <h1 id="ogHeadline">Dual-Pane + Local AI</h1>
+      <p id="ogSub">macOS · Apple Silicon · Lifetime license</p>
+    </div>
+    <div class="og-window" id="ogWindowSlot"></div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="social-caption" id="socialCaption">
+      <h2 id="socialTitle">FINDARO</h2>
+      <p id="socialSub"></p>
+    </div>
+    <div class="stage-zoom" id="stageZoom">
+      <div class="mac-window" id="macWindow">
+        <div class="titlebar">
+          <div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+          <div class="title" id="windowTitle">Findaro — Estudio Aurora</div>
+        </div>
+        <div class="toolbar">
+          <div class="seg" id="viewSeg">
+            <button data-view="list" class="active" id="btnList">Lista</button>
+            <button data-view="icons" id="btnIcons">Iconos</button>
+            <button data-view="columns" id="btnColumns">Columnas</button>
+            <button data-view="gallery" id="btnGallery">Galería</button>
+          </div>
+          <div class="crumbs" id="crumbs">Users ▸ Documents ▸ <strong id="crumbStudio">Estudio Aurora</strong></div>
+          <div class="pane-tabs">
+            <div class="tab active" id="tabOrigin">Origen</div>
+            <div class="tab" id="tabDest">Destino</div>
+          </div>
+          <button class="tool-btn primary" id="btnNew">Nueva</button>
+        </div>
+        <div class="body">
+          <aside class="sidebar" id="sidebar">
+            <div class="side-label" id="labFav">FAVORITOS</div>
+            <div class="side-item" data-id="downloads"><span class="dot"></span><span id="itmDownloads">Descargas</span></div>
+            <div class="side-item" data-id="desktop"><span class="dot"></span><span id="itmDesktop">Escritorio</span></div>
+            <div class="side-item" data-id="documents"><span class="dot"></span><span id="itmDocuments">Documentos</span></div>
+            <div class="side-item active" data-id="studio"><span class="dot"></span><span id="itmStudio">Estudio Aurora</span></div>
+            <div class="side-label" id="labSmart">INTELIGENTES</div>
+            <div class="side-item"><span class="dot"></span>zip files</div>
+            <div class="side-label" id="labLoc">UBICACIONES</div>
+            <div class="side-item"><span class="dot"></span><span id="itmIcloud">iCloud Drive</span></div>
+            <div class="side-item"><span class="dot"></span><span id="itmGdrive">Google Drive</span></div>
+            <div class="side-item"><span class="dot"></span><span id="itmHd">Macintosh HD</span></div>
+            <div class="side-item" data-id="trash"><span class="dot"></span><span id="itmTrash">Papelera</span></div>
+          </aside>
+          <div class="main" id="mainPanes">
+            <section class="pane origin" id="paneOrigin">
+              <div class="pane-head"><span id="originLabel">Origen</span><span class="badge" id="originBadge">8</span></div>
+              <div class="trash-banner" id="trashBanner">
+                <div>
+                  <strong id="trashTitle">Papelera</strong>
+                  <p id="trashHint">Archivos protegidos</p>
+                </div>
+                <button class="btn accent" id="btnRestore">Restaurar a ubicación original</button>
+              </div>
+              <div class="cols" id="colsOrigin">
+                <div id="colName">Nombre</div><div id="colMod">Modificado</div><div id="colSize">Tamaño</div>
+              </div>
+              <div class="rows" id="originRows"></div>
+            </section>
+            <section class="pane dest" id="paneDest">
+              <div class="pane-head"><span id="destLabel">Destino</span><span class="badge" id="destBadge">activo</span></div>
+              <div class="cols">
+                <div id="colName2">Nombre</div><div id="colMod2">Modificado</div><div id="colSize2">Tamaño</div>
+              </div>
+              <div class="rows" id="destRows"></div>
+            </section>
+          </div>
+        </div>
+        <div class="tray" id="tray">
+          <span id="trayText">Bandeja lista</span>
+          <div class="chips" id="trayChips"></div>
+          <span class="ok" id="trayOk">✓ SHA-256</span>
+        </div>
+
+        <div class="ai-panel" id="aiPanel">
+          <h4 id="aiTitle">Asistente IA local</h4>
+          <div class="wave" id="aiWave"></div>
+          <div class="dictation" id="aiDictation"></div>
+          <div class="plan" id="aiPlan"></div>
+          <div class="modal-actions">
+            <button class="btn ghost" id="aiReject">Revisar</button>
+            <button class="btn accent" id="aiApprove">Aprobar</button>
+          </div>
+        </div>
+
+        <div class="search-bar" id="searchBar">
+          <input id="searchInput" type="text" placeholder="Buscar…" />
+          <div class="search-hits" id="searchHits"></div>
+        </div>
+
+        <div class="overlay" id="mergeOverlay">
+          <div class="modal" id="mergeModal">
+            <h3 id="mergeTitle">Smart Merge</h3>
+            <div class="sum" id="mergeSum">6 nuevos · 3 iguales · 2 conflictos</div>
+            <div class="merge-legend">
+              <span class="pill new" id="pillNew">Nuevos</span>
+              <span class="pill same" id="pillSame">Iguales</span>
+              <span class="pill conflict" id="pillConflict">Conflictos</span>
+            </div>
+            <div id="mergeRows"></div>
+            <div class="sha"><span id="shaLabel">SHA-256</span> · a3f91c…e82b</div>
+            <div class="modal-actions">
+              <button class="btn ghost" id="btnSkip">Omitir</button>
+              <button class="btn ghost" id="btnReplace">Reemplazar</button>
+              <button class="btn accent" id="btnKeepBoth">Conservar ambos</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="marquee" id="marquee"></div>
+      </div>
+    </div>
+
+    <div class="cursor" id="cursor" aria-hidden="true">
+      <svg viewBox="0 0 18 24" fill="none">
+        <path d="M1 1L1 18L5.2 14.3L8.8 22L11.5 20.8L7.8 13.2L13.5 13.2L1 1Z" fill="white" stroke="black" stroke-width="1.2" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="click-ripple" id="ripple"></div>
+    <div class="hud" id="hud"><kbd>⌘</kbd> + <kbd>X</kbd></div>
+  </div>
+
+  <script src="./studio.js"></script>
+</body>
+</html>
