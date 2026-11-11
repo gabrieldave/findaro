@@ -44,7 +44,8 @@ public enum SidebarLocations {
         iCloudPath: String?,
         cloudFolders: [CloudFolder],
         volumes: [Volume],
-        trashPath: String?
+        trashPath: String?,
+        demoMode: Bool = FindaroDemoMode.isEnabled
     ) -> [SidebarLocation] {
         var items: [SidebarLocation] = []
         var seen: Set<String> = []
@@ -55,7 +56,7 @@ public enum SidebarLocations {
             items.append(item)
         }
 
-        if let iCloudPath {
+        if !demoMode, let iCloudPath {
             push(
                 SidebarLocation(
                     id: "loc-icloud",
@@ -67,30 +68,35 @@ public enum SidebarLocations {
             )
         }
 
-        let clouds = cloudFolders.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        let titledClouds = disambiguate(clouds)
-        for cloud in titledClouds {
-            push(
-                SidebarLocation(
-                    id: "loc-cloud-\(cloud.folder.name)",
-                    title: cloud.title,
-                    path: cloud.folder.path,
-                    systemImage: cloud.icon
-                ),
-                resolved: cloud.folder.path
-            )
+        if !demoMode {
+            let clouds = cloudFolders.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            let titledClouds = disambiguate(clouds)
+            for cloud in titledClouds {
+                push(
+                    SidebarLocation(
+                        id: "loc-cloud-\(cloud.folder.name)",
+                        title: cloud.title,
+                        path: cloud.folder.path,
+                        systemImage: cloud.icon
+                    ),
+                    resolved: cloud.folder.path
+                )
+            }
         }
 
-        let homeName = URL(fileURLWithPath: homePath).lastPathComponent
-        push(
-            SidebarLocation(
-                id: "loc-home",
-                title: homeName,
-                path: homePath,
-                systemImage: "house.fill"
-            ),
-            resolved: homePath
-        )
+        // En demo no mostramos el home real del usuario (daveax…).
+        if !demoMode {
+            let homeName = URL(fileURLWithPath: homePath).lastPathComponent
+            push(
+                SidebarLocation(
+                    id: "loc-home",
+                    title: homeName,
+                    path: homePath,
+                    systemImage: "house.fill"
+                ),
+                resolved: homePath
+            )
+        }
 
         push(
             SidebarLocation(
@@ -102,18 +108,21 @@ public enum SidebarLocations {
             resolved: "/"
         )
 
-        for volume in volumes.sorted(by: { $0.name.localizedStandardCompare($1.name) == .orderedAscending }) {
-            let resolved = normalize(volume.resolvedPath)
-            if resolved == "/" { continue }
-            push(
-                SidebarLocation(
-                    id: "loc-vol-\(volume.name)",
-                    title: volume.name,
-                    path: volume.path,
-                    systemImage: "externaldrive.fill"
-                ),
-                resolved: resolved
-            )
+        if !demoMode {
+            for volume in volumes.sorted(by: { $0.name.localizedStandardCompare($1.name) == .orderedAscending }) {
+                if FindaroDemoMode.isExcludedVolume(name: volume.name) { continue }
+                let resolved = normalize(volume.resolvedPath)
+                if resolved == "/" { continue }
+                push(
+                    SidebarLocation(
+                        id: "loc-vol-\(volume.name)",
+                        title: volume.name,
+                        path: volume.path,
+                        systemImage: "externaldrive.fill"
+                    ),
+                    resolved: resolved
+                )
+            }
         }
 
         if let trashPath {
@@ -138,20 +147,21 @@ public enum SidebarLocations {
     }
 
     private static func disambiguate(_ folders: [CloudFolder]) -> [TitledCloud] {
-        let tagged = folders.map { folder -> (CloudFolder, String, String, String?) in
+        let tagged = folders.map { folder -> (CloudFolder, String, String) in
             let (base, icon) = serviceTitle(folder.name)
-            return (folder, base, icon, accountSuffix(folder.name))
+            return (folder, base, icon)
         }
         var counts: [String: Int] = [:]
+        var seenIndex: [String: Int] = [:]
         for item in tagged {
             counts[item.1, default: 0] += 1
         }
-        return tagged.map { folder, base, icon, account in
+        return tagged.map { folder, base, icon in
             let title: String
-            if counts[base, default: 0] > 1, let account, !account.isEmpty {
-                // Sidebar estrecho: "Drive · usuario" cabe mejor que el correo completo.
-                let local = account.split(separator: "@").first.map(String.init) ?? account
-                title = "\(shortServiceLabel(base)) · \(local)"
+            if counts[base, default: 0] > 1 {
+                let n = (seenIndex[base] ?? 0) + 1
+                seenIndex[base] = n
+                title = "\(base) \(n)"
             } else {
                 title = base
             }
@@ -159,18 +169,12 @@ public enum SidebarLocations {
         }
     }
 
-    /// Etiqueta corta al desambiguar varias cuentas del mismo servicio.
-    private static func shortServiceLabel(_ base: String) -> String {
-        switch base {
-        case "Google Drive": return "Drive"
-        case "OneDrive": return "OneDrive"
-        case "Dropbox": return "Dropbox"
-        default: return base
-        }
-    }
-
     private static func serviceTitle(_ folderName: String) -> (String, String) {
-        let lower = folderName.lowercased()
+        let cleaned = sanitizeCloudFolderName(folderName)
+        let lower = cleaned.lowercased()
+        if lower.contains("icloud") {
+            return ("iCloud Drive", "icloud.fill")
+        }
         if lower.contains("google") {
             return ("Google Drive", "externaldrive.fill.badge.icloud")
         }
@@ -180,10 +184,36 @@ public enum SidebarLocations {
         if lower.contains("onedrive") || lower.contains("one drive") {
             return ("OneDrive", "externaldrive.fill.badge.icloud")
         }
-        return (folderName, "externaldrive.fill")
+        // Nunca mostrar el nombre crudo con correo/timestamp.
+        return ("Cloud Storage", "externaldrive.fill")
     }
 
-    /// `GoogleDrive-ana@gmail.com` o `GoogleDrive-ana@gmail.com (1)` → el correo.
+    /// Quita correos, timestamps y basura de nombres CloudStorage.
+    public static func sanitizeCloudFolderName(_ folderName: String) -> String {
+        var name = folderName
+        // `Something (from 9:36 a.m.)` → Something
+        if let cut = name.range(of: " (") {
+            name = String(name[..<cut.lowerBound])
+        }
+        // Prefijos típicos de proveedores
+        for marker in ["GoogleDrive-", "Dropbox-", "OneDrive-", "iCloudDrive-"] {
+            if name.hasPrefix(marker) {
+                name = String(name.dropFirst(marker.count))
+                break
+            }
+        }
+        // Si quedó un correo, descartarlo — el título lo decide serviceTitle.
+        if name.contains("@") {
+            if folderName.lowercased().contains("google") { return "Google Drive" }
+            if folderName.lowercased().contains("dropbox") { return "Dropbox" }
+            if folderName.lowercased().contains("onedrive") { return "OneDrive" }
+            if folderName.lowercased().contains("icloud") { return "iCloud Drive" }
+            return "Cloud Storage"
+        }
+        return name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// `GoogleDrive-ana@gmail.com` o `GoogleDrive-ana@gmail.com (1)` → el correo (legacy tests / diagnóstico).
     static func accountSuffix(_ folderName: String) -> String? {
         let markers = ["GoogleDrive-", "Dropbox-", "OneDrive-"]
         for marker in markers where folderName.hasPrefix(marker) {
@@ -198,7 +228,6 @@ public enum SidebarLocations {
     }
 
     private static func normalize(_ path: String) -> String {
-        if path == "/" { return "/" }
-        return URL(fileURLWithPath: path).standardizedFileURL.path
+        (path as NSString).standardizingPath
     }
 }

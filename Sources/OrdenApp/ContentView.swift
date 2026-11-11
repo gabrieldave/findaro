@@ -187,8 +187,7 @@ struct ContentView: View {
 
     private var detailColumn: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SortBar()
-                .fixedSize(horizontal: false, vertical: true)
+            ContextualChromeBar()
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
@@ -199,10 +198,6 @@ struct ContentView: View {
             }
 
             FolderStatsBar()
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 16)
-
-            FileActionsBar()
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
 
@@ -251,55 +246,16 @@ struct ContentView: View {
                                 HStack(spacing: 8) {
                                     Text(L10n.s("Origen", "Origin"))
                                         .font(.system(size: 12, weight: .semibold))
+                                        .fixedSize(horizontal: true, vertical: false)
                                     if browser.focusedPane == .primary {
                                         FindaroStatusPill(title: L10n.s("activo", "active"), kind: .processing)
                                     }
                                     Spacer(minLength: 4)
-                                    if browser.focusedPane != .primary {
-                                        Button {
-                                            browser.focusOriginPane()
-                                        } label: {
-                                            Label(L10n.s("Activar", "Activate"), systemImage: "arrow.left.circle.fill")
-                                                .font(.caption.weight(.semibold))
-                                        }
-                                        .buttonStyle(.borderedProminent)
-                                        .tint(OrdenTheme.accent)
-                                        .controlSize(.small)
-                                        .help(L10n.s("Enfoca el panel izquierdo · Tab · ⌘⇧← · o clic en vacío", "Focus left pane · Tab · ⌘⇧← · or click in empty space"))
+                                    // En paneles < ~520 pt: iconos; nunca cortar el título Origen.
+                                    ViewThatFits(in: .horizontal) {
+                                        originHeaderActions(compact: false)
+                                        originHeaderActions(compact: true)
                                     }
-                                    Button {
-                                        browser.swapPaneFolders()
-                                    } label: {
-                                        Image(systemName: "arrow.left.arrow.right")
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .help(L10n.s("Intercambiar carpetas Origen ↔ Destino", "Swap folders Origin ↔ Destination"))
-                                    Button {
-                                        browser.goUp()
-                                    } label: {
-                                        Image(systemName: "arrow.up.left")
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .help(L10n.s("Subir en el panel izquierdo", "Go up in left pane"))
-                                    // Solo acciones hacia Destino (→). «← Mover / ← Copiar» viven en Destino.
-                                    Button {
-                                        browser.transferPrimarySelectionToSecondary(copy: false)
-                                    } label: {
-                                        Label(L10n.s("Mover →", "Move →"), systemImage: "arrow.right.circle.fill")
-                                            .font(.caption.weight(.semibold))
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .tint(.orange)
-                                    .controlSize(.small)
-                                    .help(L10n.s("Mueve lo seleccionado aquí → Destino · ⌘⇧M", "Move selection here → Destination · ⌘⇧M"))
-                                    Button {
-                                        browser.transferPrimarySelectionToSecondary(copy: true)
-                                    } label: {
-                                        Text(L10n.s("Copiar →", "Copy →"))
-                                            .font(.caption.weight(.semibold))
-                                    }
-                                    .controlSize(.small)
-                                    .help(L10n.s("Copia lo seleccionado aquí → Destino", "Copy selection here → Destination"))
                                 }
                                 // Tap en ruta/ayuda enfoca Origen; no envolver botones (bloqueaba Mover/Copiar).
                                 VStack(alignment: .leading, spacing: 4) {
@@ -430,6 +386,69 @@ struct ContentView: View {
         .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
             browser.importDroppedFiles(providers: providers)
         }
+    }
+
+    @ViewBuilder
+    private func originHeaderActions(compact: Bool) -> some View {
+        HStack(spacing: compact ? 4 : 8) {
+            if browser.focusedPane != .primary {
+                Button {
+                    browser.focusOriginPane()
+                } label: {
+                    if compact {
+                        Image(systemName: "arrow.left.circle.fill")
+                    } else {
+                        Label(L10n.s("Activar", "Activate"), systemImage: "arrow.left.circle.fill")
+                            .font(.caption.weight(.semibold))
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(OrdenTheme.accent)
+                .controlSize(.small)
+                .help(L10n.s("Enfoca el panel izquierdo · Tab · ⌘⇧← · o clic en vacío", "Focus left pane · Tab · ⌘⇧← · or click in empty space"))
+            }
+            Button {
+                browser.swapPaneFolders()
+            } label: {
+                Image(systemName: "arrow.left.arrow.right")
+            }
+            .buttonStyle(.borderless)
+            .help(L10n.s("Intercambiar carpetas Origen ↔ Destino", "Swap folders Origin ↔ Destination"))
+            Button {
+                browser.goUp()
+            } label: {
+                Image(systemName: "arrow.up.left")
+            }
+            .buttonStyle(.borderless)
+            .help(L10n.s("Subir en el panel izquierdo", "Go up in left pane"))
+            Button {
+                browser.transferPrimarySelectionToSecondary(copy: false)
+            } label: {
+                if compact {
+                    Image(systemName: "arrow.right.circle.fill")
+                } else {
+                    Label(L10n.s("Mover →", "Move →"), systemImage: "arrow.right.circle.fill")
+                        .font(.caption.weight(.semibold))
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+            .controlSize(.small)
+            .help(L10n.s("Mueve lo seleccionado aquí → Destino · ⌘⇧M", "Move selection here → Destination · ⌘⇧M"))
+            Button {
+                browser.transferPrimarySelectionToSecondary(copy: true)
+            } label: {
+                if compact {
+                    Image(systemName: "doc.on.doc")
+                } else {
+                    Text(L10n.s("Copiar →", "Copy →"))
+                        .font(.caption.weight(.semibold))
+                }
+            }
+            .controlSize(.small)
+            .help(L10n.s("Copia lo seleccionado aquí → Destino", "Copy selection here → Destination"))
+        }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private func shortPath(_ path: String) -> String {
@@ -837,115 +856,75 @@ struct SmartFolderBanner: View {
 struct FolderStatsBar: View {
     @EnvironmentObject private var browser: BrowserModel
 
+    /// Solo banners especiales; la ruta vive en la toolbar (PathBreadcrumbBar).
+    private var hasBanner: Bool {
+        browser.activeSmartFolder != nil
+            || browser.activeAssistantShortcut != nil
+            || browser.downloadsTodayMode
+            || browser.cleanupMode
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                // Segmentos clicables: Downloads → va a Downloads, etc.
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 2) {
-                        ForEach(Array(browser.pathSegments.enumerated()), id: \.element.id) { index, segment in
-                            if index > 0 {
-                                Text("/")
-                                    .font(.system(.caption, design: .monospaced))
-                                    .foregroundStyle(.tertiary)
-                            }
-                            Button {
-                                browser.navigate(to: segment.path)
-                            } label: {
-                                Text(segment.title)
-                                    .font(.system(.caption, design: .monospaced).weight(
-                                        index == browser.pathSegments.count - 1 ? .semibold : .regular
-                                    ))
-                                    .lineLimit(1)
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(index == browser.pathSegments.count - 1 ? .primary : OrdenTheme.accent)
-                            .help(L10n.s("Ir a \(segment.path)", "Go to \(segment.path)"))
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Button {
-                    browser.copyCurrentFolderPath()
-                } label: {
-                    Image(systemName: "doc.on.doc")
-                        .font(.caption)
-                }
-                .buttonStyle(.borderless)
-                .help(L10n.s("Copiar ruta completa", "Copy full path"))
-                Label(browser.folderTotalLabel, systemImage: "externaldrive.fill")
-                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                if browser.isMeasuringSizes {
-                    ProgressView()
-                        .controlSize(.small)
-                }
-                Text(
-                    browser.downloadsTodayMode
-                        ? "· \(browser.visibleEntries.count) " + L10n.s("de hoy", "today") + " / \(browser.entries.count)"
-                        : "· \(browser.entries.count) " + L10n.s("elementos", "items")
-                )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let smart = browser.activeSmartFolder {
-                SmartFolderBanner(folder: smart)
-            } else if let shortcut = browser.activeAssistantShortcut {
-                HStack(spacing: 8) {
-                    Image(systemName: "sparkles")
-                        .foregroundStyle(.orange)
-                    Text(L10n.s("Atajo «\(shortcut.displayTitle)»: \(browser.visibleEntries.count) coincidencias. El resto está oculto.", "Shortcut «\(shortcut.displayTitle)»: \(browser.visibleEntries.count) matches. The rest is hidden."))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 0)
-                    Button(L10n.s("Mostrar todo", "Show all")) {
-                        browser.clearAssistantShortcutFilter()
-                    }
-                    .controlSize(.regular)
-                }
-            } else if browser.downloadsTodayMode {
-                HStack(spacing: 8) {
-                    Image(systemName: "arrow.down.circle.fill")
-                        .foregroundStyle(.orange)
-                    Text(L10n.s("Solo descargas / archivos de hoy en esta carpeta. El resto está oculto.", "Only downloads / today's files in this folder. The rest is hidden."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 0)
-                    Button(L10n.s("Mostrar todo", "Show all")) {
-                        browser.exitDownloadsTodayMode()
-                    }
-                    .controlSize(.small)
-                }
-            }
-
-            // Solo con orden por peso — evita una segunda franja permanente
-            if browser.cleanupMode {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(L10n.s("Ordenado por peso (no se borra nada). Toca uno para seleccionarlo:", "Sorted by size (nothing is deleted). Tap one to select it:"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+        if hasBanner {
+            VStack(alignment: .leading, spacing: 8) {
+                if let smart = browser.activeSmartFolder {
+                    SmartFolderBanner(folder: smart)
+                } else if let shortcut = browser.activeAssistantShortcut {
                     HStack(spacing: 8) {
-                        ForEach(browser.heaviestPreview.prefix(4)) { entry in
-                            Text("\(entry.name) (\(FolderSizer.format(entry.size)))")
-                                .font(.subheadline)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(OrdenTheme.accent.opacity(0.15), in: Capsule())
-                                .lineLimit(1)
-                                .help(entry.path)
-                                .onTapGesture {
-                                    browser.selectOnly(entry.id)
-                                    browser.statusMessage = entry.path
-                                }
-                        }
+                        Image(systemName: "sparkles")
+                            .foregroundStyle(.orange)
+                        Text(L10n.s("Atajo «\(shortcut.displayTitle)»: \(browser.visibleEntries.count) coincidencias. El resto está oculto.", "Shortcut «\(shortcut.displayTitle)»: \(browser.visibleEntries.count) matches. The rest is hidden."))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                         Spacer(minLength: 0)
+                        Button(L10n.s("Mostrar todo", "Show all")) {
+                            browser.clearAssistantShortcutFilter()
+                        }
+                        .controlSize(.regular)
+                    }
+                } else if browser.downloadsTodayMode {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .foregroundStyle(.orange)
+                        Text(L10n.s("Solo descargas / archivos de hoy en esta carpeta. El resto está oculto.", "Only downloads / today's files in this folder. The rest is hidden."))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                        Button(L10n.s("Mostrar todo", "Show all")) {
+                            browser.exitDownloadsTodayMode()
+                        }
+                        .controlSize(.small)
+                    }
+                }
+
+                if browser.cleanupMode {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(L10n.s("Ordenado por peso (no se borra nada). Toca uno para seleccionarlo:", "Sorted by size (nothing is deleted). Tap one to select it:"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 8) {
+                            ForEach(browser.heaviestPreview.prefix(4)) { entry in
+                                Text("\(entry.name) (\(FolderSizer.format(entry.size)))")
+                                    .font(.subheadline)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(OrdenTheme.accent.opacity(0.15), in: Capsule())
+                                    .lineLimit(1)
+                                    .help(entry.path)
+                                    .onTapGesture {
+                                        browser.selectOnly(entry.id)
+                                        browser.statusMessage = entry.path
+                                    }
+                            }
+                            Spacer(minLength: 0)
+                        }
                     }
                 }
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -1008,7 +987,10 @@ struct SidebarView: View {
     }
 
     private var favoriteItems: [SidebarItem] {
-        browser.store.preferences.favorites.map { path in
+        browser.store.preferences.favorites.compactMap { path in
+            if FindaroDemoMode.isEnabled && !FindaroDemoMode.isAllowedFavorite(path: path) {
+                return nil
+            }
             let rawName = URL(fileURLWithPath: path).lastPathComponent
             let localizedTitle: String
             if L10n.isEnglish {
@@ -1064,6 +1046,7 @@ struct SidebarView: View {
         var volumes: [SidebarLocations.Volume] = []
         if let names = try? fm.contentsOfDirectory(atPath: "/Volumes") {
             for name in names {
+                if FindaroDemoMode.isExcludedVolume(name: name) { continue }
                 let path = "/Volumes/\(name)"
                 var isDir: ObjCBool = false
                 guard fm.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else { continue }
@@ -1077,7 +1060,8 @@ struct SidebarView: View {
             iCloudPath: fm.fileExists(atPath: iCloud) ? iCloud : nil,
             cloudFolders: clouds,
             volumes: volumes,
-            trashPath: TrashOps.userTrashPath
+            trashPath: TrashOps.userTrashPath,
+            demoMode: FindaroDemoMode.isEnabled
         ).map {
             SidebarItem(id: $0.id, title: $0.title, path: $0.path, systemImage: $0.systemImage)
         }
@@ -1222,6 +1206,15 @@ struct SidebarView: View {
 
     @ViewBuilder
     private var smartFoldersBlock: some View {
+        if FindaroDemoMode.isEnabled {
+            EmptyView()
+        } else {
+            smartFoldersBlockContent
+        }
+    }
+
+    @ViewBuilder
+    private var smartFoldersBlockContent: some View {
         if !browser.smartFolders.isEmpty {
             HStack(spacing: 4) {
                 Image(systemName: "gearshape.fill")
@@ -1405,12 +1398,31 @@ struct FileBrowserPane: View {
         ListPaneLayout.build(entries: paneEntries)
     }
 
-    private var visibleListColumns: [ListColumn] {
-        let cols = browser.listColumns
-        if metrics.isCompact {
-            return cols.filter { $0 != .kind }
+    @Environment(\.ordenWindowWidth) private var detailEnvWidth
+
+    /// Ancho útil del panel de lista. En dual pane NUNCA confiar en el ideal del LazyVStack
+    /// (se hincha con las columnas meta y el budget deja de filtrar).
+    private var measuredListWidth: CGFloat {
+        let detail = max(320, detailEnvWidth > 1 ? detailEnvWidth : metrics.detailWidth)
+        if browser.dualPaneEnabled {
+            return max(260, detail / 2 - 12)
         }
-        return cols
+        // 1 panel: preferir medida del contenedor si es razonable (≤ detalle).
+        if listContentWidth > 1, listContentWidth <= detail + 40 {
+            return listContentWidth
+        }
+        return detail
+    }
+
+    /// Columnas que caben sin aplastar Nombre (< 220 pt sagrado). No muta PreferencesStore.
+    private var visibleListColumns: [ListColumn] {
+        let budget = max(0, measuredListWidth - 220 - 38)
+        let compact = metrics.isCompact || browser.dualPaneEnabled || measuredListWidth < 700
+        return ListColumn.fit(
+            preferred: browser.listColumns,
+            budget: budget,
+            compact: compact
+        )
     }
 
     private var trailingColumnsWidth: CGFloat {
@@ -1532,12 +1544,6 @@ struct FileBrowserPane: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .coordinateSpace(name: isSecondary ? "fileListSecondary" : "fileList")
-                    .background(
-                        GeometryReader { geo in
-                            Color.clear.preference(key: ListContentWidthKey.self, value: geo.size.width)
-                        }
-                    )
-                    .onPreferenceChange(ListContentWidthKey.self) { listContentWidth = max($0, 1) }
                     .overlay(alignment: .topLeading) {
                         if let rect = marqueeRect {
                             RoundedRectangle(cornerRadius: 3, style: .continuous)
@@ -1556,6 +1562,13 @@ struct FileBrowserPane: View {
                     .gesture(marqueeGesture)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                // Medir el contenedor del ScrollView (ancho del panel), no el ideal del LazyVStack.
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(key: ListContentWidthKey.self, value: geo.size.width)
+                    }
+                )
+                .onPreferenceChange(ListContentWidthKey.self) { listContentWidth = max($0, 1) }
                 .onScrollGeometryChange(for: CGFloat.self) { geo in
                     geo.contentOffset.y
                 } action: { oldY, newY in
@@ -1758,7 +1771,7 @@ struct FileBrowserPane: View {
         // quedan a la izquierda mientras las filas sí empujan las columnas a la derecha.
         HStack(spacing: metrics.isCompact ? 8 : 12) {
             Text(L10n.s("Nombre / ruta", "Name / Path"))
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minWidth: 220, maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, 12)
                 .layoutPriority(1)
 
@@ -1767,7 +1780,8 @@ struct FileBrowserPane: View {
                 if w > 0 {
                     Text(column.shortLabelLocalized)
                         .frame(width: w, alignment: column == .size ? .trailing : .leading)
-                        .layoutPriority(2)
+                        .layoutPriority(0)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
             }
 
@@ -1896,22 +1910,24 @@ struct FileRowButton: View {
                             .truncationMode(.middle)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minWidth: 180, maxWidth: .infinity, alignment: .leading)
             }
-            // Columna Nombre (icono+texto): jalón = mover. Tipo/Fecha/Tamaño = vacío/marquesina.
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // Columna Nombre (icono+texto): jalón = mover. Mínimo sagrado ~220 con icono.
+            .frame(minWidth: 220, maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
             .padding(.leading, 12)
             .padding(.vertical, metrics.isCompact ? 10 : 8)
             .contentShape(Rectangle())
             .reportFileDragArmFrame(path: entry.path)
 
-            // Columnas meta = vacío Finder (marquesina).
+            // Columnas meta = vacío Finder (marquesina). Prioridad baja para no robar a Nombre.
             ForEach(columns) { column in
                 let w = metrics.isCompact ? column.compactWidth : column.width
                 if w > 0 {
                     columnCell(column)
                         .frame(width: w, alignment: column == .size ? .trailing : .leading)
-                        .layoutPriority(2)
+                        .layoutPriority(0)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
             }
 
@@ -2168,140 +2184,114 @@ private struct BrowserToolbarModifier: ViewModifier {
                 }
                 .disabled(!browser.canGoBack)
                 .help(L10n.s("Carpeta anterior (⌘1 o ⌥←)", "Previous folder (⌘1 or ⌥←)"))
+                .labelStyle(.iconOnly)
 
                 Button(action: browser.goForward) {
                     Label(L10n.s("Adelante", "Forward"), systemImage: "chevron.forward")
                 }
                 .disabled(!browser.canGoForward)
                 .help(L10n.s("Carpeta siguiente (⌘2 o ⌥→)", "Next folder (⌘2 or ⌥→)"))
+                .labelStyle(.iconOnly)
 
                 Button(action: browser.goUp) {
                     Label(L10n.s("Arriba", "Enclosing Folder"), systemImage: "chevron.up")
                 }
                 .help(L10n.s("Carpeta superior (⌘↑)", "Enclosing folder (⌘↑)"))
-
-                Button {
-                    session.addTab()
-                } label: {
-                    Label(L10n.s("Nueva pestaña", "New Tab"), systemImage: "plus.square.on.square")
-                }
-                .help(L10n.s("Nueva pestaña (⌘T)", "New tab (⌘T)"))
-
-                Button {
-                    openWindow(id: "browser")
-                } label: {
-                    Label(L10n.s("Nueva ventana", "New Window"), systemImage: "macwindow.badge.plus")
-                }
-                .help(L10n.s("Nueva ventana (⌘⌥N)", "New window (⌘⌥N)"))
+                .labelStyle(.iconOnly)
             }
             ToolbarItem(placement: .principal) {
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     ViewModePicker()
                     PathBreadcrumbBar()
+                        .frame(minWidth: 240, maxWidth: 540)
                 }
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
-                    browser.promptNewFolder()
+                    browser.toggleDualPane()
                 } label: {
-                    Label(L10n.s("Nueva carpeta", "New Folder"), systemImage: "folder.badge.plus")
+                    Label(
+                        browser.dualPaneEnabled ? L10n.s("1 panel", "1 pane") : L10n.s("2 paneles", "2 panes"),
+                        systemImage: "rectangle.split.2x1"
+                    )
                 }
-                .help(L10n.s("Nueva carpeta en este sitio (⇧⌘N)", "New folder here (⇧⌘N)"))
-
-                Button {
-                    browser.promptNewFile()
-                } label: {
-                    Label(L10n.s("Nuevo archivo", "New File"), systemImage: "doc.badge.plus")
-                }
-                .help(L10n.s("Nuevo archivo vacío (⌘N)", "New empty file (⌘N)"))
-
-                ToolbarStateToggle(
-                    isOn: $browser.showAssistantPanel,
-                    title: L10n.s("Asistente", "Assistant"),
-                    onSymbol: "sparkles",
-                    offSymbol: "sparkles",
-                    helpOn: L10n.s("Asistente ON · clic para cerrar (⌘5)", "Assistant ON · click to close (⌘5)"),
-                    helpOff: L10n.s("Asistente OFF · abrir (⌘5)", "Assistant OFF · open (⌘5)")
+                .labelStyle(.iconOnly)
+                .help(
+                    browser.dualPaneEnabled
+                        ? L10n.s("Volver a un solo panel · ⌘⇧D", "Return to single pane · ⌘⇧D")
+                        : L10n.s("Dos paneles · ⌘⇧D", "Dual panes · ⌘⇧D")
                 )
-
-                ToolbarStateToggle(
-                    isOn: $browser.multiSelectMode,
-                    title: L10n.s("Varios", "Multi-Select"),
-                    onSymbol: "checkmark.circle.fill",
-                    offSymbol: "checkmark.circle",
-                    helpOn: L10n.s("Modo varios ON · cada clic suma/quita", "Multi-select ON · each click adds/removes"),
-                    helpOff: L10n.s("Modo varios OFF · clic normal", "Multi-select OFF · normal click")
-                )
+                .tint(browser.dualPaneEnabled ? OrdenTheme.accent : nil)
 
                 Button {
-                    browser.selectAllVisible()
+                    browser.showAssistantPanel.toggle()
                 } label: {
-                    Label(L10n.s("Todos", "All"), systemImage: "checklist")
+                    Label(L10n.s("IA", "AI"), systemImage: "sparkles")
                 }
-                .help(L10n.s("Seleccionar todo lo visible (⌘A)", "Select all visible (⌘A)"))
+                .labelStyle(.iconOnly)
+                .foregroundStyle(browser.showAssistantPanel ? OrdenTheme.accentSecondary : .primary)
+                .help(L10n.s("Asistente IA local · ⌘5", "Local AI assistant · ⌘5"))
 
-                Button {
-                    browser.cancelSelection()
+                Menu {
+                    Button {
+                        session.addTab()
+                    } label: {
+                        Label(L10n.s("Nueva pestaña", "New Tab"), systemImage: "plus.square.on.square")
+                    }
+                    .keyboardShortcut("t", modifiers: .command)
+
+                    Button {
+                        openWindow(id: "browser")
+                    } label: {
+                        Label(L10n.s("Nueva ventana", "New Window"), systemImage: "macwindow.badge.plus")
+                    }
+
+                    Divider()
+
+                    Menu(L10n.s("Tema de color", "Color Theme")) {
+                        ColorThemeMenuContent()
+                    }
+
+                    Divider()
+
+                    Toggle(
+                        L10n.s("Mostrar ocultos", "Show Hidden"),
+                        isOn: Binding(
+                            get: { browser.showHiddenFiles },
+                            set: { browser.setShowHiddenFiles($0) }
+                        )
+                    )
+                    Toggle(
+                        L10n.s("Mostrar rutas bajo el nombre", "Show paths under name"),
+                        isOn: Binding(
+                            get: { browser.showRowPaths },
+                            set: { browser.setShowRowPaths($0) }
+                        )
+                    )
+                    Toggle(
+                        L10n.s("Selección múltiple por clic", "Multi-select by click"),
+                        isOn: $browser.multiSelectMode
+                    )
+
+                    Divider()
+
+                    Button {
+                        browser.openTerminalHere()
+                    } label: {
+                        Label(L10n.s("Abrir en Terminal", "Open in Terminal"), systemImage: "terminal")
+                    }
+
+                    Button {
+                        browser.reloadFromUser()
+                    } label: {
+                        Label(L10n.s("Actualizar", "Refresh"), systemImage: "arrow.clockwise")
+                    }
+                    .keyboardShortcut("r", modifiers: .command)
                 } label: {
-                    Label(L10n.s("Ninguno", "None"), systemImage: "xmark.circle")
+                    Label(L10n.s("Más opciones", "More Options"), systemImage: "ellipsis.circle")
                 }
-                .help(L10n.s("Quitar selección (Esc)", "Clear selection (Esc)"))
-                .disabled(browser.selectedIDs.isEmpty)
-
-                Button {
-                    browser.openSelection()
-                } label: {
-                    Label(L10n.s("Abrir", "Open"), systemImage: "arrow.up.forward.app")
-                }
-                .help(L10n.s("Abrir lo seleccionado (⌘↓)", "Open selection (⌘↓)"))
-                .disabled(browser.selectedIDs.isEmpty)
-
-                Button {
-                    browser.quickLookSelection()
-                } label: {
-                    Label(L10n.s("Vista rápida", "Quick Look"), systemImage: "eye")
-                }
-                .help(L10n.s("Vista rápida (Espacio)", "Quick Look (Space)"))
-                .disabled(browser.selectedIDs.isEmpty)
-
-                ToolbarStateToggle(
-                    isOn: Binding(
-                        get: { browser.showRowPaths },
-                        set: { browser.setShowRowPaths($0) }
-                    ),
-                    title: L10n.s("Rutas", "Paths"),
-                    onSymbol: "list.bullet.rectangle.fill",
-                    offSymbol: "list.bullet",
-                    helpOn: L10n.s("Rutas bajo el nombre ON", "Paths under name ON"),
-                    helpOff: L10n.s("Rutas bajo el nombre OFF", "Paths under name OFF")
-                )
-
-                ToolbarStateToggle(
-                    isOn: Binding(
-                        get: { browser.showHiddenFiles },
-                        set: { browser.setShowHiddenFiles($0) }
-                    ),
-                    title: L10n.s("Ocultos", "Hidden"),
-                    onSymbol: "eye.fill",
-                    offSymbol: "eye.slash",
-                    helpOn: L10n.s("Ocultos visibles ON · ⌘⇧.", "Hidden files visible ON · ⌘⇧."),
-                    helpOff: L10n.s("Ocultos escondidos · ⌘⇧.", "Hidden files concealed · ⌘⇧.")
-                )
-
-                Button {
-                    browser.openTerminalHere()
-                } label: {
-                    Label(L10n.s("Terminal", "Terminal"), systemImage: "terminal")
-                }
-                .help(L10n.s("Abrir Terminal en la carpeta activa (⌘⌥T)", "Open Terminal in active folder (⌘⌥T)"))
-
-                Button {
-                    browser.reloadFromUser()
-                } label: {
-                    Label(L10n.s("Actualizar", "Refresh"), systemImage: "arrow.clockwise")
-                }
-                .keyboardShortcut("r", modifiers: .command)
-                .help(L10n.s("Actualizar esta carpeta (⌘R)", "Refresh this folder (⌘R)"))
+                .help(L10n.s("Más opciones", "More options"))
+                .labelStyle(.iconOnly)
             }
         }
     }
@@ -2466,6 +2456,15 @@ struct SettingsView: View {
                         }
                     }
                     .frame(width: 180)
+                }
+
+                settingsRow(
+                    icon: "paintpalette.fill",
+                    tint: OrdenTheme.accent,
+                    title: L10n.s("Tema de color", "Color Theme"),
+                    subtitle: L10n.s("Cambia al instante en todas las ventanas", "Changes instantly across all windows")
+                ) {
+                    ColorThemeSwatchPicker()
                 }
 
                 settingsRow(

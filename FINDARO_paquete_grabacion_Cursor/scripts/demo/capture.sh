@@ -11,11 +11,16 @@
 #   scripts/demo/capture.sh pack                 # comprime la carpeta de entrega en el Escritorio
 set -euo pipefail
 
+# Privacidad: oculta favoritos/ubicaciones personales en la UI durante capturas.
+export FINDARO_DEMO_MODE=1
+defaults write app.findaro.files findaro_demo_mode -bool true
+
 APP_NAME="Findaro"
 OUT="${FINDARO_CAPTURE_OUT:-$HOME/Desktop/FINDARO_CAPTURA_$(date +%Y%m%d)}"
 MANIFEST="$OUT/manifest.tsv"
-DEFAULT_W=1280
-DEFAULT_H=800
+# Por defecto: casi fullscreen lógico (no 1280×800 fijo — en Retina las letras salían densas).
+DEFAULT_W=0
+DEFAULT_H=0
 
 app_plist() {
   for p in "/Applications/$APP_NAME.app" "$HOME/Applications/$APP_NAME.app"; do
@@ -83,17 +88,40 @@ case "$cmd" in
     [ -d "$HOME/Documents/FINDARO-Demo" ] && echo "Set de prueba: sí" || echo "Set de prueba: NO -> python3 scripts/demo/make_demo_dataset.py"
     ;;
   window)
-    W="${2:-$DEFAULT_W}"; H="${3:-$DEFAULT_H}"
+    # Boost tipográfico para capturas (letras legibles en web/redes).
+    defaults write app.findaro.files findaro_ui_text_boost -float 0.12
+    # Si no pasan W/H: 96% × 94% del escritorio visible (pt), centrado.
+    if [ -z "${2:-}" ] || [ "${2:-0}" = "0" ]; then
+      eval "$(osascript <<'OSA'
+tell application "Finder"
+  set {l, t, r, b} to bounds of window of desktop
+end tell
+set W to round ((r - l) * 0.96)
+set H to round ((b - t) * 0.92)
+if W < 1100 then set W to 1100
+if H < 720 then set H to 720
+return "W=" & W & "; H=" & H & "; L=" & l & "; T=" & t & "; R=" & r & "; B=" & b
+OSA
+)"
+    else
+      W="${2}"; H="${3:-800}"
+      eval "$(osascript <<OSA
+tell application "Finder"
+  set {l, t, r, b} to bounds of window of desktop
+end tell
+return "L=" & l & "; T=" & t & "; R=" & r & "; B=" & b
+OSA
+)"
+    fi
     osascript <<EOF
 tell application "$APP_NAME" to activate
 delay 0.4
-tell application "Finder" to set {l, t, r, b} to bounds of window of desktop
 tell application "System Events" to tell process "$APP_NAME"
   set size of front window to {$W, $H}
-  set position of front window to {round ((r - $W) / 2), round ((b - $H) / 2)}
+  set position of front window to {round (($L + $R - $W) / 2), round (($T + $B - $H) / 2)}
 end tell
 EOF
-    echo "Ventana en $(bounds) (x,y,ancho,alto en puntos)"
+    echo "Ventana en $(bounds) (x,y,ancho,alto en puntos) text_boost=0.12"
     ;;
   shot)
     id="${2:?falta el id, p. ej. P01-hero}"; ensure_out

@@ -8,10 +8,11 @@ enum ActionBarDensity: Equatable {
     case micro
 
     static func resolve(detailWidth: CGFloat, metrics: OrdenDisplayMetrics) -> ActionBarDensity {
-        if detailWidth < 560 || (metrics.isCompact && detailWidth < 720) {
+        // Umbrales más altos: en ventanas típicas de laptop no ocultar etiquetas.
+        if detailWidth < 480 || (metrics.isCompact && detailWidth < 620) {
             return .micro
         }
-        if detailWidth < 860 || metrics.isCompact {
+        if detailWidth < 780 || metrics.isCompact {
             return .compact
         }
         return .roomy

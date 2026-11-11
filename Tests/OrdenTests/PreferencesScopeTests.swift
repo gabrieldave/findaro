@@ -60,4 +60,20 @@ final class PreferencesScopeTests: XCTestCase {
         XCTAssertTrue(reloaded)
         XCTAssertEqual(storeB.preferences.globalRule, .projects)
     }
+
+    func testAppColorThemeRoundTripAndDefault() throws {
+        let prefs = OrdenPreferences(colorTheme: .emeraldSlate)
+        let data = try JSONEncoder().encode(prefs)
+        let decoded = try JSONDecoder().decode(OrdenPreferences.self, from: data)
+        XCTAssertEqual(decoded.colorTheme, .emeraldSlate)
+
+        // Preferencias antiguas sin colorTheme → midnightBlue
+        var obj = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        obj.removeValue(forKey: "colorTheme")
+        obj["schemaVersion"] = 18
+        let legacyData = try JSONSerialization.data(withJSONObject: obj)
+        let fromLegacy = try JSONDecoder().decode(OrdenPreferences.self, from: legacyData)
+        XCTAssertEqual(fromLegacy.colorTheme, .midnightBlue)
+        XCTAssertEqual(AppColorTheme.allCases.count, 5)
+    }
 }

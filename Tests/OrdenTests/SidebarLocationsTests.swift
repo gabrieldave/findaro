@@ -21,7 +21,7 @@ final class SidebarLocationsTests: XCTestCase {
         XCTAssertEqual(titles.last, L10n.s("Papelera", "Trash"))
     }
 
-    func testTwoGoogleAccountsGetDistinctTitles() {
+    func testTwoGoogleAccountsGetDistinctTitlesWithoutEmails() {
         let items = SidebarLocations.make(
             homePath: "/Users/davidai",
             iCloudPath: nil,
@@ -30,13 +30,14 @@ final class SidebarLocationsTests: XCTestCase {
                 .init(name: "GoogleDrive-feekwakjisan@gmail.com", path: "/cloud/feek")
             ],
             volumes: [],
-            trashPath: nil
+            trashPath: nil,
+            demoMode: false
         )
 
         let titles = items.map(\.title)
-        XCTAssertTrue(titles.contains("Drive · david.del.rio.colin"))
-        XCTAssertTrue(titles.contains("Drive · feekwakjisan"))
-        XCTAssertEqual(titles.filter { $0.hasPrefix("Drive ·") }.count, 2)
+        XCTAssertTrue(titles.contains("Google Drive 1"))
+        XCTAssertTrue(titles.contains("Google Drive 2"))
+        XCTAssertFalse(items.contains { $0.title.contains("@") })
     }
 
     func testSingleGoogleDriveKeepsPlainName() {
@@ -47,10 +48,50 @@ final class SidebarLocationsTests: XCTestCase {
                 .init(name: "GoogleDrive-ana@gmail.com", path: "/cloud/ana")
             ],
             volumes: [],
-            trashPath: nil
+            trashPath: nil,
+            demoMode: false
         )
 
         XCTAssertTrue(items.map(\.title).contains("Google Drive"))
         XCTAssertFalse(items.contains { $0.title.contains("@") })
+    }
+
+    func testRecoveryVolumeIsExcluded() {
+        let items = SidebarLocations.make(
+            homePath: "/Users/demo",
+            iCloudPath: nil,
+            cloudFolders: [],
+            volumes: [
+                .init(name: "Recovery", path: "/Volumes/Recovery", resolvedPath: "/Volumes/Recovery"),
+                .init(name: "Datos", path: "/Volumes/Datos", resolvedPath: "/Volumes/Datos")
+            ],
+            trashPath: nil,
+            demoMode: false
+        )
+        let titles = items.map(\.title)
+        XCTAssertFalse(titles.contains("Recovery"))
+        XCTAssertTrue(titles.contains("Datos"))
+    }
+
+    func testDemoModeHidesHomeAndClouds() {
+        let items = SidebarLocations.make(
+            homePath: "/Users/daveax",
+            iCloudPath: "/Users/daveax/Library/Mobile Documents/com~apple~CloudDocs",
+            cloudFolders: [
+                .init(name: "GoogleDrive-x@y.com", path: "/cloud/x")
+            ],
+            volumes: [
+                .init(name: "Recovery", path: "/Volumes/Recovery", resolvedPath: "/Volumes/Recovery")
+            ],
+            trashPath: "/Users/daveax/.Trash",
+            demoMode: true
+        )
+        let titles = items.map(\.title)
+        XCTAssertFalse(titles.contains("daveax"))
+        XCTAssertFalse(titles.contains("iCloud Drive"))
+        XCTAssertFalse(titles.contains("Google Drive"))
+        XCTAssertFalse(titles.contains("Recovery"))
+        XCTAssertTrue(titles.contains("Macintosh HD"))
+        XCTAssertEqual(titles.last, L10n.s("Papelera", "Trash"))
     }
 }

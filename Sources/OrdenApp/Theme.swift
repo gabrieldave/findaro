@@ -1,104 +1,135 @@
 import SwiftUI
 import AppKit
+import OrdenCore
+import Combine
 
-/// Findaro visual system (brand tokens v1.1). Internal type name retained to avoid
-/// destabilizing the existing view tree while the commercial rebrand is rolled out.
+/// Controlador reactivo de tema (cambia en caliente sin reiniciar).
+@MainActor
+final class ThemeController: ObservableObject {
+    static let shared = ThemeController()
+
+    @Published private(set) var theme: AppColorTheme
+    @Published private(set) var revision: UInt = 0
+
+    private var appearanceObserver: NSObjectProtocol?
+    private var prefsObserver: NSObjectProtocol?
+
+    private init() {
+        let stored = PreferencesStore.shared.preferences.colorTheme
+        theme = stored
+        UserDefaults.standard.set(stored.rawValue, forKey: "findaro_color_theme")
+        OrdenTheme.sync(from: stored)
+
+        prefsObserver = NotificationCenter.default.addObserver(
+            forName: PreferencesStore.preferencesDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.reloadFromStore()
+            }
+        }
+
+        appearanceObserver = DistributedNotificationCenter.default.addObserver(
+            forName: Notification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.bump()
+            }
+        }
+    }
+
+    var preferredColorScheme: ColorScheme? {
+        switch theme {
+        case .systemAuto: return nil
+        case .nordicLight: return .light
+        case .midnightBlue, .graphitePro, .emeraldSlate: return .dark
+        }
+    }
+
+    var palette: AppColorPalette {
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return AppColorPalette.palette(for: theme.resolved(isDark: isDark))
+    }
+
+    func setTheme(_ next: AppColorTheme) {
+        guard next != theme else { return }
+        theme = next
+        UserDefaults.standard.set(next.rawValue, forKey: "findaro_color_theme")
+        PreferencesStore.shared.update { $0.colorTheme = next }
+        OrdenTheme.sync(from: next)
+        bump()
+    }
+
+    private func reloadFromStore() {
+        let next = PreferencesStore.shared.preferences.colorTheme
+        if next != theme {
+            theme = next
+            UserDefaults.standard.set(next.rawValue, forKey: "findaro_color_theme")
+        }
+        OrdenTheme.sync(from: theme)
+        bump()
+    }
+
+    private func bump() {
+        OrdenTheme.sync(from: theme)
+        revision &+= 1
+        objectWillChange.send()
+    }
+}
+
+/// Findaro visual system — tokens leídos del tema activo.
 enum OrdenTheme {
-    // MARK: - Brand accents (stable across appearances)
+    /// Cache sincronizado desde `ThemeController` (UI / MainActor).
+    nonisolated(unsafe) private static var cachedPalette = AppColorPalette.palette(for: .midnightBlue)
+    nonisolated(unsafe) private static var cachedTheme: AppColorTheme = .midnightBlue
 
-    static let accent = Color(findaroHex: "#2563EB")
-    static let accentHover = Color(findaroHex: "#3B82F6")
-    static let accentSecondary = Color(findaroHex: "#7C3AED")
-    static let cyan = Color(findaroHex: "#22D3EE")
-    static let success = Color(findaroHex: "#10B981")
-    static let warning = Color(findaroHex: "#F59E0B")
-    static let danger = Color(findaroHex: "#EF4444")
-    static let selection = Color(findaroHex: "#1E3A8A")
-
-    // MARK: - Surfaces (adaptive)
-
-    static var windowFill: Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-                return NSColor(findaroHex: "#0B1220")
-            }
-            return NSColor(findaroHex: "#F3F6FB")
-        })
+    @MainActor
+    static func sync(from theme: AppColorTheme) {
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        cachedTheme = theme
+        cachedPalette = AppColorPalette.palette(for: theme.resolved(isDark: isDark))
     }
 
-    static var sidebarFill: Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-                return NSColor(findaroHex: "#0B1220")
-            }
-            return NSColor(findaroHex: "#E8EEF7")
-        })
-    }
+    static var activeTheme: AppColorTheme { cachedTheme }
 
-    static var panelFill: Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-                return NSColor(findaroHex: "#141F32")
-            }
-            return NSColor(calibratedRed: 1, green: 1, blue: 1, alpha: 0.96)
-        })
-    }
+    // MARK: - Brand accents
 
-    static var elevatedFill: Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-                return NSColor(findaroHex: "#1E2D46")
-            }
-            return NSColor(findaroHex: "#FFFFFF")
-        })
-    }
+    static var accent: Color { Color(findaroHex: cachedPalette.accent) }
+    static var accentHover: Color { Color(findaroHex: cachedPalette.accentHover) }
+    static var accentSecondary: Color { Color(findaroHex: cachedPalette.accentAI) }
+    static var cyan: Color { Color(findaroHex: cachedPalette.accentAI) }
+    static var success: Color { Color(findaroHex: cachedPalette.success) }
+    static var warning: Color { Color(findaroHex: cachedPalette.warning) }
+    static var danger: Color { Color(findaroHex: cachedPalette.danger) }
+    static var selection: Color { Color(findaroHex: cachedPalette.selection) }
 
-    static var hairline: Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-                return NSColor(findaroHex: "#2B3D59").withAlphaComponent(0.95)
-            }
-            return NSColor(findaroHex: "#C5D0E0").withAlphaComponent(0.9)
-        })
-    }
+    // MARK: - Surfaces
 
-    static var textSecondary: Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-                return NSColor(findaroHex: "#AEBBD0")
-            }
-            return NSColor(findaroHex: "#5B6B82")
-        })
-    }
+    static var windowFill: Color { Color(findaroHex: cachedPalette.windowFill) }
+    static var sidebarFill: Color { Color(findaroHex: cachedPalette.sidebarFill) }
+    static var panelFill: Color { Color(findaroHex: cachedPalette.panelFill) }
+    static var elevatedFill: Color { Color(findaroHex: cachedPalette.elevatedFill) }
+    static var hairline: Color { Color(findaroHex: cachedPalette.hairline) }
 
-    static var textMuted: Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-                return NSColor(findaroHex: "#7F8DA5")
-            }
-            return NSColor(findaroHex: "#8090A6")
-        })
-    }
+    static var textSecondary: Color { Color(findaroHex: cachedPalette.textSecondary) }
+    static var textMuted: Color { Color(findaroHex: cachedPalette.textSecondary).opacity(0.85) }
 
     static var rowSelectionFill: Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-                return NSColor(findaroHex: "#1E3A8A").withAlphaComponent(0.55)
-            }
-            return NSColor(findaroHex: "#2563EB").withAlphaComponent(0.16)
-        })
+        let resolved = cachedTheme.resolved(isDark: cachedTheme != .nordicLight)
+        if resolved == .nordicLight {
+            return Color(findaroHex: cachedPalette.accent).opacity(0.16)
+        }
+        return Color(findaroHex: cachedPalette.selection).opacity(0.55)
     }
 
     static var sidebarActiveFill: Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-                return NSColor(findaroHex: "#2563EB").withAlphaComponent(0.28)
-            }
-            return NSColor(findaroHex: "#2563EB").withAlphaComponent(0.18)
-        })
+        Color(findaroHex: cachedPalette.accent).opacity(0.22)
     }
 
-    // MARK: - Radii (brand tokens)
+    // MARK: - Radii
 
     static let radiusWindow: CGFloat = 14
     static let radiusPanel: CGFloat = 10
@@ -166,5 +197,62 @@ extension View {
                         lineWidth: focused ? 2 : 1
                     )
             )
+    }
+
+    /// Aplica preferredColorScheme + fuerza redibujo al cambiar tema.
+    func findaroThemed(_ controller: ThemeController = .shared) -> some View {
+        self
+            .preferredColorScheme(controller.preferredColorScheme)
+            .tint(OrdenTheme.accent)
+            .id(controller.revision)
+    }
+}
+
+/// Selector visual de swatches (Ajustes + menú •••).
+struct ColorThemeSwatchPicker: View {
+    @ObservedObject private var themes = ThemeController.shared
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(AppColorTheme.allCases, id: \.self) { theme in
+                Button {
+                    themes.setTheme(theme)
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(Color(findaroHex: theme.swatchHex))
+                            .frame(width: 22, height: 22)
+                        if themes.theme == theme {
+                            Circle()
+                                .strokeBorder(Color.primary.opacity(0.85), lineWidth: 2)
+                                .frame(width: 28, height: 28)
+                        }
+                    }
+                    .frame(width: 30, height: 30)
+                }
+                .buttonStyle(.plain)
+                .help(theme.displayName(english: L10n.isEnglish))
+                .accessibilityLabel(theme.displayName(english: L10n.isEnglish))
+            }
+        }
+    }
+}
+
+struct ColorThemeMenuContent: View {
+    @ObservedObject private var themes = ThemeController.shared
+
+    var body: some View {
+        ForEach(AppColorTheme.allCases, id: \.self) { theme in
+            Button {
+                themes.setTheme(theme)
+            } label: {
+                HStack {
+                    Text(theme.displayName(english: L10n.isEnglish))
+                    if themes.theme == theme {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+        }
     }
 }

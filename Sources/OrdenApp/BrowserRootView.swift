@@ -6,6 +6,7 @@ import OrdenCore
 struct BrowserRootView: View {
     @Environment(\.openWindow) private var openWindow
     @StateObject private var session = BrowserWindowSession()
+    @ObservedObject private var themes = ThemeController.shared
     @State private var hostWindow: NSWindow?
 
     var body: some View {
@@ -27,7 +28,8 @@ struct BrowserRootView: View {
             minWidth: OrdenDisplayMetrics.resolve(windowSize: .zero).windowMinWidth,
             minHeight: OrdenDisplayMetrics.resolve(windowSize: .zero).windowMinHeight
         )
-        .tint(OrdenTheme.accent)
+        .findaroThemed(themes)
+        .background(OrdenTheme.windowFill)
         .onAppear {
             OrdenWindowFit.applyToOpenWindows()
             FindaroWindowRegistry.dismissUnregisteredLookalikes(keeping: hostWindow)

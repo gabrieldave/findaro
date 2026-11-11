@@ -51,6 +51,7 @@ struct OrdenApp: App {
         Settings {
             SettingsView()
                 .environmentObject(settingsBrowser)
+                .findaroThemed()
         }
     }
 }

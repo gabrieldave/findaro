@@ -40,55 +40,16 @@ struct SecondaryBrowserPane: View {
                     .foregroundStyle(OrdenTheme.accent)
                 Text(L10n.s("Destino", "Destination"))
                     .font(.subheadline.weight(.semibold))
+                    .fixedSize(horizontal: true, vertical: false)
                 if focused {
                     FindaroStatusPill(title: L10n.s("activo", "active"), kind: .processing)
                 }
                 Spacer(minLength: 0)
-                if !focused {
-                    Button {
-                        browser.focusDestinationPane()
-                    } label: {
-                        Label(L10n.s("Activar", "Activate"), systemImage: "arrow.right.circle.fill")
-                            .font(.caption.weight(.semibold))
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(OrdenTheme.accent)
-                    .controlSize(.small)
-                    .help(L10n.s("Enfoca Destino · Tab · ⌘⇧→ · o clic en vacío", "Focus Destination · Tab · ⌘⇧→ · or click in empty space"))
+                // En paneles < ~520 pt: iconos; nunca cortar el título Destino.
+                ViewThatFits(in: .horizontal) {
+                    destinationHeaderActions(compact: false)
+                    destinationHeaderActions(compact: true)
                 }
-                Button {
-                    browser.swapPaneFolders()
-                } label: {
-                    Image(systemName: "arrow.left.arrow.right")
-                }
-                .buttonStyle(.borderless)
-                .help(L10n.s("Intercambiar carpetas Origen ↔ Destino", "Swap folders Origin ↔ Destination"))
-                Button {
-                    browser.goUpSecondary()
-                } label: {
-                    Image(systemName: "arrow.up.left")
-                }
-                .buttonStyle(.borderless)
-                .help(L10n.s("Subir en el panel derecho", "Go up in right pane"))
-                // Solo acciones hacia Origen (←). «Mover → / Copiar →» viven en el header de Origen.
-                Button {
-                    browser.transferSecondarySelectionToPrimary(copy: false)
-                } label: {
-                    Label(L10n.s("← Mover", "← Move"), systemImage: "arrow.left.circle.fill")
-                        .font(.caption.weight(.semibold))
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.purple)
-                .controlSize(.small)
-                .help(L10n.s("Mueve lo seleccionado aquí → Origen", "Move selection here → Origin"))
-                Button {
-                    browser.transferSecondarySelectionToPrimary(copy: true)
-                } label: {
-                    Text(L10n.s("← Copiar", "← Copy"))
-                        .font(.caption.weight(.semibold))
-                }
-                .controlSize(.small)
-                .help(L10n.s("Copia lo seleccionado aquí → Origen", "Copy selection here → Origin"))
             }
 
             // Tap en ruta/ayuda enfoca Destino; no envolver los botones (SwiftUI se come el clic).
@@ -108,6 +69,69 @@ struct SecondaryBrowserPane: View {
             .onTapGesture { browser.focusPane(.secondary) }
         }
         .padding(10)
+    }
+
+    @ViewBuilder
+    private func destinationHeaderActions(compact: Bool) -> some View {
+        HStack(spacing: compact ? 4 : 8) {
+            if !focused {
+                Button {
+                    browser.focusDestinationPane()
+                } label: {
+                    if compact {
+                        Image(systemName: "arrow.right.circle.fill")
+                    } else {
+                        Label(L10n.s("Activar", "Activate"), systemImage: "arrow.right.circle.fill")
+                            .font(.caption.weight(.semibold))
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(OrdenTheme.accent)
+                .controlSize(.small)
+                .help(L10n.s("Enfoca Destino · Tab · ⌘⇧→ · o clic en vacío", "Focus Destination · Tab · ⌘⇧→ · or click in empty space"))
+            }
+            Button {
+                browser.swapPaneFolders()
+            } label: {
+                Image(systemName: "arrow.left.arrow.right")
+            }
+            .buttonStyle(.borderless)
+            .help(L10n.s("Intercambiar carpetas Origen ↔ Destino", "Swap folders Origin ↔ Destination"))
+            Button {
+                browser.goUpSecondary()
+            } label: {
+                Image(systemName: "arrow.up.left")
+            }
+            .buttonStyle(.borderless)
+            .help(L10n.s("Subir en el panel derecho", "Go up in right pane"))
+            Button {
+                browser.transferSecondarySelectionToPrimary(copy: false)
+            } label: {
+                if compact {
+                    Image(systemName: "arrow.left.circle.fill")
+                } else {
+                    Label(L10n.s("← Mover", "← Move"), systemImage: "arrow.left.circle.fill")
+                        .font(.caption.weight(.semibold))
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.purple)
+            .controlSize(.small)
+            .help(L10n.s("Mueve lo seleccionado aquí → Origen", "Move selection here → Origin"))
+            Button {
+                browser.transferSecondarySelectionToPrimary(copy: true)
+            } label: {
+                if compact {
+                    Image(systemName: "doc.on.doc")
+                } else {
+                    Text(L10n.s("← Copiar", "← Copy"))
+                        .font(.caption.weight(.semibold))
+                }
+            }
+            .controlSize(.small)
+            .help(L10n.s("Copia lo seleccionado aquí → Origen", "Copy selection here → Origin"))
+        }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private func shortPath(_ path: String) -> String {

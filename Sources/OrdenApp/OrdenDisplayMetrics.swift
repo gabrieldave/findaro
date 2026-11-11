@@ -1,12 +1,11 @@
 import AppKit
 import SwiftUI
 
-/// Densidad / tipografía según pantalla + tamaño de ventana.
-/// Pantallas chicas o 1× (no Retina): letras un poco más grandes y chrome más compacto.
+/// Densidad / chrome según tamaño de ventana. Tipografía nativa macOS (sin inflación).
 struct OrdenDisplayMetrics: Equatable {
-    /// Multiplicador de tipografía (1 = diseño de referencia).
+    /// Siempre 1.0 — prohibido inflar tipografía (rompe botones en pantallas estrechas).
     var textScale: CGFloat
-    /// Multiplicador de espaciados / celdas (puede ser < 1 en pantallas estrechas).
+    /// Multiplicador de espaciados / celdas.
     var chromeScale: CGFloat
     var sidebarWidth: CGFloat
     var assistantWidth: CGFloat
@@ -18,11 +17,20 @@ struct OrdenDisplayMetrics: Equatable {
     var contentPadding: CGFloat
     var dynamicTypeSize: DynamicTypeSize
     var isCompact: Bool
+    /// Ancho útil del panel de detalle (aprox. ventana − sidebar).
+    var detailWidth: CGFloat
+
+    enum DensityBand: Equatable {
+        case compactSplit   // detail < 680
+        case air13          // win 1100…1360
+        case pro14_16       // win 1361…1800
+        case wide           // win > 1800
+    }
 
     static let reference = OrdenDisplayMetrics(
         textScale: 1,
         chromeScale: 1,
-        sidebarWidth: 248,
+        sidebarWidth: 220,
         assistantWidth: 360,
         detailMinWidth: 360,
         windowMinWidth: 560,
@@ -31,77 +39,101 @@ struct OrdenDisplayMetrics: Equatable {
         iconSpacing: 14,
         contentPadding: 16,
         dynamicTypeSize: .large,
-        isCompact: false
+        isCompact: false,
+        detailWidth: 1100
     )
 
     @MainActor
     static func resolve(windowSize: CGSize, screen: NSScreen? = nil) -> OrdenDisplayMetrics {
         let resolvedScreen = screen ?? NSApp.keyWindow?.screen ?? NSScreen.main
         let visible = resolvedScreen?.visibleFrame.size ?? CGSize(width: 1440, height: 900)
-        let backing = resolvedScreen?.backingScaleFactor ?? 2
-        let winW = windowSize.width > 1 ? windowSize.width : min(1180, visible.width * 0.9)
-        let winH = windowSize.height > 1 ? windowSize.height : min(740, visible.height * 0.9)
+        let winW = windowSize.width > 1 ? windowSize.width : min(1280, visible.width * 0.94)
+        _ = windowSize.height > 1 ? windowSize.height : min(820, visible.height * 0.92)
 
-        // Pantalla “apretada”: MacBook 13″ @1080p escalado, monitores viejos, etc.
-        let smallScreen = visible.width < 1360 || visible.height < 820
-        let narrowWindow = winW < 980 || winH < 640
-        let lowDPI = backing < 1.5
-        let compact = smallScreen || narrowWindow || lowDPI
+        // Tipografía nativa: nunca > 1.0 ni Dynamic Type gigante.
+        let text: CGFloat = 1.0
+        let typeSize: DynamicTypeSize = winW < 1180 ? .medium : .large
 
-        // Texto: en pantallas chicas / 1× subir legibilidad; en grandes mantener.
-        var text: CGFloat = 1
-        if lowDPI { text += 0.12 }
-        if smallScreen { text += 0.08 }
-        if narrowWindow { text += 0.04 }
-        text = min(1.28, max(0.95, text))
+        let provisionalSidebar: CGFloat
+        if winW <= 1360 { provisionalSidebar = 204 }
+        else if winW <= 1800 { provisionalSidebar = 220 }
+        else { provisionalSidebar = 236 }
 
-        // Chrome: compactar menús para dejar sitio al contenido legible.
-        var chrome: CGFloat = 1
-        if compact { chrome = 0.88 }
-        if visible.width < 1200 { chrome = min(chrome, 0.82) }
-        chrome = min(1, max(0.78, chrome))
-
-        // Ancho fijo (nunca colapsa). Un poco más generoso para Favoritos / Drive.
-        let sidebar: CGFloat = compact ? round(200 * chrome / 0.88) : 248
-        let assistant: CGFloat = compact ? 300 : 360
-        let detailMin: CGFloat = compact ? 300 : 360
-        let minW = min(visible.width * 0.92, sidebar + detailMin)
-        let minH = min(visible.height * 0.85, compact ? 400 : 420)
-
-        let typeSize: DynamicTypeSize
-        switch text {
-        case ..<1.02: typeSize = .large
-        case ..<1.12: typeSize = .xLarge
-        case ..<1.2: typeSize = .xxLarge
-        default: typeSize = .xxxLarge
+        let detailW = max(320, winW - provisionalSidebar - 16)
+        let band: DensityBand
+        if detailW < 680 {
+            band = .compactSplit
+        } else if winW <= 1360 {
+            band = .air13
+        } else if winW <= 1800 {
+            band = .pro14_16
+        } else {
+            band = .wide
         }
+
+        let chrome: CGFloat
+        let sidebar: CGFloat
+        let assistant: CGFloat
+        let detailMin: CGFloat
+        let compact: Bool
+
+        switch band {
+        case .compactSplit:
+            chrome = 0.86
+            sidebar = 190
+            assistant = 280
+            detailMin = 300
+            compact = true
+        case .air13:
+            chrome = 0.92
+            sidebar = 204
+            assistant = 300
+            detailMin = 320
+            compact = true
+        case .pro14_16:
+            chrome = 1.0
+            sidebar = 220
+            assistant = 340
+            detailMin = 360
+            compact = false
+        case .wide:
+            chrome = 1.0
+            sidebar = 236
+            assistant = 360
+            detailMin = 380
+            compact = false
+        }
+
+        let minW = min(visible.width * 0.92, sidebar + detailMin)
+        let minH = min(visible.height * 0.85, compact ? 420 : 460)
 
         return OrdenDisplayMetrics(
             textScale: text,
             chromeScale: chrome,
-            sidebarWidth: max(184, sidebar),
+            sidebarWidth: sidebar,
             assistantWidth: assistant,
             detailMinWidth: detailMin,
-            windowMinWidth: max(480, minW),
-            windowMinHeight: max(360, minH),
+            windowMinWidth: max(520, minW),
+            windowMinHeight: max(380, minH),
             iconCell: round(118 * chrome),
             iconSpacing: round(14 * chrome),
-            contentPadding: round(16 * chrome),
+            contentPadding: round(14 * chrome),
             dynamicTypeSize: typeSize,
-            isCompact: compact
+            isCompact: compact,
+            detailWidth: detailW
         )
     }
 
-    /// Tamaño de ventana inicial que cabe entero en la pantalla visible.
+    /// Tamaño de ventana inicial razonable (captura / uso diario).
     @MainActor
     static func preferredWindowSize(on screen: NSScreen? = nil) -> CGSize {
         let visible = (screen ?? NSScreen.main)?.visibleFrame.size ?? CGSize(width: 1440, height: 900)
-        let ideal = CGSize(width: 1180, height: 740)
-        let maxW = visible.width * 0.94
-        let maxH = visible.height * 0.90
+        let ideal = CGSize(width: 1280, height: 800)
+        let maxW = visible.width * 0.96
+        let maxH = visible.height * 0.94
         return CGSize(
-            width: min(ideal.width, max(560, maxW)),
-            height: min(ideal.height, max(420, maxH))
+            width: min(ideal.width, max(720, maxW)),
+            height: min(ideal.height, max(520, maxH))
         )
     }
 }
@@ -118,7 +150,6 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Tipografía + límites de Dynamic Type según métricas detectadas.
     func ordenAdaptiveTypography(_ metrics: OrdenDisplayMetrics) -> some View {
         self
             .dynamicTypeSize(metrics.dynamicTypeSize)
@@ -127,11 +158,9 @@ extension View {
 }
 
 enum OrdenWindowFit {
-    /// Encaja la ventana principal dentro del `visibleFrame` (evita UI cortada).
     @MainActor
     static func applyToOpenWindows() {
         for window in NSApp.windows where window.styleMask.contains(.titled) {
-            // No redimensionar sheets/diálogos: setFrame los cierra o desenfoca.
             if window is NSPanel || window.isSheet || window.sheetParent != nil { continue }
             let s = window.frame.size
             if s.width < 720, s.height < 780 { continue }
@@ -150,7 +179,6 @@ enum OrdenWindowFit {
         if frame.width > maxW { frame.size.width = maxW }
         if frame.height > maxH { frame.size.height = maxH }
 
-        // Si queda fuera, centrar en el área visible.
         if frame.maxX > visible.maxX {
             frame.origin.x = visible.maxX - frame.width
         }

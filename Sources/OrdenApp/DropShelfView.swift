@@ -7,51 +7,67 @@ import OrdenCore
 struct DropShelfView: View {
     @EnvironmentObject private var browser: BrowserModel
 
+    private var isExpanded: Bool {
+        !browser.shelf.isEmpty || browser.shelfDropTargeted
+    }
+
     var body: some View {
+        Group {
+            if isExpanded {
+                expandedBody
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            } else {
+                slimBody
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: OrdenTheme.motionStandard), value: isExpanded)
+        .onDrop(of: [UTType.fileURL], isTargeted: $browser.shelfDropTargeted) { providers in
+            browser.importDroppedFiles(providers: providers)
+        }
+    }
+
+    /// Vacía: 28 pt, una línea, sin botones grises ni cajón punteado.
+    private var slimBody: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "tray.and.arrow.down")
+                .foregroundStyle(OrdenTheme.accent)
+            Text(L10n.s(
+                "Bandeja lista · ⌘X corta · ⌘C copia · o suelta archivos aquí",
+                "Tray ready · ⌘X cut · ⌘C copy · or drop files here"
+            ))
+            .font(.caption)
+            .foregroundStyle(OrdenTheme.textSecondary)
+            .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 28)
+        .background(OrdenTheme.panelFill.opacity(0.9), in: RoundedRectangle(cornerRadius: OrdenTheme.radiusPanel, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: OrdenTheme.radiusPanel, style: .continuous)
+                .strokeBorder(OrdenTheme.hairline, lineWidth: 1)
+        )
+    }
+
+    private var expandedBody: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Label(L10n.s("Bandeja", "Tray"), systemImage: "tray.and.arrow.down.fill")
                     .font(.system(.subheadline).weight(.semibold))
                     .foregroundStyle(OrdenTheme.accent)
 
-                if browser.shelf.isEmpty {
-                    Text(L10n.s("⌘C copia · ⌘X mueve · o arrastra aquí", "⌘C copy · ⌘X move · or drag here"))
-                        .font(.caption)
-                        .foregroundStyle(OrdenTheme.textSecondary)
-                } else {
-                    FindaroStatusPill(
-                        title: L10n.s("\(browser.shelf.count) en bandeja", "\(browser.shelf.count) in tray"),
-                        kind: .processing
-                    )
-                    Text(L10n.s("⌘V suelta aquí", "⌘V paste here"))
-                        .font(.caption)
-                        .foregroundStyle(OrdenTheme.textMuted)
-                }
+                FindaroStatusPill(
+                    title: L10n.s("\(browser.shelf.count) en bandeja", "\(browser.shelf.count) in tray"),
+                    kind: .processing
+                )
 
                 Spacer()
 
                 Button {
-                    browser.addSelectionToShelf(intent: .copy)
-                } label: {
-                    Label(L10n.s("Copiar", "Copy"), systemImage: "doc.on.doc")
-                }
-                .controlSize(.small)
-                .disabled(browser.selectedIDs.isEmpty)
-                .help(L10n.s("Copiar a bandeja · ⌘C", "Copy to tray · ⌘C"))
-
-                Button {
-                    browser.addSelectionToShelf(intent: .move)
-                } label: {
-                    Label(L10n.s("Cortar", "Cut"), systemImage: "scissors")
-                }
-                .controlSize(.small)
-                .disabled(browser.selectedIDs.isEmpty)
-                .help(L10n.s("Cortar a bandeja · ⌘X", "Cut to tray · ⌘X"))
-
-                Button {
                     browser.depositShelfHere()
                 } label: {
-                    Label(L10n.s("Soltar aquí", "Paste here"), systemImage: "arrow.down.doc")
+                    Label(L10n.s("Soltar aquí (⌘V)", "Paste here (⌘V)"), systemImage: "arrow.down.doc")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(OrdenTheme.accent)
@@ -66,7 +82,6 @@ struct DropShelfView: View {
                 }
                 .controlSize(.small)
                 .disabled(browser.outboundPaths.isEmpty)
-                .help(L10n.s("Manda selección/bandeja a una burbuja de Dropover", "Send selection/tray to Dropover bubble"))
 
                 Button(role: .destructive) {
                     browser.clearShelf()
@@ -77,28 +92,10 @@ struct DropShelfView: View {
                 .disabled(browser.shelf.isEmpty)
             }
 
-            if browser.shelf.isEmpty {
-                RoundedRectangle(cornerRadius: OrdenTheme.radiusPanel, style: .continuous)
-                    .strokeBorder(
-                        browser.shelfDropTargeted ? OrdenTheme.accent : OrdenTheme.hairline,
-                        style: StrokeStyle(lineWidth: browser.shelfDropTargeted ? 1.5 : 1, dash: [6, 4])
-                    )
-                    .background(
-                        (browser.shelfDropTargeted ? OrdenTheme.accent.opacity(0.12) : Color.clear),
-                        in: RoundedRectangle(cornerRadius: OrdenTheme.radiusPanel, style: .continuous)
-                    )
-                    .frame(height: 36)
-                    .overlay {
-                        Text(L10n.s("Suelta archivos · también a Dropover", "Drop files · also to Dropover"))
-                            .font(.caption)
-                            .foregroundStyle(OrdenTheme.textSecondary)
-                    }
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(browser.shelf) { item in
-                            shelfChip(item)
-                        }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(browser.shelf) { item in
+                        shelfChip(item)
                     }
                 }
             }
@@ -113,9 +110,6 @@ struct DropShelfView: View {
                     lineWidth: browser.shelfDropTargeted ? 2 : 1
                 )
         )
-        .onDrop(of: [UTType.fileURL], isTargeted: $browser.shelfDropTargeted) { providers in
-            browser.importDroppedFiles(providers: providers)
-        }
     }
 
     private func shelfChip(_ item: FileOps.ShelfItem) -> some View {

@@ -99,4 +99,28 @@ public enum ListColumn: String, Codable, Sendable, CaseIterable, Identifiable {
             return partial + (w > 0 ? w + 12 : 0)
         }
     }
+
+    /// Prioridad al encajar columnas en paneles estrechos (2 paneles / Split View).
+    /// No altera `PreferencesStore`: solo filtra la vista.
+    public static let fitPriority: [ListColumn] = [
+        .size, .dateAdded, .dateModified, .kind, .dateCreated, .dateLastOpened
+    ]
+
+    /// Elige un subconjunto de `preferred` que quepa en `budget` (pt),
+    /// preservando el orden del usuario entre las que sí caben.
+    public static func fit(preferred: [ListColumn], budget: CGFloat, compact: Bool) -> [ListColumn] {
+        let wanted = Set(preferred)
+        var chosen = Set<ListColumn>()
+        var used: CGFloat = 0
+        for col in fitPriority where wanted.contains(col) {
+            let raw = compact ? col.compactWidth : col.width
+            guard raw > 0 else { continue }
+            let cost = raw + 12
+            if used + cost <= budget {
+                chosen.insert(col)
+                used += cost
+            }
+        }
+        return preferred.filter { chosen.contains($0) }
+    }
 }

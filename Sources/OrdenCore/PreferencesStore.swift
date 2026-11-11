@@ -35,9 +35,11 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public var smartFolders: [SmartFolder]
     /// Columnas visibles en vista lista (Nombre siempre; el resto es opt-in).
     public var listColumns: [ListColumn]
+    /// Tema de color premium (intercambiable en caliente).
+    public var colorTheme: AppColorTheme
 
     public init(
-        schemaVersion: Int = 18,
+        schemaVersion: Int = 19,
         globalRule: SortRule = .downloads,
         folderOverrides: [String: SortRule] = [:],
         favorites: [String] = [],
@@ -55,7 +57,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         globalHotkeyFolderPath: String? = nil,
         appLanguage: AppLanguage = .english,
         smartFolders: [SmartFolder] = [],
-        listColumns: [ListColumn] = ListColumn.defaultVisible
+        listColumns: [ListColumn] = ListColumn.defaultVisible,
+        colorTheme: AppColorTheme = .midnightBlue
     ) {
         self.schemaVersion = schemaVersion
         self.globalRule = globalRule
@@ -76,6 +79,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         self.appLanguage = appLanguage
         self.smartFolders = smartFolders
         self.listColumns = ListColumn.sanitize(listColumns)
+        self.colorTheme = colorTheme
     }
 
     /// Override de carpeta si existe; si no, el global (estilo Descargas por defecto).
@@ -93,7 +97,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode, showRowPaths,
              explorerKeyboardProfile, showHiddenFiles, flattenFolderView, assistantShortcuts,
              ollamaEnabled, ollamaModel, viewTemplates, keyboardHotkeyOverrides, globalHotkeyFolderPath,
-             appLanguage, smartFolders, listColumns
+             appLanguage, smartFolders, listColumns, colorTheme
     }
 
     public init(from decoder: Decoder) throws {
@@ -123,6 +127,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         listColumns = ListColumn.sanitize(
             (try? c.decodeIfPresent([ListColumn].self, forKey: .listColumns)) ?? ListColumn.defaultVisible
         )
+        colorTheme = (try? c.decodeIfPresent(AppColorTheme.self, forKey: .colorTheme)) ?? .midnightBlue
     }
 }
 
@@ -235,7 +240,7 @@ public final class PreferencesStore: @unchecked Sendable {
     private static func freshDefaults() -> OrdenPreferences {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return OrdenPreferences(
-            schemaVersion: 18,
+            schemaVersion: 19,
             globalRule: .downloads,
             folderOverrides: [:],
             favorites: [
@@ -250,7 +255,8 @@ public final class PreferencesStore: @unchecked Sendable {
             showHiddenFiles: false,
             flattenFolderView: false,
             viewTemplates: ViewTemplate.factoryDefaults(),
-            appLanguage: .english
+            appLanguage: .english,
+            colorTheme: .midnightBlue
         )
     }
 
@@ -320,6 +326,10 @@ public final class PreferencesStore: @unchecked Sendable {
         if next.schemaVersion < 18 {
             next.listColumns = ListColumn.defaultVisible
             next.schemaVersion = 18
+        }
+        if next.schemaVersion < 19 {
+            next.colorTheme = .midnightBlue
+            next.schemaVersion = 19
         }
         next.listColumns = ListColumn.sanitize(next.listColumns)
         // Tope duro: gente crea muchos; no dejamos crecer sin límite.
