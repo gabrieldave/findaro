@@ -117,14 +117,14 @@ private struct FindaroCommands: Commands {
         }
 
         CommandGroup(after: .appSettings) {
-            Menu(L10n.s("Idioma / Language", "Language / Idioma")) {
-                languageMenuItem(
-                    .auto,
-                    title: L10n.s("Automático (Sistema)", "Automatic (System)")
-                )
-                languageMenuItem(.spanish, title: "Español")
-                languageMenuItem(.english, title: "English")
-            }
+            // Menú anidado (Menu { … }) a menudo NO abre el submenu en la barra
+            // de macOS con SwiftUI Commands. Ítems planos = click fiable.
+            languageMenuItem(
+                .auto,
+                title: L10n.s("Idioma: Automático (Sistema)", "Language: Automatic (System)")
+            )
+            languageMenuItem(.spanish, title: L10n.s("Idioma: Español", "Language: Español"))
+            languageMenuItem(.english, title: L10n.s("Idioma: English", "Language: English"))
 
             if DefaultFileViewerManager.isEnabled {
                 Button(L10n.s("Restaurar Finder como explorador", "Restore Finder as File Viewer")) {

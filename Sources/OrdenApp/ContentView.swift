@@ -2448,15 +2448,17 @@ struct SettingsView: View {
                     title: L10n.s("Idioma de la interfaz", "Interface Language"),
                     subtitle: L10n.s("Español, English o según tu Mac", "Spanish, English, or matching your Mac")
                 ) {
-                    Picker("", selection: Binding(
+                    Picker(L10n.s("Idioma", "Language"), selection: Binding(
                         get: { browser.appLanguage },
                         set: { browser.setAppLanguage($0) }
                     )) {
                         ForEach(AppLanguage.allCases, id: \.self) { lang in
-                            Text(lang.displayName).tag(lang)
+                            Text(lang.menuLabel).tag(lang)
                         }
                     }
-                    .frame(width: 180)
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(minWidth: 160, idealWidth: 180)
                 }
 
                 settingsRow(

@@ -57,6 +57,9 @@ public enum AppMenuLocalizer {
             case "Buscar actualizaciones…": return "Check for Updates…"
             case "Idioma / Language": return "Language / Idioma"
             case "Automático (Sistema)": return "Automatic (System)"
+            case "Idioma: Automático (Sistema)": return "Language: Automatic (System)"
+            case "Idioma: Español": return "Language: Español"
+            case "Idioma: English": return "Language: English"
 
             // Ventana / Pestañas
             case "Cerrar ventana": return "Close Window"
@@ -182,6 +185,9 @@ public enum AppMenuLocalizer {
             case "Check for Updates…": return "Buscar actualizaciones…"
             case "Language / Idioma": return "Idioma / Language"
             case "Automatic (System)": return "Automático (Sistema)"
+            case "Language: Automatic (System)": return "Idioma: Automático (Sistema)"
+            case "Language: Español": return "Idioma: Español"
+            case "Language: English": return "Idioma: English"
 
             // Ventana / Pestañas
             case "Close Window": return "Cerrar ventana"

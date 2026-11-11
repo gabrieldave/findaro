@@ -3618,6 +3618,10 @@ final class BrowserModel: ObservableObject {
             UserDefaults.standard.set([lang.isEnglish ? "en" : "es"], forKey: "AppleLanguages")
         }
         objectWillChange.send()
+        AppMenuLocalizer.applyLocalization()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            AppMenuLocalizer.applyLocalization()
+        }
     }
 
     private func defaultTitle(for shortcut: AssistantShortcut) -> String {

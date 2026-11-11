@@ -17,6 +17,15 @@ public enum AppLanguage: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    /// Etiqueta estable en pickers/menús (no depende del idioma activo de la UI).
+    public var menuLabel: String {
+        switch self {
+        case .auto: return L10n.isEnglish ? "Automatic (System)" : "Automático (Sistema)"
+        case .spanish: return "Español"
+        case .english: return "English"
+        }
+    }
+
     /// Inglés efectivo de la UI. En `.auto` sigue el idioma preferido del Mac (`es*` → español).
     public var isEnglish: Bool {
         switch self {
