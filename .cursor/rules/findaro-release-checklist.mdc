@@ -1,0 +1,63 @@
+---
+description: Checklist OBLIGATORIO en cada update/release/publish de FINDARO (DMG, feed, licencias, llavero).
+globs:
+alwaysApply: true
+---
+
+# FINDARO — Release Checklist (NO SALTAR)
+
+Usar SIEMPRE que el usuario diga: update, release, publicar, bump, DMG, notarizar,
+`publish-update`, “sube la versión”, o cualquier cambio que toque licencia / update / firma.
+
+**PROHIBIDO** declarar “listo / publicado / auditado” si falta UN ítem. Imprimir la tabla
+completa con `OK` / `FAIL` / `N/A` al final. Si algo es `FAIL` → no publicar (o revertir feed).
+
+## Capas (no mezclar)
+
+| Capa | Qué | ¿Rotar por build? |
+|---|---|---|
+| Developer ID + notarize | Apple distribución | NO rotar cert; SÍ notarizar cada DMG |
+| Feed Ed25519 (`latest.json`) | firma del update | NO regenerar; misma pública embebida |
+| Licencia Ed25519 | claves de cliente | NO regenerar; misma pública app↔servidor |
+| Keychain licencia/trial | persistencia local | NUNCA ACL por CDHash; Data Protection / Team ID |
+
+## Checklist pre-publish (correr EN ORDEN)
+
+1. **Versión** — `VERSION`/`BUILD` en `scripts/package-app.sh` bumpeados; Info.plist del `.app` coincide.
+2. **Team ID** — firma `Developer ID Application: … (YH6W55MP95)`; `codesign -dv` TeamIdentifier=`YH6W55MP95`.
+3. **No adhoc** — `spctl -a -vv` debe ser Notarized Developer ID (tras notary); NUNCA publicar firma `-`.
+4. **Licencias — NO regenerar** — `FindaroLicenseVerifier.embeddedPublicKeyHex` == `FINDARO_ED25519_PUBLIC_KEY_HEX` en `web/src/lib/license.ts` == pública del servidor/Coolify. Privada solo en secrets/Coolify (`SET`/`EMPTY`, sin valores).
+5. **Licencias — smoke** — activate/verify de una clave de prueba (o dry-run del endpoint verify) con la build nueva.
+6. **Feed — NO regenerar** — `UpdateFeed.updateSigningPublicKeyHex` sigue siendo la canónica; firmar `latest.json` con la privada existente (Keychain `findaro-update-signing` o `~/.findaro/update_signing_key`).
+7. **Keychain / ACL** — `SystemKeychainStore` usa `kSecUseDataProtectionKeychain` (+ migración legacy). Tras update, NO debe spamear «Permitir» del llavero `net.iareal.findaro`. Si tocaste LicenseStore, verificar esto explícitamente.
+8. **Puente Ordena** — si el feed/publish lo exige, DMG/puente firmado y versionado junto con Findaro.
+9. **Notarize** — ambos DMG (Findaro + puente) accepted; staple OK.
+10. **Publish + purge** — subir a `ordena.iareal.net/downloads` (o ruta canónica); `latest.json` + alias `*-current`/`*-latest`; **Cloudflare purge obligatorio** (fail-fast si falla).
+11. **Verify público** — SHA del DMG versionado == alias tras purge; `/api/health` web si hubo cambio web.
+12. **Secrets** — nunca en git; `~/Documents/VibeSystems/secrets.env` local; Mini por LocalSend.
+
+## Respuesta obligatoria al usuario
+
+```
+FINDARO release [VERSION] / build [N]
+1 Versión: OK|FAIL
+2 Team YH6W55MP95: OK|FAIL
+3 Notarized (no adhoc): OK|FAIL
+4 Licencia pública app↔web↔server match + NO rotada: OK|FAIL
+5 Smoke verify licencia: OK|FAIL|N/A
+6 Feed pública match + NO rotada: OK|FAIL
+7 Keychain Data Protection (sin spam ACL post-update): OK|FAIL
+8 Puente Ordena: OK|FAIL|N/A
+9 Notary+staple DMGs: OK|FAIL
+10 Upload+CF purge: OK|FAIL
+11 SHA público: OK|FAIL
+Commit: [hash]
+```
+
+## Prompt corto del usuario (copiar/pegar)
+
+```
+FINDARO release — checklist completo
+No saltes licencias, feed, keychain/ACL, notary ni purge.
+Tabla OK/FAIL al final. Sin regenerar claves.
+```
