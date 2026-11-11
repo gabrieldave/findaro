@@ -60,10 +60,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             queue: .main
         ) { _ in
             Task { @MainActor in
-                // Re-anclar exploradores/ayuda si un monitor se desconectó.
+                // Solo re-anclar si quedó fuera de TODOS los monitores (no mid-drag).
                 for window in FindaroWindowRegistry.registeredWindows {
                     FindaroScreenPlacement.ensureOnScreen(window)
                 }
+                // Preview/QL se corrompen al cambiar escala/disposición: limpiar estado.
+                QuickLookController.shared.resetAfterDisplayChange()
+                MediaPreviewController.shared.resetAfterDisplayChange()
                 OrdenWindowFit.applyToOpenWindows()
             }
         }

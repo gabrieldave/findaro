@@ -13,12 +13,26 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
     private var currentIndex: Int = 0
     /// Evita open→close si Espacio llega por monitor + SwiftUI en el mismo instante.
     private var lastToggleAt: Date?
+    /// Tras cruzar monitores, el primer Espacio debe ABRIR (estado previo puede mentir).
+    private var invalidateVisibleAfterDisplayChange = false
 
     var isVisible: Bool {
+        if invalidateVisibleAfterDisplayChange { return false }
         if MediaPreviewController.shared.isVisible { return true }
         guard let panel = QLPreviewPanel.shared(), panel.isVisible else { return false }
         // Panel “visible” pero off-screen no cuenta: Espacio debe ABRIR overlay, no “cerrar”.
         return Self.isQuickLookOnScreen(panel)
+    }
+
+    /// Llamar al cruzar de monitor / cambiar displays: limpia QL + overlay sin dejar zombies.
+    func resetAfterDisplayChange() {
+        invalidateVisibleAfterDisplayChange = true
+        lastToggleAt = nil
+        hideAll()
+        // Tras un tick, permitir de nuevo el toggle normal.
+        DispatchQueue.main.async { [weak self] in
+            self?.invalidateVisibleAfterDisplayChange = false
+        }
     }
 
     func toggle(browser: BrowserModel, focusing paths: [String]) {
@@ -28,18 +42,22 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
             return
         }
         lastToggleAt = now
-        if MediaPreviewController.shared.isVisible {
+
+        // Siempre sacar QL del sistema: tras mover de monitor queda “visible” zombi
+        // y se come Espacio / deja la app en un estado irrecuperable hasta reiniciar.
+        if let panel = QLPreviewPanel.shared(), panel.isVisible {
+            let onScreen = Self.isQuickLookOnScreen(panel)
+            panel.orderOut(nil)
+            if onScreen, !MediaPreviewController.shared.isVisible, !invalidateVisibleAfterDisplayChange {
+                return
+            }
+        }
+
+        if MediaPreviewController.shared.isVisible, !invalidateVisibleAfterDisplayChange {
             MediaPreviewController.shared.hide()
             return
         }
-        if let panel = QLPreviewPanel.shared(), panel.isVisible {
-            // Off-screen: no lo trates como abierto; ordénalo out y muestra de verdad.
-            if Self.isQuickLookOnScreen(panel) {
-                panel.orderOut(nil)
-                return
-            }
-            panel.orderOut(nil)
-        }
+        invalidateVisibleAfterDisplayChange = false
         show(browser: browser, focusing: paths)
     }
 

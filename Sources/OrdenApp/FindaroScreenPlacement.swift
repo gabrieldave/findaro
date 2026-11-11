@@ -70,9 +70,11 @@ enum FindaroScreenPlacement {
         return info.contains { ($0[kCGWindowNumber as String] as? Int) == wid }
     }
 
-    /// Si la ventana quedó en un monitor desconectado o fuera de todo visibleFrame, re-centra.
+    /// Si la ventana quedó fuera de todo visibleFrame (monitor desconectado), re-centra.
+    /// No exige `window.screen != nil`: al arrastrar entre monitores `screen` es nil
+    /// un instante y recentrar ahí “rompe” layout/preview hasta reiniciar la app.
     static func ensureOnScreen(_ window: NSWindow) {
-        if intersectsAnyScreen(window.frame), window.screen != nil { return }
+        if intersectsAnyScreen(window.frame) { return }
         centerOnPreferredScreen(window)
         window.collectionBehavior.insert(.moveToActiveSpace)
         window.makeKeyAndOrderFront(nil)

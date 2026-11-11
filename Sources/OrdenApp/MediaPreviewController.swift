@@ -23,6 +23,15 @@ final class MediaPreviewController: NSObject {
 
     func show(entry: FileEntry) {
         guard let browser else { return }
+        // Remount forzado: tras cambiar de monitor SwiftUI a veces deja el overlay
+        // “pegado” y no vuelve a pintar si el id es el mismo.
+        if browser.mediaPreviewEntry?.id == entry.id {
+            browser.mediaPreviewEntry = nil
+            DispatchQueue.main.async { [weak browser] in
+                browser?.mediaPreviewEntry = entry
+            }
+            return
+        }
         browser.mediaPreviewEntry = entry
     }
 
@@ -32,6 +41,11 @@ final class MediaPreviewController: NSObject {
 
     func toggle(entry: FileEntry) {
         if isVisible { hide() } else { show(entry: entry) }
+    }
+
+    /// Cierra overlay al cruzar monitores (AVPlayerView / capas se corrompen con el scale).
+    func resetAfterDisplayChange() {
+        hide()
     }
 }
 

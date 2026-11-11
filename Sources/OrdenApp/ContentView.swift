@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var windowWidth: CGFloat = 0
     @State private var windowHeight: CGFloat = 0
     @State private var metrics: OrdenDisplayMetrics = .resolve(windowSize: .zero)
+    @State private var lastDisplayRecoverAt: Date = .distantPast
 
     /// REGLA: el menú izquierdo NUNCA se colapsa; el ancho sí se adapta a la pantalla.
     private var sidebarWidth: CGFloat { metrics.sidebarWidth }
@@ -54,6 +55,8 @@ struct ContentView: View {
             }
 
             InlineMediaPreviewOverlay()
+                // Remount al cruzar monitores: AVPlayerView / NSImage layers se corrompen.
+                .id("media-overlay-\(layoutGeneration)")
         }
         .frame(
             minWidth: sidebarWidth + detailMinWidth + (browser.showAssistantPanel ? assistantWidth : 0),
@@ -73,6 +76,9 @@ struct ContentView: View {
                     // Al soltar el resize: mismo “refresco” que cambiar el modo de vista
                     layoutGeneration &+= 1
                     OrdenWindowFit.applyToOpenWindows()
+                },
+                onScreenChange: {
+                    recoverAfterDisplayChange()
                 }
             )
         )
@@ -184,6 +190,25 @@ struct ContentView: View {
         // Sube generación cuando cambia cuántas columnas de iconos caben (o al primer layout)
         if nextCols != prevCols || layoutGeneration == 0 || metricsChanged {
             layoutGeneration &+= 1
+        }
+    }
+
+    /// Tras arrastrar Findaro entre monitores: reset preview + remount layout.
+    /// Sin esto, overlay/QL quedan zombis y Espacio “ya no abre” hasta reiniciar.
+    private func recoverAfterDisplayChange() {
+        let now = Date()
+        // Probe + didChangeScreenParameters pueden disparar 2–3 veces; un solo recover.
+        guard now.timeIntervalSince(lastDisplayRecoverAt) > 0.35 else { return }
+        lastDisplayRecoverAt = now
+        QuickLookController.shared.resetAfterDisplayChange()
+        MediaPreviewController.shared.resetAfterDisplayChange()
+        MediaPreviewController.shared.bind(browser: browser)
+        SelectionCancelMonitor.install(browser: browser, session: session)
+        layoutGeneration &+= 1
+        metrics = .resolve(windowSize: CGSize(width: max(windowWidth, 1), height: max(windowHeight, 1)))
+        // Fit suave solo si hace falta (ensureOnScreen ya no recentra mid-drag).
+        DispatchQueue.main.async {
+            OrdenWindowFit.applyToOpenWindows()
         }
     }
 
