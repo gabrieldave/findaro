@@ -146,39 +146,49 @@ ssh "$HOST" "cat > '${REMOTE_DIR}/index.html'" <<'EOF'
 EOF
 
 echo "==> Purgando caché de Cloudflare…"
-CF_TOKEN="${CLOUDFLARE_API_TOKEN:-${CF_API_TOKEN:-}}"
-CF_ZONE="${CLOUDFLARE_ZONE_ID:-${CF_ZONE_ID:-}}"
-
-if [[ -n "$CF_TOKEN" && -n "$CF_ZONE" ]]; then
-  echo "Purgando caché en Cloudflare vía API..."
-  curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/purge_cache" \
-    -H "Authorization: Bearer ${CF_TOKEN}" \
-    -H "Content-Type: application/json" \
-    --data "{
-      \"files\": [
-        \"${PUBLIC_BASE}/downloads/latest.json\",
-        \"${PUBLIC_BASE}/downloads/latest.json.sig\",
-        \"${PUBLIC_BASE}/downloads/${DMG_NAME}\",
-        \"${PUBLIC_BASE}/downloads/${PRODUCT_NAME}-latest.dmg\",
-        \"${PUBLIC_BASE}/downloads/${PRODUCT_NAME}-current.dmg\",
-        \"${PUBLIC_BASE}/downloads/${LEGACY_DMG_NAME}\",
-        \"${PUBLIC_BASE}/downloads/${LEGACY_NAME}-latest.dmg\"
-      ]
-    }" | grep -q '"success":true' && echo "Caché de Cloudflare purgada con éxito." || echo "WARN: Falló la purga en Cloudflare (revisar token/zona)."
-else
-  cat <<'CF_MSG'
-INFO: No se definieron CLOUDFLARE_API_TOKEN / CLOUDFLARE_ZONE_ID.
-Paso manual de purga en Cloudflare Dashboard si fuera necesario:
-  1. Ir a Cloudflare Dashboard -> tu zona (iareal.net) -> Caching -> Configuration.
-  2. Seleccionar "Custom Purge" -> URL purge.
-  3. Purgar las URLs:
-     - https://ordena.iareal.net/downloads/latest.json
-     - https://ordena.iareal.net/downloads/latest.json.sig
-     - https://ordena.iareal.net/downloads/Findaro-latest.dmg
-     - https://ordena.iareal.net/downloads/Findaro-current.dmg
-     - https://ordena.iareal.net/downloads/Ordena-latest.dmg
-CF_MSG
+# Token: secrets.env / entorno. En el VPS también se acepta /root/.cloudflare.env.
+if [[ -z "${CLOUDFLARE_API_TOKEN:-${CF_API_TOKEN:-}}" && -f /root/.cloudflare.env ]]; then
+  # shellcheck disable=SC1091
+  source /root/.cloudflare.env
 fi
+CF_TOKEN="${CLOUDFLARE_API_TOKEN:-${CF_API_TOKEN:-}}"
+# Zona iareal.net (pública). Override con CLOUDFLARE_ZONE_ID si cambia.
+CF_ZONE="${CLOUDFLARE_ZONE_ID:-${CF_ZONE_ID:-909879d629009acbb4377720753dadf7}}"
+
+if [[ -z "$CF_TOKEN" ]]; then
+  cat >&2 <<'CF_MSG'
+ERROR: Falta CLOUDFLARE_API_TOKEN — sin purga los alias *-current/*-latest quedan stale en CDN.
+Crea un API Token con permiso Zone → Cache Purge (zona iareal.net) y guárdalo en secrets.env.
+CF_MSG
+  exit 1
+fi
+
+echo "Purgando caché en Cloudflare vía API (zone=${CF_ZONE})..."
+CF_PURGE_RESP="$(curl -4 -sS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/purge_cache" \
+  -H "Authorization: Bearer ${CF_TOKEN}" \
+  -H "Content-Type: application/json" \
+  --data "{
+    \"files\": [
+      \"${PUBLIC_BASE}/downloads/latest.json\",
+      \"${PUBLIC_BASE}/downloads/latest.json.sig\",
+      \"${PUBLIC_BASE}/downloads/${DMG_NAME}\",
+      \"${PUBLIC_BASE}/downloads/${PRODUCT_NAME}-latest.dmg\",
+      \"${PUBLIC_BASE}/downloads/${PRODUCT_NAME}-current.dmg\",
+      \"${PUBLIC_BASE}/downloads/${LEGACY_DMG_NAME}\",
+      \"${PUBLIC_BASE}/downloads/${LEGACY_NAME}-latest.dmg\"
+    ]
+  }")"
+if ! printf '%s' "$CF_PURGE_RESP" | grep -q '"success":true'; then
+  cat >&2 <<CF_ERR
+ERROR: Falló la purga en Cloudflare (el release NO queda limpio en CDN).
+Respuesta: ${CF_PURGE_RESP}
+
+El token necesita permiso «Zone.Cache Purge» sobre iareal.net.
+Dashboard → My Profile → API Tokens → Edit token → Permissions → Zone / Cache Purge / Purge.
+CF_ERR
+  exit 1
+fi
+echo "Caché de Cloudflare purgada con éxito."
 
 echo "Publicado v${VERSION}"
 curl -sS "${PUBLIC_BASE}/downloads/latest.json"
