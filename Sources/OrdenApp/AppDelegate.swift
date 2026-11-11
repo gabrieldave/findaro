@@ -10,12 +10,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        for window in NSApp.windows {
-            window.makeKeyAndOrderFront(nil)
-            window.collectionBehavior.insert(.moveToActiveSpace)
-        }
-        // Encajar en la pantalla real (Mac chica / menor resolución).
+        // No traer al frente ventanas fantasma: solo exploradores registrados / candidatas.
         DispatchQueue.main.async {
+            FindaroWindowRegistry.dismissUnregisteredLookalikes(keeping: nil)
+            Self.showMainWindows()
             OrdenWindowFit.applyToOpenWindows()
         }
         CloseToHide.install()
@@ -39,6 +37,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { _ in
             Task { @MainActor in
                 AppMenuLocalizer.applyLocalization()
+                // StackDock (y el Dock) a veces solo hacen activate/unhide sin reopen:
+                // si no hay explorador visible, restaurar la ventana real.
+                if !FindaroWindowRegistry.hasVisibleBrowserWindow() {
+                    Self.showMainWindows()
+                } else {
+                    FindaroWindowRegistry.dismissUnregisteredLookalikes(keeping: nil)
+                }
             }
         }
         // Buscar updates en GitHub tras un momento (no bloquea el arranque).
@@ -62,9 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppUpdateChecker.shared.installPendingOnTerminateIfNeeded()
     }
 
-    /// Clic en el icono del Dock con la ventana oculta → la vuelve a mostrar.
+    /// Clic en Dock / StackDock: restaurar aunque macOS diga que hay ventanas
+    /// (p. ej. un fantasma transparente cuenta como “visible”).
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag {
+        if !flag || !FindaroWindowRegistry.hasVisibleBrowserWindow() {
             Self.showMainWindows()
         }
         return true
@@ -92,41 +98,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     static func showMainWindows() {
         NSApp.activate(ignoringOtherApps: true)
-        // Solo ventanas del explorador — no Ajustes (si no, el atajo global
-        // también trae al frente la pestaña General).
-        let browserWindows = NSApp.windows.filter { window in
-            guard window.styleMask.contains(.titled) else { return false }
-            return !isSettingsWindow(window)
-        }
-        if browserWindows.isEmpty {
-            NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/Findaro.app"))
+        if FindaroWindowRegistry.restoreBrowserWindowsOrRequestNew() {
             return
         }
-        for window in browserWindows {
-            window.makeKeyAndOrderFront(nil)
-            window.collectionBehavior.insert(.moveToActiveSpace)
+        // Aún no hay sesión registrada (arranque temprano): front de candidatas reales.
+        let fallback = NSApp.windows.filter { window in
+            guard window.styleMask.contains(.titled) else { return false }
+            return !FindaroWindowRegistry.isSettingsWindow(window)
         }
-    }
-
-    /// Ventana de Preferencias / Ajustes de SwiftUI (no el explorador).
-    @MainActor
-    private static func isSettingsWindow(_ window: NSWindow) -> Bool {
-        let title = window.title.lowercased()
-        if title.contains("ajustes")
-            || title.contains("settings")
-            || title.contains("preferences")
-            || title.contains("preferencias") {
-            return true
+        if let target = fallback.first(where: { $0.identifier == FindaroWindowRegistry.browserWindowIdentifier })
+            ?? fallback.first {
+            FindaroWindowRegistry.frontBrowserWindow(target)
         }
-        if let raw = window.identifier?.rawValue.lowercased(),
-           raw.contains("settings") || raw.contains("preference") {
-            return true
-        }
-        // Settings de Findaro: tamaño fijo ~560×520 del TabView.
-        let s = window.frame.size
-        if abs(s.width - 560) < 8, abs(s.height - 520) < 40 {
-            return true
-        }
-        return false
     }
 }

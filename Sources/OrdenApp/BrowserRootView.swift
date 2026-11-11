@@ -30,6 +30,7 @@ struct BrowserRootView: View {
         .tint(OrdenTheme.accent)
         .onAppear {
             OrdenWindowFit.applyToOpenWindows()
+            FindaroWindowRegistry.dismissUnregisteredLookalikes(keeping: hostWindow)
             if let pending = OpenFolderBridge.pendingFolderPath {
                 OpenFolderBridge.pendingFolderPath = nil
                 session.activeBrowser.navigate(to: pending, recordHistory: false)
@@ -44,16 +45,27 @@ struct BrowserRootView: View {
             FindaroWindowRegistry.unregister(for: hostWindow)
         }
         .onReceive(NotificationCenter.default.publisher(for: .ordenaOpenFolder)) { note in
+            guard FindaroWindowRegistry.claimDelivery(for: session) else { return }
             if let path = note.object as? String {
+                OpenFolderBridge.pendingFolderPath = nil
                 session.activeBrowser.navigate(to: path, recordHistory: true)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .findaroRevealPaths)) { note in
+            guard FindaroWindowRegistry.claimDelivery(for: session) else { return }
             if let paths = note.object as? [String] {
+                DefaultFileViewerManager.pendingRevealPaths = []
                 session.revealPaths(paths)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .findaroOpenNewBrowserWindow)) { _ in
+            // Solo una vista debe abrir; si ya hay explorador, reusar.
+            if FindaroWindowRegistry.hasVisibleBrowserWindow() { return }
+            if !FindaroWindowRegistry.registeredWindows.isEmpty {
+                _ = FindaroWindowRegistry.restoreBrowserWindowsOrRequestNew()
+                return
+            }
+            guard FindaroWindowRegistry.claimNewWindowRequest() else { return }
             openWindow(id: "browser")
         }
         .onOpenURL { url in

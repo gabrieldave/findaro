@@ -31,6 +31,9 @@ struct OrdenApp: App {
         WindowGroup(id: "browser") {
             BrowserRootView()
         }
+        // Vacío: no crear ventanas nuevas por cada open/URL de Chrome/LS.
+        // AppDelegate + OpenFolderBridge reusan la ventana registrada.
+        .handlesExternalEvents(matching: [])
         .defaultSize(
             width: OrdenDisplayMetrics.preferredWindowSize().width,
             height: OrdenDisplayMetrics.preferredWindowSize().height

@@ -156,16 +156,10 @@ public final class DefaultFileViewerManager: NSObject, ObservableObject {
         guard !paths.isEmpty else { return }
         pendingRevealPaths = paths
         NotificationCenter.default.post(name: .findaroRevealPaths, object: paths)
+        // Solo activar la app: la capa UI reusa UNA ventana de explorador
+        // (traer todas al frente producía multi-Findaro + fantasmas transparentes).
         if let app = NSApplication.value(forKey: "sharedApplication") as? NSApplication {
             app.activate(ignoringOtherApps: true)
-            for window in app.windows where !isSettingsWindow(window) {
-                window.makeKeyAndOrderFront(nil)
-            }
         }
-    }
-
-    private static func isSettingsWindow(_ window: NSWindow) -> Bool {
-        let title = window.title.lowercased()
-        return title.contains("ajustes") || title.contains("settings") || title.contains("preferences")
     }
 }

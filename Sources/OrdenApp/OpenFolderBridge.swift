@@ -1,6 +1,7 @@
 import AppKit
 import CoreServices
 import Foundation
+import OrdenCore
 import UniformTypeIdentifiers
 
 extension Notification.Name {
@@ -27,18 +28,18 @@ enum OpenFolderBridge {
     static func ingest(urls: [URL]) {
         guard let first = urls.first else { return }
         var isDir: ObjCBool = false
-        let path: String
-        if FileManager.default.fileExists(atPath: first.path, isDirectory: &isDir), isDir.boolValue {
-            path = (first.path as NSString).standardizingPath
-        } else {
-            path = (first.deletingLastPathComponent().path as NSString).standardizingPath
+        let exists = FileManager.default.fileExists(atPath: first.path, isDirectory: &isDir)
+        // Archivo (Chrome «mostrar en carpeta»): reusar ventana + seleccionar el ítem.
+        if exists, !isDir.boolValue {
+            DefaultFileViewerManager.revealPaths([first.standardizedFileURL.path])
+            return
         }
+        let path = (first.path as NSString).standardizingPath
         pendingFolderPath = path
         NotificationCenter.default.post(name: .ordenaOpenFolder, object: path)
         NSApp.activate(ignoringOtherApps: true)
-        for window in NSApp.windows {
-            window.makeKeyAndOrderFront(nil)
-        }
+        // No traer TODAS las ventanas (crea fantasmas / multi-Findaro). Solo el explorador.
+        _ = FindaroWindowRegistry.restoreBrowserWindowsOrRequestNew()
     }
 
     /// URL real del .app (no asume solo /Applications).
