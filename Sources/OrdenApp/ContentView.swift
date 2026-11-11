@@ -2404,6 +2404,7 @@ struct SettingsView: View {
             settingsLicense
                 .tabItem { Label(L10n.s("Licencia", "License"), systemImage: "key.fill") }
         }
+        .padding(.top, 10)
         .frame(width: 560, height: 520)
         .sheet(isPresented: $browser.showOllamaSetupDialog) {
             OllamaSetupSheet()
@@ -3156,7 +3157,8 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
 
                         HStack(spacing: 8) {
-                            TextField("FINDARO-XXXX-XXXX-XXXX-XXXX", text: $licenseInput)
+                            TextField("", text: $licenseInput, prompt: Text("FINDARO-XXXX-XXXX-XXXX-XXXX"))
+                                .labelsHidden()
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(.body, design: .monospaced))
 

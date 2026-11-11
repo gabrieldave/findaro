@@ -406,15 +406,12 @@ public final class LicenseStore: ObservableObject {
               payload.plan == "trial",
               let exp = payload.exp else { return }
 
-        // Inicio según el servidor; nos quedamos con el MÁS ANTIGUO entre local y servidor.
+        // El token F2 firmado es la fuente de verdad: exp del servidor → trialStart local.
+        // Así un reloj antiguo en Keychain/UserDefaults no deja la UI en “3 días” cuando
+        // el servidor ya corrigió expires_at a first_seen + TRIAL_DAYS.
         let serverStart = Date(timeIntervalSince1970: TimeInterval(exp)).addingTimeInterval(-Self.trialDuration)
-        var localStart: Date?
-        if let kcVal = keychain.get(Keys.trialStart), let ts = Double(kcVal) {
-            localStart = Date(timeIntervalSince1970: ts)
-        }
-        let effectiveStart = min(localStart ?? serverStart, serverStart)
-        keychain.set(String(effectiveStart.timeIntervalSince1970), for: Keys.trialStart)
-        defaults.set(effectiveStart, forKey: Keys.trialStart)
+        keychain.set(String(serverStart.timeIntervalSince1970), for: Keys.trialStart)
+        defaults.set(serverStart, forKey: Keys.trialStart)
         evaluateLocalState()
     }
 
