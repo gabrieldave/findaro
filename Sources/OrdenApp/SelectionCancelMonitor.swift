@@ -14,6 +14,12 @@ enum SelectionCancelMonitor {
     private static weak var browserRef: BrowserModel?
     private static weak var sessionRef: BrowserWindowSession?
 
+    /// Reengancha el monitor si SwiftUI lo quitó con onDisappear (pestañas / remount).
+    static func ensureInstalled() {
+        guard keyMonitor == nil, let browser = browserRef else { return }
+        install(browser: browser, session: sessionRef)
+    }
+
     static func install(browser: BrowserModel, session: BrowserWindowSession? = nil) {
         remove()
         browserRef = browser
@@ -397,8 +403,7 @@ enum SelectionCancelMonitor {
             NSEvent.removeMonitor(flagsMonitor)
             self.flagsMonitor = nil
         }
-        browserRef = nil
-        sessionRef = nil
+        // Conservar browserRef/sessionRef para ensureInstalled() tras remount SwiftUI.
     }
 
     private static func handleVoicePTTKeyDown(_ event: NSEvent, browser: BrowserModel) -> Bool {

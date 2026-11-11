@@ -4,18 +4,23 @@ import AVFoundation
 import SwiftUI
 import OrdenCore
 
-/// Vista previa de vídeo **dentro** de la ventana Findaro.
-/// Un NSWindow aparte quedaba off-screen en multi-monitor (LG + TYPEC);
-/// el overlay SwiftUI siempre queda delante. No usamos `VideoPlayer` de SwiftUI
-/// (abortaba al instanciar metadatos); envolvemos `AVPlayerView`.
+/// Vista previa de imagen/vídeo anclada a la ventana Findaro (NSPanel hijo).
+/// El overlay solo-SwiftUI se desmontaba al cambiar layout/monitor/carpeta y
+/// Espacio “no abría” aunque el estado dijera que sí.
 @MainActor
 final class MediaPreviewController: NSObject {
     static let shared = MediaPreviewController()
 
     private weak var browser: BrowserModel?
+    private var panel: NSPanel?
+    private var hosting: NSHostingView<AnyView>?
+    private var parentObservers: [NSObjectProtocol] = []
+    private weak var parentWindow: NSWindow?
 
-    var isVisible: Bool { browser?.mediaPreviewEntry != nil }
-    var isOnScreen: Bool { isVisible }
+    var isVisible: Bool {
+        guard let panel, panel.isVisible else { return false }
+        return browser?.mediaPreviewEntry != nil
+    }
 
     func bind(browser: BrowserModel) {
         self.browser = browser
@@ -25,19 +30,134 @@ final class MediaPreviewController: NSObject {
         guard let browser else { return }
         browser.mediaPreviewEpoch &+= 1
         browser.mediaPreviewEntry = entry
+        ensurePanel(browser: browser)
+        refreshHosting(browser: browser)
+        layoutPanel()
+        guard let panel else { return }
+        panel.orderFront(nil)
+        // Traer la ventana padre al frente para que el hijo se vea en el monitor actual.
+        parentWindow?.makeKeyAndOrderFront(nil)
     }
 
     func hide() {
         browser?.mediaPreviewEntry = nil
+        panel?.orderOut(nil)
     }
 
     func toggle(entry: FileEntry) {
-        if isVisible { hide() } else { show(entry: entry) }
+        if isVisible, browser?.mediaPreviewEntry?.id == entry.id {
+            hide()
+        } else {
+            show(entry: entry)
+        }
     }
 
-    /// Cierra overlay al cruzar monitores (AVPlayerView / capas se corrompen con el scale).
     func resetAfterDisplayChange() {
         hide()
+        // Recolocar si se vuelve a abrir; el panel hijo sigue al padre.
+        layoutPanel()
+    }
+
+    // MARK: - Panel AppKit
+
+    private func ensurePanel(browser: BrowserModel) {
+        if panel != nil {
+            attachToParentIfNeeded()
+            return
+        }
+
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 720, height: 520),
+            styleMask: [.borderless, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isFloatingPanel = true
+        panel.level = .floating
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.hidesOnDeactivate = false
+        panel.becomesKeyOnlyIfNeeded = true
+        panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+
+        let root = AnyView(
+            InlineMediaPreviewOverlay()
+                .environmentObject(browser)
+        )
+        let host = NSHostingView(rootView: root)
+        host.frame = panel.contentView?.bounds ?? .zero
+        host.autoresizingMask = [.width, .height]
+        panel.contentView = host
+
+        self.panel = panel
+        self.hosting = host
+        attachToParentIfNeeded()
+        observeParent()
+    }
+
+    private func refreshHosting(browser: BrowserModel) {
+        let root = AnyView(
+            InlineMediaPreviewOverlay()
+                .environmentObject(browser)
+        )
+        hosting?.rootView = root
+    }
+
+    private func attachToParentIfNeeded() {
+        guard let panel else { return }
+        let parent = FindaroWindowRegistry.registeredWindows.first(where: \.isKeyWindow)
+            ?? FindaroWindowRegistry.registeredWindows.first(where: { $0.isVisible && !$0.isMiniaturized })
+            ?? NSApp.keyWindow
+        guard let parent else { return }
+        if parentWindow !== parent {
+            parentWindow?.removeChildWindow(panel)
+            parent.addChildWindow(panel, ordered: .above)
+            parentWindow = parent
+        }
+    }
+
+    private func observeParent() {
+        for o in parentObservers {
+            NotificationCenter.default.removeObserver(o)
+        }
+        parentObservers.removeAll()
+        let names: [Notification.Name] = [
+            NSWindow.didMoveNotification,
+            NSWindow.didResizeNotification,
+            NSWindow.didChangeScreenNotification
+        ]
+        for name in names {
+            let token = NotificationCenter.default.addObserver(
+                forName: name,
+                object: nil,
+                queue: .main
+            ) { [weak self] note in
+                let win = note.object as? NSWindow
+                Task { @MainActor in
+                    guard let self, let win, win === self.parentWindow else { return }
+                    self.layoutPanel()
+                }
+            }
+            parentObservers.append(token)
+        }
+    }
+
+    private func layoutPanel() {
+        guard let panel else { return }
+        attachToParentIfNeeded()
+        guard let parent = parentWindow ?? panel.parent else { return }
+        // Cubrir el contentView del explorador (mismo monitor, siempre visible).
+        let screenFrame: NSRect
+        if let cv = parent.contentView {
+            let rectInWindow = cv.convert(cv.bounds, to: nil)
+            screenFrame = parent.convertToScreen(rectInWindow)
+        } else {
+            screenFrame = parent.frame
+        }
+        panel.setFrame(screenFrame, display: true)
     }
 }
 
@@ -70,7 +190,7 @@ private struct FindaroAVPlayerView: NSViewRepresentable {
     }
 }
 
-// MARK: - Overlay
+// MARK: - Overlay content (hosted in NSPanel)
 
 struct InlineMediaPreviewOverlay: View {
     @EnvironmentObject private var browser: BrowserModel
@@ -84,14 +204,17 @@ struct InlineMediaPreviewOverlay: View {
             if let entry = browser.mediaPreviewEntry {
                 overlay(for: entry)
                     .id("preview-\(entry.id)-\(browser.mediaPreviewEpoch)")
+            } else {
+                Color.clear
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
     private func overlay(for entry: FileEntry) -> some View {
         ZStack {
-            Color.black.opacity(0.78)
+            Color.black.opacity(0.82)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture { MediaPreviewController.shared.hide() }
@@ -142,6 +265,7 @@ struct InlineMediaPreviewOverlay: View {
             }
             .frame(maxWidth: 1040)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { attachPlayer(for: entry) }
         .onChange(of: entry.id) { _, _ in attachPlayer(for: entry) }
         .onDisappear { detachPlayer() }
@@ -230,7 +354,6 @@ struct InlineMediaPreviewOverlay: View {
         let url = URL(fileURLWithPath: entry.path)
         let asset = AVURLAsset(url: url)
         Task { @MainActor in
-            // Si el usuario ya cambió de archivo, no aplicar el resultado viejo.
             guard browser.mediaPreviewEntry?.id == entry.id else { return }
             do {
                 let ok = try await asset.load(.isPlayable)
@@ -274,7 +397,6 @@ struct InlineMediaPreviewOverlay: View {
         }
     }
 
-    /// Texto corto según códec (VP9, etc.) sin amarrar a una app concreta.
     private static func codecHint(for asset: AVURLAsset) async -> String {
         let fallback = L10n.s(
             "Este códec (p. ej. VP9 de Instagram/TikTok) no lo reproduce macOS aquí. Usa IINA, VLC u otro reproductor.",

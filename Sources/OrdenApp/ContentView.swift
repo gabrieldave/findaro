@@ -54,9 +54,8 @@ struct ContentView: View {
                 }
             }
 
-            InlineMediaPreviewOverlay()
-                // Remount al cruzar monitores: AVPlayerView / NSImage layers se corrompen.
-                .id("media-overlay-\(layoutGeneration)")
+            // Preview imagen/vídeo: NSPanel hijo (MediaPreviewController), no overlay
+            // SwiftUI aquí — se desmontaba al cambiar layout/carpeta/monitor.
         }
         .frame(
             minWidth: sidebarWidth + detailMinWidth + (browser.showAssistantPanel ? assistantWidth : 0),

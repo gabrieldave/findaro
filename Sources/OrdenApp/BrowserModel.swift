@@ -1255,7 +1255,7 @@ final class BrowserModel: ObservableObject {
 
     /// Cierra overlay/QL al cambiar de carpeta (si no, el siguiente Espacio solo “cierra”).
     func closeMediaPreviewIfNeeded() {
-        if mediaPreviewEntry != nil || QuickLookController.shared.isVisible {
+        if mediaPreviewEntry != nil || MediaPreviewController.shared.isVisible || QuickLookController.shared.isVisible {
             QuickLookController.shared.hide()
             mediaPreviewEntry = nil
         }
@@ -3979,6 +3979,7 @@ final class BrowserModel: ObservableObject {
         NSApp.keyWindow?.makeFirstResponder(nil)
         isAssistantFocused = false
         MediaPreviewController.shared.bind(browser: self)
+        SelectionCancelMonitor.ensureInstalled()
         QuickLookController.shared.toggle(browser: self, focusing: paths)
     }
 

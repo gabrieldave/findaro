@@ -35,10 +35,12 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
         hideAll()
     }
 
-    /// Espacio: cierra solo si ya estás viendo ESE archivo; si cambiaste
-    /// carpeta/selección/monitor, reemplaza (nunca “solo cierra” un estado mentiroso).
+    /// Espacio: cierra solo si el panel YA muestra ESE archivo; si no, abre/reemplaza.
     func toggle(browser: BrowserModel, focusing paths: [String]) {
         self.browser = browser
+        MediaPreviewController.shared.bind(browser: browser)
+        SelectionCancelMonitor.ensureInstalled()
+
         let focus = paths.first { path in
             !(path as NSString).pathExtension.isEmpty || FileManager.default.fileExists(atPath: path)
         } ?? paths.first
@@ -52,17 +54,16 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
         lastToggleAt = now
         lastToggleFocusPath = focus
 
-        // Sacar QL zombi SIEMPRE (no usar su “isVisible” para decidir cerrar).
         forceOrderOutQuickLook()
 
-        let showingPath = browser.mediaPreviewEntry?.path
-        if let showingPath, let focus, showingPath == focus {
+        // Solo cerrar si el panel AppKit está visible con ese archivo (no estado fantasma).
+        if MediaPreviewController.shared.isVisible,
+           let focus,
+           browser.mediaPreviewEntry?.path == focus {
             MediaPreviewController.shared.hide()
             return
         }
 
-        // Preview abierto de OTRO archivo (p. ej. carpeta anterior) → reemplazar.
-        // Preview cerrado → abrir.
         show(browser: browser, focusing: paths)
     }
 
@@ -70,7 +71,13 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
         self.browser = browser
         MediaPreviewController.shared.bind(browser: browser)
         rebuildEntries(focusing: paths)
-        guard !entries.isEmpty else { return }
+        guard !entries.isEmpty else {
+            browser.statusMessage = L10n.s(
+                "No hay archivo para Vista rápida",
+                "No file to Quick Look"
+            )
+            return
+        }
         presentCurrent()
         syncBrowserSelection()
     }
