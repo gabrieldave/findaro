@@ -28,39 +28,52 @@ public struct SystemKeychainStore: KeychainStoreProtocol {
         self.service = service
     }
 
+    /// Data Protection keychain: acceso por Team ID, no por CDHash del binario.
+    /// Evita el spam de «Permitir» tras cada update notarizado.
     public func get(_ key: String) -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
+        if let value = copyMatching(key, dataProtection: true) {
+            return value
+        }
+        // Ítems viejos (ACL por firma ad hoc / CDHash): leer una vez y migrar.
+        guard let legacy = copyMatching(key, dataProtection: false) else { return nil }
+        set(legacy, for: key)
+        return legacy
+    }
+
+    public func set(_ value: String, for key: String) {
+        guard let data = value.data(using: .utf8) else { return }
+        delete(key)
+        var query: [String: Any] = baseQuery(account: key, dataProtection: true)
+        query[kSecValueData as String] = data
+        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        SecItemAdd(query as CFDictionary, nil)
+    }
+
+    public func delete(_ key: String) {
+        SecItemDelete(baseQuery(account: key, dataProtection: true) as CFDictionary)
+        SecItemDelete(baseQuery(account: key, dataProtection: false) as CFDictionary)
+    }
+
+    private func copyMatching(_ key: String, dataProtection: Bool) -> String? {
+        var query = baseQuery(account: key, dataProtection: dataProtection)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         guard status == errSecSuccess, let data = item as? Data else { return nil }
         return String(data: data, encoding: .utf8)
     }
 
-    public func set(_ value: String, for key: String) {
-        guard let data = value.data(using: .utf8) else { return }
-        delete(key)
-        let query: [String: Any] = [
+    private func baseQuery(account: String, dataProtection: Bool) -> [String: Any] {
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
-            kSecValueData as String: data
+            kSecAttrAccount as String: account
         ]
-        SecItemAdd(query as CFDictionary, nil)
-    }
-
-    public func delete(_ key: String) {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key
-        ]
-        SecItemDelete(query as CFDictionary)
+        if dataProtection {
+            query[kSecUseDataProtectionKeychain as String] = true
+        }
+        return query
     }
 }
 
