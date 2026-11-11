@@ -65,10 +65,18 @@ struct OrdenDialogSection<Content: View>: View {
 
 struct OrdenDialogHintBox: View {
     struct Row: Identifiable {
-        let id = UUID()
+        /// Estable: un UUID por body re-render robaba el foco del TextField al tiptear.
+        let id: String
         let icon: String
         let tint: Color
         let text: String
+
+        init(icon: String, tint: Color, text: String) {
+            self.id = "\(icon)|\(text)"
+            self.icon = icon
+            self.tint = tint
+            self.text = text
+        }
     }
 
     let rows: [Row]

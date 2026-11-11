@@ -1781,6 +1781,8 @@ final class BrowserModel: ObservableObject {
     // MARK: - Ir a carpeta o archivo (⌘3)
 
     func promptGoToFolder() {
+        // Idempotente: si el menú + monitor disparan dos veces, no reiniciar el draft.
+        guard !showGoToFolderDialog else { return }
         goToFolderDraft = currentPath
         showGoToFolderDialog = true
     }
@@ -1881,6 +1883,8 @@ final class BrowserModel: ObservableObject {
 
     /// ⌘4 / botón Subcarpetas: si ya hay texto en el filtro, busca; si no, pide qué buscar.
     func promptDeepSearch() {
+        // Idempotente: evita que el doble disparo menú+monitor cierre/reinicie el sheet.
+        guard !showDeepSearchDialog else { return }
         let existing = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !existing.isEmpty {
             startDeepSearch(query: existing)
@@ -4231,6 +4235,8 @@ final class BrowserModel: ObservableObject {
 
     func promptNewFolder() {
         guard ensureLicenseAllowsWrite() else { return }
+        // Idempotente: un segundo disparo (menú+monitor / key-repeat) no borra lo tipado.
+        guard !showNewFolderDialog else { return }
         nameDraft = L10n.s("Carpeta sin título", "Untitled Folder")
         showNewFolderDialog = true
     }
@@ -4259,6 +4265,7 @@ final class BrowserModel: ObservableObject {
 
     func promptNewFile() {
         guard ensureLicenseAllowsWrite() else { return }
+        guard !showNewFileDialog else { return }
         nameDraft = L10n.s("Sin título.txt", "Untitled.txt")
         showNewFileDialog = true
     }
@@ -4291,6 +4298,7 @@ final class BrowserModel: ObservableObject {
 
     func promptRename() {
         guard ensureLicenseAllowsWrite() else { return }
+        guard !showRenameDialog else { return }
         guard let entry = activeSelectedEntries.first else {
             statusMessage = L10n.s("Selecciona un ítem para renombrar", "Select an item to rename")
             return

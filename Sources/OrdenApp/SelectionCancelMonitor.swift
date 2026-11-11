@@ -43,6 +43,16 @@ enum SelectionCancelMonitor {
                 return nil
             }
 
+            // Con sheet abierto: dejar tiptear / ⌘A ⌘C ⌘V ⌘X ⌘Z en el campo,
+            // pero CONSUMIR el resto de atajos. Si no, el CommandMenu SwiftUI
+            // vuelve a disparar ⌘3/⌘4/⇧⌘N y el diálogo se reinicia o parpadea.
+            if browser.hasModalSheet || NSApp.keyWindow?.attachedSheet != nil {
+                if Self.isModalTextEditingEvent(event) {
+                    return event
+                }
+                return nil
+            }
+
             if shouldIgnore(event, browser: browser) {
                 return event
             }
@@ -469,11 +479,44 @@ enum SelectionCancelMonitor {
         return false
     }
 
+    /// Tipado y atajos de edición de texto que deben llegar al TextField del sheet.
+    private static func isModalTextEditingEvent(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let cmd = flags.contains(.command)
+        let opt = flags.contains(.option)
+        let ctrl = flags.contains(.control)
+        let shift = flags.contains(.shift)
+        let key = event.keyCode
+
+        // Sin ⌘/⌃: letras, números, borrado, flechas, tab, etc.
+        if !cmd && !ctrl { return true }
+
+        // ⌘A / ⌘C / ⌘V / ⌘X / ⌘Z (sin ⌥/⇧/⌃) dentro del campo.
+        if cmd && !opt && !ctrl && !shift, [0, 8, 9, 7, 6].contains(key) {
+            return true
+        }
+        return false
+    }
+
     private static func shouldIgnore(_ event: NSEvent, browser: BrowserModel) -> Bool {
         if browser.pathOmniboxEditing { return true }
-        if isEditingText { return true }
-        if NSApp.keyWindow?.attachedSheet != nil { return true }
-        if browser.hasModalSheet { return true }
+        // Sheets ya se manejan arriba (consumir atajos de menú).
+        if isEditingText || browser.isAssistantFocused {
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            let cmd = flags.contains(.command)
+            let opt = flags.contains(.option)
+            let ctrl = flags.contains(.control)
+            let shift = flags.contains(.shift)
+            let key = event.keyCode
+            // Dejar pasar edición de texto al campo (⌘A/C/V/X/Z).
+            if cmd && !opt && !ctrl && !shift, [0, 8, 9, 7, 6].contains(key) {
+                return true
+            }
+            // Con ⌘/⌃, dejar que el monitor ejecute atajos (el menú SwiftUI
+            // a menudo no responde con el foco en search/chat).
+            if cmd || ctrl { return false }
+            return true
+        }
         return false
     }
 

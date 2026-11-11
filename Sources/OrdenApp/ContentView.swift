@@ -2338,22 +2338,27 @@ private struct BrowserDialogsModifier: ViewModifier {
             .sheet(isPresented: $browser.showNewFolderDialog) {
                 NamePromptSheet(kind: .newFolder)
                     .environmentObject(browser)
+                    .interactiveDismissDisabled()
             }
             .sheet(isPresented: $browser.showNewFileDialog) {
                 NamePromptSheet(kind: .newFile)
                     .environmentObject(browser)
+                    .interactiveDismissDisabled()
             }
             .sheet(isPresented: $browser.showRenameDialog) {
                 NamePromptSheet(kind: .rename)
                     .environmentObject(browser)
+                    .interactiveDismissDisabled()
             }
             .sheet(isPresented: $browser.showGoToFolderDialog) {
                 GoToFolderSheet()
                     .environmentObject(browser)
+                    .interactiveDismissDisabled()
             }
             .sheet(isPresented: $browser.showDeepSearchDialog) {
                 DeepSearchSheet()
                     .environmentObject(browser)
+                    .interactiveDismissDisabled()
             }
             .sheet(isPresented: $browser.showOllamaSetupDialog) {
                 OllamaSetupSheet()

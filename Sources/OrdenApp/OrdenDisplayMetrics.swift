@@ -131,6 +131,10 @@ enum OrdenWindowFit {
     @MainActor
     static func applyToOpenWindows() {
         for window in NSApp.windows where window.styleMask.contains(.titled) {
+            // No redimensionar sheets/diálogos: setFrame los cierra o desenfoca.
+            if window is NSPanel || window.isSheet || window.sheetParent != nil { continue }
+            let s = window.frame.size
+            if s.width < 720, s.height < 780 { continue }
             fit(window)
         }
     }

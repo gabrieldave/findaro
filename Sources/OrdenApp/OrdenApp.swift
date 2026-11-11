@@ -171,10 +171,9 @@ private struct FindaroCommands: Commands {
             }
             .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
             Divider()
+            // Atajos ⌘N / ⇧⌘N: solo SelectionCancelMonitor (evitar doble disparo menú+monitor).
             Button(L10n.s("Nuevo archivo", "New File")) { browser?.promptNewFile() }
-                .keyboardShortcut("n", modifiers: .command)
             Button(L10n.s("Nueva carpeta", "New Folder")) { browser?.promptNewFolder() }
-                .keyboardShortcut("n", modifiers: [.command, .shift])
         }
 
         CommandGroup(after: .pasteboard) {
@@ -199,8 +198,8 @@ private struct FindaroCommands: Commands {
         }
 
         CommandMenu(L10n.s("Buscar", "Search")) {
+            // Atajo ⌘4: solo SelectionCancelMonitor (evita sheet que parpadea / reinicia draft).
             Button(L10n.s("Buscar en subcarpetas…", "Search in Subfolders…")) { browser?.promptDeepSearch() }
-                .keyboardShortcut("4", modifiers: .command)
                 .disabled(browser == nil)
             Button(L10n.s("Orden normal / salir filtros (Esc)", "Normal View / Clear Filters (Esc)")) {
                 guard let browser else { return }
@@ -243,10 +242,10 @@ private struct FindaroCommands: Commands {
         }
 
         CommandMenu(L10n.s("Asistente", "Assistant")) {
+            // Atajos ⌘5 / ⌘6: solo SelectionCancelMonitor (toggle doble = se prende y apaga).
             Button((browser?.showAssistantPanel ?? false) ? L10n.s("Ocultar asistente", "Hide Assistant") : L10n.s("Mostrar asistente", "Show Assistant")) {
                 browser?.showAssistantPanel.toggle()
             }
-            .keyboardShortcut("5", modifiers: .command)
             .disabled(browser == nil)
             Button(L10n.s("Configurar Ollama…", "Configure Ollama…")) {
                 browser?.showAssistantPanel = true
@@ -256,7 +255,6 @@ private struct FindaroCommands: Commands {
             Button(L10n.s("Ir al asistente", "Focus Assistant")) {
                 browser?.showAssistantPanel = true
             }
-            .keyboardShortcut("6", modifiers: .command)
             .disabled(browser == nil)
             Button(L10n.s("Hablar (mantener ⌃Espacio)", "Talk (Hold ⌃Space)")) {
                 browser?.showAssistantPanel = true
@@ -280,8 +278,8 @@ private struct FindaroCommands: Commands {
             Button(L10n.s("Arriba", "Enclosing Folder")) { browser?.goUp() }
                 .keyboardShortcut(.upArrow, modifiers: .command)
                 .disabled(browser == nil)
+            // Atajo ⌘3: solo SelectionCancelMonitor (evita sheet que parpadea / reinicia draft).
             Button(L10n.s("Ir a carpeta…", "Go to Folder…")) { browser?.promptGoToFolder() }
-                .keyboardShortcut("3", modifiers: .command)
                 .disabled(browser == nil)
             Button(L10n.s("Editar ruta (omnibox)", "Edit Path (Omnibox)")) { browser?.beginPathOmnibox() }
                 .keyboardShortcut("e", modifiers: .command)

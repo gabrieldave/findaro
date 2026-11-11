@@ -124,10 +124,28 @@ enum FindaroWindowRegistry {
             if let keep, window === keep { continue }
             guard window.styleMask.contains(.titled) else { continue }
             if isSettingsWindow(window) { continue }
+            if isTransientDialogWindow(window) { continue }
             if sessionsByWindow[ObjectIdentifier(window)] != nil { continue }
             if window.identifier == browserWindowIdentifier { continue }
             window.orderOut(nil)
         }
+    }
+
+    /// Sheets / paneles SwiftUI a veces aparecen como NSWindow titulada sin sesión.
+    /// No son fantasmas del explorador: ocultarlos cierra «Nueva carpeta», ⌘3, ⌘4…
+    private static func isTransientDialogWindow(_ window: NSWindow) -> Bool {
+        if window is NSPanel { return true }
+        if window.isSheet { return true }
+        if window.attachedSheet != nil { return true }
+        for parent in registeredWindows {
+            if window.sheetParent === parent { return true }
+            if parent.attachedSheet === window { return true }
+        }
+        // Diálogos OrdenDialog (~440pt) y similares: nunca orderOut.
+        let w = window.frame.size.width
+        let h = window.frame.size.height
+        if w > 280, w < 720, h > 160, h < 780 { return true }
+        return false
     }
 
     static func isSettingsWindow(_ window: NSWindow) -> Bool {
