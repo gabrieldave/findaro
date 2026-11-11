@@ -114,10 +114,13 @@ enum SelectionCancelMonitor {
                 return nil
             }
 
-            // Con sheet abierto: dejar tiptear / ⌘A ⌘C ⌘V ⌘X ⌘Z en el campo,
-            // pero CONSUMIR el resto de atajos. Si no, el CommandMenu SwiftUI
-            // vuelve a disparar ⌘3/⌘4/⇧⌘N y el diálogo se reinicia o parpadea.
+            // Con sheet abierto: tiptear libre + ⌘A/C/V/X/Z al field editor.
+            // El menú reemplaza pasteboard por «bandeja», así que hay que reenviar
+            // explícitamente o ⌘C/V no pegan en «Ir a carpeta» / «Buscar…».
             if browser.hasModalSheet || NSApp.keyWindow?.attachedSheet != nil {
+                if Self.dispatchModalTextEditingShortcut(event) {
+                    return nil
+                }
                 if Self.isModalTextEditingEvent(event) {
                     return event
                 }
@@ -585,6 +588,29 @@ enum SelectionCancelMonitor {
             return true
         }
         return false
+    }
+
+    /// Reenvía ⌘A/C/V/X/Z al first responder (field editor del sheet).
+    @discardableResult
+    private static func dispatchModalTextEditingShortcut(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard flags.contains(.command),
+              !flags.contains(.option),
+              !flags.contains(.control),
+              !flags.contains(.shift),
+              !event.isARepeat
+        else { return false }
+
+        let selectorName: String
+        switch event.keyCode {
+        case 0: selectorName = "selectAll:"   // ⌘A
+        case 8: selectorName = "copy:"        // ⌘C
+        case 9: selectorName = "paste:"       // ⌘V
+        case 7: selectorName = "cut:"         // ⌘X
+        case 6: selectorName = "undo:"        // ⌘Z
+        default: return false
+        }
+        return NSApp.sendAction(Selector((selectorName)), to: nil, from: nil)
     }
 
     private static func shouldIgnore(_ event: NSEvent, browser: BrowserModel) -> Bool {

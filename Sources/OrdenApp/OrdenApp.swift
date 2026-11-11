@@ -68,6 +68,19 @@ private struct FindaroCommands: Commands {
     @MainActor
     private func session() -> BrowserWindowSession? { FindaroWindowRegistry.keySession }
 
+    /// Sheets / TextField / omnibox: ⌘C/V/X/A/Z deben ir al campo, no a la bandeja.
+    @MainActor
+    private func prefersStandardTextEditing() -> Bool {
+        if FindaroTextInput.isStrictTextFieldEditing { return true }
+        if let b = browser(), b.hasModalSheet || b.pathOmniboxEditing { return true }
+        return false
+    }
+
+    @MainActor
+    private func performStandardTextAction(_ name: String) {
+        NSApp.sendAction(Selector((name)), to: nil, from: nil)
+    }
+
     private var currentLanguage: AppLanguage {
         AppLanguage(rawValue: appLangStorage) ?? .english
     }
@@ -190,25 +203,56 @@ private struct FindaroCommands: Commands {
 
         // Reemplazar (no «after») para no dejar Cortar/Copiar/Pegar del sistema + Writing Tools
         // encima de la ventana (provoca parpadeo del menú traslúcido).
+        // Si hay sheet/TextField activo, reenviar al field editor (⌘C/V en «Ir a carpeta», etc.).
         CommandGroup(replacing: .undoRedo) {
-            Button(L10n.s("Deshacer", "Undo")) { browser()?.undoLastFileOp() }
-                .keyboardShortcut("z", modifiers: .command)
+            Button(L10n.s("Deshacer", "Undo")) {
+                if prefersStandardTextEditing() {
+                    performStandardTextAction("undo:")
+                } else {
+                    browser()?.undoLastFileOp()
+                }
+            }
+            .keyboardShortcut("z", modifiers: .command)
         }
         CommandGroup(replacing: .pasteboard) {
-            Button(L10n.s("Copiar a bandeja", "Copy to Tray")) { browser()?.addSelectionToShelf(intent: .copy) }
-                .keyboardShortcut("c", modifiers: .command)
-            Button(L10n.s("Cortar a bandeja", "Cut to Tray")) { browser()?.addSelectionToShelf(intent: .move) }
-                .keyboardShortcut("x", modifiers: .command)
-            Button(L10n.s("Soltar bandeja aquí", "Paste Tray Here")) { browser()?.pasteFromPasteboard() }
-                .keyboardShortcut("v", modifiers: .command)
+            Button(L10n.s("Copiar a bandeja", "Copy to Tray")) {
+                if prefersStandardTextEditing() {
+                    performStandardTextAction("copy:")
+                } else {
+                    browser()?.addSelectionToShelf(intent: .copy)
+                }
+            }
+            .keyboardShortcut("c", modifiers: .command)
+            Button(L10n.s("Cortar a bandeja", "Cut to Tray")) {
+                if prefersStandardTextEditing() {
+                    performStandardTextAction("cut:")
+                } else {
+                    browser()?.addSelectionToShelf(intent: .move)
+                }
+            }
+            .keyboardShortcut("x", modifiers: .command)
+            Button(L10n.s("Soltar bandeja aquí", "Paste Tray Here")) {
+                if prefersStandardTextEditing() {
+                    performStandardTextAction("paste:")
+                } else {
+                    browser()?.pasteFromPasteboard()
+                }
+            }
+            .keyboardShortcut("v", modifiers: .command)
             Button(L10n.s("Duplicar", "Duplicate")) { browser()?.duplicateSelection() }
                 .keyboardShortcut("d", modifiers: .command)
             Button(L10n.s("Copiar ruta", "Copy Path")) { browser()?.copySelectedPaths() }
                 .keyboardShortcut("c", modifiers: [.command, .option])
         }
         CommandGroup(replacing: .textEditing) {
-            Button(L10n.s("Seleccionar todos", "Select All")) { browser()?.selectAllVisible() }
-                .keyboardShortcut("a", modifiers: .command)
+            Button(L10n.s("Seleccionar todos", "Select All")) {
+                if prefersStandardTextEditing() {
+                    performStandardTextAction("selectAll:")
+                } else {
+                    browser()?.selectAllVisible()
+                }
+            }
+            .keyboardShortcut("a", modifiers: .command)
         }
 
         CommandMenu(L10n.s("Buscar", "Search")) {
