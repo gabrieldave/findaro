@@ -60,6 +60,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             queue: .main
         ) { _ in
             Task { @MainActor in
+                // Re-anclar exploradores/ayuda si un monitor se desconectó.
+                for window in FindaroWindowRegistry.registeredWindows {
+                    FindaroScreenPlacement.ensureOnScreen(window)
+                }
                 OrdenWindowFit.applyToOpenWindows()
             }
         }

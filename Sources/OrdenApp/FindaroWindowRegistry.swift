@@ -87,8 +87,10 @@ enum FindaroWindowRegistry {
         if window.isMiniaturized {
             window.deminiaturize(nil)
         }
-        window.makeKeyAndOrderFront(nil)
         window.collectionBehavior.insert(.moveToActiveSpace)
+        // Si el display donde estaba ya no existe, traerla al monitor activo.
+        FindaroScreenPlacement.ensureOnScreen(window)
+        window.makeKeyAndOrderFront(nil)
     }
 
     /// Restaura exploradores registrados; si no hay, pide una ventana nueva.

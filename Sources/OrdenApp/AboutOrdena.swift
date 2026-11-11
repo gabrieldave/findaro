@@ -33,17 +33,17 @@ enum AboutOrdena {
             switch status {
             case .upToDate:
                 alert.addButton(withTitle: L10n.s("Listo", "OK"))
-                _ = alert.runModal()
+                _ = FindaroAlert.runModal(alert)
             case .updateAvailable(let latest):
                 alert.addButton(withTitle: L10n.s("Instalar \(latest)", "Install \(latest)"))
                 alert.addButton(withTitle: L10n.s("Después", "Later"))
-                if alert.runModal() == .alertFirstButtonReturn {
+                if FindaroAlert.runModal(alert) == .alertFirstButtonReturn {
                     await AppUpdateChecker.shared.check(interactive: true)
                 }
             case .unreachable:
                 alert.addButton(withTitle: L10n.s("Reintentar", "Retry"))
                 alert.addButton(withTitle: L10n.s("Cerrar", "Close"))
-                if alert.runModal() == .alertFirstButtonReturn {
+                if FindaroAlert.runModal(alert) == .alertFirstButtonReturn {
                     await AppUpdateChecker.shared.check(interactive: true)
                 }
             }

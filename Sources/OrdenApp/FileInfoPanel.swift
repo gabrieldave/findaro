@@ -58,7 +58,7 @@ enum FileInfoPanel {
             ? L10n.s("Abrir carpeta en Finder", "Open folder in Finder")
             : L10n.s("Mostrar en Finder", "Show in Finder")
         alert.addButton(withTitle: finderTitle)
-        if alert.runModal() == .alertSecondButtonReturn {
+        if FindaroAlert.runModal(alert) == .alertSecondButtonReturn {
             if DefaultFileViewerManager.isEnabled {
                 let folderURL = url.hasDirectoryPath ? url : url.deletingLastPathComponent()
                 let finderURL = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")

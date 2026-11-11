@@ -8,7 +8,8 @@ public enum FindaroHelpWindow {
     private static var helpWindow: NSWindow?
 
     public static func show() {
-        if let existing = helpWindow, existing.isVisible {
+        if let existing = helpWindow {
+            FindaroScreenPlacement.ensureOnScreen(existing)
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
@@ -20,11 +21,13 @@ public enum FindaroHelpWindow {
             backing: .buffered,
             defer: false
         )
-        window.center()
         window.title = L10n.s("Ayuda de Findaro", "Findaro Help")
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: FindaroHelpView())
         window.minSize = NSSize(width: 500, height: 400)
+        window.collectionBehavior.insert(.moveToActiveSpace)
+        // No usar center(): en multi-monitor manda la ventana al display “main”.
+        FindaroScreenPlacement.centerOnPreferredScreen(window, size: NSSize(width: 620, height: 520))
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         helpWindow = window

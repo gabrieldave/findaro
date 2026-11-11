@@ -4122,7 +4122,7 @@ final class BrowserModel: ObservableObject {
             alert.alertStyle = .critical
             alert.addButton(withTitle: L10n.s("Eliminar para siempre", "Delete Permanently"))
             alert.addButton(withTitle: L10n.s("Cancelar", "Cancel"))
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            guard FindaroAlert.runModal(alert) == .alertFirstButtonReturn else { return }
         }
         let paths = targets.map(\.path)
         clearActiveSelection()
@@ -4162,7 +4162,7 @@ final class BrowserModel: ObservableObject {
             alert.alertStyle = .critical
             alert.addButton(withTitle: L10n.s("Vaciar Papelera", "Empty Trash"))
             alert.addButton(withTitle: L10n.s("Cancelar", "Cancel"))
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            guard FindaroAlert.runModal(alert) == .alertFirstButtonReturn else { return }
         }
         // Asegura que estamos en la ruta canónica.
         if !isViewingTrash {
@@ -4216,7 +4216,7 @@ final class BrowserModel: ObservableObject {
         alert.addButton(withTitle: L10n.s("Abrir Automatización", "Open Automation"))
         alert.addButton(withTitle: L10n.s("Abrir Acceso completo al disco", "Open Full Disk Access"))
         alert.addButton(withTitle: L10n.s("Cancelar", "Cancel"))
-        switch alert.runModal() {
+        switch FindaroAlert.runModal(alert) {
         case .alertFirstButtonReturn:
             openAutomationSettings()
         case .alertSecondButtonReturn:

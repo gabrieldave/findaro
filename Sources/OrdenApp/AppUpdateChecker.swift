@@ -243,7 +243,7 @@ final class AppUpdateChecker: ObservableObject {
             alert.addButton(withTitle: L10n.s("Instalar ahora", "Install Now"))
             alert.addButton(withTitle: L10n.s("Después", "Later"))
             alert.addButton(withTitle: L10n.s("Ahora no", "Not Now"))
-            let result = alert.runModal()
+            let result = FindaroAlert.runModal(alert)
             switch result {
             case .alertFirstButtonReturn: cont.resume(returning: .install)
             case .alertSecondButtonReturn: cont.resume(returning: .later)
@@ -260,7 +260,7 @@ final class AppUpdateChecker: ObservableObject {
             alert.informativeText = message
             alert.alertStyle = .informational
             alert.addButton(withTitle: L10n.s("Listo", "OK"))
-            alert.runModal()
+            FindaroAlert.runModal(alert)
             cont.resume()
         }
     }
@@ -420,7 +420,7 @@ final class AppUpdateChecker: ObservableObject {
             )
             alert.addButton(withTitle: L10n.s("Abrir en el navegador", "Open in Browser"))
             alert.addButton(withTitle: L10n.s("Cerrar", "Close"))
-            if alert.runModal() == .alertFirstButtonReturn {
+            if FindaroAlert.runModal(alert) == .alertFirstButtonReturn {
                 NSWorkspace.shared.open(release.notesURL)
             }
         }

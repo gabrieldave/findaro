@@ -33,7 +33,11 @@ final class ThumbnailStore {
     }
 
     func thumbnail(for path: String, pointSize: CGFloat) async -> NSImage? {
-        let pixel = max(24, Int(pointSize * (NSScreen.main?.backingScaleFactor ?? 2) * 1.5))
+        // Max Retina de todos los displays (evita thumbs borrosos en monitor externo).
+        let scale = NSScreen.screens.map(\.backingScaleFactor).max()
+            ?? NSScreen.main?.backingScaleFactor
+            ?? 2
+        let pixel = max(24, Int(pointSize * scale * 1.5))
         guard FileManager.default.fileExists(atPath: path) else { return nil }
         let attrs = (try? FileManager.default.attributesOfItem(atPath: path)) ?? [:]
         let sizeStamp = (attrs[.size] as? NSNumber)?.int64Value ?? 0

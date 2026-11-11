@@ -45,7 +45,10 @@ struct OrdenDisplayMetrics: Equatable {
 
     @MainActor
     static func resolve(windowSize: CGSize, screen: NSScreen? = nil) -> OrdenDisplayMetrics {
-        let resolvedScreen = screen ?? NSApp.keyWindow?.screen ?? NSScreen.main
+        let resolvedScreen = screen
+            ?? FindaroScreenPlacement.preferredScreen()
+            ?? NSApp.keyWindow?.screen
+            ?? NSScreen.main
         let visible = resolvedScreen?.visibleFrame.size ?? CGSize(width: 1440, height: 900)
         let winW = windowSize.width > 1 ? windowSize.width : min(1280, visible.width * 0.94)
         _ = windowSize.height > 1 ? windowSize.height : min(820, visible.height * 0.92)
@@ -127,7 +130,8 @@ struct OrdenDisplayMetrics: Equatable {
     /// Tamaño de ventana inicial razonable (captura / uso diario).
     @MainActor
     static func preferredWindowSize(on screen: NSScreen? = nil) -> CGSize {
-        let visible = (screen ?? NSScreen.main)?.visibleFrame.size ?? CGSize(width: 1440, height: 900)
+        let visible = (screen ?? FindaroScreenPlacement.preferredScreen() ?? NSScreen.main)?
+            .visibleFrame.size ?? CGSize(width: 1440, height: 900)
         let ideal = CGSize(width: 1280, height: 800)
         let maxW = visible.width * 0.96
         let maxH = visible.height * 0.94
@@ -170,27 +174,21 @@ enum OrdenWindowFit {
 
     @MainActor
     static func fit(_ window: NSWindow) {
-        guard let screen = window.screen ?? NSScreen.main else { return }
+        // Monitor desconectado / frame fuera de todo visibleFrame → re-centrar.
+        if !FindaroScreenPlacement.intersectsAnyScreen(window.frame) || window.screen == nil {
+            FindaroScreenPlacement.ensureOnScreen(window)
+        }
+        guard let screen = window.screen ?? FindaroScreenPlacement.preferredScreen() ?? NSScreen.main else {
+            return
+        }
         let visible = screen.visibleFrame
-        var frame = window.frame
+        var frame = FindaroScreenPlacement.clamp(window.frame, to: visible)
 
         let maxW = visible.width * 0.96
         let maxH = visible.height * 0.94
         if frame.width > maxW { frame.size.width = maxW }
         if frame.height > maxH { frame.size.height = maxH }
-
-        if frame.maxX > visible.maxX {
-            frame.origin.x = visible.maxX - frame.width
-        }
-        if frame.minX < visible.minX {
-            frame.origin.x = visible.minX
-        }
-        if frame.maxY > visible.maxY {
-            frame.origin.y = visible.maxY - frame.height
-        }
-        if frame.minY < visible.minY {
-            frame.origin.y = visible.minY
-        }
+        frame = FindaroScreenPlacement.clamp(frame, to: visible)
 
         let metrics = OrdenDisplayMetrics.resolve(
             windowSize: frame.size,

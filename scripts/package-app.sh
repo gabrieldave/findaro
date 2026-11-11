@@ -9,8 +9,8 @@ PRODUCT_NAME="Findaro"
 # Bundle ID propio: si se reutiliza app.ordena.files, Dock/Launch Services
 # confunden Findaro con Ordena.app (mismo ID = misma app para macOS).
 BUNDLE_ID="app.findaro.files"
-VERSION="0.1.155"
-BUILD="147"
+VERSION="0.1.156"
+BUILD="148"
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
 swift build -c release --product Orden

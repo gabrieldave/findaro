@@ -115,14 +115,7 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
     }
 
     private static func isQuickLookOnScreen(_ panel: QLPreviewPanel) -> Bool {
-        guard panel.isVisible else { return false }
-        if panel.occlusionState.contains(.visible) { return true }
-        let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
-        guard let info = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else {
-            return false
-        }
-        let wid = panel.windowNumber
-        return info.contains { ($0[kCGWindowNumber as String] as? Int) == wid }
+        FindaroScreenPlacement.isWindowOnScreen(panel)
     }
 
     private func rebuildEntries(focusing paths: [String]) {
