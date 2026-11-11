@@ -85,10 +85,7 @@ private struct FindaroCommands: Commands {
         for session in FindaroWindowRegistry.allSessions {
             session.activeBrowser.setAppLanguage(lang)
         }
-        // Un solo reapply cuando el menú ya cerró (no mutar NSMenu en tracking).
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            AppMenuLocalizer.applyLocalization()
-        }
+        AppMenuLocalizer.requestLocalization()
     }
 
     private func languageMenuItem(_ lang: AppLanguage, title: String) -> some View {

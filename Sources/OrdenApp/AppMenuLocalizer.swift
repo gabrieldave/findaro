@@ -3,17 +3,68 @@ import OrdenCore
 
 @MainActor
 public enum AppMenuLocalizer {
+    private static var pending = false
+    private static var endTrackingObserver: NSObjectProtocol?
+    private static var installed = false
+
+    /// Pedir localización: si el menú está abierto, espera a que cierre (evita flicker
+    /// y asegura que Archivo/Edición/Ajustes pasen a File/Edit/Settings al elegir English).
+    public static func requestLocalization() {
+        installEndTrackingObserverIfNeeded()
+        if MenuTrackingGate.isMenuOpen || RunLoop.current.currentMode == .eventTracking {
+            pending = true
+            // Reintentos por si SwiftUI regenera el menú después del cierre.
+            for delay in [0.15, 0.4, 0.9, 1.6] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    applyLocalization()
+                }
+            }
+            return
+        }
+        applyLocalization()
+        for delay in [0.2, 0.6, 1.2] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                applyLocalization()
+            }
+        }
+    }
+
     public static func applyLocalization() {
         // Mutar títulos mientras el menú está en tracking (abierto sobre la ventana)
         // provoca el parpadeo / tildado que reportan los usuarios.
-        if RunLoop.current.currentMode == .eventTracking {
+        if MenuTrackingGate.isMenuOpen || RunLoop.current.currentMode == .eventTracking {
+            pending = true
             return
         }
+        pending = false
         guard let mainMenu = NSApp.mainMenu else { return }
         let isEN = L10n.isEnglish
         localizeMenu(mainMenu, isEnglish: isEN)
+        // Títulos del menú barra (a veces solo viven en el NSMenuItem, no en submenu.title).
+        for item in mainMenu.items {
+            if let target = translation(for: item.title, isEnglish: isEN) {
+                item.title = target
+                item.attributedTitle = nil
+            }
+        }
         mainMenu.update()
         EditMenuCleaner.strip(from: mainMenu)
+    }
+
+    private static func installEndTrackingObserverIfNeeded() {
+        guard !installed else { return }
+        installed = true
+        endTrackingObserver = NotificationCenter.default.addObserver(
+            forName: NSMenu.didEndTrackingNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            DispatchQueue.main.async {
+                if pending {
+                    applyLocalization()
+                }
+            }
+        }
     }
 
     private static func localizeMenu(_ menu: NSMenu, isEnglish: Bool) {
@@ -66,6 +117,12 @@ public enum AppMenuLocalizer {
             case "Idioma: Automático (Sistema)": return "Language: Automatic (System)"
             case "Idioma: Español": return "Language: Español"
             case "Idioma: English": return "Language: English"
+            case "✓ Idioma: Automático (Sistema)": return "✓ Language: Automatic (System)"
+            case "✓ Idioma: Español": return "✓ Language: Español"
+            case "✓ Idioma: English": return "✓ Language: English"
+            case "    Idioma: Automático (Sistema)": return "    Language: Automatic (System)"
+            case "    Idioma: Español": return "    Language: Español"
+            case "    Idioma: English": return "    Language: English"
 
             // Ventana / Pestañas
             case "Cerrar ventana": return "Close Window"
@@ -198,6 +255,12 @@ public enum AppMenuLocalizer {
             case "Language: Automatic (System)": return "Idioma: Automático (Sistema)"
             case "Language: Español": return "Idioma: Español"
             case "Language: English": return "Idioma: English"
+            case "✓ Language: Automatic (System)": return "✓ Idioma: Automático (Sistema)"
+            case "✓ Language: Español": return "✓ Idioma: Español"
+            case "✓ Language: English": return "✓ Idioma: English"
+            case "    Language: Automatic (System)": return "    Idioma: Automático (Sistema)"
+            case "    Language: Español": return "    Idioma: Español"
+            case "    Language: English": return "    Idioma: English"
 
             // Ventana / Pestañas
             case "Close Window": return "Cerrar ventana"
