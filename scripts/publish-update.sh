@@ -128,6 +128,7 @@ scp "$FINDARO_DMG" "${HOST}:${REMOTE_DIR}/downloads/${PRODUCT_NAME}-latest.dmg"
 scp "$FINDARO_DMG" "${HOST}:${REMOTE_DIR}/downloads/${PRODUCT_NAME}-current.dmg"
 scp "$LEGACY_DMG" "${HOST}:${REMOTE_DIR}/downloads/${LEGACY_DMG_NAME}"
 scp "$LEGACY_DMG" "${HOST}:${REMOTE_DIR}/downloads/${LEGACY_NAME}-latest.dmg"
+scp "$LEGACY_DMG" "${HOST}:${REMOTE_DIR}/downloads/${LEGACY_NAME}-current.dmg"
 scp "$LOCAL_FEED" "${HOST}:${REMOTE_DIR}/downloads/latest.json"
 scp "$LOCAL_SIG" "${HOST}:${REMOTE_DIR}/downloads/latest.json.sig"
 
@@ -175,7 +176,8 @@ CF_PURGE_RESP="$(curl -4 -sS -X POST "https://api.cloudflare.com/client/v4/zones
       \"${PUBLIC_BASE}/downloads/${PRODUCT_NAME}-latest.dmg\",
       \"${PUBLIC_BASE}/downloads/${PRODUCT_NAME}-current.dmg\",
       \"${PUBLIC_BASE}/downloads/${LEGACY_DMG_NAME}\",
-      \"${PUBLIC_BASE}/downloads/${LEGACY_NAME}-latest.dmg\"
+      \"${PUBLIC_BASE}/downloads/${LEGACY_NAME}-latest.dmg\",
+      \"${PUBLIC_BASE}/downloads/${LEGACY_NAME}-current.dmg\"
     ]
   }")"
 if ! printf '%s' "$CF_PURGE_RESP" | grep -q '"success":true'; then
