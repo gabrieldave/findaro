@@ -550,6 +550,20 @@ public final class LicenseStore: ObservableObject {
         evaluateLocalState()
     }
 
+    /// Limpieza local agresiva para desinstalación (licencia + trial + flags).
+    /// No llama al servidor; usar después de `deactivate()` cuando aplique.
+    public func wipeLocalDataForUninstall() {
+        let allKeys = [
+            Keys.licenseKey, Keys.signedToken, Keys.trialStart, Keys.trialLastSeen,
+            Keys.tier, Keys.seats, Keys.activeCount, Keys.revoked, Keys.lastVerifiedAt
+        ]
+        for key in allKeys {
+            defaults.removeObject(forKey: key)
+            keychain.delete(key)
+        }
+        evaluateLocalState()
+    }
+
     public func checkServerStatus() async {
         guard let key = defaults.string(forKey: Keys.licenseKey) ?? keychain.get(Keys.licenseKey) else { return }
         let machineId = HardwareID.current()

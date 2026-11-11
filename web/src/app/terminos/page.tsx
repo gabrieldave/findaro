@@ -91,7 +91,16 @@ export default async function TerminosPage({ searchParams }: PageProps) {
               Customers receive a unique referral link upon purchase. Every valid referred order grants the friend an instant discount at checkout. Self-referrals and abusive use are prohibited.
             </p>
 
-            <h2 style={{ fontSize: "16px", color: "#fff", marginTop: "16px" }}>5. Contact</h2>
+            <h2 style={{ fontSize: "16px", color: "#fff", marginTop: "16px" }}>5. Uninstall</h2>
+            <p>
+              To remove Findaro from a Mac, open the app and choose <strong>Findaro → Uninstall Findaro…</strong>.
+              The uninstaller frees this Mac&apos;s license seat, removes local license/trial data from the Keychain,
+              restores Finder if Findaro was set as the default file viewer, and moves the app to the Trash.
+              Your personal files are never deleted. Your purchase key remains valid on another Mac.
+              To free a seat without removing the app, use <strong>Settings → Deactivate this Mac</strong>.
+            </p>
+
+            <h2 style={{ fontSize: "16px", color: "#fff", marginTop: "16px" }}>6. Contact</h2>
             <p>
               For legal inquiries, billing, or technical support, reach us at:{" "}
               <a href="mailto:support@findaro.iareal.net" style={{ color: "#38bdf8" }}>
@@ -128,7 +137,16 @@ export default async function TerminosPage({ searchParams }: PageProps) {
               Los compradores reciben un enlace de recomendación único. Por cada venta válida referida, el comprador recomendado recibe un descuento directo aplicable al momento del checkout. El uso fraudulento o auto-referido se encuentra prohibido.
             </p>
 
-            <h2 style={{ fontSize: "16px", color: "#fff", marginTop: "16px" }}>5. Contacto</h2>
+            <h2 style={{ fontSize: "16px", color: "#fff", marginTop: "16px" }}>5. Desinstalación</h2>
+            <p>
+              Para quitar Findaro de una Mac, abre la app y elige <strong>Findaro → Desinstalar Findaro…</strong>.
+              El desinstalador libera el asiento de esta Mac, borra datos locales de licencia/prueba del Llavero,
+              restaura Finder si Findaro era el explorador por defecto y mueve la app a la Papelera.
+              Tus archivos personales no se borran. La clave de compra sigue válida en otra Mac.
+              Si solo quieres liberar un asiento sin desinstalar: <strong>Ajustes → Desactivar esta Mac</strong>.
+            </p>
+
+            <h2 style={{ fontSize: "16px", color: "#fff", marginTop: "16px" }}>6. Contacto</h2>
             <p>
               Para consultas legales, facturación o soporte técnico, contáctanos en:{" "}
               <a href="mailto:soporte@findaro.iareal.net" style={{ color: "#38bdf8" }}>

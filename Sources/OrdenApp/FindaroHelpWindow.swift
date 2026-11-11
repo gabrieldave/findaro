@@ -41,6 +41,7 @@ public struct FindaroHelpView: View {
         case search = "Búsqueda y Filtros"
         case hotkeys = "Atajos de Teclado"
         case assistant = "Asistente IA y Ollama"
+        case uninstall = "Desinstalar"
 
         var id: String { rawValue }
 
@@ -52,6 +53,7 @@ public struct FindaroHelpView: View {
             case .search: return L10n.s("Búsqueda y Filtros", "Search & Filters")
             case .hotkeys: return L10n.s("Atajos de Teclado", "Keyboard Shortcuts")
             case .assistant: return L10n.s("Asistente IA y Ollama", "AI Assistant & Ollama")
+            case .uninstall: return L10n.s("Desinstalar", "Uninstall")
             }
         }
 
@@ -63,6 +65,7 @@ public struct FindaroHelpView: View {
             case .search: return "magnifyingglass"
             case .hotkeys: return "command"
             case .assistant: return "sparkles"
+            case .uninstall: return "trash"
             }
         }
     }
@@ -161,6 +164,19 @@ public struct FindaroHelpView: View {
                 bullet(L10n.s("Consultas de espacio: Pregunta qué carpetas ocupan más espacio en tu disco.", "Disk space queries: Ask what takes the most space in your active directory."))
                 bullet(L10n.s("Soporte Ollama local: Conecta tu modelo Ollama local (ej. qwen3.5) para lenguaje natural.", "Local Ollama support: Connect local model (e.g. qwen3.5) for natural language."))
                 bullet(L10n.s("Privacidad absoluta: Tus consultas y datos no salen nunca de tu ordenador.", "Absolute privacy: Your queries and files never leave your computer."))
+            }
+
+        case .uninstall:
+            helpSectionHeader(title: L10n.s("Cómo desinstalar Findaro", "How to uninstall Findaro"), icon: "trash")
+            Text(L10n.s(
+                "No borres solo el ícono: usa el desinstalador de la app para liberar el asiento y limpiar el Llavero.",
+                "Don’t just delete the icon: use the in-app uninstaller to free your seat and clear the Keychain."
+            ))
+            helpCard {
+                bullet(L10n.s("Menú Findaro → Desinstalar Findaro…", "Findaro menu → Uninstall Findaro…"))
+                bullet(L10n.s("Confirma el diálogo. Se libera esta Mac en tu licencia, se borran datos locales y la app va a la Papelera.", "Confirm the dialog. This Mac is freed on your license, local data is cleared, and the app goes to Trash."))
+                bullet(L10n.s("Tus documentos no se borran. La clave de compra sigue válida en otra Mac.", "Your documents are not deleted. Your purchase key stays valid on another Mac."))
+                bullet(L10n.s("Solo quieres cambiar de Mac: Ajustes → Desactivar esta Mac (sin desinstalar).", "Only moving Macs: Settings → Deactivate this Mac (without uninstalling)."))
             }
         }
     }

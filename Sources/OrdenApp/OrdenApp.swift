@@ -126,7 +126,7 @@ private struct FindaroCommands: Commands {
                 }
             }
             Button(L10n.s("Desinstalar Findaro…", "Uninstall Findaro…")) {
-                DefaultFileViewerManager.uninstallApp()
+                FindaroUninstaller.confirmAndUninstall()
             }
         }
 

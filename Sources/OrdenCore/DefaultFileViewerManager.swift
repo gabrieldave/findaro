@@ -99,11 +99,10 @@ public final class DefaultFileViewerManager: NSObject, ObservableObject {
         return nil
     }
 
+    /// Compat: redirige al desinstalador completo (asiento + llavero + preferencias + Papelera).
+    @MainActor
     public static func uninstallApp() {
-        _ = disable()
-        if let appURL = installedAppURL() {
-            try? FileManager.default.trashItem(at: appURL, resultingItemURL: nil)
-        }
+        FindaroUninstaller.confirmAndUninstall()
     }
 
     /// Registra el manejador de Apple Events en applicationWillFinishLaunching
