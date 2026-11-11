@@ -1,51 +1,57 @@
 import AppKit
 import AVKit
 import AVFoundation
-import SwiftUI
 import OrdenCore
 
-/// Vista previa de imagen/vídeo anclada a la ventana Findaro (NSPanel hijo).
-/// El overlay solo-SwiftUI se desmontaba al cambiar layout/monitor/carpeta y
-/// Espacio “no abría” aunque el estado dijera que sí.
+/// Preview fiable: NSPanel + AppKit puro (sin SwiftUI hosting).
+/// Imagen → NSImageView · Vídeo → AVPlayerView · Esc/clic fondo/✕ cierra.
 @MainActor
 final class MediaPreviewController: NSObject {
     static let shared = MediaPreviewController()
 
     private weak var browser: BrowserModel?
     private var panel: NSPanel?
-    private var hosting: NSHostingView<AnyView>?
+    private var rootView: PreviewRootView?
     private var parentObservers: [NSObjectProtocol] = []
     private weak var parentWindow: NSWindow?
+    private var currentEntry: FileEntry?
+    private var player: AVPlayer?
 
     var isVisible: Bool {
-        guard let panel, panel.isVisible else { return false }
-        return browser?.mediaPreviewEntry != nil
+        guard let panel else { return false }
+        return panel.isVisible && currentEntry != nil
     }
+
+    var currentPath: String? { currentEntry?.path }
 
     func bind(browser: BrowserModel) {
         self.browser = browser
     }
 
+    /// Abrir siempre (botón ojito / Vista rápida). No toggle.
     func show(entry: FileEntry) {
-        guard let browser else { return }
-        browser.mediaPreviewEpoch &+= 1
-        browser.mediaPreviewEntry = entry
-        ensurePanel(browser: browser)
-        refreshHosting(browser: browser)
+        if let browser {
+            browser.mediaPreviewEpoch &+= 1
+            browser.mediaPreviewEntry = entry
+        }
+        currentEntry = entry
+        ensurePanel()
+        rootView?.display(entry: entry, controller: self)
         layoutPanel()
-        guard let panel else { return }
-        panel.orderFront(nil)
-        // Traer la ventana padre al frente para que el hijo se vea en el monitor actual.
+        panel?.orderFront(nil)
         parentWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func hide() {
+        tearDownPlayer()
+        currentEntry = nil
         browser?.mediaPreviewEntry = nil
         panel?.orderOut(nil)
     }
 
     func toggle(entry: FileEntry) {
-        if isVisible, browser?.mediaPreviewEntry?.id == entry.id {
+        if isVisible, currentEntry?.id == entry.id {
             hide()
         } else {
             show(entry: entry)
@@ -54,20 +60,46 @@ final class MediaPreviewController: NSObject {
 
     func resetAfterDisplayChange() {
         hide()
-        // Recolocar si se vuelve a abrir; el panel hijo sigue al padre.
         layoutPanel()
     }
 
-    // MARK: - Panel AppKit
+    func navigate(delta: Int) {
+        QuickLookController.shared.navigate(delta: delta)
+    }
 
-    private func ensurePanel(browser: BrowserModel) {
+    func openWithDefaultApp() {
+        guard let path = currentEntry?.path else { return }
+        if NSWorkspace.shared.open(URL(fileURLWithPath: path)) {
+            hide()
+        }
+    }
+
+    // MARK: - Player (vídeo)
+
+    func attachVideo(url: URL) {
+        tearDownPlayer()
+        let p = AVPlayer(url: url)
+        player = p
+        rootView?.setVideoPlayer(p)
+        p.play()
+    }
+
+    func tearDownPlayer() {
+        player?.pause()
+        player = nil
+        rootView?.setVideoPlayer(nil)
+    }
+
+    // MARK: - Panel
+
+    private func ensurePanel() {
         if panel != nil {
             attachToParentIfNeeded()
             return
         }
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 720, height: 520),
+            contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
             styleMask: [.borderless, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -78,32 +110,23 @@ final class MediaPreviewController: NSObject {
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.hidesOnDeactivate = false
-        panel.becomesKeyOnlyIfNeeded = true
+        panel.becomesKeyOnlyIfNeeded = false
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
 
-        let root = AnyView(
-            InlineMediaPreviewOverlay()
-                .environmentObject(browser)
-        )
-        let host = NSHostingView(rootView: root)
-        host.frame = panel.contentView?.bounds ?? .zero
-        host.autoresizingMask = [.width, .height]
-        panel.contentView = host
+        let root = PreviewRootView(frame: panel.contentView?.bounds ?? .zero)
+        root.autoresizingMask = [.width, .height]
+        root.onClose = { [weak self] in self?.hide() }
+        root.onPrev = { [weak self] in self?.navigate(delta: -1) }
+        root.onNext = { [weak self] in self?.navigate(delta: 1) }
+        root.onOpenExternal = { [weak self] in self?.openWithDefaultApp() }
+        panel.contentView = root
 
         self.panel = panel
-        self.hosting = host
+        self.rootView = root
         attachToParentIfNeeded()
         observeParent()
-    }
-
-    private func refreshHosting(browser: BrowserModel) {
-        let root = AnyView(
-            InlineMediaPreviewOverlay()
-                .environmentObject(browser)
-        )
-        hosting?.rootView = root
     }
 
     private func attachToParentIfNeeded() {
@@ -149,7 +172,6 @@ final class MediaPreviewController: NSObject {
         guard let panel else { return }
         attachToParentIfNeeded()
         guard let parent = parentWindow ?? panel.parent else { return }
-        // Cubrir el contentView del explorador (mismo monitor, siempre visible).
         let screenFrame: NSRect
         if let cv = parent.contentView {
             let rectInWindow = cv.convert(cv.bounds, to: nil)
@@ -161,277 +183,248 @@ final class MediaPreviewController: NSObject {
     }
 }
 
-// MARK: - AVPlayerView bridge (estable; evita crash de SwiftUI.VideoPlayer)
+// MARK: - AppKit root view
 
-private struct FindaroAVPlayerView: NSViewRepresentable {
-    let player: AVPlayer
+private final class PreviewRootView: NSView {
+    var onClose: (() -> Void)?
+    var onPrev: (() -> Void)?
+    var onNext: (() -> Void)?
+    var onOpenExternal: (() -> Void)?
 
-    func makeNSView(context: Context) -> AVPlayerView {
-        let view = AVPlayerView()
-        view.controlsStyle = .inline
-        view.videoGravity = .resizeAspect
-        view.allowsPictureInPicturePlayback = false
-        view.player = player
-        view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor.black.cgColor
-        return view
+    private let dimView = NSView()
+    private let chrome = NSView()
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let prevButton = NSButton()
+    private let nextButton = NSButton()
+    private let closeButton = NSButton()
+    private let imageView = NSImageView()
+    private let playerView = AVPlayerView()
+    private let messageLabel = NSTextField(wrappingLabelWithString: "")
+    private let openButton = NSButton(title: "", target: nil, action: nil)
+    private let mediaBox = NSView()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        setup()
     }
 
-    func updateNSView(_ nsView: AVPlayerView, context: Context) {
-        if nsView.player !== player {
-            nsView.player = player
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setup() {
+        dimView.wantsLayer = true
+        dimView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.82).cgColor
+        addSubview(dimView)
+
+        chrome.wantsLayer = true
+        addSubview(chrome)
+
+        titleLabel.textColor = .white
+        titleLabel.font = .systemFont(ofSize: 14, weight: .semibold)
+        titleLabel.lineBreakMode = .byTruncatingMiddle
+        chrome.addSubview(titleLabel)
+
+        configureIconButton(prevButton, symbol: "chevron.left.circle.fill") {
+            [weak self] in self?.onPrev?()
         }
-        nsView.videoGravity = .resizeAspect
-    }
-
-    static func dismantleNSView(_ nsView: AVPlayerView, coordinator: ()) {
-        nsView.player?.pause()
-        nsView.player = nil
-    }
-}
-
-// MARK: - Overlay content (hosted in NSPanel)
-
-struct InlineMediaPreviewOverlay: View {
-    @EnvironmentObject private var browser: BrowserModel
-    @State private var player: AVPlayer?
-    /// nil = cargando · true = AVPlayer OK · false = códec no soportado (p. ej. VP9)
-    @State private var playable: Bool?
-    @State private var unsupportedHint: String = ""
-
-    var body: some View {
-        Group {
-            if let entry = browser.mediaPreviewEntry {
-                overlay(for: entry)
-                    .id("preview-\(entry.id)-\(browser.mediaPreviewEpoch)")
-            } else {
-                Color.clear
-            }
+        configureIconButton(nextButton, symbol: "chevron.right.circle.fill") {
+            [weak self] in self?.onNext?()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    @ViewBuilder
-    private func overlay(for entry: FileEntry) -> some View {
-        ZStack {
-            Color.black.opacity(0.82)
-                .ignoresSafeArea()
-                .contentShape(Rectangle())
-                .onTapGesture { MediaPreviewController.shared.hide() }
-
-            VStack(spacing: 0) {
-                HStack(spacing: 12) {
-                    Text(entry.name)
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                    Spacer(minLength: 8)
-                    Button {
-                        QuickLookController.shared.navigate(delta: -1)
-                    } label: {
-                        Image(systemName: "chevron.left.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.white.opacity(0.9))
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        QuickLookController.shared.navigate(delta: 1)
-                    } label: {
-                        Image(systemName: "chevron.right.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.white.opacity(0.9))
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        MediaPreviewController.shared.hide()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.white.opacity(0.9))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 12)
-
-                mediaBody(for: entry)
-                    .frame(maxWidth: 980, maxHeight: 640)
-                    .background(Color.black)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 24)
-            }
-            .frame(maxWidth: 1040)
+        configureIconButton(closeButton, symbol: "xmark.circle.fill") {
+            [weak self] in self?.onClose?()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { attachPlayer(for: entry) }
-        .onChange(of: entry.id) { _, _ in attachPlayer(for: entry) }
-        .onDisappear { detachPlayer() }
-        .onExitCommand { MediaPreviewController.shared.hide() }
+        chrome.addSubview(prevButton)
+        chrome.addSubview(nextButton)
+        chrome.addSubview(closeButton)
+
+        mediaBox.wantsLayer = true
+        mediaBox.layer?.backgroundColor = NSColor.black.cgColor
+        mediaBox.layer?.cornerRadius = 12
+        mediaBox.layer?.masksToBounds = true
+        chrome.addSubview(mediaBox)
+
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.imageAlignment = .alignCenter
+        mediaBox.addSubview(imageView)
+
+        playerView.controlsStyle = .inline
+        playerView.videoGravity = .resizeAspect
+        playerView.wantsLayer = true
+        playerView.isHidden = true
+        mediaBox.addSubview(playerView)
+
+        messageLabel.textColor = NSColor.white.withAlphaComponent(0.85)
+        messageLabel.font = .systemFont(ofSize: 13)
+        messageLabel.alignment = .center
+        messageLabel.isHidden = true
+        mediaBox.addSubview(messageLabel)
+
+        openButton.title = L10n.s("Abrir con la app predeterminada", "Open with default app")
+        openButton.bezelStyle = .rounded
+        openButton.target = self
+        openButton.action = #selector(openExternal)
+        openButton.isHidden = true
+        mediaBox.addSubview(openButton)
+
+        let click = NSClickGestureRecognizer(target: self, action: #selector(backgroundClicked(_:)))
+        dimView.addGestureRecognizer(click)
     }
 
-    @ViewBuilder
-    private func mediaBody(for entry: FileEntry) -> some View {
-        if entry.category == .video {
-            switch playable {
-            case .none:
-                ProgressView()
-                    .controlSize(.large)
-                    .tint(.white)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .some(false):
-                unsupportedBody(for: entry)
-            case .some(true):
-                if let player {
-                    FindaroAVPlayerView(player: player)
-                } else {
-                    ProgressView()
-                        .controlSize(.large)
-                        .tint(.white)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
-        } else if let img = NSImage(contentsOfFile: entry.path) {
-            Image(nsImage: img)
-                .resizable()
-                .scaledToFit()
-        } else {
-            Image(nsImage: NSWorkspace.shared.icon(forFile: entry.path))
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: 160, maxHeight: 160)
+    private func configureIconButton(_ button: NSButton, symbol: String, action: @escaping () -> Void) {
+        button.bezelStyle = .inline
+        button.isBordered = false
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        button.contentTintColor = NSColor.white.withAlphaComponent(0.92)
+        button.symbolConfiguration = .init(pointSize: 22, weight: .regular)
+        button.target = self
+        button.setAccessibilityLabel(symbol)
+        // Store action via associated closure through tags — use simple selectors.
+        switch symbol {
+        case "chevron.left.circle.fill":
+            button.action = #selector(prevTapped)
+        case "chevron.right.circle.fill":
+            button.action = #selector(nextTapped)
+        default:
+            button.action = #selector(closeTapped)
+        }
+        _ = action
+    }
+
+    @objc private func prevTapped() { onPrev?() }
+    @objc private func nextTapped() { onNext?() }
+    @objc private func closeTapped() { onClose?() }
+    @objc private func openExternal() { onOpenExternal?() }
+
+    @objc private func backgroundClicked(_ gesture: NSClickGestureRecognizer) {
+        let p = gesture.location(in: self)
+        if !chrome.frame.contains(p) {
+            onClose?()
         }
     }
 
-    private func unsupportedBody(for entry: FileEntry) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "film.stack")
-                .font(.system(size: 42, weight: .medium))
-                .foregroundStyle(.white.opacity(0.85))
+    override func layout() {
+        super.layout()
+        let b = bounds
+        dimView.frame = b
 
-            Text(L10n.s("Este formato no se puede previsualizar aquí", "This format can’t be previewed here"))
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
-
-            Text(
-                unsupportedHint.isEmpty
-                    ? L10n.s(
-                        "macOS no reproduce este códec en Vista rápida. Ábrelo con tu reproductor (IINA, VLC u otro).",
-                        "macOS can’t play this codec in Quick Look. Open it with your player (IINA, VLC, or another)."
-                    )
-                    : unsupportedHint
-            )
-            .font(.callout)
-            .foregroundStyle(.white.opacity(0.75))
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: 420)
-
-            Button {
-                openWithDefaultApp(path: entry.path)
-            } label: {
-                Text(L10n.s("Abrir con la app predeterminada", "Open with default app"))
-                    .font(.body.weight(.semibold))
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 10)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(OrdenTheme.accent)
-            .padding(.top, 4)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(28)
-    }
-
-    private func attachPlayer(for entry: FileEntry) {
-        detachPlayer()
-        playable = nil
-        unsupportedHint = ""
-        guard entry.category == .video else { return }
-
-        let url = URL(fileURLWithPath: entry.path)
-        let asset = AVURLAsset(url: url)
-        Task { @MainActor in
-            guard browser.mediaPreviewEntry?.id == entry.id else { return }
-            do {
-                let ok = try await asset.load(.isPlayable)
-                guard browser.mediaPreviewEntry?.id == entry.id else { return }
-                if ok {
-                    playable = true
-                    let p = AVPlayer(playerItem: AVPlayerItem(asset: asset))
-                    player = p
-                    p.play()
-                } else {
-                    playable = false
-                    unsupportedHint = await Self.codecHint(for: asset)
-                }
-            } catch {
-                guard browser.mediaPreviewEntry?.id == entry.id else { return }
-                playable = false
-                unsupportedHint = L10n.s(
-                    "No se pudo leer el vídeo. Ábrelo con tu reproductor habitual.",
-                    "Couldn’t read the video. Open it with your usual player."
-                )
-            }
-        }
-    }
-
-    private func detachPlayer() {
-        player?.pause()
-        player = nil
-        playable = nil
-        unsupportedHint = ""
-    }
-
-    private func openWithDefaultApp(path: String) {
-        let url = URL(fileURLWithPath: path)
-        if NSWorkspace.shared.open(url) {
-            MediaPreviewController.shared.hide()
-        } else {
-            browser.statusMessage = L10n.s(
-                "No hay app predeterminada para este vídeo",
-                "No default app for this video"
-            )
-        }
-    }
-
-    private static func codecHint(for asset: AVURLAsset) async -> String {
-        let fallback = L10n.s(
-            "Este códec (p. ej. VP9 de Instagram/TikTok) no lo reproduce macOS aquí. Usa IINA, VLC u otro reproductor.",
-            "This codec (e.g. Instagram/TikTok VP9) isn’t playable here by macOS. Use IINA, VLC, or another player."
+        let maxChromeW: CGFloat = 1040
+        let chromeW = min(maxChromeW, b.width - 48)
+        let chromeH = min(720, b.height - 48)
+        chrome.frame = NSRect(
+            x: (b.width - chromeW) / 2,
+            y: (b.height - chromeH) / 2,
+            width: chromeW,
+            height: chromeH
         )
-        do {
-            let tracks = try await asset.loadTracks(withMediaType: .video)
-            for track in tracks {
-                guard let descs = try? await track.load(.formatDescriptions) else { continue }
-                for desc in descs {
-                    let type = CMFormatDescriptionGetMediaSubType(desc)
-                    let fourCC = String(
-                        format: "%c%c%c%c",
-                        (type >> 24) & 0xff,
-                        (type >> 16) & 0xff,
-                        (type >> 8) & 0xff,
-                        type & 0xff
-                    ).lowercased()
-                    if fourCC == "vp09" || fourCC.contains("vp9") {
-                        return L10n.s(
-                            "Este vídeo es VP9 (típico de Instagram/TikTok). macOS no lo previsualiza; ábrelo con IINA, VLC u otro.",
-                            "This video is VP9 (common from Instagram/TikTok). macOS can’t preview it — open with IINA, VLC, or another player."
+
+        let pad: CGFloat = 16
+        titleLabel.frame = NSRect(x: pad, y: chromeH - 40, width: chromeW - 130, height: 24)
+        closeButton.frame = NSRect(x: chromeW - 40, y: chromeH - 42, width: 28, height: 28)
+        nextButton.frame = NSRect(x: chromeW - 72, y: chromeH - 42, width: 28, height: 28)
+        prevButton.frame = NSRect(x: chromeW - 104, y: chromeH - 42, width: 28, height: 28)
+
+        let mediaY: CGFloat = pad
+        let mediaH = max(120, chromeH - 56 - pad)
+        mediaBox.frame = NSRect(x: pad, y: mediaY, width: chromeW - pad * 2, height: mediaH)
+        let mb = mediaBox.bounds
+        imageView.frame = mb
+        playerView.frame = mb
+        messageLabel.frame = NSRect(x: 24, y: mb.midY + 10, width: mb.width - 48, height: 60)
+        openButton.frame = NSRect(x: (mb.width - 260) / 2, y: mb.midY - 40, width: 260, height: 32)
+    }
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        switch event.keyCode {
+        case 53, 49: // esc / space
+            onClose?()
+        case 123:
+            onPrev?()
+        case 124:
+            onNext?()
+        default:
+            super.keyDown(with: event)
+        }
+    }
+
+    func display(entry: FileEntry, controller: MediaPreviewController) {
+        titleLabel.stringValue = entry.name
+        imageView.isHidden = true
+        playerView.isHidden = true
+        messageLabel.isHidden = true
+        openButton.isHidden = true
+        imageView.image = nil
+        controller.tearDownPlayer()
+
+        if entry.category == .image {
+            if let img = NSImage(contentsOfFile: entry.path) {
+                imageView.image = img
+                imageView.isHidden = false
+            } else {
+                imageView.image = NSWorkspace.shared.icon(forFile: entry.path)
+                imageView.isHidden = false
+                messageLabel.stringValue = L10n.s(
+                    "No se pudo cargar la imagen completa",
+                    "Couldn’t load the full image"
+                )
+                messageLabel.isHidden = false
+            }
+        } else if entry.category == .video {
+            playerView.isHidden = false
+            let url = URL(fileURLWithPath: entry.path)
+            let asset = AVURLAsset(url: url)
+            Task { @MainActor in
+                do {
+                    let ok = try await asset.load(.isPlayable)
+                    guard controller.currentPath == entry.path else { return }
+                    if ok {
+                        controller.attachVideo(url: url)
+                    } else {
+                        self.showUnsupported(
+                            L10n.s(
+                                "macOS no puede previsualizar este códec aquí. Ábrelo con IINA, VLC u otro.",
+                                "macOS can’t preview this codec here. Open it with IINA, VLC, or another player."
+                            )
                         )
                     }
-                    if fourCC == "av01" {
-                        return L10n.s(
-                            "Este vídeo es AV1. macOS no lo previsualiza aquí; ábrelo con IINA, VLC u otro.",
-                            "This video is AV1. macOS can’t preview it here — open with IINA, VLC, or another player."
+                } catch {
+                    guard controller.currentPath == entry.path else { return }
+                    self.showUnsupported(
+                        L10n.s(
+                            "No se pudo leer el vídeo. Ábrelo con tu reproductor.",
+                            "Couldn’t read the video. Open it with your player."
                         )
-                    }
+                    )
                 }
             }
-        } catch {
-            return fallback
+        } else {
+            imageView.image = NSWorkspace.shared.icon(forFile: entry.path)
+            imageView.isHidden = false
+            imageView.imageScaling = .scaleProportionallyDown
         }
-        return fallback
+
+        window?.makeFirstResponder(self)
+        needsLayout = true
+        layoutSubtreeIfNeeded()
+    }
+
+    func setVideoPlayer(_ player: AVPlayer?) {
+        playerView.player = player
+        if player != nil {
+            playerView.isHidden = false
+            messageLabel.isHidden = true
+            openButton.isHidden = true
+        }
+    }
+
+    private func showUnsupported(_ text: String) {
+        playerView.isHidden = true
+        imageView.isHidden = true
+        messageLabel.stringValue = text
+        messageLabel.isHidden = false
+        openButton.isHidden = false
     }
 }
