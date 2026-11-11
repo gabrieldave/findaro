@@ -10,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        // Un solo monitor local de teclado (no en onAppear SwiftUI → remount multi-monitor).
+        SelectionCancelMonitor.installAtAppLevel()
         // No traer al frente ventanas fantasma: solo exploradores registrados / candidatas.
         DispatchQueue.main.async {
             FindaroWindowRegistry.dismissUnregisteredLookalikes(keeping: nil)
@@ -72,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        SelectionCancelMonitor.uninstall()
         GlobalHotKey.uninstall()
         // Si pospuso una actualización y el DMG ya está listo, instala al salir.
         AppUpdateChecker.shared.installPendingOnTerminateIfNeeded()

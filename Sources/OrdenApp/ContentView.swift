@@ -78,6 +78,9 @@ struct ContentView: View {
                 },
                 onScreenChange: {
                     recoverAfterDisplayChange()
+                },
+                onHostWindow: { window in
+                    browser.hostWindow = window
                 }
             )
         )
@@ -101,10 +104,9 @@ struct ContentView: View {
             browser.startDeepSearch()
         }
         .onAppear {
-            MediaPreviewController.shared.bind(browser: browser)
+            // Solo actualizar refs; el monitor NSEvent es único a nivel app (AppDelegate).
             SelectionCancelMonitor.install(browser: browser, session: session)
         }
-        .onDisappear { SelectionCancelMonitor.remove() }
         .modifier(BrowserToolbarModifier())
         .modifier(BrowserDialogsModifier(shortPath: shortPath))
         // Espacio → Vista rápida lo maneja SelectionCancelMonitor (más fiable que
@@ -192,20 +194,16 @@ struct ContentView: View {
         }
     }
 
-    /// Tras arrastrar Findaro entre monitores: reset preview + remount layout.
-    /// Sin esto, overlay/QL quedan zombis y Espacio “ya no abre” hasta reiniciar.
+    /// Tras arrastrar Findaro entre monitores: destruir preview efímero + remount layout.
     private func recoverAfterDisplayChange() {
         let now = Date()
-        // Probe + didChangeScreenParameters pueden disparar 2–3 veces; un solo recover.
         guard now.timeIntervalSince(lastDisplayRecoverAt) > 0.35 else { return }
         lastDisplayRecoverAt = now
-        QuickLookController.shared.resetAfterDisplayChange()
-        MediaPreviewController.shared.resetAfterDisplayChange()
-        MediaPreviewController.shared.bind(browser: browser)
+        MediaPreviewController.shared.dismiss(restoreFocus: false)
+        browser.mediaPreviewEntry = nil
         SelectionCancelMonitor.install(browser: browser, session: session)
         layoutGeneration &+= 1
         metrics = .resolve(windowSize: CGSize(width: max(windowWidth, 1), height: max(windowHeight, 1)))
-        // Fit suave solo si hace falta (ensureOnScreen ya no recentra mid-drag).
         DispatchQueue.main.async {
             OrdenWindowFit.applyToOpenWindows()
         }
@@ -2071,7 +2069,7 @@ struct FileRowButton: View {
             }
             Button(L10n.s("Vista rápida", "Quick Look")) {
                 ensureSelectedAlone()
-                browser.quickLookSelection()
+                browser.openPreviewExplicitly()
             }
             Button(DefaultFileViewerManager.isEnabled ? L10n.s("Abrir carpeta en Finder", "Open folder in Finder") : L10n.s("Mostrar en Finder", "Show in Finder")) { browser.revealInFinder(entry) }
             Button(L10n.s("Copiar", "Copy")) {

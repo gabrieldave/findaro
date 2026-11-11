@@ -211,10 +211,11 @@ final class BrowserModel: ObservableObject {
     @Published var pendingMergePreview: FolderMerge.Preview?
     @Published var pendingMergeMove = false
 
-    // MARK: Vista previa de vídeo (overlay in-window; evita NSWindow off-screen multi-monitor)
+    // MARK: Vista previa (NSPanel efímero vía MediaPreviewController)
     @Published var mediaPreviewEntry: FileEntry?
-    /// Sube en cada show para forzar remount del overlay (mismo archivo / tras monitor).
     @Published var mediaPreviewEpoch: Int = 0
+    /// Ventana anfitriona del explorador (para colocar el preview sin NSScreen.main).
+    weak var hostWindow: NSWindow?
 
     // MARK: Asistente
     @Published var showAssistantPanel = false
@@ -1253,12 +1254,10 @@ final class BrowserModel: ObservableObject {
         refreshHistoryFlags()
     }
 
-    /// Cierra overlay/QL al cambiar de carpeta (si no, el siguiente Espacio solo “cierra”).
+    /// Al cambiar de carpeta: destruir preview sin devolver foco (navigate).
     func closeMediaPreviewIfNeeded() {
-        if mediaPreviewEntry != nil || MediaPreviewController.shared.isVisible || QuickLookController.shared.isVisible {
-            QuickLookController.shared.hide()
-            mediaPreviewEntry = nil
-        }
+        MediaPreviewController.shared.dismiss(restoreFocus: false)
+        mediaPreviewEntry = nil
     }
 
     // MARK: Dual pane
@@ -3966,7 +3965,23 @@ final class BrowserModel: ObservableObject {
         statusMessage = L10n.s("Ruta de carpeta copiada", "Folder path copied")
     }
 
-    func quickLookSelection() {
+    /// Botón «Vista rápida» / ojito: SIEMPRE abre (nunca toggle).
+    func openPreviewExplicitly() {
+        let paths = activeSelectedEntries.filter { !$0.isDirectory }.map(\.path)
+        guard !paths.isEmpty else {
+            statusMessage = L10n.s(
+                "Selecciona un archivo para Vista rápida",
+                "Select a file for Quick Look"
+            )
+            return
+        }
+        NSApp.keyWindow?.makeFirstResponder(nil)
+        isAssistantFocused = false
+        QuickLookController.shared.presentExplicit(browser: self, focusing: paths)
+    }
+
+    /// Solo tecla Espacio.
+    func togglePreviewFromSpace() {
         let paths = activeSelectedEntries.filter { !$0.isDirectory }.map(\.path)
         guard !paths.isEmpty else {
             statusMessage = L10n.s(
@@ -3975,12 +3990,14 @@ final class BrowserModel: ObservableObject {
             )
             return
         }
-        // La búsqueda del toolbar a menudo retiene el firstResponder y se come el Espacio.
         NSApp.keyWindow?.makeFirstResponder(nil)
         isAssistantFocused = false
-        MediaPreviewController.shared.bind(browser: self)
-        SelectionCancelMonitor.ensureInstalled()
-        QuickLookController.shared.toggle(browser: self, focusing: paths)
+        QuickLookController.shared.toggleFromSpace(browser: self, focusing: paths)
+    }
+
+    /// Compat menú / chrome → present forzado.
+    func quickLookSelection() {
+        openPreviewExplicitly()
     }
 
     func moveSelectionToTrash() {

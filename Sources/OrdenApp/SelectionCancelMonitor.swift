@@ -14,27 +14,92 @@ enum SelectionCancelMonitor {
     private static weak var browserRef: BrowserModel?
     private static weak var sessionRef: BrowserWindowSession?
 
-    /// Reengancha el monitor si SwiftUI lo quitó con onDisappear (pestañas / remount).
-    static func ensureInstalled() {
-        guard keyMonitor == nil, let browser = browserRef else { return }
-        install(browser: browser, session: sessionRef)
-    }
-
-    static func install(browser: BrowserModel, session: BrowserWindowSession? = nil) {
-        remove()
-        browserRef = browser
-        sessionRef = session
+    /// Un solo monitor a nivel app (AppDelegate). No instalar/quitar en onAppear SwiftUI.
+    static func installAtAppLevel() {
+        guard keyMonitor == nil else { return }
         VoiceCaptureController.shared.onFinished = { text in
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { return }
             Task { @MainActor in
-                guard let browser = SelectionCancelMonitor.browserRef else { return }
+                let browser = SelectionCancelMonitor.browserRef
+                    ?? FindaroWindowRegistry.keyBrowser
+                guard let browser else { return }
                 browser.showAssistantPanel = true
                 await browser.runAssistant(prompt: trimmed)
             }
         }
-
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            Self.handleKeyDown(event)
+        }
+        keyUpMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyUp) { event in
+            let browser = Self.resolveBrowser(for: event)
+            if let browser, handleVoicePTTKeyUp(event, browser: browser) {
+                return nil
+            }
+            return event
+        }
+        flagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+            handleVoicePTTFlagsChanged(event)
+            return event
+        }
+    }
+
+    /// Solo actualiza refs de la ventana activa; NO reinstala el monitor.
+    static func install(browser: BrowserModel, session: BrowserWindowSession? = nil) {
+        browserRef = browser
+        sessionRef = session
+        if keyMonitor == nil {
+            installAtAppLevel()
+        }
+    }
+
+    static func ensureInstalled() {
+        if keyMonitor == nil {
+            installAtAppLevel()
+        }
+    }
+
+    private static func resolveBrowser(for event: NSEvent) -> BrowserModel? {
+        FindaroWindowRegistry.browser(for: event.window)
+            ?? browserRef
+            ?? FindaroWindowRegistry.keyBrowser
+    }
+
+    private static func firstResponderIsEditableText(in window: NSWindow?) -> Bool {
+        guard let window, let fr = window.firstResponder else { return false }
+        if let tv = fr as? NSTextView {
+            return tv.isEditable
+        }
+        if fr is NSTextField { return true }
+        let name = NSStringFromClass(type(of: fr))
+        return name.contains("FieldEditor")
+    }
+
+    private static func handleKeyDown(_ event: NSEvent) -> NSEvent? {
+        // Preview panel: Esc / Espacio cierran sin beep ni doble-toggle.
+        if MediaPreviewController.shared.isPreviewWindow(event.window) {
+            let key = event.keyCode
+            if !event.isARepeat, key == 49 || key == 53 {
+                MediaPreviewController.shared.dismiss(restoreFocus: true)
+                return nil
+            }
+            if !event.isARepeat, key == 123 {
+                QuickLookController.shared.navigate(delta: -1)
+                return nil
+            }
+            if !event.isARepeat, key == 124 {
+                QuickLookController.shared.navigate(delta: 1)
+                return nil
+            }
+            return event
+        }
+
+        guard let browser = resolveBrowser(for: event) else { return event }
+        browserRef = browser
+        if let session = FindaroWindowRegistry.session(for: event.window) {
+            sessionRef = session
+        }
+
             if handleVoicePTTKeyDown(event, browser: browser) {
                 return nil
             }
@@ -68,18 +133,22 @@ enum SelectionCancelMonitor {
             let ctrl = flags.contains(.control)
             let bare = !opt && !cmd && !shift && !ctrl
 
-            // Espacio → Vista rápida ANTES de shouldIgnore.
-            // El SearchField del toolbar a menudo retiene el field editor: con selección
-            // de archivos, Espacio debe abrir Vista rápida (no tipar un espacio en buscar).
-            // Solo cedemos el Espacio si el usuario está tipando de verdad (omnibox / chat / sheet).
-            // Ignorar key-repeat: si no, open→close en el mismo “mantener” Espacio.
+            // Espacio → Vista rápida (toggle). Ignorar repeat. No capturar en field editor editable.
             if bare, key == 49, !event.isARepeat {
+                if firstResponderIsEditableText(in: event.window) {
+                    let typingWins = browser.pathOmniboxEditing
+                        || browser.hasModalSheet
+                        || (browser.isAssistantFocused && FindaroTextInput.isStrictTextFieldEditing)
+                    if typingWins {
+                        return event
+                    }
+                }
                 let hasSel = browser.activeHasSelection
                 let typingWins = browser.pathOmniboxEditing
                     || browser.hasModalSheet
                     || (browser.isAssistantFocused && FindaroTextInput.isStrictTextFieldEditing)
                 if hasSel, !typingWins {
-                    browser.quickLookSelection()
+                    browser.togglePreviewFromSpace()
                     return nil
                 }
             }
@@ -147,9 +216,10 @@ enum SelectionCancelMonitor {
             }
 
             // Esc → Vista rápida → búsqueda → filtros → selección; Esc Esc → bandeja
-            if hit("files.cancel") {
-                if QuickLookController.shared.isVisible {
-                    QuickLookController.shared.hide()
+            if hit("files.cancel"), !event.isARepeat {
+                if MediaPreviewController.shared.isActuallyVisibleOnScreen {
+                    MediaPreviewController.shared.dismiss(restoreFocus: true)
+                    browser.mediaPreviewEntry = nil
                     return nil
                 }
                 if browser.showDeepSearchPanel {
@@ -188,13 +258,13 @@ enum SelectionCancelMonitor {
             }
 
             // Espacio → Vista rápida (⌃Espacio es voz, arriba)
-            if hit("files.quickLook") {
-                browser.quickLookSelection()
+            if hit("files.quickLook"), !event.isARepeat {
+                browser.togglePreviewFromSpace()
                 return nil
             }
 
             // Con Vista rápida abierta: ← más nuevo · → más viejo (circular).
-            if QuickLookController.shared.isVisible, !opt, !cmd, !shift, !ctrl {
+            if MediaPreviewController.shared.isActuallyVisibleOnScreen, !opt, !cmd, !shift, !ctrl {
                 if key == 123 {
                     QuickLookController.shared.navigate(delta: -1)
                     return nil
@@ -207,7 +277,7 @@ enum SelectionCancelMonitor {
 
             // ↑↓ / ←→ → mover selección · ⇧+flechas → extender rango
             if !opt, !cmd, !ctrl, (key == 125 || key == 126 || key == 123 || key == 124) {
-                if QuickLookController.shared.isVisible, !shift {
+                if MediaPreviewController.shared.isActuallyVisibleOnScreen, !shift {
                     if key == 125 || key == 126 {
                         return event
                     }
@@ -372,22 +442,14 @@ enum SelectionCancelMonitor {
             }
 
             return event
-        }
-
-        keyUpMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyUp) { event in
-            if handleVoicePTTKeyUp(event, browser: browser) {
-                return nil
-            }
-            return event
-        }
-
-        flagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
-            handleVoicePTTFlagsChanged(event)
-            return event
-        }
     }
 
+    /// No desinstalar monitores desde SwiftUI onDisappear (causaba 0 o 2 monitores).
     static func remove() {
+        // App-level: los monitores viven hasta terminate.
+    }
+
+    static func uninstall() {
         if voicePTTHeld {
             endVoicePTT()
         }
@@ -403,7 +465,8 @@ enum SelectionCancelMonitor {
             NSEvent.removeMonitor(flagsMonitor)
             self.flagsMonitor = nil
         }
-        // Conservar browserRef/sessionRef para ensureInstalled() tras remount SwiftUI.
+        browserRef = nil
+        sessionRef = nil
     }
 
     private static func handleVoicePTTKeyDown(_ event: NSEvent, browser: BrowserModel) -> Bool {

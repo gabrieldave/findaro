@@ -324,7 +324,7 @@ private struct FindaroCommands: Commands {
             Divider()
             Button(L10n.s("Abrir selección", "Open Selection")) { browser()?.openSelection() }
                 .keyboardShortcut(.downArrow, modifiers: .command)
-            Button(L10n.s("Vista rápida", "Quick Look")) { browser()?.quickLookSelection() }
+            Button(L10n.s("Vista rápida", "Quick Look")) { browser()?.openPreviewExplicitly() }
             Button(L10n.s("Mover a la Papelera", "Move to Trash")) { browser()?.moveSelectionToTrash() }
             Button(L10n.s("Sacar de la Papelera", "Restore from Trash")) { browser()?.restoreSelectionFromTrash() }
             Button(L10n.s("Eliminar para siempre", "Delete Permanently")) { browser()?.permanentlyDeleteSelection(confirm: true) }

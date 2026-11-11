@@ -9,12 +9,15 @@ struct WindowLayoutProbe: NSViewRepresentable {
     var onLiveResizeEnd: ((CGSize) -> Void)?
     /// Ventana cruzó de monitor (o cambió el display): hay que remount layout/preview.
     var onScreenChange: (() -> Void)?
+    /// NSWindow anfitrión (para preview multi-monitor sin NSScreen.main).
+    var onHostWindow: ((NSWindow?) -> Void)?
 
     func makeNSView(context: Context) -> ProbeView {
         let view = ProbeView()
         view.onChange = onChange
         view.onLiveResizeEnd = onLiveResizeEnd
         view.onScreenChange = onScreenChange
+        view.onHostWindow = onHostWindow
         return view
     }
 
@@ -22,6 +25,7 @@ struct WindowLayoutProbe: NSViewRepresentable {
         nsView.onChange = onChange
         nsView.onLiveResizeEnd = onLiveResizeEnd
         nsView.onScreenChange = onScreenChange
+        nsView.onHostWindow = onHostWindow
         nsView.reportIfNeeded(force: true)
     }
 
@@ -29,6 +33,7 @@ struct WindowLayoutProbe: NSViewRepresentable {
         var onChange: ((CGSize) -> Void)?
         var onLiveResizeEnd: ((CGSize) -> Void)?
         var onScreenChange: (() -> Void)?
+        var onHostWindow: ((NSWindow?) -> Void)?
         private var last: CGSize = .zero
         private var lastScreenNumber: Int?
 
@@ -50,6 +55,7 @@ struct WindowLayoutProbe: NSViewRepresentable {
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
+            onHostWindow?(window)
             guard window != nil else { return }
             lastScreenNumber = Self.screenNumber(of: window)
             reportIfNeeded(force: true)

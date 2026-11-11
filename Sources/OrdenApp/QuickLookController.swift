@@ -1,75 +1,44 @@
 import AppKit
-@preconcurrency import QuickLookUI
 import OrdenCore
 
-/// Vista previa (Space): vídeo/imagen con motor propio; el resto con Quick Look.
-/// ← = más nuevo · → = más viejo · circular.
+/// Coordinador de Vista rápida: lista circular de archivos + MediaPreviewController.
+/// SIN `QLPreviewPanel.shared()` (deja estado fantasma multi-monitor).
 @MainActor
-final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
+final class QuickLookController {
     static let shared = QuickLookController()
 
     private weak var browser: BrowserModel?
     private var entries: [FileEntry] = []
     private var currentIndex: Int = 0
-    /// Evita open→close si Espacio llega duplicado en el mismo instante.
     private var lastToggleAt: Date?
     private var lastToggleFocusPath: String?
 
     var isVisible: Bool {
-        if MediaPreviewController.shared.isVisible { return true }
-        guard let panel = QLPreviewPanel.shared(), panel.isVisible else { return false }
-        return Self.isQuickLookOnScreen(panel)
+        MediaPreviewController.shared.isActuallyVisibleOnScreen
     }
 
-    /// Ruta del ítem actualmente en preview (overlay o QL), si hay.
     var currentPreviewPath: String? {
-        if let path = browser?.mediaPreviewEntry?.path { return path }
-        guard isVisible, entries.indices.contains(currentIndex) else { return nil }
-        return entries[currentIndex].path
+        MediaPreviewController.shared.currentURL?.path
+            ?? (entries.indices.contains(currentIndex) ? entries[currentIndex].path : nil)
     }
 
-    /// Al cruzar monitores: cierra zombies; el siguiente Espacio siempre abre.
     func resetAfterDisplayChange() {
         lastToggleAt = nil
         lastToggleFocusPath = nil
-        hideAll()
+        MediaPreviewController.shared.dismiss(restoreFocus: false)
+        if let browser {
+            browser.mediaPreviewEntry = nil
+        }
     }
 
-    /// Espacio: cierra solo si el panel YA muestra ESE archivo; si no, abre/reemplaza.
-    func toggle(browser: BrowserModel, focusing paths: [String]) {
-        self.browser = browser
-        MediaPreviewController.shared.bind(browser: browser)
-        SelectionCancelMonitor.ensureInstalled()
-
-        let focus = paths.first { path in
-            !(path as NSString).pathExtension.isEmpty || FileManager.default.fileExists(atPath: path)
-        } ?? paths.first
-
-        let now = Date()
-        if let last = lastToggleAt,
-           now.timeIntervalSince(last) < 0.18,
-           lastToggleFocusPath == focus {
-            return
-        }
-        lastToggleAt = now
-        lastToggleFocusPath = focus
-
-        forceOrderOutQuickLook()
-
-        // Solo cerrar si el panel AppKit está visible con ese archivo (no estado fantasma).
-        if MediaPreviewController.shared.isVisible,
-           let focus,
-           browser.mediaPreviewEntry?.path == focus {
-            MediaPreviewController.shared.hide()
-            return
-        }
-
-        show(browser: browser, focusing: paths)
+    func hide() {
+        MediaPreviewController.shared.dismiss(restoreFocus: true)
+        browser?.mediaPreviewEntry = nil
     }
 
-    func show(browser: BrowserModel, focusing paths: [String]) {
+    /// Botón / ojito: siempre abre.
+    func presentExplicit(browser: BrowserModel, focusing paths: [String]) {
         self.browser = browser
-        MediaPreviewController.shared.bind(browser: browser)
         rebuildEntries(focusing: paths)
         guard !entries.isEmpty else {
             browser.statusMessage = L10n.s(
@@ -82,6 +51,41 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
         syncBrowserSelection()
     }
 
+    /// Solo Espacio: cierra si ya muestra ESE archivo en pantalla; si no, presenta.
+    func toggleFromSpace(browser: BrowserModel, focusing paths: [String]) {
+        self.browser = browser
+
+        let focus = paths.first
+        let now = Date()
+        if let last = lastToggleAt,
+           now.timeIntervalSince(last) < 0.18,
+           lastToggleFocusPath == focus {
+            return
+        }
+        lastToggleAt = now
+        lastToggleFocusPath = focus
+
+        if let focus,
+           MediaPreviewController.shared.isActuallyVisibleOnScreen,
+           MediaPreviewController.shared.currentURL?.standardizedFileURL
+            == URL(fileURLWithPath: focus).standardizedFileURL {
+            MediaPreviewController.shared.dismiss(restoreFocus: true)
+            browser.mediaPreviewEntry = nil
+            return
+        }
+
+        presentExplicit(browser: browser, focusing: paths)
+    }
+
+    /// Compat menú / callers antiguos → present forzado.
+    func toggle(browser: BrowserModel, focusing paths: [String]) {
+        presentExplicit(browser: browser, focusing: paths)
+    }
+
+    func show(browser: BrowserModel, focusing paths: [String]) {
+        presentExplicit(browser: browser, focusing: paths)
+    }
+
     /// ← más nuevo (−1) · → más viejo (+1). Circular.
     func navigate(delta: Int) {
         guard !entries.isEmpty else { return }
@@ -91,63 +95,14 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
         syncBrowserSelection()
     }
 
-    func hide() {
-        hideAll()
-    }
-
-    private func hideAll() {
-        MediaPreviewController.shared.hide()
-        forceOrderOutQuickLook()
-    }
-
-    private func forceOrderOutQuickLook() {
-        guard let panel = QLPreviewPanel.shared() else { return }
-        if panel.isVisible || panel.isKeyWindow {
-            panel.orderOut(nil)
-        }
-    }
-
     private func presentCurrent() {
         guard entries.indices.contains(currentIndex) else { return }
         let entry = entries[currentIndex]
-        // Imagen + vídeo: SIEMPRE overlay dentro de Findaro.
-        if entry.category == .video || entry.category == .image {
-            presentInline(entry)
-            return
-        }
-
-        // PDF/otros: intentar QL; si nace off-screen o no aparece → overlay.
-        forceOrderOutQuickLook()
-        guard let panel = QLPreviewPanel.shared() else {
-            presentInline(entry)
-            return
-        }
-        panel.dataSource = self
-        panel.delegate = self
-        panel.currentPreviewItemIndex = currentIndex
-        panel.reloadData()
-        panel.updateController()
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            if !Self.isQuickLookOnScreen(panel) {
-                panel.orderOut(nil)
-                self.presentInline(entry)
-            }
-        }
-    }
-
-    private func presentInline(_ entry: FileEntry) {
-        if let browser {
-            MediaPreviewController.shared.bind(browser: browser)
-        }
-        forceOrderOutQuickLook()
-        MediaPreviewController.shared.show(entry: entry)
-    }
-
-    private static func isQuickLookOnScreen(_ panel: QLPreviewPanel) -> Bool {
-        FindaroScreenPlacement.isWindowOnScreen(panel)
+        browser?.mediaPreviewEntry = entry
+        MediaPreviewController.shared.present(
+            url: URL(fileURLWithPath: entry.path),
+            hostWindow: browser?.hostWindow
+        )
     }
 
     private func rebuildEntries(focusing paths: [String]) {
@@ -176,66 +131,5 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
     private func syncBrowserSelection() {
         guard let browser, entries.indices.contains(currentIndex) else { return }
         browser.selectOnly(entries[currentIndex].id)
-    }
-
-    // MARK: - QLPreviewPanelDataSource
-
-    nonisolated func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
-        MainActor.assumeIsolated { entries.count }
-    }
-
-    nonisolated func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {
-        MainActor.assumeIsolated {
-            guard entries.indices.contains(index) else { return nil }
-            return URL(fileURLWithPath: entries[index].path) as NSURL
-        }
-    }
-
-    // MARK: - QLPreviewPanelDelegate
-
-    nonisolated func previewPanel(_ panel: QLPreviewPanel!, handle event: NSEvent!) -> Bool {
-        guard event.type == .keyDown else { return false }
-        let keyCode = event.keyCode
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let plain = !flags.contains(.option)
-            && !flags.contains(.command)
-            && !flags.contains(.control)
-            && !flags.contains(.shift)
-        guard plain else { return false }
-
-        return MainActor.assumeIsolated {
-            switch keyCode {
-            case 123:
-                navigate(delta: -1)
-                return true
-            case 124:
-                navigate(delta: 1)
-                return true
-            case 49: // space cierra
-                hideAll()
-                return true
-            case 53: // esc
-                hideAll()
-                return true
-            default:
-                return false
-            }
-        }
-    }
-}
-
-extension NSApplication {
-    nonisolated open override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
-        true
-    }
-
-    nonisolated open override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
-        MainActor.assumeIsolated {
-            panel.delegate = QuickLookController.shared
-            panel.dataSource = QuickLookController.shared
-        }
-    }
-
-    nonisolated open override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
     }
 }

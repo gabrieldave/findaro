@@ -49,6 +49,24 @@ enum FindaroWindowRegistry {
         keySession?.activeBrowser
     }
 
+    static func session(for window: NSWindow?) -> BrowserWindowSession? {
+        guard let window else { return nil }
+        if let direct = sessionsByWindow[ObjectIdentifier(window)] {
+            return direct
+        }
+        // Sheet / child: subir al parent registrado.
+        var current: NSWindow? = window
+        while let c = current {
+            if let s = sessionsByWindow[ObjectIdentifier(c)] { return s }
+            current = c.sheetParent ?? c.parent
+        }
+        return nil
+    }
+
+    static func browser(for window: NSWindow?) -> BrowserModel? {
+        session(for: window)?.activeBrowser
+    }
+
     /// Todas las sesiones de explorador registradas (p. ej. cambio de idioma global).
     static var allSessions: [BrowserWindowSession] {
         Array(sessionsByWindow.values)

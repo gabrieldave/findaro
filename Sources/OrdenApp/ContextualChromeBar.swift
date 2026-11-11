@@ -239,7 +239,7 @@ struct ContextualChromeBar: View {
                 browser.openSelection()
             }
             iconAction(L10n.s("Vista rápida", "Quick Look"), "eye", showLabels) {
-                browser.quickLookSelection()
+                browser.openPreviewExplicitly()
             }
             iconAction(L10n.s("Copiar", "Copy"), "doc.on.doc", showLabels) {
                 browser.addSelectionToShelf(intent: .copy)
