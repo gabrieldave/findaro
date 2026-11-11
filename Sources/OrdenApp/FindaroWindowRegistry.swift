@@ -49,6 +49,11 @@ enum FindaroWindowRegistry {
         keySession?.activeBrowser
     }
 
+    /// Todas las sesiones de explorador registradas (p. ej. cambio de idioma global).
+    static var allSessions: [BrowserWindowSession] {
+        Array(sessionsByWindow.values)
+    }
+
     static var registeredWindows: [NSWindow] {
         Array(windowsBySession.values)
     }

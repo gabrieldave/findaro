@@ -139,6 +139,10 @@ public enum AppMenuLocalizer {
             case "Mostrar archivos ocultos": return "Show Hidden Files"
             case "Vista de carpeta": return "Folder View"
             case "Vista plana": return "Flat View"
+            case "Iconos": return "Icons"
+            case "Lista": return "List"
+            case "Columnas": return "Columns"
+            case "Galería": return "Gallery"
             case "Escritorio": return "Desktop"
             case "Documentos": return "Documents"
 
@@ -260,6 +264,10 @@ public enum AppMenuLocalizer {
             case "Show Hidden Files": return "Mostrar archivos ocultos"
             case "Folder View": return "Vista de carpeta"
             case "Flat View": return "Vista plana"
+            case "Icons": return "Iconos"
+            case "List": return "Lista"
+            case "Columns": return "Columnas"
+            case "Gallery": return "Galería"
             case "Desktop": return "Escritorio"
             case "Documents": return "Documentos"
 

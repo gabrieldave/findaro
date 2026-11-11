@@ -83,25 +83,26 @@ private struct FindaroCommands: Commands {
             UserDefaults.standard.set([lang.isEnglish ? "en" : "es"], forKey: "AppleLanguages")
         }
         PreferencesStore.shared.update { $0.appLanguage = lang }
+        // Todas las ventanas abiertas, no solo la focused.
+        for session in FindaroWindowRegistry.allSessions {
+            session.activeBrowser.setAppLanguage(lang)
+        }
         browser?.setAppLanguage(lang)
+        // SwiftUI regenera el menú; reaplicar títulos del sistema varias veces.
         AppMenuLocalizer.applyLocalization()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            AppMenuLocalizer.applyLocalization()
+        for delay in [0.05, 0.15, 0.4, 1.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                AppMenuLocalizer.applyLocalization()
+            }
         }
     }
 
-    @ViewBuilder
+    /// En menús de macOS, `HStack` + `Image(systemName:)` dentro del Button a menudo no dispara el click.
+    /// Usamos título plano con marca de verificación ASCII (patrón Finder/Xcode).
     private func languageMenuItem(_ lang: AppLanguage, title: String) -> some View {
-        Button {
+        let checked = currentLanguage == lang
+        return Button((checked ? "✓ " : "    ") + title) {
             setGlobalLanguage(lang)
-        } label: {
-            HStack {
-                Text(title)
-                Spacer(minLength: 12)
-                if currentLanguage == lang {
-                    Image(systemName: "checkmark")
-                }
-            }
         }
     }
 
@@ -133,6 +134,44 @@ private struct FindaroCommands: Commands {
             Button(L10n.s("Desinstalar Findaro…", "Uninstall Findaro…")) {
                 FindaroUninstaller.confirmAndUninstall()
             }
+        }
+
+        // View del sistema solo trae Tab Bar / Full Screen. Aquí van los controles reales de Findaro.
+        CommandGroup(after: .toolbar) {
+            Divider()
+            Button(L10n.s("Iconos", "Icons")) { browser?.setViewMode(.icons) }
+                .disabled(browser == nil)
+            Button(L10n.s("Lista", "List")) { browser?.setViewMode(.list) }
+                .disabled(browser == nil)
+            Button(L10n.s("Columnas", "Columns")) { browser?.setViewMode(.columns) }
+                .disabled(browser == nil)
+            Button(L10n.s("Galería", "Gallery")) { browser?.setViewMode(.gallery) }
+                .disabled(browser == nil)
+            Divider()
+            Button((browser?.dualPaneEnabled ?? false) ? L10n.s("Un panel", "Single Pane") : L10n.s("Dos paneles", "Dual Pane")) {
+                browser?.toggleDualPane()
+            }
+            .keyboardShortcut("d", modifiers: [.command, .shift])
+            .disabled(browser == nil)
+            Button((browser?.showHiddenFiles ?? false) ? L10n.s("Ocultar archivos ocultos", "Hide Hidden Files") : L10n.s("Mostrar archivos ocultos", "Show Hidden Files")) {
+                browser?.toggleShowHiddenFiles()
+            }
+            .keyboardShortcut(".", modifiers: [.command, .shift])
+            .disabled(browser == nil)
+            Button((browser?.flattenFolderView ?? false) ? L10n.s("Vista de carpeta", "Folder View") : L10n.s("Vista plana", "Flat View")) {
+                browser?.toggleFlattenFolderView()
+            }
+            .keyboardShortcut("f", modifiers: [.command, .shift])
+            .disabled(browser == nil)
+            Button(L10n.s("Orden normal / salir filtros (Esc)", "Normal View / Clear Filters (Esc)")) {
+                guard let browser else { return }
+                if browser.hasActiveViewFilters {
+                    browser.resetToNormalView()
+                } else {
+                    browser.clearDeepSearch()
+                }
+            }
+            .disabled(!(browser?.hasActiveViewFilters ?? false))
         }
 
         CommandGroup(replacing: .help) {
@@ -329,10 +368,18 @@ private struct FindaroCommands: Commands {
 
         CommandMenu(L10n.s("Archivo+", "File+")) {
             Button(L10n.s("Nueva ventana", "New Window")) { openWindow(id: "browser") }
-            Button(L10n.s("Nueva pestaña", "New Tab")) { session?.addTab() }
-            Button(L10n.s("Cerrar pestaña", "Close Tab")) { session?.closeActiveTab() }
-            Button(L10n.s("Pestaña siguiente", "Next Tab")) { session?.selectNextTab() }
-            Button(L10n.s("Pestaña anterior", "Previous Tab")) { session?.selectPreviousTab() }
+            Button(L10n.s("Nueva pestaña", "New Tab")) {
+                (session ?? FindaroWindowRegistry.keySession)?.addTab()
+            }
+            Button(L10n.s("Cerrar pestaña", "Close Tab")) {
+                (session ?? FindaroWindowRegistry.keySession)?.closeActiveTab()
+            }
+            Button(L10n.s("Pestaña siguiente", "Next Tab")) {
+                (session ?? FindaroWindowRegistry.keySession)?.selectNextTab()
+            }
+            Button(L10n.s("Pestaña anterior", "Previous Tab")) {
+                (session ?? FindaroWindowRegistry.keySession)?.selectPreviousTab()
+            }
             Divider()
             Button(L10n.s("Nuevo archivo", "New File")) { browser?.promptNewFile() }
                 .disabled(browser == nil)
