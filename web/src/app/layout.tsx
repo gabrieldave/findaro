@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     description:
       "On-device AI file manager for Mac. 14-day free trial, no credit card. Lifetime licenses from $29.",
     url: `${base}/?lang=en`,
-    images: [{ url: "/og.png", width: 512, height: 512, alt: "FINDARO" }],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "FINDARO" }],
     locale: "en_US",
     alternateLocale: ["es_ES"],
   },
