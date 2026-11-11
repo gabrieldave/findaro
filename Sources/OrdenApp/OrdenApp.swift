@@ -191,9 +191,13 @@ private struct FindaroCommands: Commands {
             Button(L10n.s("Nueva carpeta", "New Folder")) { browser()?.promptNewFolder() }
         }
 
-        CommandGroup(after: .pasteboard) {
+        // Reemplazar (no «after») para no dejar Cortar/Copiar/Pegar del sistema + Writing Tools
+        // encima de la ventana (provoca parpadeo del menú traslúcido).
+        CommandGroup(replacing: .undoRedo) {
             Button(L10n.s("Deshacer", "Undo")) { browser()?.undoLastFileOp() }
                 .keyboardShortcut("z", modifiers: .command)
+        }
+        CommandGroup(replacing: .pasteboard) {
             Button(L10n.s("Copiar a bandeja", "Copy to Tray")) { browser()?.addSelectionToShelf(intent: .copy) }
                 .keyboardShortcut("c", modifiers: .command)
             Button(L10n.s("Cortar a bandeja", "Cut to Tray")) { browser()?.addSelectionToShelf(intent: .move) }
@@ -204,6 +208,10 @@ private struct FindaroCommands: Commands {
                 .keyboardShortcut("d", modifiers: .command)
             Button(L10n.s("Copiar ruta", "Copy Path")) { browser()?.copySelectedPaths() }
                 .keyboardShortcut("c", modifiers: [.command, .option])
+        }
+        CommandGroup(replacing: .textEditing) {
+            Button(L10n.s("Seleccionar todos", "Select All")) { browser()?.selectAllVisible() }
+                .keyboardShortcut("a", modifiers: .command)
         }
 
         CommandMenu(L10n.s("Buscar", "Search")) {

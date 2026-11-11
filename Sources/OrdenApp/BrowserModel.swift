@@ -446,11 +446,14 @@ final class BrowserModel: ObservableObject {
     }
 
     private func handleFolderWatcherEvent() {
-        let before = Set(entries.map(\.id))
-        reload(preserveSelection: true, fromWatcher: true)
-        let after = Set(entries.map(\.id))
-        if before != after {
-            statusMessage = L10n.s("Carpeta actualizada", "Folder refreshed")
+        MenuTrackingGate.deferPrimaryReload { [weak self] in
+            guard let self else { return }
+            let before = Set(self.entries.map(\.id))
+            self.reload(preserveSelection: true, fromWatcher: true)
+            let after = Set(self.entries.map(\.id))
+            if before != after {
+                self.statusMessage = L10n.s("Carpeta actualizada", "Folder refreshed")
+            }
         }
     }
 
@@ -458,11 +461,14 @@ final class BrowserModel: ObservableObject {
         guard dualPaneEnabled else { return }
         // Misma carpeta: el watcher primario ya refresca ambos paneles.
         guard !sameFolder(currentPath, secondaryPath) else { return }
-        let before = Set(secondaryEntries.map(\.id))
-        reloadSecondary(preserveSelection: true, fromWatcher: true)
-        let after = Set(secondaryEntries.map(\.id))
-        if before != after {
-            statusMessage = L10n.s("Panel destino actualizado", "Destination pane refreshed")
+        MenuTrackingGate.deferSecondaryReload { [weak self] in
+            guard let self else { return }
+            let before = Set(self.secondaryEntries.map(\.id))
+            self.reloadSecondary(preserveSelection: true, fromWatcher: true)
+            let after = Set(self.secondaryEntries.map(\.id))
+            if before != after {
+                self.statusMessage = L10n.s("Panel destino actualizado", "Destination pane refreshed")
+            }
         }
     }
 

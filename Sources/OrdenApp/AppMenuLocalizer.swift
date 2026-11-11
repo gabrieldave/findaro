@@ -13,6 +13,7 @@ public enum AppMenuLocalizer {
         let isEN = L10n.isEnglish
         localizeMenu(mainMenu, isEnglish: isEN)
         mainMenu.update()
+        EditMenuCleaner.strip(from: mainMenu)
     }
 
     private static func localizeMenu(_ menu: NSMenu, isEnglish: Bool) {

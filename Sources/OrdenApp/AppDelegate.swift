@@ -21,13 +21,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = OpenFolderBridge.setAsDefaultFolderHandler()
         ThumbnailStore.clearIfAppUpdated()
 
-        // Menubar localization pass
+        // Menubar localization + quitar Writing Tools / Autorrelleno / Dictado del Edit.
         AppMenuLocalizer.applyLocalization()
+        EditMenuCleaner.install()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             AppMenuLocalizer.applyLocalization()
+            EditMenuCleaner.strip(from: NSApp.mainMenu)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             AppMenuLocalizer.applyLocalization()
+            EditMenuCleaner.strip(from: NSApp.mainMenu)
         }
 
         NotificationCenter.default.addObserver(
@@ -37,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { _ in
             Task { @MainActor in
                 AppMenuLocalizer.applyLocalization()
+                EditMenuCleaner.strip(from: NSApp.mainMenu)
                 // StackDock (y el Dock) a veces solo hacen activate/unhide sin reopen:
                 // si no hay explorador visible, restaurar la ventana real.
                 if !FindaroWindowRegistry.hasVisibleBrowserWindow() {
