@@ -80,7 +80,7 @@ export default async function PrivacidadPage({ searchParams }: PageProps) {
             </p>
             <ul style={{ paddingLeft: "20px", margin: "8px 0" }}>
               <li><strong>Name and Email Address:</strong> to issue your license key and send your receipt.</li>
-              <li><strong>Mac Hardware Identifier:</strong> upon activating a license, the app sends your Mac&apos;s hardware UUID (IOPlatformUUID) and computer name solely to enforce seat limits (2 or 5 Macs depending on your plan). For free trials, we store only a salted cryptographic hash of that identifier so each Mac gets one trial.</li>
+              <li><strong>Mac Hardware Identifier:</strong> upon activating a license, the app sends your Mac&apos;s hardware UUID (IOPlatformUUID) and computer name solely to enforce seat limits (1, 2 or 5 Macs depending on your plan). For free trials, we store only a salted cryptographic hash of that identifier so each Mac gets one trial.</li>
               <li><strong>Updates:</strong> the app periodically checks our signed update feed for new releases without sending personal data or file paths.</li>
               <li><strong>Website Cookies:</strong> we use a language preference cookie (<code>findaro_lang</code>, 1 year) and a first-touch campaign attribution cookie (<code>findaro_utm</code>, 30 days). We do not use third-party ad tracking cookies.</li>
             </ul>
@@ -121,8 +121,8 @@ export default async function PrivacidadPage({ searchParams }: PageProps) {
             </p>
             <ul style={{ paddingLeft: "20px", margin: "8px 0" }}>
               <li><strong>Nombre y Correo Electrónico:</strong> para emitir tu clave de licencia y enviarte el recibo de compra.</li>
-              <li><strong>Identificador de tu Mac:</strong> al activar la licencia, la app envía el identificador de hardware de tu Mac (IOPlatformUUID) y el nombre del equipo. Los usamos solo para contar cuántas Macs tienen activada tu licencia (2 o 5 según tu plan) y evitar el uso no autorizado. Para la prueba gratuita guardamos únicamente un código cifrado (hash con sal) de ese identificador, para que cada Mac tenga una sola prueba.</li>
-              <li><strong>Prueba gratuita:</strong> al abrir la app por primera vez, la app envía el identificador de tu Mac a nuestro servidor, que guarda solo un código cifrado (hash con sal) para registrar el inicio de los 5 días de prueba.</li>
+              <li><strong>Identificador de tu Mac:</strong> al activar la licencia, la app envía el identificador de hardware de tu Mac (IOPlatformUUID) y el nombre del equipo. Los usamos solo para contar cuántas Macs tienen activada tu licencia (1, 2 o 5 según tu plan) y evitar el uso no autorizado. Para la prueba gratuita guardamos únicamente un código cifrado (hash con sal) de ese identificador, para que cada Mac tenga una sola prueba.</li>
+              <li><strong>Prueba gratuita:</strong> al abrir la app por primera vez, la app envía el identificador de tu Mac a nuestro servidor, que guarda solo un código cifrado (hash con sal) para registrar el inicio de los 14 días de prueba.</li>
               <li><strong>Actualizaciones:</strong> la app consulta periódicamente nuestro servidor para saber si hay una versión nueva. Esa consulta no incluye tus datos personales ni tus archivos.</li>
               <li><strong>Cookies del sitio web:</strong> usamos una cookie de idioma (<code>findaro_lang</code>, 1 año) y una cookie de atribución de campañas (<code>findaro_utm</code>, 30 días) que guarda de qué anuncio o enlace llegaste. No usamos cookies de publicidad de terceros.</li>
             </ul>

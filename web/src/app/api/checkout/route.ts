@@ -3,7 +3,12 @@ import { query } from "@/lib/db";
 import { detectLanguageFromHeaders } from "@/lib/geo";
 import { mintReferralCode } from "@/lib/license";
 import { createCheckoutSession } from "@/lib/payment";
-import { currentOffer, LicenseTier, referralDiscountForTier } from "@/lib/pricing";
+import {
+  currentOffer,
+  isSoloTierEnabled,
+  parseLicenseTier,
+  referralDiscountForTier,
+} from "@/lib/pricing";
 import { limitByIp } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
@@ -16,7 +21,7 @@ export const POST = handle(async (req) => {
   const body = (await req.json().catch(() => null)) as {
     email?: string;
     name?: string;
-    tier?: LicenseTier;
+    tier?: string;
     lang?: string;
     referralCode?: string;
     utm_source?: string;
@@ -31,7 +36,15 @@ export const POST = handle(async (req) => {
 
   const email = (body?.email || "").trim().toLowerCase();
   const name = (body?.name || "").trim();
-  const tier: LicenseTier = body?.tier === "family" ? "family" : "personal";
+  if (body?.tier === "solo" && !isSoloTierEnabled()) {
+    return fail(
+      lang === "en"
+        ? "Personal plan is temporarily unavailable. Please choose Pro or Family."
+        : "El plan Personal no está disponible temporalmente. Elige Pro o Familiar.",
+      400,
+    );
+  }
+  const tier = parseLicenseTier(body?.tier);
   const refCode = (body?.referralCode || "").trim().toUpperCase();
   const utmSource = (body?.utm_source || "").trim().slice(0, 128) || null;
   const utmMedium = (body?.utm_medium || "").trim().slice(0, 128) || null;

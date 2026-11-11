@@ -98,9 +98,15 @@ const prepareSession = node({
 const data = input.data || {};
 
 // Validar y fijar importe en servidor según tier (incluye precios promo y post-promo con/sin referido)
-const tier = data.tier === 'family' ? 'family' : 'personal';
+// solo = Personal $29 (1 Mac); personal = Pro $39 (2 Macs); family = Familiar $59 (5 Macs)
+const rawTier = (data.tier || (data.metadata && data.metadata.tier) || 'personal');
+const tier = rawTier === 'family' ? 'family' : rawTier === 'solo' ? 'solo' : 'personal';
 const lang = data.lang === 'en' ? 'en' : 'es';
-const validAmounts = tier === 'family' ? [59, 53, 79, 73] : [39, 35, 59, 55];
+const validAmounts = tier === 'family'
+  ? [59, 53, 79, 73]
+  : tier === 'solo'
+    ? [29, 26]
+    : [39, 35, 59, 55];
 const requestedAmount = Number(data.amount);
 if (!validAmounts.includes(requestedAmount)) {
   throw new Error('Importe inválido para el tier ' + tier + ': ' + requestedAmount);
@@ -111,8 +117,16 @@ const currency = (data.currency || 'usd').toLowerCase();
 if (currency !== 'usd') throw new Error('Moneda no soportada: ' + currency);
 
 const defaultTitle = lang === 'en'
-  ? (tier === 'family' ? 'FINDARO — Family Plan (5 Macs)' : 'FINDARO — Personal Plan (2 Macs)')
-  : (tier === 'family' ? 'FINDARO — Plan Familiar (5 Macs)' : 'FINDARO — Plan Personal (2 Macs)');
+  ? (tier === 'family'
+      ? 'FINDARO — Family / Studio (5 Macs)'
+      : tier === 'solo'
+        ? 'FINDARO — Personal (1 Mac)'
+        : 'FINDARO — Pro (2 Macs)')
+  : (tier === 'family'
+      ? 'FINDARO — Familiar / Studio (5 Macs)'
+      : tier === 'solo'
+        ? 'FINDARO — Personal (1 Mac)'
+        : 'FINDARO — Pro (2 Macs)');
 const title = data.serviceTitle || defaultTitle;
 const description = data.serviceDescription || (lang === 'en' ? 'Lifetime license with automatic updates' : 'Licencia de por vida con actualizaciones');
 const formParams = [];

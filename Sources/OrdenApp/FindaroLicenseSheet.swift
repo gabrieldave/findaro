@@ -36,7 +36,7 @@ public struct FindaroLicenseSheet: View {
 
                 Text(isRevoked
                      ? (revokedMessage ?? L10n.s("Esta licencia ha sido revocada o desactivada. Adquiere una nueva licencia para reactivar las operaciones de escritura.", "This license has been revoked or deactivated. Purchase a new license to restore write operations."))
-                     : L10n.s("Tu período de prueba de 5 días ha terminado. Las funciones de escritura (mover, copiar, renombrar, borrar, Smart Merge y bandeja) requieren una licencia Pro.", "Your 5-day trial has ended. Write operations (move, copy, rename, delete, Smart Merge and tray) require a Pro license."))
+                     : L10n.s("Tu período de prueba de 14 días ha terminado. Las funciones de escritura (mover, copiar, renombrar, borrar, Smart Merge y bandeja) requieren una licencia Pro.", "Your 14-day trial has ended. Write operations (move, copy, rename, delete, Smart Merge and tray) require a Pro license."))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -68,7 +68,7 @@ public struct FindaroLicenseSheet: View {
                     .controlSize(.large)
                     .tint(Color.accentColor)
 
-                    Text(L10n.s("Pago único de por vida · Sin suscripción · Soporte y actualizaciones", "One-time lifetime payment · No subscription · Updates included"))
+                    Text(L10n.s("Personal $29 · Pro $39 · Familiar $59 · Sin suscripción", "Personal $29 · Pro $39 · Family $59 · No subscription"))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }

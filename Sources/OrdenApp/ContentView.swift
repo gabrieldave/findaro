@@ -2975,6 +2975,28 @@ struct SettingsView: View {
 
     // MARK: Licencia
 
+    /// Etiqueta de plan: solo=Personal(1), personal=Pro(2), family=Familiar(5).
+    private static func licensePlanLabel(tier: String, seats: Int) -> String {
+        switch tier {
+        case "family":
+            return L10n.s("Familiar / Studio (hasta 5 Macs)", "Family / Studio (up to 5 Macs)")
+        case "solo":
+            return L10n.s("Personal (1 Mac)", "Personal (1 Mac)")
+        default:
+            if seats == 1 {
+                return L10n.s("Personal (1 Mac)", "Personal (1 Mac)")
+            }
+            return L10n.s("Pro (hasta 2 Macs)", "Pro (up to 2 Macs)")
+        }
+    }
+
+    private static func licenseSeatsLabel(activeCount: Int, seats: Int) -> String {
+        if seats == 1 {
+            return L10n.s("\(activeCount) de 1 Mac registrada", "\(activeCount) of 1 Mac registered")
+        }
+        return L10n.s("\(activeCount) de \(seats) Macs registradas", "\(activeCount) of \(seats) Macs registered")
+    }
+
     private var settingsLicense: some View {
         Form {
             Section {
@@ -3000,7 +3022,7 @@ struct SettingsView: View {
                             Text(L10n.s("Plan:", "Plan:"))
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text(tier == "family" ? L10n.s("Familiar (hasta 5 Macs)", "Family (up to 5 Macs)") : L10n.s("Personal (hasta 2 Macs)", "Personal (up to 2 Macs)"))
+                            Text(Self.licensePlanLabel(tier: tier, seats: seats))
                                 .fontWeight(.semibold)
                         }
 
@@ -3008,7 +3030,7 @@ struct SettingsView: View {
                             Text(L10n.s("Equipos activos:", "Active devices:"))
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text(L10n.s("\(activeCount) de \(seats) Macs registradas", "\(activeCount) of \(seats) Macs registered"))
+                            Text(Self.licenseSeatsLabel(activeCount: activeCount, seats: seats))
                                 .fontWeight(.semibold)
                         }
 
@@ -3064,7 +3086,7 @@ struct SettingsView: View {
                                     NSWorkspace.shared.open(url)
                                 }
                             } label: {
-                                Label(L10n.s("Comprar licencia ($39 USD · 2 Macs)", "Buy License ($39 USD · 2 Macs)"), systemImage: "cart.fill")
+                                Label(L10n.s("Comprar licencia (desde $29 USD)", "Buy License (from $29 USD)"), systemImage: "cart.fill")
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(OrdenTheme.accent)
@@ -3079,7 +3101,7 @@ struct SettingsView: View {
                                 .font(.title)
                                 .foregroundStyle(Color.orange)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(L10n.s("Prueba de 5 días finalizada", "5-day trial expired"))
+                                Text(L10n.s("Prueba de 14 días finalizada", "14-day trial expired"))
                                     .font(.headline.weight(.bold))
                                 Text(L10n.s("Adquiere tu licencia de por vida para seguir usando Findaro.", "Purchase your lifetime license to continue using Findaro."))
                                     .font(.subheadline)
@@ -3093,7 +3115,7 @@ struct SettingsView: View {
                                     NSWorkspace.shared.open(url)
                                 }
                             } label: {
-                                Label(L10n.s("Comprar licencia de por vida ($39 USD)", "Buy lifetime license ($39 USD)"), systemImage: "cart.fill")
+                                Label(L10n.s("Comprar licencia de por vida (desde $29 USD)", "Buy lifetime license (from $29 USD)"), systemImage: "cart.fill")
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(OrdenTheme.accent)
@@ -3170,8 +3192,9 @@ struct SettingsView: View {
 
             Section {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(L10n.s("• Plan Personal: incluye 2 Macs por $39 USD (pago único de por vida).", "• Personal Plan: includes 2 Macs for $39 USD (one-time lifetime payment)."))
-                    Text(L10n.s("• Plan Familiar: incluye 5 Macs por $59 USD.", "• Family Plan: includes 5 Macs for $59 USD."))
+                    Text(L10n.s("• Personal: 1 Mac por $29 USD (pago único de por vida).", "• Personal: 1 Mac for $29 USD (one-time lifetime payment)."))
+                    Text(L10n.s("• Pro: 2 Macs por $39 USD (ideal escritorio + MacBook).", "• Pro: 2 Macs for $39 USD (ideal for desktop + MacBook)."))
+                    Text(L10n.s("• Familiar / Studio: 5 Macs por $59 USD.", "• Family / Studio: 5 Macs for $59 USD."))
                     Text(L10n.s("• Validación offline: tu licencia funciona permanentemente sin requerir conexión constante a internet.", "• Offline validation: your license works offline without requiring constant internet connection."))
                 }
                 .font(.caption)

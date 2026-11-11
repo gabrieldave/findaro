@@ -19,10 +19,11 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<{
   const lang = input.lang === "es" ? "es" : "en";
   const isEn = lang === "en";
   const tierInfo = TIERS[tier];
+  const seatsLabel = `${tierInfo.seats} Mac${tierInfo.seats === 1 ? "" : "s"}`;
 
   const serviceTitle = isEn
-    ? `${PRODUCT_NAME} — ${tierInfo.nameEn} (${tierInfo.seats} Macs)`
-    : `${PRODUCT_NAME} — ${tierInfo.name} (${tierInfo.seats} Macs)`;
+    ? `${PRODUCT_NAME} — ${tierInfo.nameEn} (${seatsLabel})`
+    : `${PRODUCT_NAME} — ${tierInfo.name} (${seatsLabel})`;
   const serviceDescription = isEn
     ? `${tierInfo.descriptionEn}. One-time lifetime payment.`
     : `${tierInfo.description}. Pago único de por vida.`;
@@ -34,6 +35,7 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<{
       amount: input.amountUsd,
       currency: "usd",
       lang,
+      tier,
       serviceTitle,
       serviceDescription,
       serviceId: input.orderId,

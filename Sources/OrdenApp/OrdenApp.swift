@@ -22,7 +22,7 @@ struct OrdenApp: App {
         LicenseStore.shared.startPeriodicCheck()
         Task {
             await LicenseStore.shared.checkServerStatus()
-            // Prueba anclada en el servidor: borrar el Llavero o reinstalar no reinicia los 5 días.
+            // Prueba anclada en el servidor: borrar el Llavero o reinstalar no reinicia los 14 días.
             await LicenseStore.shared.syncDeviceTrial()
         }
     }

@@ -14,7 +14,7 @@ import { limitByIp } from "@/lib/ratelimit";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** La app Mac verifica / activa una clave. Soporte multi-asiento (2 Macs personal / 5 Macs familiar) y prueba de 5 días. */
+/** La app Mac verifica / activa una clave. Soporte multi-asiento (1/2/5 Macs) y prueba de TRIAL_DAYS. */
 export const POST = handle(async (req) => {
   // Límite de peticiones. Activación/revalidación: 30 cada 10 min por IP.
   const limited = limitByIp(req, "license-verify", 30, 10 * 60_000);
@@ -80,7 +80,7 @@ export const POST = handle(async (req) => {
       });
     } else if (effectiveExpiresAt.getTime() < Date.now()) {
       return fail(
-        "El período de prueba de 5 días ha finalizado. Compra tu licencia Pro para continuar.",
+        `El período de prueba de ${TRIAL_DAYS} días ha finalizado. Compra tu licencia Pro para continuar.`,
         402,
       );
     }

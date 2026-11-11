@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * La app pide aquí su prueba de 5 días al primer arranque (y en cada arranque mientras no sea Pro).
+ * La app pide aquí su prueba de TRIAL_DAYS al primer arranque (y en cada arranque mientras no sea Pro).
  * El servidor guarda la fecha de inicio por equipo (hash con sal) y devuelve un token firmado
  * con plan "trial", el machineId y la caducidad. Reinstalar o borrar el Llavero no la reinicia.
  */

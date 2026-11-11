@@ -40,10 +40,10 @@ function ProbarInner() {
   };
 
   const t = {
-    title: isEn ? "Try 5 Days Free" : "Prueba 5 días gratis",
+    title: isEn ? "Try 14 Days Free" : "Prueba 14 días gratis",
     sub: isEn
-      ? "1 Mac · no credit card required. After trial, upgrade to a lifetime license (from $39 USD)."
-      : "1 Mac · sin tarjeta. Al terminar, compra Pro de por vida (desde $39 USD).",
+      ? "1 Mac · no credit card required. After trial, upgrade to a lifetime license (from $29 USD)."
+      : "1 Mac · sin tarjeta. Al terminar, compra una licencia de por vida (desde $29 USD).",
     nameLabel: isEn ? "Full Name" : "Nombre",
     emailLabel: isEn ? "Email" : "Correo",
     busyBtn: isEn ? "Preparing trial…" : "Preparando…",

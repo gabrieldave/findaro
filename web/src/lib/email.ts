@@ -179,11 +179,15 @@ export async function sendPurchaseConfirmationEmail(
   const tierName =
     payload.tier === "family"
       ? isEn
-        ? "Family Plan (5 Macs)"
-        : "Plan Familiar (5 Macs)"
-      : isEn
-        ? "Personal Plan (2 Macs)"
-        : "Plan Personal (2 Macs)";
+        ? "Family / Studio (5 Macs)"
+        : "Familiar / Studio (5 Macs)"
+      : payload.tier === "solo"
+        ? isEn
+          ? "Personal (1 Mac)"
+          : "Personal (1 Mac)"
+        : isEn
+          ? "Pro (2 Macs)"
+          : "Pro (2 Macs)";
 
   const emailSubject = isEn
     ? `Your Findaro Lifetime License for macOS ⚡ (${tierName})`

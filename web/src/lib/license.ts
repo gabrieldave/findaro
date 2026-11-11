@@ -2,7 +2,7 @@ import { createHash, createPrivateKey, createPublicKey, randomBytes, sign, verif
 import { query, withTransaction } from "./db";
 import { LicenseTier, TIERS } from "./pricing";
 
-const TRIAL_DAYS = 5;
+const TRIAL_DAYS = Math.max(1, Number(process.env.TRIAL_DAYS || 14));
 
 /** Genera un hash con sal del identificador de hardware (no se guarda el UUID en claro) */
 export function hashHardwareId(machineId: string): string {
@@ -131,7 +131,7 @@ export async function issueTrialLicense(customerId: string, _email: string) {
   }
 
   const licenseKey = mintLicenseKey();
-  // Reloj único: expires_at es NULL al emitir la clave; el servidor fija now() + 5 días en la primera activación en Mac
+  // Reloj único: expires_at es NULL al emitir la clave; el servidor fija now() + TRIAL_DAYS en la primera activación en Mac
   await query(
     `INSERT INTO licenses (customer_id, license_key, plan, tier, seats, expires_at)
      VALUES ($1, $2, 'trial', 'trial', 1, NULL)`,
@@ -318,7 +318,7 @@ export async function removeActivation(licenseId: string, machineId: string) {
 }
 
 /**
- * Prueba por equipo (sin correo): el reloj de 5 días vive en el SERVIDOR, ligado al hash del
+ * Prueba por equipo (sin correo): el reloj de TRIAL_DAYS vive en el SERVIDOR, ligado al hash del
  * hardware. Borrar el Llavero o reinstalar ya no reinicia la prueba (si la Mac tiene internet).
  */
 export async function getOrStartDeviceTrial(machineId: string): Promise<{ startedAt: Date; expiresAt: Date }> {

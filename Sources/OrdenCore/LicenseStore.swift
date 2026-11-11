@@ -243,7 +243,7 @@ public final class LicenseStore: ObservableObject {
         public static let trialLastSeen = "findaro.trial.last_seen"
     }
 
-    public static let trialDuration: TimeInterval = 5 * 24 * 60 * 60
+    public static let trialDuration: TimeInterval = 14 * 24 * 60 * 60
 
     public init(
         defaults: UserDefaults = .standard,
@@ -286,7 +286,10 @@ public final class LicenseStore: ObservableObject {
 
             let key = defaults.string(forKey: Keys.licenseKey) ?? keychain.get(Keys.licenseKey) ?? payload.key
             let tier = defaults.string(forKey: Keys.tier) ?? payload.tier ?? "personal"
-            let seats = defaults.integer(forKey: Keys.seats) > 0 ? defaults.integer(forKey: Keys.seats) : (payload.seats ?? 2)
+            // seats=1 (Personal) es licencia Pro válida; no forzar mínimo 2.
+            let fallbackSeats = (payload.tier == "solo") ? 1 : 2
+            let seatsFromPayload = payload.seats.flatMap { $0 >= 1 ? $0 : nil } ?? fallbackSeats
+            let seats = defaults.integer(forKey: Keys.seats) > 0 ? defaults.integer(forKey: Keys.seats) : seatsFromPayload
             let activeCount = defaults.integer(forKey: Keys.activeCount) > 0 ? defaults.integer(forKey: Keys.activeCount) : 1
 
             if payload.plan == "pro" {
@@ -320,7 +323,7 @@ public final class LicenseStore: ObservableObject {
             return
         }
 
-        // 2. Si no hay token de licencia, evaluar período de prueba local de 5 días
+        // 2. Si no hay token de licencia, evaluar período de prueba local de 14 días
         // El inicio de prueba se guarda en Keychain para que borrar preferencias no lo reinicie
         var trialStart: Date?
         if let kcVal = keychain.get(Keys.trialStart), let ts = Double(kcVal) {
@@ -466,7 +469,8 @@ public final class LicenseStore: ObservableObject {
 
         let signed = responseData["signed"] as? String ?? ""
         let tier = responseData["tier"] as? String ?? "personal"
-        let seats = responseData["seats"] as? Int ?? 2
+        let seatsRaw = responseData["seats"] as? Int ?? (tier == "solo" ? 1 : 2)
+        let seats = max(1, seatsRaw)
         let activeCount = responseData["activeCount"] as? Int ?? 1
         let plan = responseData["plan"] as? String ?? "pro"
 
@@ -592,9 +596,10 @@ public final class LicenseStore: ObservableObject {
             let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
             if let responseData = json["data"] as? [String: Any] {
                 let plan = responseData["plan"] as? String ?? "pro"
-                let seats = responseData["seats"] as? Int ?? 2
-                let activeCount = responseData["activeCount"] as? Int ?? 1
                 let tier = responseData["tier"] as? String ?? "personal"
+                let seatsRaw = responseData["seats"] as? Int ?? (tier == "solo" ? 1 : 2)
+                let seats = max(1, seatsRaw)
+                let activeCount = responseData["activeCount"] as? Int ?? 1
                 let signed = responseData["signed"] as? String ?? ""
                 defaults.set(false, forKey: Keys.revoked)
 
