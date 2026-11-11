@@ -61,12 +61,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { _ in
             Task { @MainActor in
                 // Solo re-anclar si quedó fuera de TODOS los monitores (no mid-drag).
+                // No cerrar preview aquí: Night Shift / scale flicker mataba el overlay
+                // y el siguiente Espacio parecía “surtido”. El reset va en didChangeScreen.
                 for window in FindaroWindowRegistry.registeredWindows {
                     FindaroScreenPlacement.ensureOnScreen(window)
                 }
-                // Preview/QL se corrompen al cambiar escala/disposición: limpiar estado.
-                QuickLookController.shared.resetAfterDisplayChange()
-                MediaPreviewController.shared.resetAfterDisplayChange()
                 OrdenWindowFit.applyToOpenWindows()
             }
         }

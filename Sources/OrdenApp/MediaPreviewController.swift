@@ -23,15 +23,7 @@ final class MediaPreviewController: NSObject {
 
     func show(entry: FileEntry) {
         guard let browser else { return }
-        // Remount forzado: tras cambiar de monitor SwiftUI a veces deja el overlay
-        // “pegado” y no vuelve a pintar si el id es el mismo.
-        if browser.mediaPreviewEntry?.id == entry.id {
-            browser.mediaPreviewEntry = nil
-            DispatchQueue.main.async { [weak browser] in
-                browser?.mediaPreviewEntry = entry
-            }
-            return
-        }
+        browser.mediaPreviewEpoch &+= 1
         browser.mediaPreviewEntry = entry
     }
 
@@ -91,6 +83,7 @@ struct InlineMediaPreviewOverlay: View {
         Group {
             if let entry = browser.mediaPreviewEntry {
                 overlay(for: entry)
+                    .id("preview-\(entry.id)-\(browser.mediaPreviewEpoch)")
             }
         }
     }

@@ -213,6 +213,8 @@ final class BrowserModel: ObservableObject {
 
     // MARK: Vista previa de vídeo (overlay in-window; evita NSWindow off-screen multi-monitor)
     @Published var mediaPreviewEntry: FileEntry?
+    /// Sube en cada show para forzar remount del overlay (mismo archivo / tras monitor).
+    @Published var mediaPreviewEpoch: Int = 0
 
     // MARK: Asistente
     @Published var showAssistantPanel = false
@@ -1223,6 +1225,7 @@ final class BrowserModel: ObservableObject {
                 selectedIDs = []
                 selectionAnchorID = nil
                 selectionFocusID = nil
+                closeMediaPreviewIfNeeded()
                 reload()
                 return
             }
@@ -1243,9 +1246,19 @@ final class BrowserModel: ObservableObject {
         searchText = ""
         statusMessage = nil
         columnPaths = [target]
+        // Preview de la carpeta anterior no debe “comerse” el próximo Espacio.
+        closeMediaPreviewIfNeeded()
         store.update { $0.lastPath = target }
         reload()
         refreshHistoryFlags()
+    }
+
+    /// Cierra overlay/QL al cambiar de carpeta (si no, el siguiente Espacio solo “cierra”).
+    func closeMediaPreviewIfNeeded() {
+        if mediaPreviewEntry != nil || QuickLookController.shared.isVisible {
+            QuickLookController.shared.hide()
+            mediaPreviewEntry = nil
+        }
     }
 
     // MARK: Dual pane
@@ -1315,6 +1328,7 @@ final class BrowserModel: ObservableObject {
         secondarySelectionAnchorID = nil
         secondarySelectionFocusID = nil
         focusedPane = .secondary
+        closeMediaPreviewIfNeeded()
         reloadSecondary()
         statusMessage = L10n.s("Panel derecho: \((target as NSString).lastPathComponent)", "Right pane: \((target as NSString).lastPathComponent)")
     }
@@ -3953,7 +3967,7 @@ final class BrowserModel: ObservableObject {
     }
 
     func quickLookSelection() {
-        let paths = activeSelectedEntries.map(\.path)
+        let paths = activeSelectedEntries.filter { !$0.isDirectory }.map(\.path)
         guard !paths.isEmpty else {
             statusMessage = L10n.s(
                 "Selecciona un archivo para Vista rápida (Espacio)",
@@ -3964,6 +3978,7 @@ final class BrowserModel: ObservableObject {
         // La búsqueda del toolbar a menudo retiene el firstResponder y se come el Espacio.
         NSApp.keyWindow?.makeFirstResponder(nil)
         isAssistantFocused = false
+        MediaPreviewController.shared.bind(browser: self)
         QuickLookController.shared.toggle(browser: self, focusing: paths)
     }
 

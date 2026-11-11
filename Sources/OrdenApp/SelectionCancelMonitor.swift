@@ -66,7 +66,8 @@ enum SelectionCancelMonitor {
             // El SearchField del toolbar a menudo retiene el field editor: con selección
             // de archivos, Espacio debe abrir Vista rápida (no tipar un espacio en buscar).
             // Solo cedemos el Espacio si el usuario está tipando de verdad (omnibox / chat / sheet).
-            if bare, key == 49 {
+            // Ignorar key-repeat: si no, open→close en el mismo “mantener” Espacio.
+            if bare, key == 49, !event.isARepeat {
                 let hasSel = browser.activeHasSelection
                 let typingWins = browser.pathOmniboxEditing
                     || browser.hasModalSheet

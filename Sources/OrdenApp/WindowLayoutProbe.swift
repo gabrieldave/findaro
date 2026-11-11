@@ -78,12 +78,8 @@ struct WindowLayoutProbe: NSViewRepresentable {
                     name: NSWindow.didChangeScreenNotification,
                     object: newWindow
                 )
-                NotificationCenter.default.addObserver(
-                    self,
-                    selector: #selector(screensDidChange(_:)),
-                    name: NSApplication.didChangeScreenParametersNotification,
-                    object: nil
-                )
+                // No escuchar didChangeScreenParameters aquí: dispara sin cruzar
+                // monitor y cerraba preview “al azar” al navegar carpetas.
             }
         }
 
@@ -103,18 +99,17 @@ struct WindowLayoutProbe: NSViewRepresentable {
             handleScreenIdentityChange()
         }
 
-        @objc private func screensDidChange(_ note: Notification) {
-            // Parámetros globales (escala/disposición): misma recuperación que cruzar monitores.
-            handleScreenIdentityChange()
-        }
-
         private func handleScreenIdentityChange() {
             let next = Self.screenNumber(of: window)
             // Durante el arrastre `screen` puede ser nil; no spamear reset.
             guard let next else { return }
+            guard lastScreenNumber != next else {
+                reportIfNeeded(force: true)
+                return
+            }
             lastScreenNumber = next
             reportIfNeeded(force: true)
-            // Cruzar monitor o cambio de escala/disposición: remount preview/layout.
+            // Solo al cruzar de monitor de verdad.
             onScreenChange?()
         }
 

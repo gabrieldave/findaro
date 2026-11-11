@@ -11,58 +11,64 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
     private weak var browser: BrowserModel?
     private var entries: [FileEntry] = []
     private var currentIndex: Int = 0
-    /// Evita open→close si Espacio llega por monitor + SwiftUI en el mismo instante.
+    /// Evita open→close si Espacio llega duplicado en el mismo instante.
     private var lastToggleAt: Date?
-    /// Tras cruzar monitores, el primer Espacio debe ABRIR (estado previo puede mentir).
-    private var invalidateVisibleAfterDisplayChange = false
+    private var lastToggleFocusPath: String?
 
     var isVisible: Bool {
-        if invalidateVisibleAfterDisplayChange { return false }
         if MediaPreviewController.shared.isVisible { return true }
         guard let panel = QLPreviewPanel.shared(), panel.isVisible else { return false }
-        // Panel “visible” pero off-screen no cuenta: Espacio debe ABRIR overlay, no “cerrar”.
         return Self.isQuickLookOnScreen(panel)
     }
 
-    /// Llamar al cruzar de monitor / cambiar displays: limpia QL + overlay sin dejar zombies.
-    func resetAfterDisplayChange() {
-        invalidateVisibleAfterDisplayChange = true
-        lastToggleAt = nil
-        hideAll()
-        // Tras un tick, permitir de nuevo el toggle normal.
-        DispatchQueue.main.async { [weak self] in
-            self?.invalidateVisibleAfterDisplayChange = false
-        }
+    /// Ruta del ítem actualmente en preview (overlay o QL), si hay.
+    var currentPreviewPath: String? {
+        if let path = browser?.mediaPreviewEntry?.path { return path }
+        guard isVisible, entries.indices.contains(currentIndex) else { return nil }
+        return entries[currentIndex].path
     }
 
+    /// Al cruzar monitores: cierra zombies; el siguiente Espacio siempre abre.
+    func resetAfterDisplayChange() {
+        lastToggleAt = nil
+        lastToggleFocusPath = nil
+        hideAll()
+    }
+
+    /// Espacio: cierra solo si ya estás viendo ESE archivo; si cambiaste
+    /// carpeta/selección/monitor, reemplaza (nunca “solo cierra” un estado mentiroso).
     func toggle(browser: BrowserModel, focusing paths: [String]) {
         self.browser = browser
+        let focus = paths.first { path in
+            !(path as NSString).pathExtension.isEmpty || FileManager.default.fileExists(atPath: path)
+        } ?? paths.first
+
         let now = Date()
-        if let last = lastToggleAt, now.timeIntervalSince(last) < 0.18 {
+        if let last = lastToggleAt,
+           now.timeIntervalSince(last) < 0.18,
+           lastToggleFocusPath == focus {
             return
         }
         lastToggleAt = now
+        lastToggleFocusPath = focus
 
-        // Siempre sacar QL del sistema: tras mover de monitor queda “visible” zombi
-        // y se come Espacio / deja la app en un estado irrecuperable hasta reiniciar.
-        if let panel = QLPreviewPanel.shared(), panel.isVisible {
-            let onScreen = Self.isQuickLookOnScreen(panel)
-            panel.orderOut(nil)
-            if onScreen, !MediaPreviewController.shared.isVisible, !invalidateVisibleAfterDisplayChange {
-                return
-            }
-        }
+        // Sacar QL zombi SIEMPRE (no usar su “isVisible” para decidir cerrar).
+        forceOrderOutQuickLook()
 
-        if MediaPreviewController.shared.isVisible, !invalidateVisibleAfterDisplayChange {
+        let showingPath = browser.mediaPreviewEntry?.path
+        if let showingPath, let focus, showingPath == focus {
             MediaPreviewController.shared.hide()
             return
         }
-        invalidateVisibleAfterDisplayChange = false
+
+        // Preview abierto de OTRO archivo (p. ej. carpeta anterior) → reemplazar.
+        // Preview cerrado → abrir.
         show(browser: browser, focusing: paths)
     }
 
     func show(browser: BrowserModel, focusing paths: [String]) {
         self.browser = browser
+        MediaPreviewController.shared.bind(browser: browser)
         rebuildEntries(focusing: paths)
         guard !entries.isEmpty else { return }
         presentCurrent()
@@ -84,21 +90,27 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
 
     private func hideAll() {
         MediaPreviewController.shared.hide()
-        QLPreviewPanel.shared()?.orderOut(nil)
+        forceOrderOutQuickLook()
+    }
+
+    private func forceOrderOutQuickLook() {
+        guard let panel = QLPreviewPanel.shared() else { return }
+        if panel.isVisible || panel.isKeyWindow {
+            panel.orderOut(nil)
+        }
     }
 
     private func presentCurrent() {
         guard entries.indices.contains(currentIndex) else { return }
         let entry = entries[currentIndex]
         // Imagen + vídeo: SIEMPRE overlay dentro de Findaro.
-        // QLPreviewPanel en multi-monitor (LG+TYPEC) a menudo queda off-screen:
-        // el usuario pulsa Espacio y “no pasa nada” aunque el panel exista.
         if entry.category == .video || entry.category == .image {
             presentInline(entry)
             return
         }
 
-        MediaPreviewController.shared.hide()
+        // PDF/otros: intentar QL; si nace off-screen o no aparece → overlay.
+        forceOrderOutQuickLook()
         guard let panel = QLPreviewPanel.shared() else {
             presentInline(entry)
             return
@@ -110,11 +122,6 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
         panel.updateController()
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
-        if !panel.isVisible {
-            panel.updateController()
-            panel.makeKeyAndOrderFront(nil)
-        }
-        // Si el panel nació fuera de pantalla, caemos al overlay (PDF/otros).
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             if !Self.isQuickLookOnScreen(panel) {
@@ -128,7 +135,7 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
         if let browser {
             MediaPreviewController.shared.bind(browser: browser)
         }
-        QLPreviewPanel.shared()?.orderOut(nil)
+        forceOrderOutQuickLook()
         MediaPreviewController.shared.show(entry: entry)
     }
 
@@ -144,10 +151,15 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
         }
         let sourceEntries = browser.activeIsSecondary ? browser.secondaryEntries : browser.visibleEntries
         let files = sourceEntries.filter { !$0.isDirectory }
-        // Respetar el orden exacto de la vista actual (filtros, atajos o regla activa)
         entries = files
-        let focus = paths.first ?? (browser.activeIsSecondary ? browser.secondarySelectedEntries : browser.selectedEntries).first(where: { !$0.isDirectory })?.path
+        let focus = paths.first(where: { path in
+            files.contains(where: { $0.path == path })
+        }) ?? (browser.activeIsSecondary ? browser.secondarySelectedEntries : browser.selectedEntries)
+            .first(where: { !$0.isDirectory })?.path
         if let focus, let idx = entries.firstIndex(where: { $0.path == focus }) {
+            currentIndex = idx
+        } else if let firstPath = paths.first,
+                  let idx = entries.firstIndex(where: { $0.path == firstPath }) {
             currentIndex = idx
         } else {
             currentIndex = 0
