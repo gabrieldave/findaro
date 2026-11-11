@@ -20,36 +20,40 @@ struct ContentView: View {
     private var assistantWidth: CGFloat { metrics.assistantWidth }
 
     var body: some View {
-        HStack(spacing: 0) {
-            SidebarView()
-                .frame(width: sidebarWidth)
-                .frame(minWidth: sidebarWidth, idealWidth: sidebarWidth, maxWidth: sidebarWidth)
-                .frame(maxHeight: .infinity, alignment: .top)
-                .layoutPriority(1)
-                .background(OrdenTheme.sidebarFill)
-                .accessibilityLabel(L10n.s("Menú lateral", "Sidebar"))
-                // Al terminar un resize (layoutGeneration++) reaparece si SwiftUI lo había “congelado”
-                .id("sidebar-\(layoutGeneration)-\(Int(sidebarWidth))")
-
-            Divider().opacity(0.45)
-
-            detailColumn
-                // minWidth 0: comprime el detalle, NUNCA el sidebar
-                .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
-                .layoutPriority(0)
-                .environment(
-                    \.ordenWindowWidth,
-                    max(0, windowWidth - sidebarWidth - (browser.showAssistantPanel ? assistantWidth : 0))
-                )
-                .environment(\.ordenLayoutGeneration, layoutGeneration)
-
-            if browser.showAssistantPanel {
-                Divider().opacity(0.35)
-                AssistantPanel()
-                    .frame(width: assistantWidth)
-                    .frame(minWidth: assistantWidth, maxWidth: assistantWidth)
+        ZStack {
+            HStack(spacing: 0) {
+                SidebarView()
+                    .frame(width: sidebarWidth)
+                    .frame(minWidth: sidebarWidth, idealWidth: sidebarWidth, maxWidth: sidebarWidth)
+                    .frame(maxHeight: .infinity, alignment: .top)
                     .layoutPriority(1)
+                    .background(OrdenTheme.sidebarFill)
+                    .accessibilityLabel(L10n.s("Menú lateral", "Sidebar"))
+                    // Al terminar un resize (layoutGeneration++) reaparece si SwiftUI lo había “congelado”
+                    .id("sidebar-\(layoutGeneration)-\(Int(sidebarWidth))")
+
+                Divider().opacity(0.45)
+
+                detailColumn
+                    // minWidth 0: comprime el detalle, NUNCA el sidebar
+                    .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
+                    .layoutPriority(0)
+                    .environment(
+                        \.ordenWindowWidth,
+                        max(0, windowWidth - sidebarWidth - (browser.showAssistantPanel ? assistantWidth : 0))
+                    )
+                    .environment(\.ordenLayoutGeneration, layoutGeneration)
+
+                if browser.showAssistantPanel {
+                    Divider().opacity(0.35)
+                    AssistantPanel()
+                        .frame(width: assistantWidth)
+                        .frame(minWidth: assistantWidth, maxWidth: assistantWidth)
+                        .layoutPriority(1)
+                }
             }
+
+            InlineMediaPreviewOverlay()
         }
         .frame(
             minWidth: sidebarWidth + detailMinWidth + (browser.showAssistantPanel ? assistantWidth : 0),
@@ -91,7 +95,10 @@ struct ContentView: View {
         .onSubmit(of: .search) {
             browser.startDeepSearch()
         }
-        .onAppear { SelectionCancelMonitor.install(browser: browser, session: session) }
+        .onAppear {
+            MediaPreviewController.shared.bind(browser: browser)
+            SelectionCancelMonitor.install(browser: browser, session: session)
+        }
         .onDisappear { SelectionCancelMonitor.remove() }
         .modifier(BrowserToolbarModifier())
         .modifier(BrowserDialogsModifier(shortPath: shortPath))

@@ -1,157 +1,177 @@
 import AppKit
 import AVKit
 import AVFoundation
+import SwiftUI
 import OrdenCore
 
-/// Vista previa propia para vídeo/imagen (no depende del icono roto de VLC/Quick Look).
+/// Vista previa de vídeo **dentro** de la ventana Findaro.
+/// Un NSWindow aparte quedaba off-screen en multi-monitor (LG + TYPEC);
+/// el overlay SwiftUI siempre queda delante. No usamos `VideoPlayer` de SwiftUI
+/// (abortaba al instanciar metadatos); envolvemos `AVPlayerView`.
 @MainActor
-final class MediaPreviewController: NSObject, NSWindowDelegate {
+final class MediaPreviewController: NSObject {
     static let shared = MediaPreviewController()
 
-    private var window: NSWindow?
-    private var playerView: AVPlayerView?
-    private var imageView: NSImageView?
-    private var titleLabel: NSTextField?
-    private var player: AVPlayer?
+    private weak var browser: BrowserModel?
 
-    var isVisible: Bool { window?.isVisible == true }
+    var isVisible: Bool { browser?.mediaPreviewEntry != nil }
+    var isOnScreen: Bool { isVisible }
+
+    func bind(browser: BrowserModel) {
+        self.browser = browser
+    }
 
     func show(entry: FileEntry) {
-        ensureWindow()
-        guard let window, let playerView, let imageView, let titleLabel else { return }
-        titleLabel.stringValue = entry.name
-
-        player?.pause()
-        player = nil
-        playerView.player = nil
-        imageView.image = nil
-        playerView.isHidden = true
-        imageView.isHidden = true
-
-        let url = URL(fileURLWithPath: entry.path)
-        switch entry.category {
-        case .video:
-            let item = AVPlayerItem(url: url)
-            let p = AVPlayer(playerItem: item)
-            player = p
-            playerView.player = p
-            playerView.isHidden = false
-            p.play()
-        case .image:
-            imageView.image = NSImage(contentsOf: url)
-            imageView.isHidden = false
-        default:
-            imageView.image = NSWorkspace.shared.icon(forFile: entry.path)
-            imageView.isHidden = false
-        }
-
-        window.title = entry.name
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        guard let browser else { return }
+        browser.mediaPreviewEntry = entry
     }
 
     func hide() {
-        player?.pause()
-        player = nil
-        playerView?.player = nil
-        window?.orderOut(nil)
+        browser?.mediaPreviewEntry = nil
     }
 
     func toggle(entry: FileEntry) {
-        if isVisible {
-            hide()
-        } else {
-            show(entry: entry)
-        }
-    }
-
-    private func ensureWindow() {
-        if window != nil { return }
-
-        let rect = NSRect(x: 0, y: 0, width: 900, height: 620)
-        let win = MediaPreviewWindow(
-            contentRect: rect,
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        win.title = L10n.s("Vista previa", "Preview")
-        win.isReleasedWhenClosed = false
-        win.delegate = self
-        win.center()
-        win.minSize = NSSize(width: 480, height: 320)
-
-        let content = NSView(frame: rect)
-        content.wantsLayer = true
-        content.layer?.backgroundColor = NSColor.black.cgColor
-
-        let title = NSTextField(labelWithString: "")
-        title.font = .systemFont(ofSize: 13, weight: .semibold)
-        title.textColor = .white
-        title.drawsBackground = false
-        title.isBezeled = false
-        title.translatesAutoresizingMaskIntoConstraints = false
-
-        let pv = AVPlayerView(frame: .zero)
-        pv.controlsStyle = .floating
-        pv.translatesAutoresizingMaskIntoConstraints = false
-
-        let iv = NSImageView(frame: .zero)
-        iv.imageScaling = .scaleProportionallyUpOrDown
-        iv.translatesAutoresizingMaskIntoConstraints = false
-
-        content.addSubview(title)
-        content.addSubview(pv)
-        content.addSubview(iv)
-        win.contentView = content
-
-        NSLayoutConstraint.activate([
-            title.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
-            title.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
-            title.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
-
-            pv.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 8),
-            pv.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            pv.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            pv.bottomAnchor.constraint(equalTo: content.bottomAnchor),
-
-            iv.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 8),
-            iv.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            iv.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            iv.bottomAnchor.constraint(equalTo: content.bottomAnchor)
-        ])
-
-        window = win
-        playerView = pv
-        imageView = iv
-        titleLabel = title
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        player?.pause()
-        player = nil
-        playerView?.player = nil
+        if isVisible { hide() } else { show(entry: entry) }
     }
 }
 
-final class MediaPreviewWindow: NSWindow {
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
+// MARK: - AVPlayerView bridge (estable; evita crash de SwiftUI.VideoPlayer)
 
-    override func keyDown(with event: NSEvent) {
-        let code = event.keyCode
-        if code == 49 || code == 53 { // Space o Esc cierran
-            MediaPreviewController.shared.hide()
-            return
+private struct FindaroAVPlayerView: NSViewRepresentable {
+    let player: AVPlayer
+
+    func makeNSView(context: Context) -> AVPlayerView {
+        let view = AVPlayerView()
+        view.controlsStyle = .inline
+        view.videoGravity = .resizeAspect
+        view.allowsPictureInPicturePlayback = false
+        view.player = player
+        // Fuerza capa de vídeo (en algunos monitores externos el layer nace vacío).
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.black.cgColor
+        return view
+    }
+
+    func updateNSView(_ nsView: AVPlayerView, context: Context) {
+        if nsView.player !== player {
+            nsView.player = player
         }
-        if code == 123 { // Flecha izquierda
-            QuickLookController.shared.navigate(delta: -1)
-            return
+        nsView.videoGravity = .resizeAspect
+    }
+
+    static func dismantleNSView(_ nsView: AVPlayerView, coordinator: ()) {
+        nsView.player?.pause()
+        nsView.player = nil
+    }
+}
+
+// MARK: - Overlay
+
+struct InlineMediaPreviewOverlay: View {
+    @EnvironmentObject private var browser: BrowserModel
+    @State private var player: AVPlayer?
+
+    var body: some View {
+        Group {
+            if let entry = browser.mediaPreviewEntry {
+                overlay(for: entry)
+            }
         }
-        if code == 124 { // Flecha derecha
-            QuickLookController.shared.navigate(delta: 1)
-            return
+    }
+
+    @ViewBuilder
+    private func overlay(for entry: FileEntry) -> some View {
+        ZStack {
+            Color.black.opacity(0.78)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture { MediaPreviewController.shared.hide() }
+
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    Text(entry.name)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Button {
+                        QuickLookController.shared.navigate(delta: -1)
+                    } label: {
+                        Image(systemName: "chevron.left.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        QuickLookController.shared.navigate(delta: 1)
+                    } label: {
+                        Image(systemName: "chevron.right.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        MediaPreviewController.shared.hide()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 12)
+
+                mediaBody(for: entry)
+                    .frame(maxWidth: 980, maxHeight: 640)
+                    .background(Color.black)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
+            }
+            .frame(maxWidth: 1040)
         }
-        super.keyDown(with: event)
+        .onAppear { attachPlayer(for: entry) }
+        .onChange(of: entry.id) { _, _ in attachPlayer(for: entry) }
+        .onDisappear { detachPlayer() }
+        .onExitCommand { MediaPreviewController.shared.hide() }
+    }
+
+    @ViewBuilder
+    private func mediaBody(for entry: FileEntry) -> some View {
+        if entry.category == .video {
+            if let player {
+                FindaroAVPlayerView(player: player)
+            } else {
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(.white)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        } else if let img = NSImage(contentsOfFile: entry.path) {
+            Image(nsImage: img)
+                .resizable()
+                .scaledToFit()
+        } else {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: entry.path))
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: 160, maxHeight: 160)
+        }
+    }
+
+    private func attachPlayer(for entry: FileEntry) {
+        detachPlayer()
+        guard entry.category == .video else { return }
+        let p = AVPlayer(url: URL(fileURLWithPath: entry.path))
+        player = p
+        p.play()
+    }
+
+    private func detachPlayer() {
+        player?.pause()
+        player = nil
     }
 }

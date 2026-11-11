@@ -15,12 +15,10 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
     private var lastToggleAt: Date?
 
     var isVisible: Bool {
-        if MediaPreviewController.shared.isVisible { return true }
-        guard let panel = QLPreviewPanel.shared() else { return false }
-        // `isVisible` a veces miente justo tras makeKeyAndOrderFront; el panel
-        // ya es keyWindow / está en NSApp.windows.
-        if panel.isVisible || panel.isKeyWindow { return true }
-        return NSApp.windows.contains { $0 === panel && $0.isVisible }
+        // Solo señales fiables. Ampliar a isKeyWindow / NSApp.windows hacía
+        // falsos positivos tras orderOut: Espacio «cerraba» y nunca abría vídeo.
+        MediaPreviewController.shared.isVisible
+            || QLPreviewPanel.shared()?.isVisible == true
     }
 
     func toggle(browser: BrowserModel, focusing paths: [String]) {
@@ -30,8 +28,12 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
             return
         }
         lastToggleAt = now
-        if isVisible {
-            hideAll()
+        if MediaPreviewController.shared.isVisible {
+            MediaPreviewController.shared.hide()
+            return
+        }
+        if let panel = QLPreviewPanel.shared(), panel.isVisible {
+            panel.orderOut(nil)
             return
         }
         show(browser: browser, focusing: paths)
@@ -66,28 +68,35 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
     private func presentCurrent() {
         guard entries.indices.contains(currentIndex) else { return }
         let entry = entries[currentIndex]
-        switch entry.category {
-        case .video:
+        // Vídeo: overlay in-window (AVPlayer). QL del sistema solo muestra el icono
+        // de VLC y no reproduce; un NSWindow aparte quedaba off-screen en multi-monitor.
+        if entry.category == .video {
+            if let browser {
+                MediaPreviewController.shared.bind(browser: browser)
+            }
             QLPreviewPanel.shared()?.orderOut(nil)
             MediaPreviewController.shared.show(entry: entry)
-        default:
-            MediaPreviewController.shared.hide()
-            guard let panel = QLPreviewPanel.shared() else {
-                MediaPreviewController.shared.show(entry: entry)
-                return
+            return
+        }
+
+        MediaPreviewController.shared.hide()
+        guard let panel = QLPreviewPanel.shared() else {
+            if let browser {
+                MediaPreviewController.shared.bind(browser: browser)
             }
-            panel.dataSource = self
-            panel.delegate = self
-            panel.currentPreviewItemIndex = currentIndex
-            panel.reloadData()
+            MediaPreviewController.shared.show(entry: entry)
+            return
+        }
+        panel.dataSource = self
+        panel.delegate = self
+        panel.currentPreviewItemIndex = currentIndex
+        panel.reloadData()
+        panel.updateController()
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+        if !panel.isVisible {
             panel.updateController()
-            NSApp.activate(ignoringOtherApps: true)
             panel.makeKeyAndOrderFront(nil)
-            // Segunda pasada: a veces el panel nace sin contenido hasta updateController.
-            if !panel.isVisible {
-                panel.updateController()
-                panel.makeKeyAndOrderFront(nil)
-            }
         }
     }
 

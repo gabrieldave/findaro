@@ -211,6 +211,9 @@ final class BrowserModel: ObservableObject {
     @Published var pendingMergePreview: FolderMerge.Preview?
     @Published var pendingMergeMove = false
 
+    // MARK: Vista previa de vídeo (overlay in-window; evita NSWindow off-screen multi-monitor)
+    @Published var mediaPreviewEntry: FileEntry?
+
     // MARK: Asistente
     @Published var showAssistantPanel = false
     @Published var isAssistantFocused = false
