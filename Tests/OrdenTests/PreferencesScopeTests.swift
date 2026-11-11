@@ -75,5 +75,9 @@ final class PreferencesScopeTests: XCTestCase {
         let fromLegacy = try JSONDecoder().decode(OrdenPreferences.self, from: legacyData)
         XCTAssertEqual(fromLegacy.colorTheme, .midnightBlue)
         XCTAssertEqual(AppColorTheme.allCases.count, 5)
+        XCTAssertEqual(AppColorTheme.pickerCases.count, 4)
+        XCTAssertEqual(AppColorTheme.systemAuto.normalizedForStorage, .midnightBlue)
+        XCTAssertEqual(AppColorTheme.nordicLight.swatchIsLight, true)
+        XCTAssertEqual(AppColorTheme.graphitePro.swatchHex.uppercased(), "#EF4444")
     }
 }

@@ -15,7 +15,7 @@ final class ThemeController: ObservableObject {
     private var prefsObserver: NSObjectProtocol?
 
     private init() {
-        let stored = PreferencesStore.shared.preferences.colorTheme
+        let stored = PreferencesStore.shared.preferences.colorTheme.normalizedForStorage
         theme = stored
         UserDefaults.standard.set(stored.rawValue, forKey: "findaro_color_theme")
         OrdenTheme.sync(from: stored)
@@ -55,16 +55,17 @@ final class ThemeController: ObservableObject {
     }
 
     func setTheme(_ next: AppColorTheme) {
-        guard next != theme else { return }
-        theme = next
-        UserDefaults.standard.set(next.rawValue, forKey: "findaro_color_theme")
-        PreferencesStore.shared.update { $0.colorTheme = next }
-        OrdenTheme.sync(from: next)
+        let normalized = next.normalizedForStorage
+        guard normalized != theme else { return }
+        theme = normalized
+        UserDefaults.standard.set(normalized.rawValue, forKey: "findaro_color_theme")
+        PreferencesStore.shared.update { $0.colorTheme = normalized }
+        OrdenTheme.sync(from: normalized)
         bump()
     }
 
     private func reloadFromStore() {
-        let next = PreferencesStore.shared.preferences.colorTheme
+        let next = PreferencesStore.shared.preferences.colorTheme.normalizedForStorage
         if next != theme {
             theme = next
             UserDefaults.standard.set(next.rawValue, forKey: "findaro_color_theme")
@@ -118,8 +119,7 @@ enum OrdenTheme {
     static var textMuted: Color { Color(findaroHex: cachedPalette.textSecondary).opacity(0.85) }
 
     static var rowSelectionFill: Color {
-        let resolved = cachedTheme.resolved(isDark: cachedTheme != .nordicLight)
-        if resolved == .nordicLight {
+        if cachedTheme.resolved(isDark: false) == .nordicLight || cachedTheme == .nordicLight {
             return Color(findaroHex: cachedPalette.accent).opacity(0.16)
         }
         return Color(findaroHex: cachedPalette.selection).opacity(0.55)
@@ -214,17 +214,32 @@ struct ColorThemeSwatchPicker: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            ForEach(AppColorTheme.allCases, id: \.self) { theme in
+            ForEach(AppColorTheme.pickerCases, id: \.self) { theme in
                 Button {
                     themes.setTheme(theme)
                 } label: {
                     ZStack {
+                        // Disco = fondo del tema + anillo de acento (predice el look real).
                         Circle()
-                            .fill(Color(findaroHex: theme.swatchHex))
+                            .fill(Color(findaroHex: theme.swatchFillHex))
                             .frame(width: 22, height: 22)
-                        if themes.theme == theme {
+                            .overlay(
+                                Circle()
+                                    .strokeBorder(
+                                        Color(findaroHex: theme.swatchHex),
+                                        lineWidth: theme.swatchIsLight ? 2.5 : 3
+                                    )
+                            )
+                            .overlay(
+                                Circle()
+                                    .strokeBorder(
+                                        theme.swatchIsLight ? Color.black.opacity(0.35) : Color.white.opacity(0.22),
+                                        lineWidth: 1
+                                    )
+                            )
+                        if themes.theme == theme || (themes.theme == .systemAuto && theme == .midnightBlue) {
                             Circle()
-                                .strokeBorder(Color.primary.opacity(0.85), lineWidth: 2)
+                                .strokeBorder(Color.primary.opacity(0.9), lineWidth: 2)
                                 .frame(width: 28, height: 28)
                         }
                     }
@@ -242,13 +257,17 @@ struct ColorThemeMenuContent: View {
     @ObservedObject private var themes = ThemeController.shared
 
     var body: some View {
-        ForEach(AppColorTheme.allCases, id: \.self) { theme in
+        ForEach(AppColorTheme.pickerCases, id: \.self) { theme in
             Button {
                 themes.setTheme(theme)
             } label: {
                 HStack {
+                    Circle()
+                        .fill(Color(findaroHex: theme.swatchFillHex))
+                        .frame(width: 10, height: 10)
+                        .overlay(Circle().strokeBorder(Color(findaroHex: theme.swatchHex), lineWidth: 2))
                     Text(theme.displayName(english: L10n.isEnglish))
-                    if themes.theme == theme {
+                    if themes.theme == theme || (themes.theme == .systemAuto && theme == .midnightBlue) {
                         Image(systemName: "checkmark")
                     }
                 }

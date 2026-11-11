@@ -2,17 +2,24 @@ import Foundation
 
 /// Temas de color premium intercambiables en caliente (WCAG contraste ≥ 4.5:1 en tipografía).
 public enum AppColorTheme: String, Codable, CaseIterable, Sendable, Equatable {
+    /// Legacy: se migra a midnightBlue al cargar. No aparece en el picker.
     case systemAuto
     case midnightBlue
+    /// Antes “Grafito” (azul casi idéntico a midnight). Ahora carmesí oscuro.
     case graphitePro
     case emeraldSlate
     case nordicLight
 
+    /// Temas mostrados en Ajustes / menú (sin Automático gris ilegible / confuso).
+    public static var pickerCases: [AppColorTheme] {
+        [.midnightBlue, .graphitePro, .emeraldSlate, .nordicLight]
+    }
+
     public var displayNameES: String {
         switch self {
         case .systemAuto: return "Automático (Mac)"
-        case .midnightBlue: return "Azul Noche (Findaro)"
-        case .graphitePro: return "Grafito Pro (Space Black)"
+        case .midnightBlue: return "Azul Noche"
+        case .graphitePro: return "Carmesí Oscuro"
         case .emeraldSlate: return "Esmeralda Studio"
         case .nordicLight: return "Nórdico Claro"
         }
@@ -22,7 +29,7 @@ public enum AppColorTheme: String, Codable, CaseIterable, Sendable, Equatable {
         switch self {
         case .systemAuto: return "System Auto"
         case .midnightBlue: return "Midnight Blue"
-        case .graphitePro: return "Graphite Pro"
+        case .graphitePro: return "Crimson Dark"
         case .emeraldSlate: return "Obsidian Emerald"
         case .nordicLight: return "Nordic Light"
         }
@@ -32,15 +39,30 @@ public enum AppColorTheme: String, Codable, CaseIterable, Sendable, Equatable {
         english ? displayNameEN : displayNameES
     }
 
-    /// Swatch hex para el selector (acento primario).
+    /// Color del swatch en el selector (debe verse distinto y predecir el tema).
     public var swatchHex: String {
         switch self {
         case .systemAuto: return "#64748B"
         case .midnightBlue: return "#3B82F6"
-        case .graphitePro: return "#0A84FF"
+        case .graphitePro: return "#EF4444"
         case .emeraldSlate: return "#10B981"
-        case .nordicLight: return "#2563EB"
+        case .nordicLight: return "#F8FAFC"
         }
+    }
+
+    /// Fondo del círculo del swatch (para temas claros ≠ acento).
+    public var swatchFillHex: String {
+        switch self {
+        case .nordicLight: return "#F8FAFC"
+        case .systemAuto: return "#64748B"
+        case .midnightBlue: return "#0B1220"
+        case .graphitePro: return "#14080A"
+        case .emeraldSlate: return "#0A1211"
+        }
+    }
+
+    public var swatchIsLight: Bool {
+        self == .nordicLight
     }
 
     /// Resuelve el tema concreto (systemAuto → midnight o nordic según apariencia).
@@ -49,6 +71,11 @@ public enum AppColorTheme: String, Codable, CaseIterable, Sendable, Equatable {
         case .systemAuto: return isDark ? .midnightBlue : .nordicLight
         default: return self
         }
+    }
+
+    /// Valor canónico al persistir (evita quedarse en systemAuto).
+    public var normalizedForStorage: AppColorTheme {
+        self == .systemAuto ? .midnightBlue : self
     }
 
     public var preferredColorSchemeRaw: String? {
@@ -80,7 +107,6 @@ public struct AppColorPalette: Equatable, Sendable {
     public static func palette(for theme: AppColorTheme) -> AppColorPalette {
         switch theme {
         case .systemAuto:
-            // No usar directo: resolver antes con `resolved(isDark:)`.
             return palette(for: .midnightBlue)
         case .midnightBlue:
             return AppColorPalette(
@@ -100,21 +126,22 @@ public struct AppColorPalette: Equatable, Sendable {
                 danger: "#EF4444"
             )
         case .graphitePro:
+            // Carmesí oscuro (antes Grafito azul ≈ midnight).
             return AppColorPalette(
-                windowFill: "#111113",
-                sidebarFill: "#0C0C0E",
-                panelFill: "#18181B",
-                elevatedFill: "#232329",
-                hairline: "#2E2E36",
-                textPrimary: "#F4F4F5",
-                textSecondary: "#A1A1AA",
-                accent: "#0A84FF",
-                accentHover: "#409CFF",
-                accentAI: "#BF5AF2",
-                selection: "#1D3557",
-                success: "#30D158",
-                warning: "#FFD60A",
-                danger: "#FF453A"
+                windowFill: "#14080A",
+                sidebarFill: "#0E0608",
+                panelFill: "#1C0E12",
+                elevatedFill: "#2A1218",
+                hairline: "#4C1D29",
+                textPrimary: "#FEF2F2",
+                textSecondary: "#FECACA",
+                accent: "#EF4444",
+                accentHover: "#F87171",
+                accentAI: "#FB7185",
+                selection: "#7F1D1D",
+                success: "#34D399",
+                warning: "#FBBF24",
+                danger: "#F87171"
             )
         case .emeraldSlate:
             return AppColorPalette(

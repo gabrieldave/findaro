@@ -127,7 +127,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         listColumns = ListColumn.sanitize(
             (try? c.decodeIfPresent([ListColumn].self, forKey: .listColumns)) ?? ListColumn.defaultVisible
         )
-        colorTheme = (try? c.decodeIfPresent(AppColorTheme.self, forKey: .colorTheme)) ?? .midnightBlue
+        let decodedTheme = (try? c.decodeIfPresent(AppColorTheme.self, forKey: .colorTheme)) ?? .midnightBlue
+        colorTheme = decodedTheme.normalizedForStorage
     }
 }
 
