@@ -37,9 +37,11 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public var listColumns: [ListColumn]
     /// Tema de color premium (intercambiable en caliente).
     public var colorTheme: AppColorTheme
+    /// Sidebar: sección Ubicaciones colapsada (oculta la lista).
+    public var locationsCollapsed: Bool
 
     public init(
-        schemaVersion: Int = 19,
+        schemaVersion: Int = 20,
         globalRule: SortRule = .downloads,
         folderOverrides: [String: SortRule] = [:],
         favorites: [String] = [],
@@ -58,7 +60,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         appLanguage: AppLanguage = .english,
         smartFolders: [SmartFolder] = [],
         listColumns: [ListColumn] = ListColumn.defaultVisible,
-        colorTheme: AppColorTheme = .midnightBlue
+        colorTheme: AppColorTheme = .midnightBlue,
+        locationsCollapsed: Bool = false
     ) {
         self.schemaVersion = schemaVersion
         self.globalRule = globalRule
@@ -80,6 +83,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         self.smartFolders = smartFolders
         self.listColumns = ListColumn.sanitize(listColumns)
         self.colorTheme = colorTheme
+        self.locationsCollapsed = locationsCollapsed
     }
 
     /// Override de carpeta si existe; si no, el global (estilo Descargas por defecto).
@@ -97,7 +101,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode, showRowPaths,
              explorerKeyboardProfile, showHiddenFiles, flattenFolderView, assistantShortcuts,
              ollamaEnabled, ollamaModel, viewTemplates, keyboardHotkeyOverrides, globalHotkeyFolderPath,
-             appLanguage, smartFolders, listColumns, colorTheme
+             appLanguage, smartFolders, listColumns, colorTheme, locationsCollapsed
     }
 
     public init(from decoder: Decoder) throws {
@@ -129,6 +133,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         )
         let decodedTheme = (try? c.decodeIfPresent(AppColorTheme.self, forKey: .colorTheme)) ?? .midnightBlue
         colorTheme = decodedTheme.normalizedForStorage
+        locationsCollapsed = try c.decodeIfPresent(Bool.self, forKey: .locationsCollapsed) ?? false
     }
 }
 
@@ -241,7 +246,7 @@ public final class PreferencesStore: @unchecked Sendable {
     private static func freshDefaults() -> OrdenPreferences {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return OrdenPreferences(
-            schemaVersion: 19,
+            schemaVersion: 20,
             globalRule: .downloads,
             folderOverrides: [:],
             favorites: [
@@ -331,6 +336,10 @@ public final class PreferencesStore: @unchecked Sendable {
         if next.schemaVersion < 19 {
             next.colorTheme = .midnightBlue
             next.schemaVersion = 19
+        }
+        if next.schemaVersion < 20 {
+            next.locationsCollapsed = false
+            next.schemaVersion = 20
         }
         next.listColumns = ListColumn.sanitize(next.listColumns)
         // Tope duro: gente crea muchos; no dejamos crecer sin límite.

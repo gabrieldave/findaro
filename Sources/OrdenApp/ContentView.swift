@@ -943,6 +943,7 @@ struct SidebarView: View {
     /// Se incrementa al montar/desmontar discos para refrescar Ubicaciones.
     @State private var volumesTick: Int = 0
     @State private var favoritesDropTargeted = false
+    @State private var locationsCollapsed = false
 
     var body: some View {
         ScrollView {
@@ -954,10 +955,12 @@ struct SidebarView: View {
 
                 favoritesDropZone
 
-                sectionHeader(L10n.s("Ubicaciones", "Locations"))
+                locationsSectionHeader
                     .padding(.top, 12)
-                ForEach(locationItems) { item in
-                    sidebarButton(item, isFavoriteSlot: false)
+                if !locationsCollapsed {
+                    ForEach(locationItems) { item in
+                        sidebarButton(item, isFavoriteSlot: false)
+                    }
                 }
             }
             .padding(.bottom, 16)
@@ -966,6 +969,12 @@ struct SidebarView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(OrdenTheme.sidebarFill)
+        .onAppear {
+            locationsCollapsed = browser.store.preferences.locationsCollapsed
+        }
+        .onReceive(NotificationCenter.default.publisher(for: PreferencesStore.preferencesDidChangeNotification)) { _ in
+            locationsCollapsed = browser.store.preferences.locationsCollapsed
+        }
         .onReceive(
             NotificationCenter.Publisher(
                 center: NSWorkspace.shared.notificationCenter,
@@ -984,6 +993,40 @@ struct SidebarView: View {
                 name: NSWorkspace.didRenameVolumeNotification
             )
         ) { _ in volumesTick &+= 1 }
+    }
+
+    private var locationsSectionHeader: some View {
+        HStack(spacing: 6) {
+            Text(L10n.s("Ubicaciones", "Locations").uppercased())
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.6)
+                .foregroundStyle(OrdenTheme.textMuted)
+            Spacer(minLength: 4)
+            Button {
+                locationsCollapsed.toggle()
+                browser.store.update { $0.locationsCollapsed = locationsCollapsed }
+            } label: {
+                Image(systemName: locationsCollapsed ? "chevron.right" : "chevron.down")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(OrdenTheme.textMuted)
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(
+                locationsCollapsed
+                    ? L10n.s("Mostrar Ubicaciones", "Show Locations")
+                    : L10n.s("Ocultar Ubicaciones", "Hide Locations")
+            )
+            .accessibilityLabel(
+                locationsCollapsed
+                    ? L10n.s("Mostrar Ubicaciones", "Show Locations")
+                    : L10n.s("Ocultar Ubicaciones", "Hide Locations")
+            )
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
     }
 
     private var favoriteItems: [SidebarItem] {

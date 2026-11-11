@@ -65,7 +65,12 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
             panel.delegate = self
             panel.currentPreviewItemIndex = currentIndex
             panel.reloadData()
+            NSApp.activate(ignoringOtherApps: true)
             panel.makeKeyAndOrderFront(nil)
+            // Asegura que el panel tome el control aunque SwiftUI retenga el first responder.
+            if !panel.isVisible {
+                panel.updateController()
+            }
         }
     }
 
