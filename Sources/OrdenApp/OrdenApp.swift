@@ -59,46 +59,38 @@ struct OrdenApp: App {
 private struct FindaroCommands: Commands {
     @AppStorage("findaro_app_language") private var appLangStorage: String = "en"
     @Environment(\.openWindow) private var openWindow
-    @FocusedValue(\.findaroBrowser) private var focusedBrowser
-    @FocusedValue(\.findaroSession) private var focusedSession
 
-    /// FocusedValue falla a menudo con toolbar/search; el registro de ventana es el respaldo.
-    private var browser: BrowserModel? { focusedBrowser ?? FindaroWindowRegistry.keyBrowser }
-    private var session: BrowserWindowSession? { focusedSession ?? FindaroWindowRegistry.keySession }
+    /// NUNCA leer BrowserModel en el `body` de Commands (títulos/disabled dinámicos).
+    /// Eso reconstruye el NSMenu mientras está abierto sobre la ventana → parpadeo / tildado.
+    /// Resolver el browser solo dentro de las acciones, vía registry.
+    @MainActor
+    private func browser() -> BrowserModel? { FindaroWindowRegistry.keyBrowser }
+    @MainActor
+    private func session() -> BrowserWindowSession? { FindaroWindowRegistry.keySession }
 
     private var currentLanguage: AppLanguage {
         AppLanguage(rawValue: appLangStorage) ?? .english
     }
 
     private func setGlobalLanguage(_ lang: AppLanguage) {
-        // Primero el flag de UI (@AppStorage) para que la palomita no parpadee a English
-        // mientras PreferencesStore notifica y BrowserModel sincroniza.
         appLangStorage = lang.rawValue
         UserDefaults.standard.set(lang.rawValue, forKey: "findaro_app_language")
         L10n.activeLanguage = lang
         if lang == .auto {
-            // Sin override: la app sigue Locale.preferredLanguages.
             UserDefaults.standard.removeObject(forKey: "AppleLanguages")
         } else {
             UserDefaults.standard.set([lang.isEnglish ? "en" : "es"], forKey: "AppleLanguages")
         }
         PreferencesStore.shared.update { $0.appLanguage = lang }
-        // Todas las ventanas abiertas, no solo la focused.
         for session in FindaroWindowRegistry.allSessions {
             session.activeBrowser.setAppLanguage(lang)
         }
-        browser?.setAppLanguage(lang)
-        // SwiftUI regenera el menú; reaplicar títulos del sistema varias veces.
-        AppMenuLocalizer.applyLocalization()
-        for delay in [0.05, 0.15, 0.4, 1.0] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                AppMenuLocalizer.applyLocalization()
-            }
+        // Un solo reapply cuando el menú ya cerró (no mutar NSMenu en tracking).
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            AppMenuLocalizer.applyLocalization()
         }
     }
 
-    /// En menús de macOS, `HStack` + `Image(systemName:)` dentro del Button a menudo no dispara el click.
-    /// Usamos título plano con marca de verificación ASCII (patrón Finder/Xcode).
     private func languageMenuItem(_ lang: AppLanguage, title: String) -> some View {
         let checked = currentLanguage == lang
         return Button((checked ? "✓ " : "    ") + title) {
@@ -117,8 +109,6 @@ private struct FindaroCommands: Commands {
         }
 
         CommandGroup(after: .appSettings) {
-            // Menú anidado (Menu { … }) a menudo NO abre el submenu en la barra
-            // de macOS con SwiftUI Commands. Ítems planos = click fiable.
             languageMenuItem(
                 .auto,
                 title: L10n.s("Idioma: Automático (Sistema)", "Language: Automatic (System)")
@@ -136,42 +126,28 @@ private struct FindaroCommands: Commands {
             }
         }
 
-        // View del sistema solo trae Tab Bar / Full Screen. Aquí van los controles reales de Findaro.
         CommandGroup(after: .toolbar) {
             Divider()
-            Button(L10n.s("Iconos", "Icons")) { browser?.setViewMode(.icons) }
-                .disabled(browser == nil)
-            Button(L10n.s("Lista", "List")) { browser?.setViewMode(.list) }
-                .disabled(browser == nil)
-            Button(L10n.s("Columnas", "Columns")) { browser?.setViewMode(.columns) }
-                .disabled(browser == nil)
-            Button(L10n.s("Galería", "Gallery")) { browser?.setViewMode(.gallery) }
-                .disabled(browser == nil)
+            Button(L10n.s("Iconos", "Icons")) { browser()?.setViewMode(.icons) }
+            Button(L10n.s("Lista", "List")) { browser()?.setViewMode(.list) }
+            Button(L10n.s("Columnas", "Columns")) { browser()?.setViewMode(.columns) }
+            Button(L10n.s("Galería", "Gallery")) { browser()?.setViewMode(.gallery) }
             Divider()
-            Button((browser?.dualPaneEnabled ?? false) ? L10n.s("Un panel", "Single Pane") : L10n.s("Dos paneles", "Dual Pane")) {
-                browser?.toggleDualPane()
-            }
-            .keyboardShortcut("d", modifiers: [.command, .shift])
-            .disabled(browser == nil)
-            Button((browser?.showHiddenFiles ?? false) ? L10n.s("Ocultar archivos ocultos", "Hide Hidden Files") : L10n.s("Mostrar archivos ocultos", "Show Hidden Files")) {
-                browser?.toggleShowHiddenFiles()
-            }
-            .keyboardShortcut(".", modifiers: [.command, .shift])
-            .disabled(browser == nil)
-            Button((browser?.flattenFolderView ?? false) ? L10n.s("Vista de carpeta", "Folder View") : L10n.s("Vista plana", "Flat View")) {
-                browser?.toggleFlattenFolderView()
-            }
-            .keyboardShortcut("f", modifiers: [.command, .shift])
-            .disabled(browser == nil)
+            // Títulos fijos (no leen dualPane/hidden en body → no rebuild al hover).
+            Button(L10n.s("Alternar dos paneles", "Toggle Dual Pane")) { browser()?.toggleDualPane() }
+                .keyboardShortcut("d", modifiers: [.command, .shift])
+            Button(L10n.s("Alternar archivos ocultos", "Toggle Hidden Files")) { browser()?.toggleShowHiddenFiles() }
+                .keyboardShortcut(".", modifiers: [.command, .shift])
+            Button(L10n.s("Alternar vista plana", "Toggle Flat View")) { browser()?.toggleFlattenFolderView() }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
             Button(L10n.s("Orden normal / salir filtros (Esc)", "Normal View / Clear Filters (Esc)")) {
-                guard let browser else { return }
+                guard let browser = browser() else { return }
                 if browser.hasActiveViewFilters {
                     browser.resetToNormalView()
                 } else {
                     browser.clearDeepSearch()
                 }
             }
-            .disabled(!(browser?.hasActiveViewFilters ?? false))
         }
 
         CommandGroup(replacing: .help) {
@@ -187,255 +163,179 @@ private struct FindaroCommands: Commands {
             }
             .keyboardShortcut("n", modifiers: [.command, .option])
             Button(L10n.s("Nueva pestaña", "New Tab")) {
-                (session ?? FindaroWindowRegistry.keySession)?.addTab()
+                session()?.addTab()
             }
             .keyboardShortcut("t", modifiers: .command)
             Button(L10n.s("Cerrar pestaña", "Close Tab")) {
-                (session ?? FindaroWindowRegistry.keySession)?.closeActiveTab()
+                session()?.closeActiveTab()
             }
             .keyboardShortcut("w", modifiers: .command)
             Button(L10n.s("Pestaña anterior", "Previous Tab")) {
-                (session ?? FindaroWindowRegistry.keySession)?.selectPreviousTab()
+                session()?.selectPreviousTab()
             }
             .keyboardShortcut("[", modifiers: [.command, .shift])
             Button(L10n.s("Pestaña siguiente", "Next Tab")) {
-                (session ?? FindaroWindowRegistry.keySession)?.selectNextTab()
+                session()?.selectNextTab()
             }
             .keyboardShortcut("]", modifiers: [.command, .shift])
             Button(L10n.s("Mover pestaña a la izquierda", "Move Tab Left")) {
-                if let s = (session ?? FindaroWindowRegistry.keySession) {
-                    s.moveTabLeft(s.selectedTabID)
-                }
+                if let s = session() { s.moveTabLeft(s.selectedTabID) }
             }
             .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
             Button(L10n.s("Mover pestaña a la derecha", "Move Tab Right")) {
-                if let s = (session ?? FindaroWindowRegistry.keySession) {
-                    s.moveTabRight(s.selectedTabID)
-                }
+                if let s = session() { s.moveTabRight(s.selectedTabID) }
             }
             .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
             Divider()
-            // Atajos ⌘N / ⇧⌘N: solo SelectionCancelMonitor (evitar doble disparo menú+monitor).
-            Button(L10n.s("Nuevo archivo", "New File")) { browser?.promptNewFile() }
-            Button(L10n.s("Nueva carpeta", "New Folder")) { browser?.promptNewFolder() }
+            Button(L10n.s("Nuevo archivo", "New File")) { browser()?.promptNewFile() }
+            Button(L10n.s("Nueva carpeta", "New Folder")) { browser()?.promptNewFolder() }
         }
 
         CommandGroup(after: .pasteboard) {
-            Button(L10n.s("Deshacer", "Undo")) { browser?.undoLastFileOp() }
+            Button(L10n.s("Deshacer", "Undo")) { browser()?.undoLastFileOp() }
                 .keyboardShortcut("z", modifiers: .command)
-                .disabled(!(browser?.canUndo ?? false))
-            Button(L10n.s("Copiar a bandeja", "Copy to Tray")) { browser?.addSelectionToShelf(intent: .copy) }
+            Button(L10n.s("Copiar a bandeja", "Copy to Tray")) { browser()?.addSelectionToShelf(intent: .copy) }
                 .keyboardShortcut("c", modifiers: .command)
-                .disabled(browser == nil)
-            Button(L10n.s("Cortar a bandeja", "Cut to Tray")) { browser?.addSelectionToShelf(intent: .move) }
+            Button(L10n.s("Cortar a bandeja", "Cut to Tray")) { browser()?.addSelectionToShelf(intent: .move) }
                 .keyboardShortcut("x", modifiers: .command)
-                .disabled(browser == nil)
-            Button(L10n.s("Soltar bandeja aquí", "Paste Tray Here")) { browser?.pasteFromPasteboard() }
+            Button(L10n.s("Soltar bandeja aquí", "Paste Tray Here")) { browser()?.pasteFromPasteboard() }
                 .keyboardShortcut("v", modifiers: .command)
-                .disabled(browser == nil)
-            Button(L10n.s("Duplicar", "Duplicate")) { browser?.duplicateSelection() }
+            Button(L10n.s("Duplicar", "Duplicate")) { browser()?.duplicateSelection() }
                 .keyboardShortcut("d", modifiers: .command)
-                .disabled(browser == nil)
-            Button(L10n.s("Copiar ruta", "Copy Path")) { browser?.copySelectedPaths() }
+            Button(L10n.s("Copiar ruta", "Copy Path")) { browser()?.copySelectedPaths() }
                 .keyboardShortcut("c", modifiers: [.command, .option])
-                .disabled(browser == nil)
         }
 
         CommandMenu(L10n.s("Buscar", "Search")) {
-            // Atajo ⌘4: solo SelectionCancelMonitor (evita sheet que parpadea / reinicia draft).
-            Button(L10n.s("Buscar en subcarpetas…", "Search in Subfolders…")) { browser?.promptDeepSearch() }
-                .disabled(browser == nil)
+            Button(L10n.s("Buscar en subcarpetas…", "Search in Subfolders…")) { browser()?.promptDeepSearch() }
             Button(L10n.s("Orden normal / salir filtros (Esc)", "Normal View / Clear Filters (Esc)")) {
-                guard let browser else { return }
+                guard let browser = browser() else { return }
                 if browser.hasActiveViewFilters {
                     browser.resetToNormalView()
                 } else {
                     browser.clearDeepSearch()
                 }
             }
-            .disabled(!(browser?.hasActiveViewFilters ?? false))
-            Button((browser?.dualPaneEnabled ?? false) ? L10n.s("Un panel", "Single Pane") : L10n.s("Dos paneles", "Dual Pane")) {
-                browser?.toggleDualPane()
-            }
-            .keyboardShortcut("d", modifiers: [.command, .shift])
-            .disabled(browser == nil)
+            Button(L10n.s("Alternar dos paneles", "Toggle Dual Pane")) { browser()?.toggleDualPane() }
+                .keyboardShortcut("d", modifiers: [.command, .shift])
             Divider()
-            Button(L10n.s("Panel Origen", "Origin Pane")) { browser?.focusOriginPane() }
+            Button(L10n.s("Panel Origen", "Origin Pane")) { browser()?.focusOriginPane() }
                 .keyboardShortcut(.leftArrow, modifiers: [.command, .shift])
-                .disabled(!(browser?.dualPaneEnabled ?? false))
-            Button(L10n.s("Panel Destino", "Destination Pane")) { browser?.focusDestinationPane() }
+            Button(L10n.s("Panel Destino", "Destination Pane")) { browser()?.focusDestinationPane() }
                 .keyboardShortcut(.rightArrow, modifiers: [.command, .shift])
-                .disabled(!(browser?.dualPaneEnabled ?? false))
-            Button(L10n.s("Cambiar de panel (Tab)", "Toggle Focused Pane (Tab)")) { browser?.toggleFocusedPane() }
-                .disabled(!(browser?.dualPaneEnabled ?? false))
+            Button(L10n.s("Cambiar de panel (Tab)", "Toggle Focused Pane (Tab)")) { browser()?.toggleFocusedPane() }
             Button(L10n.s("Mover selección → Destino", "Move Selection → Destination")) {
-                browser?.transferPrimarySelectionToSecondary(copy: false)
+                browser()?.transferPrimarySelectionToSecondary(copy: false)
             }
             .keyboardShortcut("m", modifiers: [.command, .shift])
-            .disabled(!(browser?.dualPaneEnabled ?? false) || (browser?.selectedIDs.isEmpty ?? true))
             Button(L10n.s("Mover selección → Origen", "Move Selection → Origin")) {
-                browser?.transferSecondarySelectionToPrimary(copy: false)
+                browser()?.transferSecondarySelectionToPrimary(copy: false)
             }
             .keyboardShortcut("m", modifiers: [.command, .shift, .option])
-            .disabled(!(browser?.dualPaneEnabled ?? false) || (browser?.secondarySelectedIDs.isEmpty ?? true))
             Button(L10n.s("Intercambiar paneles", "Swap Panes")) {
-                browser?.swapPaneFolders()
+                browser()?.swapPaneFolders()
             }
             .keyboardShortcut("s", modifiers: [.command, .shift])
-            .disabled(!(browser?.dualPaneEnabled ?? false))
         }
 
         CommandMenu(L10n.s("Asistente", "Assistant")) {
-            // Atajos ⌘5 / ⌘6: solo SelectionCancelMonitor (toggle doble = se prende y apaga).
-            Button((browser?.showAssistantPanel ?? false) ? L10n.s("Ocultar asistente", "Hide Assistant") : L10n.s("Mostrar asistente", "Show Assistant")) {
-                browser?.showAssistantPanel.toggle()
+            Button(L10n.s("Mostrar / ocultar asistente", "Show / Hide Assistant")) {
+                browser()?.showAssistantPanel.toggle()
             }
-            .disabled(browser == nil)
             Button(L10n.s("Configurar Ollama…", "Configure Ollama…")) {
-                browser?.showAssistantPanel = true
-                browser?.showOllamaSetupDialog = true
+                browser()?.showAssistantPanel = true
+                browser()?.showOllamaSetupDialog = true
             }
-            .disabled(browser == nil)
             Button(L10n.s("Ir al asistente", "Focus Assistant")) {
-                browser?.showAssistantPanel = true
+                browser()?.showAssistantPanel = true
             }
-            .disabled(browser == nil)
             Button(L10n.s("Hablar (mantener ⌃Espacio)", "Talk (Hold ⌃Space)")) {
-                browser?.showAssistantPanel = true
+                browser()?.showAssistantPanel = true
             }
-            .disabled(browser == nil)
         }
 
         CommandMenu(L10n.s("Ir", "Go")) {
-            Button(L10n.s("Atrás", "Back")) { browser?.goBack() }
+            Button(L10n.s("Atrás", "Back")) { browser()?.goBack() }
                 .keyboardShortcut("1", modifiers: .command)
-                .disabled(browser == nil)
-            Button(L10n.s("Adelante", "Forward")) { browser?.goForward() }
+            Button(L10n.s("Adelante", "Forward")) { browser()?.goForward() }
                 .keyboardShortcut("2", modifiers: .command)
-                .disabled(browser == nil)
-            Button(L10n.s("Atrás (⌥←)", "Back (⌥←)")) { browser?.goBack() }
+            Button(L10n.s("Atrás (⌥←)", "Back (⌥←)")) { browser()?.goBack() }
                 .keyboardShortcut(.leftArrow, modifiers: .option)
-                .disabled(browser == nil)
-            Button(L10n.s("Adelante (⌥→)", "Forward (⌥→)")) { browser?.goForward() }
+            Button(L10n.s("Adelante (⌥→)", "Forward (⌥→)")) { browser()?.goForward() }
                 .keyboardShortcut(.rightArrow, modifiers: .option)
-                .disabled(browser == nil)
-            Button(L10n.s("Arriba", "Enclosing Folder")) { browser?.goUp() }
+            Button(L10n.s("Arriba", "Enclosing Folder")) { browser()?.goUp() }
                 .keyboardShortcut(.upArrow, modifiers: .command)
-                .disabled(browser == nil)
-            // Atajo ⌘3: solo SelectionCancelMonitor (evita sheet que parpadea / reinicia draft).
-            Button(L10n.s("Ir a carpeta…", "Go to Folder…")) { browser?.promptGoToFolder() }
-                .disabled(browser == nil)
-            Button(L10n.s("Editar ruta (omnibox)", "Edit Path (Omnibox)")) { browser?.beginPathOmnibox() }
+            Button(L10n.s("Ir a carpeta…", "Go to Folder…")) { browser()?.promptGoToFolder() }
+            Button(L10n.s("Editar ruta (omnibox)", "Edit Path (Omnibox)")) { browser()?.beginPathOmnibox() }
                 .keyboardShortcut("e", modifiers: .command)
-                .disabled(browser == nil)
             Divider()
-            Button(L10n.s("Descargas", "Downloads")) { browser?.navigateToDownloads() }
+            Button(L10n.s("Descargas", "Downloads")) { browser()?.navigateToDownloads() }
                 .keyboardShortcut("l", modifiers: [.command, .shift])
-                .disabled(browser == nil)
-            Button((browser?.showHiddenFiles ?? false) ? L10n.s("Ocultar archivos ocultos", "Hide Hidden Files") : L10n.s("Mostrar archivos ocultos", "Show Hidden Files")) {
-                browser?.toggleShowHiddenFiles()
-            }
-            .keyboardShortcut(".", modifiers: [.command, .shift])
-            .disabled(browser == nil)
-            Button((browser?.flattenFolderView ?? false) ? L10n.s("Vista de carpeta", "Folder View") : L10n.s("Vista plana", "Flat View")) {
-                browser?.toggleFlattenFolderView()
-            }
-            .keyboardShortcut("f", modifiers: [.command, .shift])
-            .disabled(browser == nil)
-            Button(L10n.s("Escritorio", "Desktop")) { browser?.navigateToDesktop() }
-                .disabled(browser == nil)
-            Button(L10n.s("Documentos", "Documents")) { browser?.navigateToDocuments() }
-                .disabled(browser == nil)
+            Button(L10n.s("Alternar archivos ocultos", "Toggle Hidden Files")) { browser()?.toggleShowHiddenFiles() }
+                .keyboardShortcut(".", modifiers: [.command, .shift])
+            Button(L10n.s("Alternar vista plana", "Toggle Flat View")) { browser()?.toggleFlattenFolderView() }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
+            Button(L10n.s("Escritorio", "Desktop")) { browser()?.navigateToDesktop() }
+            Button(L10n.s("Documentos", "Documents")) { browser()?.navigateToDocuments() }
             Divider()
             Button(L10n.s("Añadir carpeta actual a Favoritos", "Add Current Folder to Favorites")) {
-                browser?.addCurrentFolderToFavorites()
+                browser()?.addCurrentFolderToFavorites()
             }
             .keyboardShortcut("t", modifiers: [.command, .shift])
-            .disabled(browser == nil)
             Button(L10n.s("Elegir carpeta para Favoritos…", "Choose Folder for Favorites…")) {
-                browser?.pickFolderAsFavorite()
+                browser()?.pickFolderAsFavorite()
             }
-            .disabled(browser == nil)
             Button(L10n.s("Nueva carpeta inteligente…", "New Smart Folder…")) {
-                browser?.promptNewSmartFolder()
+                browser()?.promptNewSmartFolder()
             }
-            .disabled(browser == nil)
             Button(L10n.s("Guardar búsqueda actual como carpeta inteligente…", "Save Current Search as Smart Folder…")) {
-                browser?.promptSaveCurrentViewAsSmartFolder()
+                browser()?.promptSaveCurrentViewAsSmartFolder()
             }
-            .disabled(browser == nil)
         }
 
         CommandMenu(L10n.s("Archivo+", "File+")) {
             Button(L10n.s("Nueva ventana", "New Window")) { openWindow(id: "browser") }
-            Button(L10n.s("Nueva pestaña", "New Tab")) {
-                (session ?? FindaroWindowRegistry.keySession)?.addTab()
-            }
-            Button(L10n.s("Cerrar pestaña", "Close Tab")) {
-                (session ?? FindaroWindowRegistry.keySession)?.closeActiveTab()
-            }
-            Button(L10n.s("Pestaña siguiente", "Next Tab")) {
-                (session ?? FindaroWindowRegistry.keySession)?.selectNextTab()
-            }
-            Button(L10n.s("Pestaña anterior", "Previous Tab")) {
-                (session ?? FindaroWindowRegistry.keySession)?.selectPreviousTab()
-            }
+            Button(L10n.s("Nueva pestaña", "New Tab")) { session()?.addTab() }
+            Button(L10n.s("Cerrar pestaña", "Close Tab")) { session()?.closeActiveTab() }
+            Button(L10n.s("Pestaña siguiente", "Next Tab")) { session()?.selectNextTab() }
+            Button(L10n.s("Pestaña anterior", "Previous Tab")) { session()?.selectPreviousTab() }
             Divider()
-            Button(L10n.s("Nuevo archivo", "New File")) { browser?.promptNewFile() }
-                .disabled(browser == nil)
-            Button(L10n.s("Nueva carpeta", "New Folder")) { browser?.promptNewFolder() }
-                .disabled(browser == nil)
-            Button(L10n.s("Abrir Terminal aquí", "Open Terminal Here")) { browser?.openTerminalHere() }
+            Button(L10n.s("Nuevo archivo", "New File")) { browser()?.promptNewFile() }
+            Button(L10n.s("Nueva carpeta", "New Folder")) { browser()?.promptNewFolder() }
+            Button(L10n.s("Abrir Terminal aquí", "Open Terminal Here")) { browser()?.openTerminalHere() }
                 .keyboardShortcut("t", modifiers: [.command, .option])
-                .disabled(browser == nil)
-            Button(L10n.s("Renombrar", "Rename")) { browser?.promptRename() }
+            Button(L10n.s("Renombrar", "Rename")) { browser()?.promptRename() }
                 .keyboardShortcut("r", modifiers: .control)
-                .disabled(browser == nil)
-            Button(L10n.s("Duplicar", "Duplicate")) { browser?.duplicateSelection() }
-                .disabled(browser == nil)
+            Button(L10n.s("Duplicar", "Duplicate")) { browser()?.duplicateSelection() }
             Divider()
-            Button(L10n.s("Seleccionar todos", "Select All")) { browser?.selectAllVisible() }
+            Button(L10n.s("Seleccionar todos", "Select All")) { browser()?.selectAllVisible() }
                 .keyboardShortcut("a", modifiers: .command)
-                .disabled(browser == nil)
             Button(L10n.s("Quitar selección / bandeja", "Deselect / Clear Tray")) {
-                browser?.cancelSelectionOrClearTray()
+                browser()?.cancelSelectionOrClearTray()
             }
-                .keyboardShortcut(.escape, modifiers: [])
-                .disabled(browser == nil)
-            Button(L10n.s("Modo varios", "Multi-Select Mode")) { browser?.multiSelectMode.toggle() }
+            .keyboardShortcut(.escape, modifiers: [])
+            Button(L10n.s("Modo varios", "Multi-Select Mode")) { browser()?.multiSelectMode.toggle() }
                 .keyboardShortcut("v", modifiers: [.command, .shift])
-                .disabled(browser == nil)
             Divider()
-            Button(L10n.s("Abrir selección", "Open Selection")) { browser?.openSelection() }
+            Button(L10n.s("Abrir selección", "Open Selection")) { browser()?.openSelection() }
                 .keyboardShortcut(.downArrow, modifiers: .command)
-                .disabled(browser == nil)
-            Button(L10n.s("Vista rápida", "Quick Look")) { browser?.quickLookSelection() }
-                .disabled(browser == nil)
-            if browser?.isViewingTrash == true {
-                Button(L10n.s("Sacar de la Papelera", "Restore from Trash")) { browser?.restoreSelectionFromTrash() }
-                    .disabled(browser == nil)
-                Button(L10n.s("Eliminar para siempre", "Delete Permanently")) { browser?.permanentlyDeleteSelection(confirm: true) }
-                    .disabled(browser == nil)
-            } else {
-                // Atajo ⌫ solo vía SelectionCancelMonitor (si va en el menú, roba ⌫ a los campos de texto).
-                Button(L10n.s("Mover a la Papelera", "Move to Trash")) { browser?.moveSelectionToTrash() }
-                    .disabled(browser == nil)
-            }
+            Button(L10n.s("Vista rápida", "Quick Look")) { browser()?.quickLookSelection() }
+            Button(L10n.s("Mover a la Papelera", "Move to Trash")) { browser()?.moveSelectionToTrash() }
+            Button(L10n.s("Sacar de la Papelera", "Restore from Trash")) { browser()?.restoreSelectionFromTrash() }
+            Button(L10n.s("Eliminar para siempre", "Delete Permanently")) { browser()?.permanentlyDeleteSelection(confirm: true) }
             Divider()
             Button(L10n.s("Usar Findaro para abrir carpetas…", "Use Findaro to Open Folders…")) {
-                browser?.runFolderHandlerSetup()
+                browser()?.runFolderHandlerSetup()
             }
-            .disabled(browser == nil)
             Button(L10n.s("Abrir Descargas (⌃⌥A)", "Open Downloads (⌃⌥A)")) {
                 GlobalHotKey.activateOrdena()
             }
             Divider()
             Button(L10n.s("Limpiar caché de miniaturas", "Clear Thumbnail Cache")) {
                 ThumbnailStore.shared.clearAll()
-                browser?.reload()
-                browser?.statusMessage = L10n.s("Caché de miniaturas limpia", "Thumbnail cache cleared")
+                browser()?.reload()
+                browser()?.statusMessage = L10n.s("Caché de miniaturas limpia", "Thumbnail cache cleared")
             }
-            .disabled(browser == nil)
             Button(L10n.s("Buscar actualizaciones…", "Check for Updates…")) {
                 Task { await AppUpdateChecker.shared.check(interactive: true) }
             }

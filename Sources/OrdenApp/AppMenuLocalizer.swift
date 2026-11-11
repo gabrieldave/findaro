@@ -4,6 +4,11 @@ import OrdenCore
 @MainActor
 public enum AppMenuLocalizer {
     public static func applyLocalization() {
+        // Mutar títulos mientras el menú está en tracking (abierto sobre la ventana)
+        // provoca el parpadeo / tildado que reportan los usuarios.
+        if RunLoop.current.currentMode == .eventTracking {
+            return
+        }
         guard let mainMenu = NSApp.mainMenu else { return }
         let isEN = L10n.isEnglish
         localizeMenu(mainMenu, isEnglish: isEN)
@@ -115,6 +120,10 @@ public enum AppMenuLocalizer {
             case "Orden normal / salir filtros (Esc)": return "Normal View / Clear Filters (Esc)"
             case "Un panel": return "Single Pane"
             case "Dos paneles": return "Dual Pane"
+            case "Alternar dos paneles": return "Toggle Dual Pane"
+            case "Alternar archivos ocultos": return "Toggle Hidden Files"
+            case "Alternar vista plana": return "Toggle Flat View"
+            case "Mostrar / ocultar asistente": return "Show / Hide Assistant"
             case "Panel Origen": return "Origin Pane"
             case "Panel Destino": return "Destination Pane"
             case "Cambiar de panel (Tab)": return "Toggle Focused Pane (Tab)"
@@ -243,6 +252,10 @@ public enum AppMenuLocalizer {
             case "Normal View / Clear Filters (Esc)": return "Orden normal / salir filtros (Esc)"
             case "Single Pane": return "Un panel"
             case "Dual Pane": return "Dos paneles"
+            case "Toggle Dual Pane": return "Alternar dos paneles"
+            case "Toggle Hidden Files": return "Alternar archivos ocultos"
+            case "Toggle Flat View": return "Alternar vista plana"
+            case "Show / Hide Assistant": return "Mostrar / ocultar asistente"
             case "Origin Pane": return "Panel Origen"
             case "Destination Pane": return "Panel Destino"
             case "Toggle Focused Pane (Tab)": return "Cambiar de panel (Tab)"
