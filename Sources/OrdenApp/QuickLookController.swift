@@ -15,10 +15,10 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
     private var lastToggleAt: Date?
 
     var isVisible: Bool {
-        // Solo señales fiables. Ampliar a isKeyWindow / NSApp.windows hacía
-        // falsos positivos tras orderOut: Espacio «cerraba» y nunca abría vídeo.
-        MediaPreviewController.shared.isVisible
-            || QLPreviewPanel.shared()?.isVisible == true
+        if MediaPreviewController.shared.isVisible { return true }
+        guard let panel = QLPreviewPanel.shared(), panel.isVisible else { return false }
+        // Panel “visible” pero off-screen no cuenta: Espacio debe ABRIR overlay, no “cerrar”.
+        return Self.isQuickLookOnScreen(panel)
     }
 
     func toggle(browser: BrowserModel, focusing paths: [String]) {
@@ -33,8 +33,12 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
             return
         }
         if let panel = QLPreviewPanel.shared(), panel.isVisible {
+            // Off-screen: no lo trates como abierto; ordénalo out y muestra de verdad.
+            if Self.isQuickLookOnScreen(panel) {
+                panel.orderOut(nil)
+                return
+            }
             panel.orderOut(nil)
-            return
         }
         show(browser: browser, focusing: paths)
     }
@@ -68,23 +72,17 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
     private func presentCurrent() {
         guard entries.indices.contains(currentIndex) else { return }
         let entry = entries[currentIndex]
-        // Vídeo: overlay in-window (AVPlayer). QL del sistema solo muestra el icono
-        // de VLC y no reproduce; un NSWindow aparte quedaba off-screen en multi-monitor.
-        if entry.category == .video {
-            if let browser {
-                MediaPreviewController.shared.bind(browser: browser)
-            }
-            QLPreviewPanel.shared()?.orderOut(nil)
-            MediaPreviewController.shared.show(entry: entry)
+        // Imagen + vídeo: SIEMPRE overlay dentro de Findaro.
+        // QLPreviewPanel en multi-monitor (LG+TYPEC) a menudo queda off-screen:
+        // el usuario pulsa Espacio y “no pasa nada” aunque el panel exista.
+        if entry.category == .video || entry.category == .image {
+            presentInline(entry)
             return
         }
 
         MediaPreviewController.shared.hide()
         guard let panel = QLPreviewPanel.shared() else {
-            if let browser {
-                MediaPreviewController.shared.bind(browser: browser)
-            }
-            MediaPreviewController.shared.show(entry: entry)
+            presentInline(entry)
             return
         }
         panel.dataSource = self
@@ -98,6 +96,33 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
             panel.updateController()
             panel.makeKeyAndOrderFront(nil)
         }
+        // Si el panel nació fuera de pantalla, caemos al overlay (PDF/otros).
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if !Self.isQuickLookOnScreen(panel) {
+                panel.orderOut(nil)
+                self.presentInline(entry)
+            }
+        }
+    }
+
+    private func presentInline(_ entry: FileEntry) {
+        if let browser {
+            MediaPreviewController.shared.bind(browser: browser)
+        }
+        QLPreviewPanel.shared()?.orderOut(nil)
+        MediaPreviewController.shared.show(entry: entry)
+    }
+
+    private static func isQuickLookOnScreen(_ panel: QLPreviewPanel) -> Bool {
+        guard panel.isVisible else { return false }
+        if panel.occlusionState.contains(.visible) { return true }
+        let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let info = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else {
+            return false
+        }
+        let wid = panel.windowNumber
+        return info.contains { ($0[kCGWindowNumber as String] as? Int) == wid }
     }
 
     private func rebuildEntries(focusing paths: [String]) {
