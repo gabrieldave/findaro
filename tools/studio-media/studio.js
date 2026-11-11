@@ -398,20 +398,29 @@
   }
 
   async function sceneV4(durationMs) {
-    showMode("search");
+    // Dual pane con archivos visibles → HUD ⌘4 → buscar → 8 resultados → abrir
+    showMode("dual");
+    renderFiles();
     $("searchBar").classList.remove("show");
+    await sleep(500);
     showHud("⌘ + 4");
-    await sleep(700);
-    $("searchBar").classList.add("show");
+    await moveCursor(640, 120, 450);
+    await sleep(650);
     hideHud();
-    zoomTo(1.28, "0%", "10%");
-    await typeText($("searchInput"), state.i18n.searchQuery, 70);
+    $("searchBar").classList.add("show");
+    renderSearch("");
+    zoomTo(1.3, "0%", "8%");
+    await sleep(350);
+    await typeText($("searchInput"), state.i18n.searchQuery, 85);
     renderSearch(state.i18n.searchQuery);
-    await sleep(600);
-    await clickAt(640, 220);
-    await sleep(700);
+    await sleep(900);
+    await clickAt(640, 250);
+    document.querySelectorAll("#searchHits div").forEach((el, i) => {
+      el.classList.toggle("active", i === 0);
+    });
+    await sleep(1100);
     resetZoom();
-    await sleep(Math.max(200, durationMs - 7000));
+    await sleep(Math.max(300, durationMs - 7500));
   }
 
   async function sceneV5(durationMs) {
