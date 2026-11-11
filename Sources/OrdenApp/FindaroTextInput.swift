@@ -6,15 +6,30 @@ import AppKit
 enum FindaroTextInput {
     @MainActor
     static var isEditing: Bool {
+        isStrictTextFieldEditing || isNamedTextControlFocused
+    }
+
+    /// Solo NSTextField / NSTextView / field editor reales (no hosts SwiftUI).
+    /// Usado por Espacio→Vista rápida para no bloquearse con el SearchField “zombi”.
+    @MainActor
+    static var isStrictTextFieldEditing: Bool {
         guard let window = NSApp.keyWindow ?? NSApp.mainWindow,
               let fr = window.firstResponder else { return false }
-
         if fr is NSTextField { return true }
-        if fr is NSTextView { return true }
+        if fr is NSTextView {
+            // Field editor de un NSTextField / search, o chat.
+            return true
+        }
+        let name = NSStringFromClass(type(of: fr))
+        return name.contains("FieldEditor")
+    }
 
+    @MainActor
+    private static var isNamedTextControlFocused: Bool {
+        guard let window = NSApp.keyWindow ?? NSApp.mainWindow,
+              let fr = window.firstResponder else { return false }
         let name = NSStringFromClass(type(of: fr))
         if isTextControlClassName(name) { return true }
-
         if let view = fr as? NSView {
             var parent: NSView? = view
             while let p = parent {

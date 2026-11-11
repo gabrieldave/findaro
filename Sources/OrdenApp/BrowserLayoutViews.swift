@@ -84,9 +84,8 @@ struct SelectionCheckButton: View {
 @MainActor
 func browserSelectEntry(_ browser: BrowserModel, entry: FileEntry, openOnDoubleClick: Bool = true) {
     _ = openOnDoubleClick
-    if FindaroTextInput.isEditing {
-        NSApp.keyWindow?.makeFirstResponder(nil)
-    }
+    browser.isAssistantFocused = false
+    NSApp.keyWindow?.makeFirstResponder(nil)
     browser.clickSelect(entry.id)
 }
 

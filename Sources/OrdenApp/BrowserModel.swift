@@ -627,6 +627,8 @@ final class BrowserModel: ObservableObject {
             focusedPane = .primary
         }
         isAssistantFocused = false
+        // Soltar SearchField/omnibox: si no, Espacio tipa en buscar en vez de Vista rápida.
+        NSApp.keyWindow?.makeFirstResponder(nil)
         // Teclas del momento del clic (no del momento en que SwiftUI dispara el gesto).
         let mods = FileDragArmMonitor.shared.effectiveClickModifiers()
         if mods.shift {
@@ -1430,6 +1432,7 @@ final class BrowserModel: ObservableObject {
     func clickSelectSecondary(_ id: String) {
         focusedPane = .secondary
         isAssistantFocused = false
+        NSApp.keyWindow?.makeFirstResponder(nil)
         let mods = FileDragArmMonitor.shared.effectiveClickModifiers()
         if mods.shift {
             selectSecondaryRange(to: id)
@@ -3948,7 +3951,16 @@ final class BrowserModel: ObservableObject {
 
     func quickLookSelection() {
         let paths = activeSelectedEntries.map(\.path)
-        guard !paths.isEmpty else { return }
+        guard !paths.isEmpty else {
+            statusMessage = L10n.s(
+                "Selecciona un archivo para Vista rápida (Espacio)",
+                "Select a file for Quick Look (Space)"
+            )
+            return
+        }
+        // La búsqueda del toolbar a menudo retiene el firstResponder y se come el Espacio.
+        NSApp.keyWindow?.makeFirstResponder(nil)
+        isAssistantFocused = false
         QuickLookController.shared.toggle(browser: self, focusing: paths)
     }
 

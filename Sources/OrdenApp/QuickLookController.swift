@@ -11,14 +11,25 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
     private weak var browser: BrowserModel?
     private var entries: [FileEntry] = []
     private var currentIndex: Int = 0
+    /// Evita open→close si Espacio llega por monitor + SwiftUI en el mismo instante.
+    private var lastToggleAt: Date?
 
     var isVisible: Bool {
-        MediaPreviewController.shared.isVisible
-            || QLPreviewPanel.shared()?.isVisible == true
+        if MediaPreviewController.shared.isVisible { return true }
+        guard let panel = QLPreviewPanel.shared() else { return false }
+        // `isVisible` a veces miente justo tras makeKeyAndOrderFront; el panel
+        // ya es keyWindow / está en NSApp.windows.
+        if panel.isVisible || panel.isKeyWindow { return true }
+        return NSApp.windows.contains { $0 === panel && $0.isVisible }
     }
 
     func toggle(browser: BrowserModel, focusing paths: [String]) {
         self.browser = browser
+        let now = Date()
+        if let last = lastToggleAt, now.timeIntervalSince(last) < 0.18 {
+            return
+        }
+        lastToggleAt = now
         if isVisible {
             hideAll()
             return
@@ -43,6 +54,10 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
         syncBrowserSelection()
     }
 
+    func hide() {
+        hideAll()
+    }
+
     private func hideAll() {
         MediaPreviewController.shared.hide()
         QLPreviewPanel.shared()?.orderOut(nil)
@@ -65,11 +80,13 @@ final class QuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPa
             panel.delegate = self
             panel.currentPreviewItemIndex = currentIndex
             panel.reloadData()
+            panel.updateController()
             NSApp.activate(ignoringOtherApps: true)
             panel.makeKeyAndOrderFront(nil)
-            // Asegura que el panel tome el control aunque SwiftUI retenga el first responder.
+            // Segunda pasada: a veces el panel nace sin contenido hasta updateController.
             if !panel.isVisible {
                 panel.updateController()
+                panel.makeKeyAndOrderFront(nil)
             }
         }
     }

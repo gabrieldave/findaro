@@ -95,13 +95,8 @@ struct ContentView: View {
         .onDisappear { SelectionCancelMonitor.remove() }
         .modifier(BrowserToolbarModifier())
         .modifier(BrowserDialogsModifier(shortPath: shortPath))
-        .onKeyPress(.space) {
-            guard !browser.hasModalSheet else { return .ignored }
-            // No robar el espacio del chat / omnibox / cualquier campo de texto.
-            if FindaroTextInput.isEditing { return .ignored }
-            browser.quickLookSelection()
-            return .handled
-        }
+        // Espacio → Vista rápida lo maneja SelectionCancelMonitor (más fiable que
+        // onKeyPress: el SearchField del toolbar a menudo se come el evento SwiftUI).
         .onKeyPress(keys: [.downArrow], phases: .down) { press in
             guard press.modifiers.contains(.command) else { return .ignored }
             guard !browser.hasModalSheet else { return .ignored }
@@ -2200,9 +2195,9 @@ struct FileRowButton: View {
 
     private func selectRow() {
         browser.isAssistantFocused = false
-        if FindaroTextInput.isEditing {
-            NSApp.keyWindow?.makeFirstResponder(nil)
-        }
+        // Siempre soltar búsqueda/omnibox: si no, Espacio escribe en el search
+        // en vez de abrir Vista rápida (y ⌫/atajos también fallan).
+        NSApp.keyWindow?.makeFirstResponder(nil)
         // ⇧ rango · ⌘ suma/quita + naranja · Varios toggle · clic = uno y sale del naranja.
         if isSecondary {
             browser.clickSelectSecondary(entry.id)

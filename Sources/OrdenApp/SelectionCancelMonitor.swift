@@ -53,10 +53,6 @@ enum SelectionCancelMonitor {
                 return nil
             }
 
-            if shouldIgnore(event, browser: browser) {
-                return event
-            }
-
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             let key = event.keyCode
             let chars = event.charactersIgnoringModifiers ?? ""
@@ -64,6 +60,26 @@ enum SelectionCancelMonitor {
             let cmd = flags.contains(.command)
             let shift = flags.contains(.shift)
             let ctrl = flags.contains(.control)
+            let bare = !opt && !cmd && !shift && !ctrl
+
+            // Espacio → Vista rápida ANTES de shouldIgnore.
+            // El SearchField del toolbar a menudo retiene el field editor: con selección
+            // de archivos, Espacio debe abrir Vista rápida (no tipar un espacio en buscar).
+            // Solo cedemos el Espacio si el usuario está tipando de verdad (omnibox / chat / sheet).
+            if bare, key == 49 {
+                let hasSel = browser.activeHasSelection
+                let typingWins = browser.pathOmniboxEditing
+                    || browser.hasModalSheet
+                    || (browser.isAssistantFocused && FindaroTextInput.isStrictTextFieldEditing)
+                if hasSel, !typingWins {
+                    browser.quickLookSelection()
+                    return nil
+                }
+            }
+
+            if shouldIgnore(event, browser: browser) {
+                return event
+            }
 
             // Preferencias vía store (@unchecked); el monitor corre en el hilo principal.
             let overrides = browser.store.preferences.keyboardHotkeyOverrides
@@ -123,8 +139,12 @@ enum SelectionCancelMonitor {
                 return nil
             }
 
-            // Esc → búsqueda → filtros → selección; Esc Esc seguidos → bandeja
+            // Esc → Vista rápida → búsqueda → filtros → selección; Esc Esc → bandeja
             if hit("files.cancel") {
+                if QuickLookController.shared.isVisible {
+                    QuickLookController.shared.hide()
+                    return nil
+                }
                 if browser.showDeepSearchPanel {
                     browser.clearDeepSearch()
                     return nil
