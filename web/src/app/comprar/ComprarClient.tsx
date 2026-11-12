@@ -4,6 +4,7 @@ import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import styles from "../marketing.module.css";
+import ui from "./comprar.module.css";
 
 type TierKey = "solo" | "personal" | "family";
 
@@ -25,10 +26,25 @@ const TIER_META: Record<
   family: { seats: 5, price: 59, discount: 6, discounted: 53 },
 };
 
+/** Acepta ?tier=solo|personal|pro|family desde la landing. "pro" es alias UI de "personal". */
+function tierFromParam(raw: string | null): TierKey {
+  const v = (raw || "").trim().toLowerCase();
+  if (v === "solo") return "solo";
+  if (v === "family" || v === "familiar" || v === "studio") return "family";
+  return "personal";
+}
+
+function formatPerMac(total: number, seats: number, isEn: boolean): string {
+  const per = total / seats;
+  const fixed = Number.isInteger(per) ? String(per) : per.toFixed(2);
+  return isEn ? `$${fixed}` : `$${fixed.replace(".", ",")}`;
+}
+
 function ComprarInner() {
   const searchParams = useSearchParams();
   const urlRef = searchParams.get("ref") || "";
   const paramLang = searchParams.get("lang");
+  const paramTier = searchParams.get("tier");
 
   const [lang, setLang] = useState<"es" | "en">(() => {
     if (paramLang === "en" || paramLang === "es") return paramLang;
@@ -39,8 +55,8 @@ function ComprarInner() {
     return "en";
   });
 
-  // Pro ($39) por defecto: escalón de mejor valor
-  const [selectedTier, setSelectedTier] = useState<TierKey>("personal");
+  // Pro ($39) por defecto: escalón de mejor valor. La landing puede preseleccionar con ?tier=.
+  const [selectedTier, setSelectedTier] = useState<TierKey>(() => tierFromParam(paramTier));
   const [referralCode, setReferralCode] = useState(urlRef);
   const [refValid, setRefValid] = useState(false);
   const [refStatus, setRefStatus] = useState<"idle" | "valid" | "invalid">("idle");
@@ -67,15 +83,26 @@ function ComprarInner() {
   const t = {
     title: isEn ? "Lifetime License" : "Licencia de por vida",
     sub: isEn
-      ? "One-time payment forever. Free updates and all future features included."
-      : "Un solo pago para siempre. Actualizaciones y nuevas funciones incluidas.",
+      ? "Pay once, keep it forever. Free updates and all future features included. No subscription, no tokens, no cloud."
+      : "Pagas una vez y es tuya para siempre. Actualizaciones y nuevas funciones incluidas. Sin suscripción, sin tokens, sin nube.",
     soloTier: "Personal",
-    proTier: "Pro",
+    proTier: isEn ? "Pro · Desktop + MacBook" : "Pro · Escritorio + MacBook",
     familyTier: isEn ? "Family / Studio" : "Familiar / Studio",
     soloDesc: isEn ? "1 Mac lifetime" : "1 Mac de por vida",
-    proDesc: isEn ? "2 Macs lifetime · desktop + MacBook" : "2 Macs de por vida · escritorio + MacBook",
-    familyDesc: isEn ? "5 Macs lifetime" : "5 Macs de por vida",
-    popular: isEn ? "Most Popular" : "Mejor Valor",
+    proDesc: isEn ? "2 Macs lifetime" : "2 Macs de por vida",
+    familyDesc: isEn ? "5 Macs · priority support" : "5 Macs · soporte prioritario",
+    perMac: (v: string) => (isEn ? `${v} per Mac` : `${v} por Mac`),
+    popular: isEn ? "The smart buy" : "La compra inteligente",
+    tiersLabel: isEn ? "Choose your license" : "Elige tu licencia",
+    anchor: isEn ? (
+      <>
+        A subscription like Path Finder: <s>$32/year</s> → <b>$96 over 3 years</b>. FINDARO Pro: <b>$39 once</b>, for 2 Macs.
+      </>
+    ) : (
+      <>
+        Una suscripción como Path Finder: <s>$32/año</s> → <b>$96 en 3 años</b>. FINDARO Pro: <b>$39 una vez</b>, para 2 Macs.
+      </>
+    ),
     refValidMsg: (code: string, discount: number) =>
       isEn
         ? `✓ Referral coupon active: ${code} (-$${discount} USD discount applied)`
@@ -86,21 +113,21 @@ function ComprarInner() {
         : `✕ Código ${code} no encontrado. Se aplicará el precio regular.`,
     nameLabel: isEn ? "Full Name" : "Nombre",
     namePlaceholder: isEn ? "Your name" : "Tu nombre",
-    emailLabel: isEn ? "Email" : "Correo",
+    emailLabel: isEn ? "Email (your license key arrives here)" : "Correo (aquí llega tu clave de licencia)",
     emailPlaceholder: isEn ? "you@email.com" : "tu@email.com",
     refLabel: isEn ? "Referral / Promo code (optional)" : "Código de referido (opcional)",
     refPlaceholder: isEn ? "e.g. DAVE-8F12" : "Ej. DAVE-8F12",
     payButton: (price: number, seats: number) =>
       isEn
-        ? `Pay $${price} USD with Stripe (${seats} Mac${seats === 1 ? "" : "s"})`
-        : `Pagar $${price} USD con Stripe (${seats} Mac${seats === 1 ? "" : "s"})`,
+        ? `Pay $${price} USD once with Stripe (${seats} Mac${seats === 1 ? "" : "s"})`
+        : `Pagar $${price} USD una vez con Stripe (${seats} Mac${seats === 1 ? "" : "s"})`,
     busyButton: isEn ? "Redirecting to Stripe…" : "Redirigiendo a Stripe…",
+    seal: isEn
+      ? ["✓ 14-Day Free Trial (No Card)", "✓ 14-Day Money-Back Guarantee", "✓ One-time payment"]
+      : ["✓ 14 días gratis sin tarjeta", "✓ Reembolso 14 días sin preguntas", "✓ Pago único"],
     securityNote: isEn
-      ? "🛡️ 100% secure payment with Stripe. No subscriptions or hidden fees. Referral program: share your link to give friends a discount on their purchase."
-      : "🛡️ Pago 100% seguro con Stripe. Sin suscripciones ni cobros ocultos. ¿Tienes amigos? Al comprar recibirás tu enlace de recomendación para compartir un descuento directo.",
-    footerNote: isEn
-      ? "14-day free trial without card + 14-day no-questions-asked money-back guarantee."
-      : "14 días de prueba gratis sin tarjeta + Garantía de reembolso de 14 días sin preguntas.",
+      ? "🛡️ 100% secure payment with Stripe. No subscriptions or hidden fees. After purchase you get a referral link to give friends a discount."
+      : "🛡️ Pago 100% seguro con Stripe. Sin suscripciones ni cobros ocultos. Al comprar recibirás tu enlace de recomendación para compartir un descuento.",
     terms: isEn ? "Terms of Service" : "Términos de Servicio",
     privacy: isEn ? "Privacy" : "Privacidad",
     refund: isEn ? "Refund Policy" : "Política de Reembolso",
@@ -212,141 +239,70 @@ function ComprarInner() {
     }
   }
 
-  const tierButton = (
-    key: TierKey,
-    title: string,
-    desc: string,
-    accent: string,
-    badge?: string,
-  ) => {
+  const tierButton = (key: TierKey, title: string, desc: string, extraClass: string, badge?: string) => {
     const m = TIER_META[key];
     const selected = selectedTier === key;
-    const price = hasDiscount && selected ? m.discounted : m.price;
+    const discounted = hasDiscount && selected;
+    const price = discounted ? m.discounted : m.price;
+    const className = [ui.tier, extraClass, selected ? ui.tierSelected : ""].filter(Boolean).join(" ");
     return (
       <button
+        key={key}
         type="button"
+        role="radio"
+        aria-checked={selected}
         onClick={() => setSelectedTier(key)}
-        style={{
-          padding: "14px 12px",
-          borderRadius: "10px",
-          border: selected ? `2px solid ${accent}` : "1px solid #334155",
-          background: selected ? `${accent}22` : "rgba(15, 23, 42, 0.6)",
-          color: "#fff",
-          cursor: "pointer",
-          textAlign: "left",
-          position: "relative",
-        }}
+        className={className}
       >
-        {badge ? (
-          <div
-            style={{
-              position: "absolute",
-              top: -10,
-              right: 10,
-              background: accent,
-              color: "#0b1220",
-              fontSize: 10,
-              fontWeight: 800,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-              padding: "3px 8px",
-              borderRadius: 999,
-            }}
-          >
-            {badge}
-          </div>
-        ) : null}
-        <div style={{ fontSize: "14px", fontWeight: "bold" }}>{title}</div>
-        <div style={{ fontSize: "20px", fontWeight: 800, marginTop: "4px" }}>
-          ${price}{" "}
-          <span style={{ fontSize: "12px", fontWeight: "normal", color: "#94a3b8" }}>USD</span>
-        </div>
-        <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>{desc}</div>
+        {badge ? <span className={ui.badge}>{badge}</span> : null}
+        <span className={ui.tierName}>{title}</span>
+        <span className={ui.tierPrice}>
+          {discounted ? <s>${m.price}</s> : null}${price}
+          <small>USD</small>
+        </span>
+        <span className={ui.tierDesc}>{desc}</span>
+        {m.seats > 1 ? <span className={ui.tierPer}>{t.perMac(formatPerMac(price, m.seats, isEn))}</span> : null}
       </button>
     );
   };
 
   return (
     <main className={styles.page}>
-      <div className={styles.card} style={{ maxWidth: 640 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className={`${styles.card} ${ui.card}`}>
+        <div className={ui.header}>
           <p className={styles.brand} style={{ margin: 0 }}>FINDARO</p>
-          <button
-            type="button"
-            onClick={handleToggleLang}
-            style={{
-              background: "rgba(56, 189, 248, 0.12)",
-              border: "1px solid rgba(56, 189, 248, 0.3)",
-              color: "#38bdf8",
-              borderRadius: "6px",
-              padding: "4px 10px",
-              fontSize: "12px",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
+          <button type="button" onClick={handleToggleLang} className={ui.langBtn}>
             🌐 {isEn ? "Español" : "English"}
           </button>
         </div>
 
-        <h1 style={{ marginTop: "12px" }}>{t.title}</h1>
+        <h1 className={ui.title}>{t.title}</h1>
         <p className={styles.sub}>{t.sub}</p>
 
         {offer && (
-          <div style={{ fontSize: "13px", color: "#38bdf8", margin: "14px 0 6px", fontWeight: 500 }}>
+          <p className={ui.ladder}>
             ⚡️{" "}
             {isEn
               ? `Lifetime ladder: $29 / $39 / $59 · ${offer.remaining} launch seats left`
               : `Escalera de por vida: $29 / $39 / $59 · quedan ${offer.remaining} cupos de lanzamiento`}
-          </div>
+          </p>
         )}
 
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: soloEnabled ? "1fr 1fr 1fr" : "1fr 1fr",
-            gap: "12px",
-            margin: "28px 0 10px",
-          }}
+          role="radiogroup"
+          aria-label={t.tiersLabel}
+          className={soloEnabled ? ui.tiers : `${ui.tiers} ${ui.tiersTwo}`}
         >
-          {soloEnabled
-            ? tierButton("solo", t.soloTier, t.soloDesc, "#38bdf8")
-            : null}
-          {tierButton("personal", t.proTier, t.proDesc, "#38bdf8", t.popular)}
-          {tierButton("family", t.familyTier, t.familyDesc, "#a855f7")}
+          {soloEnabled ? tierButton("solo", t.soloTier, t.soloDesc, "") : null}
+          {tierButton("personal", t.proTier, t.proDesc, ui.tierPro, t.popular)}
+          {tierButton("family", t.familyTier, t.familyDesc, ui.tierFamily)}
         </div>
 
-        {refStatus === "valid" && (
-          <div
-            style={{
-              background: "rgba(34, 197, 94, 0.12)",
-              border: "1px solid rgba(34, 197, 94, 0.3)",
-              color: "#4ade80",
-              padding: "10px 14px",
-              borderRadius: "8px",
-              fontSize: "13px",
-              marginBottom: "16px",
-            }}
-          >
-            {t.refValidMsg(referralCode, meta.discount)}
-          </div>
-        )}
+        {selectedTier === "personal" && <p className={ui.anchor}>{t.anchor}</p>}
 
-        {refStatus === "invalid" && (
-          <div
-            style={{
-              background: "rgba(239, 68, 68, 0.12)",
-              border: "1px solid rgba(239, 68, 68, 0.3)",
-              color: "#f87171",
-              padding: "10px 14px",
-              borderRadius: "8px",
-              fontSize: "13px",
-              marginBottom: "16px",
-            }}
-          >
-            {t.refInvalidMsg(referralCode)}
-          </div>
-        )}
+        {refStatus === "valid" && <div className={ui.alertOk}>{t.refValidMsg(referralCode, meta.discount)}</div>}
+
+        {refStatus === "invalid" && <div className={ui.alertErr}>{t.refInvalidMsg(referralCode)}</div>}
 
         <form className={styles.form} onSubmit={onSubmit}>
           <label>
@@ -369,6 +325,7 @@ function ComprarInner() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder={t.emailPlaceholder}
               autoComplete="email"
+              inputMode="email"
             />
           </label>
           <label>
@@ -377,6 +334,7 @@ function ComprarInner() {
               value={referralCode}
               onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
               placeholder={t.refPlaceholder}
+              autoCapitalize="characters"
             />
           </label>
 
@@ -387,55 +345,22 @@ function ComprarInner() {
           </button>
         </form>
 
+        <ul className={ui.seal} aria-label={isEn ? "Guarantees" : "Garantías"}>
+          {t.seal.map((s) => (
+            <li key={s}>{s}</li>
+          ))}
+        </ul>
+
         <p className={styles.note}>{t.securityNote}</p>
 
-        <div
-          style={{
-            marginTop: 14,
-            padding: "10px 14px",
-            borderRadius: "10px",
-            background: "rgba(34, 197, 94, 0.1)",
-            border: "1px solid rgba(34, 197, 94, 0.28)",
-            color: "#86efac",
-            fontSize: "13px",
-            fontWeight: 600,
-            textAlign: "center",
-          }}
-        >
-          ✓ {t.footerNote}
-        </div>
-
-        <footer
-          style={{
-            marginTop: 24,
-            paddingTop: 16,
-            borderTop: "1px solid #1e293b",
-            textAlign: "center",
-            fontSize: 12,
-            color: "#64748b",
-          }}
-        >
-          <div>{t.footerNote}</div>
-          <div style={{ marginTop: 6, display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
-            <Link href={`/terminos?lang=${lang}`} style={{ color: "#94a3b8", textDecoration: "underline" }}>
-              {t.terms}
-            </Link>
-            <span>·</span>
-            <Link href={`/privacidad?lang=${lang}`} style={{ color: "#94a3b8", textDecoration: "underline" }}>
-              {t.privacy}
-            </Link>
-            <span>·</span>
-            <Link href={`/reembolso?lang=${lang}`} style={{ color: "#94a3b8", textDecoration: "underline" }}>
-              {t.refund}
-            </Link>
-            <span>·</span>
-            <a
-              href={isEn ? "mailto:support@findaro.iareal.net" : "mailto:soporte@findaro.iareal.net"}
-              style={{ color: "#94a3b8", textDecoration: "underline" }}
-            >
-              {t.contact}
-            </a>
-          </div>
+        <footer className={ui.footer}>
+          <Link href={`/terminos?lang=${lang}`}>{t.terms}</Link>
+          <span>·</span>
+          <Link href={`/privacidad?lang=${lang}`}>{t.privacy}</Link>
+          <span>·</span>
+          <Link href={`/reembolso?lang=${lang}`}>{t.refund}</Link>
+          <span>·</span>
+          <a href={isEn ? "mailto:support@findaro.iareal.net" : "mailto:soporte@findaro.iareal.net"}>{t.contact}</a>
         </footer>
       </div>
     </main>
