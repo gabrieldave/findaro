@@ -119,13 +119,15 @@ private struct FindaroCommands: Commands {
         }
 
         CommandGroup(after: .appSettings) {
-            languageMenuItem(
-                .auto,
-                title: L10n.s("Idioma: Automático (Sistema)", "Language: Automatic (System)")
-            )
-            languageMenuItem(.spanish, title: L10n.s("Idioma: Español", "Language: Español"))
-            languageMenuItem(.english, title: L10n.s("Idioma: English", "Language: English"))
+            Menu(L10n.s("Idioma", "Language")) {
+                languageMenuItem(.auto, title: L10n.s("Automático (Sistema)", "Automatic (System)"))
+                languageMenuItem(.spanish, title: "Español")
+                languageMenuItem(.english, title: "English")
+            }
 
+            Button(L10n.s("Usar Findaro para abrir carpetas…", "Use Findaro to Open Folders…")) {
+                browser()?.runFolderHandlerSetup()
+            }
             if DefaultFileViewerManager.isEnabled {
                 Button(L10n.s("Restaurar Finder como explorador", "Restore Finder as File Viewer")) {
                     _ = DefaultFileViewerManager.disable()
@@ -146,6 +148,26 @@ private struct FindaroCommands: Commands {
             // Títulos fijos (no leen dualPane/hidden en body → no rebuild al hover).
             Button(L10n.s("Alternar dos paneles", "Toggle Dual Pane")) { browser()?.toggleDualPane() }
                 .keyboardShortcut("d", modifiers: [.command, .shift])
+            Menu(L10n.s("Paneles duales", "Dual Panes")) {
+                Button(L10n.s("Panel Origen", "Origin Pane")) { browser()?.focusOriginPane() }
+                    .keyboardShortcut(.leftArrow, modifiers: [.command, .shift])
+                Button(L10n.s("Panel Destino", "Destination Pane")) { browser()?.focusDestinationPane() }
+                    .keyboardShortcut(.rightArrow, modifiers: [.command, .shift])
+                Button(L10n.s("Cambiar de panel (Tab)", "Toggle Focused Pane (Tab)")) { browser()?.toggleFocusedPane() }
+                Button(L10n.s("Mover selección → Destino", "Move Selection → Destination")) {
+                    browser()?.transferPrimarySelectionToSecondary(copy: false)
+                }
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+                Button(L10n.s("Mover selección → Origen", "Move Selection → Origin")) {
+                    browser()?.transferSecondarySelectionToPrimary(copy: false)
+                }
+                .keyboardShortcut("m", modifiers: [.command, .shift, .option])
+                Button(L10n.s("Intercambiar paneles", "Swap Panes")) {
+                    browser()?.swapPaneFolders()
+                }
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+            }
+            Divider()
             Button(L10n.s("Alternar archivos ocultos", "Toggle Hidden Files")) { browser()?.toggleShowHiddenFiles() }
                 .keyboardShortcut(".", modifiers: [.command, .shift])
             Button(L10n.s("Alternar vista plana", "Toggle Flat View")) { browser()?.toggleFlattenFolderView() }
@@ -158,6 +180,26 @@ private struct FindaroCommands: Commands {
                     browser.clearDeepSearch()
                 }
             }
+            Button(L10n.s("Actualizar carpeta", "Refresh Folder")) { browser()?.reloadFromUser() }
+                .keyboardShortcut("r", modifiers: .command)
+            Divider()
+            Button(L10n.s("Mostrar / ocultar asistente", "Show / Hide Assistant")) {
+                browser()?.showAssistantPanel.toggle()
+            }
+            .keyboardShortcut("5", modifiers: .command)
+            Menu(L10n.s("Opciones IA", "AI Options")) {
+                Button(L10n.s("Ir al asistente", "Focus Assistant")) {
+                    browser()?.showAssistantPanel = true
+                }
+                .keyboardShortcut("6", modifiers: .command)
+                Button(L10n.s("Configurar Ollama…", "Configure Ollama…")) {
+                    browser()?.showAssistantPanel = true
+                    browser()?.showOllamaSetupDialog = true
+                }
+                Button(L10n.s("Hablar (mantener ⌃Espacio)", "Talk (Hold ⌃Space)")) {
+                    browser()?.showAssistantPanel = true
+                }
+            }
         }
 
         CommandGroup(replacing: .help) {
@@ -165,6 +207,12 @@ private struct FindaroCommands: Commands {
                 FindaroHelpWindow.show()
             }
             .keyboardShortcut("?", modifiers: [.command, .shift])
+            Divider()
+            Button(L10n.s("Limpiar caché de miniaturas", "Clear Thumbnail Cache")) {
+                ThumbnailStore.shared.clearAll()
+                browser()?.reload()
+                browser()?.statusMessage = L10n.s("Caché de miniaturas limpia", "Thumbnail cache cleared")
+            }
         }
 
         CommandGroup(replacing: .newItem) {
@@ -176,30 +224,43 @@ private struct FindaroCommands: Commands {
                 session()?.addTab()
             }
             .keyboardShortcut("t", modifiers: .command)
+            Button(L10n.s("Nueva carpeta", "New Folder")) { browser()?.promptNewFolder() }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+            Button(L10n.s("Nuevo archivo", "New File")) { browser()?.promptNewFile() }
+                .keyboardShortcut("n", modifiers: .command)
+            Divider()
+            Button(L10n.s("Abrir selección", "Open Selection")) { browser()?.openSelection() }
+                .keyboardShortcut(.downArrow, modifiers: .command)
+            Button(L10n.s("Vista rápida", "Quick Look")) { browser()?.openPreviewExplicitly() }
+            Button(L10n.s("Obtener información", "Get Info")) {
+                if let b = browser(), let entry = b.activeSelectedEntries.first {
+                    b.showInfo(entry)
+                }
+            }
+            Button(L10n.s("Abrir Terminal aquí", "Open Terminal Here")) { browser()?.openTerminalHere() }
+                .keyboardShortcut("t", modifiers: [.command, .option])
+            Divider()
+            Button(L10n.s("Renombrar", "Rename")) { browser()?.promptRename() }
+                .keyboardShortcut("r", modifiers: .control)
+            Button(L10n.s("Renombrado masivo…", "Batch Rename…")) { browser()?.promptBatchRename() }
+                .keyboardShortcut("r", modifiers: [.control, .shift])
+            Button(L10n.s("Duplicar", "Duplicate")) { browser()?.duplicateSelection() }
+                .keyboardShortcut("d", modifiers: .command)
+            Button(L10n.s("Comprimir", "Compress")) { browser()?.compressSelection() }
+            Divider()
+            Button(L10n.s("Mover a la Papelera", "Move to Trash")) { browser()?.moveSelectionToTrash() }
+            Menu(L10n.s("Papelera", "Trash")) {
+                Button(L10n.s("Sacar de la Papelera", "Restore from Trash")) { browser()?.restoreSelectionFromTrash() }
+                Button(L10n.s("Eliminar para siempre", "Delete Permanently")) { browser()?.permanentlyDeleteSelection(confirm: true) }
+            }
+            Divider()
             Button(L10n.s("Cerrar pestaña", "Close Tab")) {
                 session()?.closeActiveTab()
             }
             .keyboardShortcut("w", modifiers: .command)
-            Button(L10n.s("Pestaña anterior", "Previous Tab")) {
-                session()?.selectPreviousTab()
-            }
-            .keyboardShortcut("[", modifiers: [.command, .shift])
-            Button(L10n.s("Pestaña siguiente", "Next Tab")) {
-                session()?.selectNextTab()
-            }
-            .keyboardShortcut("]", modifiers: [.command, .shift])
-            Button(L10n.s("Mover pestaña a la izquierda", "Move Tab Left")) {
-                if let s = session() { s.moveTabLeft(s.selectedTabID) }
-            }
-            .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
-            Button(L10n.s("Mover pestaña a la derecha", "Move Tab Right")) {
-                if let s = session() { s.moveTabRight(s.selectedTabID) }
-            }
-            .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
-            Divider()
-            Button(L10n.s("Nuevo archivo", "New File")) { browser()?.promptNewFile() }
-            Button(L10n.s("Nueva carpeta", "New Folder")) { browser()?.promptNewFolder() }
         }
+
+        CommandGroup(replacing: .printItem) {}
 
         // Reemplazar (no «after») para no dejar Cortar/Copiar/Pegar del sistema + Writing Tools
         // encima de la ventana (provoca parpadeo del menú traslúcido).
@@ -239,8 +300,6 @@ private struct FindaroCommands: Commands {
                 }
             }
             .keyboardShortcut("v", modifiers: .command)
-            Button(L10n.s("Duplicar", "Duplicate")) { browser()?.duplicateSelection() }
-                .keyboardShortcut("d", modifiers: .command)
             Button(L10n.s("Copiar ruta", "Copy Path")) { browser()?.copySelectedPaths() }
                 .keyboardShortcut("c", modifiers: [.command, .option])
         }
@@ -253,53 +312,17 @@ private struct FindaroCommands: Commands {
                 }
             }
             .keyboardShortcut("a", modifiers: .command)
-        }
-
-        CommandMenu(L10n.s("Buscar", "Search")) {
-            Button(L10n.s("Buscar en subcarpetas…", "Search in Subfolders…")) { browser()?.promptDeepSearch() }
-            Button(L10n.s("Orden normal / salir filtros (Esc)", "Normal View / Clear Filters (Esc)")) {
-                guard let browser = browser() else { return }
-                if browser.hasActiveViewFilters {
-                    browser.resetToNormalView()
-                } else {
-                    browser.clearDeepSearch()
-                }
+            Button(L10n.s("Modo varios", "Multi-Select Mode")) { browser()?.multiSelectMode.toggle() }
+                .keyboardShortcut("v", modifiers: [.command, .shift])
+            Button(L10n.s("Quitar selección / bandeja", "Deselect / Clear Tray")) {
+                browser()?.cancelSelectionOrClearTray()
             }
-            Button(L10n.s("Alternar dos paneles", "Toggle Dual Pane")) { browser()?.toggleDualPane() }
-                .keyboardShortcut("d", modifiers: [.command, .shift])
+            .keyboardShortcut(.escape, modifiers: [])
             Divider()
-            Button(L10n.s("Panel Origen", "Origin Pane")) { browser()?.focusOriginPane() }
-                .keyboardShortcut(.leftArrow, modifiers: [.command, .shift])
-            Button(L10n.s("Panel Destino", "Destination Pane")) { browser()?.focusDestinationPane() }
-                .keyboardShortcut(.rightArrow, modifiers: [.command, .shift])
-            Button(L10n.s("Cambiar de panel (Tab)", "Toggle Focused Pane (Tab)")) { browser()?.toggleFocusedPane() }
-            Button(L10n.s("Mover selección → Destino", "Move Selection → Destination")) {
-                browser()?.transferPrimarySelectionToSecondary(copy: false)
-            }
-            .keyboardShortcut("m", modifiers: [.command, .shift])
-            Button(L10n.s("Mover selección → Origen", "Move Selection → Origin")) {
-                browser()?.transferSecondarySelectionToPrimary(copy: false)
-            }
-            .keyboardShortcut("m", modifiers: [.command, .shift, .option])
-            Button(L10n.s("Intercambiar paneles", "Swap Panes")) {
-                browser()?.swapPaneFolders()
-            }
-            .keyboardShortcut("s", modifiers: [.command, .shift])
-        }
-
-        CommandMenu(L10n.s("Asistente", "Assistant")) {
-            Button(L10n.s("Mostrar / ocultar asistente", "Show / Hide Assistant")) {
-                browser()?.showAssistantPanel.toggle()
-            }
-            Button(L10n.s("Configurar Ollama…", "Configure Ollama…")) {
-                browser()?.showAssistantPanel = true
-                browser()?.showOllamaSetupDialog = true
-            }
-            Button(L10n.s("Ir al asistente", "Focus Assistant")) {
-                browser()?.showAssistantPanel = true
-            }
-            Button(L10n.s("Hablar (mantener ⌃Espacio)", "Talk (Hold ⌃Space)")) {
-                browser()?.showAssistantPanel = true
+            Button(L10n.s("Buscar en subcarpetas…", "Search in Subfolders…")) { browser()?.promptDeepSearch() }
+                .keyboardShortcut("4", modifiers: .command)
+            Button(L10n.s("Limpiar .DS_Store y ._ aquí", "Clean .DS_Store & ._ Here")) {
+                browser()?.cleanMacOSJunkInActiveFolder()
             }
         }
 
@@ -314,87 +337,57 @@ private struct FindaroCommands: Commands {
                 .keyboardShortcut(.rightArrow, modifiers: .option)
             Button(L10n.s("Arriba", "Enclosing Folder")) { browser()?.goUp() }
                 .keyboardShortcut(.upArrow, modifiers: .command)
-            Button(L10n.s("Ir a carpeta…", "Go to Folder…")) { browser()?.promptGoToFolder() }
+            Divider()
             Button(L10n.s("Barra de ruta editable", "Editable Path Bar")) { browser()?.beginPathOmnibox() }
                 .keyboardShortcut("l", modifiers: .command)
             Button(L10n.s("Editar ruta (omnibox)", "Edit Path (Omnibox)")) { browser()?.beginPathOmnibox() }
                 .keyboardShortcut("e", modifiers: .command)
+            Button(L10n.s("Ir a carpeta…", "Go to Folder…")) { browser()?.promptGoToFolder() }
+                .keyboardShortcut("3", modifiers: .command)
             Divider()
             Button(L10n.s("Descargas", "Downloads")) { browser()?.navigateToDownloads() }
                 .keyboardShortcut("l", modifiers: [.command, .shift])
-            Button(L10n.s("Alternar archivos ocultos", "Toggle Hidden Files")) { browser()?.toggleShowHiddenFiles() }
-                .keyboardShortcut(".", modifiers: [.command, .shift])
-            Button(L10n.s("Alternar vista plana", "Toggle Flat View")) { browser()?.toggleFlattenFolderView() }
-                .keyboardShortcut("f", modifiers: [.command, .shift])
             Button(L10n.s("Escritorio", "Desktop")) { browser()?.navigateToDesktop() }
             Button(L10n.s("Documentos", "Documents")) { browser()?.navigateToDocuments() }
-            Divider()
-            Button(L10n.s("Añadir carpeta actual a Favoritos", "Add Current Folder to Favorites")) {
-                browser()?.addCurrentFolderToFavorites()
-            }
-            .keyboardShortcut("t", modifiers: [.command, .shift])
-            Button(L10n.s("Elegir carpeta para Favoritos…", "Choose Folder for Favorites…")) {
-                browser()?.pickFolderAsFavorite()
-            }
-            Button(L10n.s("Nueva carpeta inteligente…", "New Smart Folder…")) {
-                browser()?.promptNewSmartFolder()
-            }
-            Button(L10n.s("Guardar búsqueda actual como carpeta inteligente…", "Save Current Search as Smart Folder…")) {
-                browser()?.promptSaveCurrentViewAsSmartFolder()
-            }
-        }
-
-        CommandMenu(L10n.s("Archivo+", "File+")) {
-            Button(L10n.s("Nueva ventana", "New Window")) { openWindow(id: "browser") }
-            Button(L10n.s("Nueva pestaña", "New Tab")) { session()?.addTab() }
-            Button(L10n.s("Cerrar pestaña", "Close Tab")) { session()?.closeActiveTab() }
-            Button(L10n.s("Pestaña siguiente", "Next Tab")) { session()?.selectNextTab() }
-            Button(L10n.s("Pestaña anterior", "Previous Tab")) { session()?.selectPreviousTab() }
-            Divider()
-            Button(L10n.s("Nuevo archivo", "New File")) { browser()?.promptNewFile() }
-            Button(L10n.s("Nueva carpeta", "New Folder")) { browser()?.promptNewFolder() }
-            Button(L10n.s("Abrir Terminal aquí", "Open Terminal Here")) { browser()?.openTerminalHere() }
-                .keyboardShortcut("t", modifiers: [.command, .option])
-            Button(L10n.s("Renombrar", "Rename")) { browser()?.promptRename() }
-                .keyboardShortcut("r", modifiers: .control)
-            Button(L10n.s("Renombrado masivo…", "Batch Rename…")) { browser()?.promptBatchRename() }
-                .keyboardShortcut("r", modifiers: [.control, .shift])
-            Button(L10n.s("Duplicar", "Duplicate")) { browser()?.duplicateSelection() }
-            Divider()
-            Button(L10n.s("Seleccionar todos", "Select All")) { browser()?.selectAllVisible() }
-                .keyboardShortcut("a", modifiers: .command)
-            Button(L10n.s("Quitar selección / bandeja", "Deselect / Clear Tray")) {
-                browser()?.cancelSelectionOrClearTray()
-            }
-            .keyboardShortcut(.escape, modifiers: [])
-            Button(L10n.s("Modo varios", "Multi-Select Mode")) { browser()?.multiSelectMode.toggle() }
-                .keyboardShortcut("v", modifiers: [.command, .shift])
-            Divider()
-            Button(L10n.s("Abrir selección", "Open Selection")) { browser()?.openSelection() }
-                .keyboardShortcut(.downArrow, modifiers: .command)
-            Button(L10n.s("Vista rápida", "Quick Look")) { browser()?.openPreviewExplicitly() }
-            Button(L10n.s("Mover a la Papelera", "Move to Trash")) { browser()?.moveSelectionToTrash() }
-            Button(L10n.s("Sacar de la Papelera", "Restore from Trash")) { browser()?.restoreSelectionFromTrash() }
-            Button(L10n.s("Eliminar para siempre", "Delete Permanently")) { browser()?.permanentlyDeleteSelection(confirm: true) }
-            Divider()
-            Button(L10n.s("Usar Findaro para abrir carpetas…", "Use Findaro to Open Folders…")) {
-                browser()?.runFolderHandlerSetup()
-            }
-            Button(L10n.s("Abrir Descargas (⌃⌥A)", "Open Downloads (⌃⌥A)")) {
+            Button(L10n.s("Abrir carpeta global (⌃⌥A)", "Open Global Folder (⌃⌥A)")) {
                 GlobalHotKey.activateOrdena()
             }
             Divider()
-            Button(L10n.s("Limpiar caché de miniaturas", "Clear Thumbnail Cache")) {
-                ThumbnailStore.shared.clearAll()
-                browser()?.reload()
-                browser()?.statusMessage = L10n.s("Caché de miniaturas limpia", "Thumbnail cache cleared")
+            Menu(L10n.s("Favoritos e Inteligentes", "Favorites & Smart Folders")) {
+                Button(L10n.s("Añadir carpeta actual a Favoritos", "Add Current Folder to Favorites")) {
+                    browser()?.addCurrentFolderToFavorites()
+                }
+                .keyboardShortcut("t", modifiers: [.command, .shift])
+                Button(L10n.s("Elegir carpeta para Favoritos…", "Choose Folder for Favorites…")) {
+                    browser()?.pickFolderAsFavorite()
+                }
+                Button(L10n.s("Nueva carpeta inteligente…", "New Smart Folder…")) {
+                    browser()?.promptNewSmartFolder()
+                }
+                Button(L10n.s("Guardar búsqueda actual como carpeta inteligente…", "Save Current Search as Smart Folder…")) {
+                    browser()?.promptSaveCurrentViewAsSmartFolder()
+                }
             }
-            Button(L10n.s("Limpiar .DS_Store y ._ aquí", "Clean .DS_Store & ._ Here")) {
-                browser()?.cleanMacOSJunkInActiveFolder()
+        }
+
+        CommandGroup(after: .windowArrangement) {
+            Divider()
+            Button(L10n.s("Pestaña anterior", "Previous Tab")) {
+                session()?.selectPreviousTab()
             }
-            Button(L10n.s("Buscar actualizaciones…", "Check for Updates…")) {
-                Task { await AppUpdateChecker.shared.check(interactive: true) }
+            .keyboardShortcut("[", modifiers: [.command, .shift])
+            Button(L10n.s("Pestaña siguiente", "Next Tab")) {
+                session()?.selectNextTab()
             }
+            .keyboardShortcut("]", modifiers: [.command, .shift])
+            Button(L10n.s("Mover pestaña a la izquierda", "Move Tab Left")) {
+                if let s = session() { s.moveTabLeft(s.selectedTabID) }
+            }
+            .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+            Button(L10n.s("Mover pestaña a la derecha", "Move Tab Right")) {
+                if let s = session() { s.moveTabRight(s.selectedTabID) }
+            }
+            .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
         }
     }
 }

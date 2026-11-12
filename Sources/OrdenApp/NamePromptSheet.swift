@@ -99,14 +99,42 @@ struct NamePromptSheet: View {
             }
             .padding(20)
         } footer: {
-            OrdenDialogFooter(
-                shortcutHint: kind.shortcutHint,
-                cancelTitle: L10n.s("Cancelar", "Cancel"),
-                actionTitle: kind.actionTitle,
-                actionDisabled: browser.nameDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                onCancel: cancel,
-                onAction: commit
-            )
+            if kind == .rename {
+                HStack(spacing: 10) {
+                    Button(L10n.s("Renombrado Pro…", "Batch / Regex…")) {
+                        browser.showRenameDialog = false
+                        browser.renameTargetPath = nil
+                        browser.renamePreservedExtension = nil
+                        Task { @MainActor in
+                            browser.promptBatchRename()
+                        }
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(OrdenTheme.accent)
+
+                    Spacer()
+
+                    Button(L10n.s("Cancelar", "Cancel"), action: cancel)
+                        .keyboardShortcut(.cancelAction)
+                    Button(kind.actionTitle, action: commit)
+                        .buttonStyle(.borderedProminent)
+                        .tint(OrdenTheme.accent)
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(browser.nameDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+            } else {
+                OrdenDialogFooter(
+                    shortcutHint: kind.shortcutHint,
+                    cancelTitle: L10n.s("Cancelar", "Cancel"),
+                    actionTitle: kind.actionTitle,
+                    actionDisabled: browser.nameDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                    onCancel: cancel,
+                    onAction: commit
+                )
+            }
         }
         .onAppear {
             fieldFocused = true

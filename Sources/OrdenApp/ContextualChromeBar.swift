@@ -71,6 +71,37 @@ struct ContextualChromeBar: View {
             }
             .buttonStyle(.bordered)
             .help(L10n.s("Nuevo archivo · ⌘N", "New File · ⌘N"))
+
+            if browser.dualPaneEnabled {
+                Button {
+                    browser.toggleDualPane()
+                } label: {
+                    dualPaneLabel
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(OrdenTheme.accent)
+                .help(L10n.s("Alternar dos paneles · ⇧⌘D", "Toggle Dual Pane · ⇧⌘D"))
+            } else {
+                Button {
+                    browser.toggleDualPane()
+                } label: {
+                    dualPaneLabel
+                }
+                .buttonStyle(.bordered)
+                .help(L10n.s("Alternar dos paneles · ⇧⌘D", "Toggle Dual Pane · ⇧⌘D"))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var dualPaneLabel: some View {
+        if detailWidth < 640 {
+            Image(systemName: "rectangle.split.2x1")
+        } else {
+            Label(L10n.s("2 paneles", "2 panes"), systemImage: "rectangle.split.2x1")
+                .labelStyle(.titleAndIcon)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
     }
 
@@ -79,7 +110,7 @@ struct ContextualChromeBar: View {
     @ViewBuilder
     private var centerRoomy: some View {
         if browser.activeHasSelection {
-            selectionActions(showLabels: showShortLabels)
+            selectionActions(showLabels: showShortLabels, showRenameLabel: detailWidth >= 560)
         } else {
             idleFilters(showLabels: true)
         }
@@ -88,7 +119,7 @@ struct ContextualChromeBar: View {
     @ViewBuilder
     private var centerCompact: some View {
         if browser.activeHasSelection {
-            selectionActions(showLabels: false)
+            selectionActions(showLabels: false, showRenameLabel: detailWidth >= 560)
         } else {
             idleFilters(showLabels: false)
         }
@@ -97,7 +128,7 @@ struct ContextualChromeBar: View {
     @ViewBuilder
     private var centerIconsOnly: some View {
         if browser.activeHasSelection {
-            selectionActions(showLabels: false)
+            selectionActions(showLabels: false, showRenameLabel: false)
         } else {
             idleFilters(showLabels: false)
         }
@@ -224,16 +255,77 @@ struct ContextualChromeBar: View {
                 .tint(OrdenTheme.accent)
                 .help(L10n.s("Pegar · ⌘V", "Paste · ⌘V"))
             }
+
+            Button {
+                browser.cleanMacOSJunkInActiveFolder()
+            } label: {
+                chipLabel(
+                    (browser.isExternalOrNetworkActiveVolume && showLabels) ? L10n.s("Limpiar", "Clean") : nil,
+                    "sparkles.rectangle.stack"
+                )
+            }
+            .buttonStyle(.bordered)
+            .tint(browser.isExternalOrNetworkActiveVolume ? .orange : nil)
+            .help(L10n.s("Limpiar basura .DS_Store y ._ en esta carpeta", "Clean .DS_Store & ._ junk in this folder"))
         }
         .fixedSize(horizontal: true, vertical: false)
     }
 
-    private func selectionActions(showLabels: Bool) -> some View {
-        HStack(spacing: 4) {
-            Text("\(browser.activeSelectedEntries.count) \(L10n.s("sel.", "sel."))")
+    private func selectionActions(showLabels: Bool, showRenameLabel: Bool) -> some View {
+        let count = browser.activeSelectedEntries.count
+        let showMoveLabel = detailWidth >= 720
+        return HStack(spacing: 4) {
+            Text("\(count) \(L10n.s("sel.", "sel."))")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(OrdenTheme.textSecondary)
                 .padding(.horizontal, 6)
+
+            if count > 1 {
+                Button {
+                    browser.promptBatchRename()
+                } label: {
+                    chipLabel(
+                        showRenameLabel ? L10n.s("Renombrar (\(count))", "Rename (\(count))") : nil,
+                        "pencil.line"
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(OrdenTheme.accent)
+                .help(L10n.s("Renombrado masivo Pro · ⌃⇧R", "Batch Rename Pro · ⌃⇧R"))
+            } else {
+                Button {
+                    browser.promptRename()
+                } label: {
+                    chipLabel(
+                        showRenameLabel ? L10n.s("Renombrar", "Rename") : nil,
+                        "character.cursor.ibeam"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .help(L10n.s("Renombrar · ⌃R / F2", "Rename · ⌃R / F2"))
+            }
+
+            if browser.dualPaneEnabled {
+                if browser.activeIsSecondary {
+                    Button {
+                        browser.transferSecondarySelectionToPrimary(copy: false)
+                    } label: {
+                        chipLabel(showMoveLabel ? L10n.s("← Mover", "← Move") : nil, "arrow.left.circle.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+                    .help(L10n.s("Mover selección Destino → Origen · ⌘⌥⇧M", "Move selection Destination → Origin · ⌘⌥⇧M"))
+                } else {
+                    Button {
+                        browser.transferPrimarySelectionToSecondary(copy: false)
+                    } label: {
+                        chipLabel(showMoveLabel ? L10n.s("Mover →", "Move →") : nil, "arrow.right.circle.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+                    .help(L10n.s("Mover selección Origen → Destino · ⌘⇧M", "Move selection Origin → Destination · ⌘⇧M"))
+                }
+            }
 
             iconAction(L10n.s("Abrir", "Open"), "arrow.up.forward.app", showLabels) {
                 browser.openSelection()
@@ -249,28 +341,44 @@ struct ContextualChromeBar: View {
                 browser.addSelectionToShelf(intent: .move)
             }
             .help(L10n.s("Cortar a bandeja · ⌘X", "Cut to tray · ⌘X"))
-            iconAction(L10n.s("Pegar", "Paste"), "doc.on.clipboard", showLabels, enabled: !browser.shelf.isEmpty || browser.canPasteFiles) {
-                browser.depositShelfHere()
+
+            if !browser.shelf.isEmpty || browser.canPasteFiles {
+                iconAction(L10n.s("Pegar", "Paste"), "doc.on.clipboard", showLabels) {
+                    browser.depositShelfHere()
+                }
+                .help(L10n.s("Pegar aquí · ⌘V", "Paste here · ⌘V"))
             }
-            iconAction(
-                browser.activeSelectedEntries.count > 1 ? L10n.s("Lote", "Batch") : L10n.s("Renombrar", "Rename"),
-                browser.activeSelectedEntries.count > 1 ? "pencil.and.list.clipboard" : "pencil",
-                showLabels
-            ) {
-                browser.promptRename()
+
+            Menu {
+                Button(L10n.s("Duplicar", "Duplicate")) {
+                    browser.duplicateSelection()
+                }
+                Button(L10n.s("Comprimir en ZIP", "Compress as ZIP")) {
+                    browser.compressSelection()
+                }
+                Button(L10n.s("Añadir a Favoritos", "Add to Favorites")) {
+                    browser.addFoldersToFavoritesFromUI()
+                }
+                Button(L10n.s("Enviar a Dropover", "Send to Dropover")) {
+                    browser.sendOutboundToDropover()
+                }
+                .disabled(browser.outboundPaths.isEmpty)
+                Button(L10n.s("Copiar ruta", "Copy Path")) {
+                    browser.copyOutboundPaths()
+                }
+                .disabled(browser.outboundPaths.isEmpty)
+                Divider()
+                Button(L10n.s("Modo Renombrado Pro…", "Batch Rename Pro…")) {
+                    browser.promptBatchRename()
+                }
+                Button(L10n.s("Limpiar .DS_Store y ._ aquí", "Clean .DS_Store & ._ Here")) {
+                    browser.cleanMacOSJunkInActiveFolder()
+                }
+            } label: {
+                chipLabel(showLabels ? L10n.s("Más", "More") : nil, "ellipsis.circle")
             }
-            iconAction(L10n.s("Duplicar", "Duplicate"), "plus.square.on.square", showLabels) {
-                browser.duplicateSelection()
-            }
-            iconAction(L10n.s("Favorito", "Favorite"), "star", showLabels) {
-                browser.addFoldersToFavoritesFromUI()
-            }
-            iconAction("Dropover", "circle.dashed", showLabels, enabled: !browser.outboundPaths.isEmpty) {
-                browser.sendOutboundToDropover()
-            }
-            iconAction(L10n.s("Ruta", "Path"), "link", showLabels, enabled: !browser.outboundPaths.isEmpty) {
-                browser.copyOutboundPaths()
-            }
+            .menuStyle(.borderedButton)
+            .help(L10n.s("Más acciones de selección", "More selection actions"))
 
             if browser.isViewingTrash {
                 Button {
