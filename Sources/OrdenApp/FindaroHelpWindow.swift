@@ -118,6 +118,8 @@ public struct FindaroHelpView: View {
                 bullet(L10n.s("Deshacer selección: Escape (⎋) quita la selección. Dos Esc seguidos vacían la bandeja.", "Clear selection: Escape (⎋) deselects. Double Esc clears the tray."))
                 bullet(L10n.s("Borrar: ⌫ manda la selección a la Papelera (estilo Windows). ⌘Z la restaura; puedes deshacer varios pasos.", "Delete: ⌫ moves selection to Trash (Windows-style). ⌘Z restores; multi-level undo."))
                 bullet(L10n.s("Renombrar: ⌃R (mano izquierda) o F2. Solo editas el nombre; la extensión se conserva. ⌘R actualiza la carpeta.", "Rename: ⌃R (left hand) or F2. Edit the name only; extension is kept. ⌘R refreshes the folder."))
+                bullet(L10n.s("Renombrado masivo Pro (⌃⇧R): Con 2+ archivos (o directo con ⌃⇧R), renombra lotes con Buscar/Reemplazar, Secuencia, Prefijo/Sufijo, Mayúsculas o Regex con vista previa de conflictos y reversión en 1 paso con ⌘Z.", "Batch Rename Pro (⌃⇧R): With 2+ items (or directly via ⌃⇧R), rename batches with Find/Replace, Sequence, Prefix/Suffix, Case, or Regex with conflict preview and instant ⌘Z undo."))
+                bullet(L10n.s("Motor nativo AppKit a 120 fps: En vista lista, Findaro usa NSTableView nativo para desplazarte y seleccionar al instante en carpetas con decenas de miles de archivos.", "120fps Native AppKit Engine: In list view, Findaro uses native NSTableView for instant scrolling and selection across tens of thousands of files."))
             }
 
         case .tabs:
@@ -136,6 +138,8 @@ public struct FindaroHelpView: View {
             Text(L10n.s("Localiza archivos rápidamente sin indexaciones lentas.", "Find files quickly without slow indexing."))
             helpCard {
                 bullet(L10n.s("Filtro local (⌘F): Filtra al vuelo los archivos visibles en la carpeta actual.", "Live Filter (⌘F): Instant filter on files in current folder."))
+                bullet(L10n.s("Barra de ruta editable (⌘L + Tab): Pulsa ⌘L (o doble clic en la ruta) para escribir rutas con ~/carpeta y autocompletar al instante con Tab.", "Editable Path Bar (⌘L + Tab): Press ⌘L (or double-click the path bar) to type ~/folder paths with instant Tab autocomplete."))
+                bullet(L10n.s("Higiene en USB y unidades de red (SMB/NAS): Botón en 1 clic en la barra de ruta (o Archivo+ → Limpiar .DS_Store y ._ aquí) para eliminar basura .DS_Store y archivos fantasma ._*.", "USB & Network Drive Hygiene (SMB/NAS): One-click button in the path bar (or File+ → Clean .DS_Store & ._ Here) to purge .DS_Store and ._* phantom clutter."))
                 bullet(L10n.s("Búsqueda en Subcarpetas: Pulsa «Subcarpetas» para buscar recursivamente en todos los niveles inferiores.", "Search in Subfolders: Press «Subfolders» to recursively search subdirectories."))
                 bullet(L10n.s("Fijar orden global: Aplica el criterio de ordenación actual como regla predeterminada en todas las carpetas.", "Set Global Sort: Applies current sort order across all folders."))
                 bullet(L10n.s("Atajos de fecha y tipo: Filtra instantáneamente por imágenes de hoy, documentos recientes o más pesados.", "Shortcuts by type/date: Filter instantly for today's images, recent docs, or largest files."))
@@ -154,6 +158,8 @@ public struct FindaroHelpView: View {
             Text(L10n.s("Todos los atajos principales pueden personalizarse desde Ajustes con protección contra colisiones.", "All key shortcuts can be customized in Settings with collision detection."))
             helpCard {
                 bullet("⌘1 / ⌘2 / ⌘3: " + L10n.s("Navegación de historial y accesos directos.", "History navigation and quick access."))
+                bullet("⌘L + Tab: " + L10n.s("Barra de ruta editable con autocompletado instantáneo de carpetas.", "Editable path bar with instant folder Tab autocomplete."))
+                bullet("⌃⇧R: " + L10n.s("Renombrado masivo Pro (Buscar/Reemplazar, Secuencia, Prefijo/Sufijo, Mayúsculas, Regex) con ⌘Z transaccional.", "Batch Rename Pro (Find/Replace, Sequence, Prefix/Suffix, Case, Regex) with transactional ⌘Z undo."))
                 bullet("⌘⇧M / ⌘⌥C: " + L10n.s("Acciones directas entre paneles duales.", "Direct actions between dual panes."))
                 bullet("⌃⌥A: " + L10n.s("Atajo global de sistema para abrir rápidamente Descargas o tu carpeta preferida.", "Global hotkey to quickly open Downloads or your chosen folder."))
                 bullet(L10n.s("Detección de conflictos: Al editar atajos en Ajustes, el sistema te advertirá si una combinación ya está en uso.", "Conflict detection: When customizing hotkeys, Findaro warns if chord is in use."))

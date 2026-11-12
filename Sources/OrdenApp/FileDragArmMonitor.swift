@@ -226,14 +226,14 @@ final class FileDragArmMonitor {
         pressPoint = nil
         pressArmedFileDrag = false
         let copy = paths
-        let start = {
+        if deferToNextRunLoop {
+            Task { @MainActor [weak browser] in
+                guard NSEvent.pressedMouseButtons & (1 << 0) != 0 else { return }
+                _ = browser?.startDragWithPaths(copy)
+            }
+        } else {
             guard NSEvent.pressedMouseButtons & (1 << 0) != 0 else { return }
             _ = browser.startDragWithPaths(copy)
-        }
-        if deferToNextRunLoop {
-            DispatchQueue.main.async(execute: start)
-        } else {
-            start()
         }
     }
 
@@ -243,11 +243,17 @@ final class FileDragArmMonitor {
             rowFrames.removeAll()
             return
         }
+        let gen = frameGeneration
+        let expectedMax = browser.visibleEntries.count
+            + (browser.dualPaneEnabled ? browser.secondaryEntries.count : 0)
+            + 64
+        guard nameFrames.count > expectedMax || rowFrames.count > expectedMax else {
+            return
+        }
         var live = Set(browser.visibleEntries.map(\.path))
         if browser.dualPaneEnabled {
             live.formUnion(browser.secondaryEntries.map(\.path))
         }
-        let gen = frameGeneration
         nameFrames = nameFrames.filter { live.contains($0.key) && $0.value.generation == gen }
         rowFrames = rowFrames.filter { live.contains($0.key) && $0.value.generation == gen }
     }
@@ -312,32 +318,12 @@ private final class FileHitFrameNSView: NSView {
     fileprivate func report() {
         guard !trackedPath.isEmpty, window != nil, !bounds.isEmpty else { return }
         let rect = convert(bounds, to: nil)
-        let p = trackedPath
-        let k = kind
-        if Thread.isMainThread {
-            MainActor.assumeIsolated {
-                FileDragArmMonitor.shared.updateHitFrame(path: p, kind: k, frameInWindow: rect)
-            }
-        } else {
-            DispatchQueue.main.async {
-                FileDragArmMonitor.shared.updateHitFrame(path: p, kind: k, frameInWindow: rect)
-            }
-        }
+        FileDragArmMonitor.shared.updateHitFrame(path: trackedPath, kind: kind, frameInWindow: rect)
     }
 
     override func viewWillMove(toWindow newWindow: NSWindow?) {
         if newWindow == nil, !trackedPath.isEmpty {
-            let p = trackedPath
-            let k = kind
-            if Thread.isMainThread {
-                MainActor.assumeIsolated {
-                    FileDragArmMonitor.shared.removeHitFrame(path: p, kind: k)
-                }
-            } else {
-                DispatchQueue.main.async {
-                    FileDragArmMonitor.shared.removeHitFrame(path: p, kind: k)
-                }
-            }
+            FileDragArmMonitor.shared.removeHitFrame(path: trackedPath, kind: kind)
         }
         super.viewWillMove(toWindow: newWindow)
     }

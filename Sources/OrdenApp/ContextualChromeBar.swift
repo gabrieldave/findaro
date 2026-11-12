@@ -252,10 +252,12 @@ struct ContextualChromeBar: View {
             iconAction(L10n.s("Pegar", "Paste"), "doc.on.clipboard", showLabels, enabled: !browser.shelf.isEmpty || browser.canPasteFiles) {
                 browser.depositShelfHere()
             }
-            if browser.activeSelectedEntries.count == 1 {
-                iconAction(L10n.s("Renombrar", "Rename"), "pencil", showLabels) {
-                    browser.promptRename()
-                }
+            iconAction(
+                browser.activeSelectedEntries.count > 1 ? L10n.s("Lote", "Batch") : L10n.s("Renombrar", "Rename"),
+                browser.activeSelectedEntries.count > 1 ? "pencil.and.list.clipboard" : "pencil",
+                showLabels
+            ) {
+                browser.promptRename()
             }
             iconAction(L10n.s("Duplicar", "Duplicate"), "plus.square.on.square", showLabels) {
                 browser.duplicateSelection()

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Suspense, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import styles from "../marketing.module.css";
@@ -8,6 +8,7 @@ import styles from "../marketing.module.css";
 function ProbarInner() {
   const searchParams = useSearchParams();
   const paramLang = searchParams.get("lang");
+  const autoDl = searchParams.get("dl") === "1";
 
   const [lang, setLang] = useState<"es" | "en">(() => {
     if (paramLang === "en" || paramLang === "es") return paramLang;
@@ -21,6 +22,7 @@ function ProbarInner() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
+  const [downloadStarted, setDownloadStarted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     licenseKey: string;
@@ -30,6 +32,20 @@ function ProbarInner() {
   } | null>(null);
 
   const isEn = lang === "en";
+  const directDownloadHref = "/api/download?direct=1";
+
+  useEffect(() => {
+    if (!autoDl || downloadStarted) return;
+    setDownloadStarted(true);
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = directDownloadHref;
+    document.body.appendChild(iframe);
+    const timer = setTimeout(() => {
+      iframe.remove();
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [autoDl, downloadStarted]);
 
   const handleToggleLang = () => {
     const nextLang = isEn ? "es" : "en";
@@ -40,21 +56,40 @@ function ProbarInner() {
   };
 
   const t = {
-    title: isEn ? "Try 14 Days Free" : "Prueba 14 días gratis",
+    title: isEn ? "Download Findaro — 14 Days Free" : "Descarga Findaro — 14 días gratis",
     sub: isEn
-      ? "1 Mac · no credit card required. After trial, upgrade to a lifetime license (from $29 USD)."
-      : "1 Mac · sin tarjeta. Al terminar, compra una licencia de por vida (desde $29 USD).",
+      ? "1-click .dmg installer · Apple Silicon (M1+) · macOS 15+ · No credit card or signup required. Optional lifetime license from $29 USD."
+      : "Instalador .dmg en 1 clic · Apple Silicon (M1+) · macOS 15+ · Sin tarjeta ni registro obligatorio. Licencia vitalicia opcional desde $29 USD.",
+    directBtn: isEn
+      ? "Download Findaro.dmg Now (Free 14-Day Trial)"
+      : "Descargar Findaro.dmg ahora (14 días gratis)",
+    directHint: downloadStarted
+      ? isEn
+        ? "Your download is starting… If it didn't start automatically, click the button above."
+        : "Tu descarga está comenzando… Si no arrancó sola, haz clic en el botón de arriba."
+      : isEn
+        ? "Signed with Apple Developer ID & Notarized · Instant launch, no Gatekeeper warnings."
+        : "Firmado con Apple Developer ID y notarizado · Arranque directo sin alertas de Gatekeeper.",
+    optionalHeading: isEn
+      ? "While Findaro downloads: get your Pro Keyboard Cheat Sheet & trial key"
+      : "Mientras se descarga Findaro: recibe la guía de atajos Pro y novedades en tu correo",
+    optionalSub: isEn
+      ? "100% optional. Leave your name and email to receive the keyboard cheat sheet, 14-day key backup, and major release notes."
+      : "100% opcional. Déjanos tu nombre y correo para recibir la guía de atajos Pro, respaldo de tu clave de 14 días y novedades.",
     nameLabel: isEn ? "Full Name" : "Nombre",
     emailLabel: isEn ? "Email" : "Correo",
-    busyBtn: isEn ? "Preparing trial…" : "Preparando…",
-    submitBtn: isEn ? "Download Free Trial" : "Descargar prueba gratis",
+    busyBtn: isEn ? "Sending guide & key…" : "Enviando guía y clave…",
+    submitBtn: isEn ? "Send Me the Pro Cheat Sheet & Key" : "Recibir guía de atajos Pro y clave",
     keyLabel: isEn ? "Your license key (1 Mac):" : "Tu clave (1 Mac):",
-    downloadBtn: isEn ? "Download Findaro.dmg" : "Descargar Findaro.dmg",
+    downloadBtn: isEn ? "Download Findaro.dmg Again" : "Volver a descargar Findaro.dmg",
     note: (days: number) =>
       isEn
         ? `In Findaro: Settings → License → paste your key. Your trial lasts ${days} days.`
         : `En Findaro: Ajustes → Licencia → pega la clave. La prueba dura ${days} días.`,
-    upgradeBtn: isEn ? "Buy Lifetime License Now" : "Comprar Pro ahora",
+    upgradeBtn: isEn ? "Buy Lifetime License (from $29)" : "Comprar licencia de por vida (desde $29)",
+    guarantee: isEn
+      ? "14-day free trial without card + 14-day no-questions-asked money-back guarantee."
+      : "14 días de prueba gratis sin tarjeta + Garantía de reembolso de 14 días sin preguntas.",
   };
 
   async function onSubmit(e: FormEvent) {
@@ -129,33 +164,62 @@ function ProbarInner() {
         <h1 style={{ marginTop: "12px" }}>{t.title}</h1>
         <p className={styles.sub}>{t.sub}</p>
 
+        <div style={{ margin: "18px 0 22px" }}>
+          <a
+            className={styles.cta}
+            href={directDownloadHref}
+            onClick={() => setDownloadStarted(true)}
+            style={{ display: "block", textAlign: "center", textDecoration: "none" }}
+          >
+            {t.directBtn}
+          </a>
+          <p className={styles.note} style={{ marginTop: 8, textAlign: "center" }}>
+            {t.directHint}
+          </p>
+        </div>
+
         {!result ? (
-          <form className={styles.form} onSubmit={onSubmit}>
-            <label>
-              {t.nameLabel}
-              <input
-                required
-                minLength={2}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="name"
-              />
-            </label>
-            <label>
-              {t.emailLabel}
-              <input
-                required
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-              />
-            </label>
-            {error && <p className={styles.error}>{error}</p>}
-            <button className={styles.cta} type="submit" disabled={busy}>
-              {busy ? t.busyBtn : t.submitBtn}
-            </button>
-          </form>
+          <div
+            style={{
+              padding: "16px",
+              borderRadius: "12px",
+              background: "rgba(15, 23, 42, 0.55)",
+              border: "1px solid rgba(56, 189, 248, 0.2)",
+            }}
+          >
+            <p style={{ margin: "0 0 6px", fontWeight: 700, fontSize: "14px", color: "#e2e8f0" }}>
+              {t.optionalHeading}
+            </p>
+            <p style={{ margin: "0 0 12px", fontSize: "12.5px", color: "#94a3b8", lineHeight: 1.45 }}>
+              {t.optionalSub}
+            </p>
+            <form className={styles.form} onSubmit={onSubmit}>
+              <label>
+                {t.nameLabel}
+                <input
+                  required
+                  minLength={2}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoComplete="name"
+                />
+              </label>
+              <label>
+                {t.emailLabel}
+                <input
+                  required
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                />
+              </label>
+              {error && <p className={styles.error}>{error}</p>}
+              <button className={styles.secondary} type="submit" disabled={busy}>
+                {busy ? t.busyBtn : t.submitBtn}
+              </button>
+            </form>
+          </div>
         ) : (
           <div className={styles.priceBox}>
             <p>{result.message}</p>
@@ -179,6 +243,10 @@ function ProbarInner() {
             </Link>
           </div>
         )}
+
+        <p className={styles.note} style={{ marginTop: 18, textAlign: "center" }}>
+          🛡️ {t.guarantee}
+        </p>
       </div>
     </main>
   );

@@ -39,6 +39,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public var colorTheme: AppColorTheme
     /// Sidebar: sección Ubicaciones colapsada (oculta la lista).
     public var locationsCollapsed: Bool
+    /// Usar motor nativo AppKit (`NSTableView`) en la vista de lista.
+    public var useNativeAppKitList: Bool
 
     public init(
         schemaVersion: Int = 20,
@@ -61,7 +63,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         smartFolders: [SmartFolder] = [],
         listColumns: [ListColumn] = ListColumn.defaultVisible,
         colorTheme: AppColorTheme = .midnightBlue,
-        locationsCollapsed: Bool = false
+        locationsCollapsed: Bool = false,
+        useNativeAppKitList: Bool = true
     ) {
         self.schemaVersion = schemaVersion
         self.globalRule = globalRule
@@ -84,6 +87,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         self.listColumns = ListColumn.sanitize(listColumns)
         self.colorTheme = colorTheme
         self.locationsCollapsed = locationsCollapsed
+        self.useNativeAppKitList = useNativeAppKitList
     }
 
     /// Override de carpeta si existe; si no, el global (estilo Descargas por defecto).
@@ -101,7 +105,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode, showRowPaths,
              explorerKeyboardProfile, showHiddenFiles, flattenFolderView, assistantShortcuts,
              ollamaEnabled, ollamaModel, viewTemplates, keyboardHotkeyOverrides, globalHotkeyFolderPath,
-             appLanguage, smartFolders, listColumns, colorTheme, locationsCollapsed
+             appLanguage, smartFolders, listColumns, colorTheme, locationsCollapsed, useNativeAppKitList
     }
 
     public init(from decoder: Decoder) throws {
@@ -134,6 +138,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         let decodedTheme = (try? c.decodeIfPresent(AppColorTheme.self, forKey: .colorTheme)) ?? .midnightBlue
         colorTheme = decodedTheme.normalizedForStorage
         locationsCollapsed = try c.decodeIfPresent(Bool.self, forKey: .locationsCollapsed) ?? false
+        useNativeAppKitList = try c.decodeIfPresent(Bool.self, forKey: .useNativeAppKitList) ?? true
     }
 }
 

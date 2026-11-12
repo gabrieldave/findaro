@@ -67,9 +67,11 @@ final class BrowserModel: ObservableObject {
     /// comparaciones. Ahora se calcula una vez y se invalida solo cuando cambia algo que la afecta.
     private var visibleEntriesCache: [FileEntry]?
     private var visibleEntriesCacheDay: Date?
+    @Published private(set) var entriesRevision: UInt64 = 0
 
     private func invalidateVisibleEntries() {
         visibleEntriesCache = nil
+        entriesRevision &+= 1
     }
 
     // MARK: Dual pane (dos carpetas lado a lado para mover)
@@ -130,6 +132,8 @@ final class BrowserModel: ObservableObject {
             sourceTrashPath: String?,
             replacements: [FolderMerge.Replacement]
         )
+        /// Renombrado masivo transaccional: deshacer = revertir el lote completo.
+        case batchRenamed(BatchRenameTransaction)
     }
     /// Clic simple agrega/quita sin ⌘ (ideal para marcar muchos rápido).
     @Published var multiSelectMode = false
@@ -149,6 +153,9 @@ final class BrowserModel: ObservableObject {
     @Published var showNewFolderDialog = false
     @Published var showNewFileDialog = false
     @Published var showRenameDialog = false
+    @Published var showBatchRenameSheet = false
+    @Published var batchRenameTargetEntries: [FileEntry] = []
+    var batchRenameDraftPreview: [BatchRenamePreviewItem] = []
     @Published var nameDraft = ""
     /// Ruta pendiente de renombrar (si el diálogo está abierto).
     @Published var renameTargetPath: String?
@@ -159,6 +166,8 @@ final class BrowserModel: ObservableObject {
     @Published var viewMode: BrowserViewMode
     /// Mostrar `/ruta/completa` bajo el nombre en cada fila.
     @Published var showRowPaths: Bool
+    /// Usar motor nativo AppKit (`NSTableView`) en la vista lista.
+    @Published var useNativeAppKitList: Bool
     /// Columnas opcionales de la vista lista (Nombre siempre).
     @Published var listColumns: [ListColumn]
     /// Perfil Explorer: Enter abre, F2 renombra.
@@ -283,7 +292,15 @@ final class BrowserModel: ObservableObject {
     }
 
     var pathSegments: [PathSegment] {
-        let standardized = (currentPath as NSString).standardizingPath
+        Self.makePathSegments(for: currentPath)
+    }
+
+    var activePathSegments: [PathSegment] {
+        Self.makePathSegments(for: activeWorkingPath)
+    }
+
+    private static func makePathSegments(for rawPath: String) -> [PathSegment] {
+        let standardized = (rawPath as NSString).standardizingPath
         if standardized == "/" {
             return [PathSegment(title: "/", path: "/")]
         }
@@ -313,6 +330,7 @@ final class BrowserModel: ObservableObject {
         self.cleanupMode = (startRule == .heaviestFirst)
         self.viewMode = store.preferences.viewMode
         self.showRowPaths = store.preferences.showRowPaths
+        self.useNativeAppKitList = store.preferences.useNativeAppKitList
         self.listColumns = ListColumn.sanitize(store.preferences.listColumns)
         self.explorerKeyboardProfile = store.preferences.explorerKeyboardProfile
         self.showHiddenFiles = store.preferences.showHiddenFiles
@@ -383,6 +401,7 @@ final class BrowserModel: ObservableObject {
             }
         }
         self.showRowPaths = prefs.showRowPaths
+        self.useNativeAppKitList = prefs.useNativeAppKitList
         self.listColumns = ListColumn.sanitize(prefs.listColumns)
         self.explorerKeyboardProfile = prefs.explorerKeyboardProfile
         self.showHiddenFiles = prefs.showHiddenFiles
@@ -586,6 +605,36 @@ final class BrowserModel: ObservableObject {
         showRowPaths = show
         store.update { $0.showRowPaths = show }
         objectWillChange.send()
+    }
+
+    func setUseNativeAppKitList(_ on: Bool) {
+        useNativeAppKitList = on
+        FileDragArmMonitor.shared.invalidateFrames()
+        store.update { $0.useNativeAppKitList = on }
+        objectWillChange.send()
+    }
+
+    func applyNativeTableSelection(ids: Set<String>, focusID: String?, pane: PaneFocus) {
+        isAssistantFocused = false
+        if pane == .secondary {
+            focusedPane = .secondary
+            secondarySelectedIDs = ids
+            secondarySelectionFocusID = focusID
+            if secondarySelectionAnchorID == nil || ids.count <= 1 {
+                secondarySelectionAnchorID = focusID
+            }
+            if hasArmedFileDrag { syncArmedWithSelection() }
+            refreshSecondarySelectionStatus()
+        } else {
+            if dualPaneEnabled { focusedPane = .primary }
+            selectedIDs = ids
+            selectionFocusID = focusID
+            if selectionAnchorID == nil || ids.count <= 1 {
+                selectionAnchorID = focusID
+            }
+            if hasArmedFileDrag { syncArmedWithSelection() }
+            refreshSelectionStatus()
+        }
     }
 
     func isListColumnVisible(_ column: ListColumn) -> Bool {
@@ -1361,6 +1410,7 @@ final class BrowserModel: ObservableObject {
             }
             secondaryError = error.localizedDescription
         }
+        entriesRevision &+= 1
         objectWillChange.send()
     }
 
@@ -1688,6 +1738,7 @@ final class BrowserModel: ObservableObject {
         showNewFolderDialog
             || showNewFileDialog
             || showRenameDialog
+            || showBatchRenameSheet
             || showGoToFolderDialog
             || showDeepSearchDialog
             || showSaveTemplateDialog
@@ -1719,6 +1770,10 @@ final class BrowserModel: ObservableObject {
             showRenameDialog = false
             renameTargetPath = nil
             renamePreservedExtension = nil
+            return true
+        }
+        if showBatchRenameSheet {
+            cancelBatchRename()
             return true
         }
         if showSaveTemplateDialog {
@@ -1771,6 +1826,10 @@ final class BrowserModel: ObservableObject {
             guard !name.isEmpty else { return true }
             commitRenameFromDraft()
             showRenameDialog = false
+            return true
+        }
+        if showBatchRenameSheet {
+            commitBatchRename()
             return true
         }
         if showSaveTemplateDialog {
@@ -1841,7 +1900,7 @@ final class BrowserModel: ObservableObject {
             candidates.append(raw)
         } else {
             // 1. Relativo a la carpeta actual si existe
-            candidates.append((currentPath as NSString).appendingPathComponent(raw))
+            candidates.append((activeWorkingPath as NSString).appendingPathComponent(raw))
             // 2. Relativo al Home del usuario (ej: Downloads/..., Desktop/...)
             candidates.append((home as NSString).appendingPathComponent(raw))
             // 3. Si el usuario pegó y se recortó el prefijo de usuario (ej. "ai/Downloads/..." o "davidai/Downloads/...")
@@ -2791,9 +2850,72 @@ final class BrowserModel: ObservableObject {
     }
 
     func beginPathOmnibox() {
-        pathOmniboxDraft = currentPath
+        pathOmniboxDraft = activeWorkingPath
         pathOmniboxEditing = true
         showGoToFolderDialog = false
+    }
+
+    var pathOmniboxSuggestions: [URL] {
+        guard pathOmniboxEditing else { return [] }
+        return PathBarResolver().autocompleteDirectories(for: pathOmniboxDraft, limit: 6)
+    }
+
+    @discardableResult
+    func autocompletePathOmnibox() -> Bool {
+        let matches = PathBarResolver().autocompleteDirectories(for: pathOmniboxDraft, limit: 12)
+        guard let first = matches.first else { return false }
+        if matches.count == 1 {
+            pathOmniboxDraft = first.path + "/"
+            return true
+        }
+        let names = matches.map(\.lastPathComponent)
+        let common = Self.longestCommonCaseInsensitivePrefix(names)
+        let parent = first.deletingLastPathComponent().path
+        let expandedDraft = (pathOmniboxDraft as NSString).expandingTildeInPath
+        let currentLeaf = expandedDraft.hasSuffix("/") ? "" : URL(fileURLWithPath: expandedDraft).lastPathComponent
+        if common.count > currentLeaf.count {
+            let sep = parent == "/" ? "/" : parent + "/"
+            pathOmniboxDraft = sep + common
+        } else {
+            pathOmniboxDraft = first.path + "/"
+        }
+        return true
+    }
+
+    private static func longestCommonCaseInsensitivePrefix(_ strings: [String]) -> String {
+        guard var prefix = strings.first else { return "" }
+        for str in strings.dropFirst() {
+            while !str.lowercased().hasPrefix(prefix.lowercased()) {
+                prefix.removeLast()
+                if prefix.isEmpty { return "" }
+            }
+        }
+        return prefix
+    }
+
+    var isExternalOrNetworkActiveVolume: Bool {
+        let url = URL(fileURLWithPath: activeWorkingPath)
+        return VolumeHygienePolicy().inspectVolume(at: url).shouldAvoidAuxiliaryMetadata
+    }
+
+    func cleanMacOSJunkInActiveFolder() {
+        guard ensureLicenseAllowsWrite() else { return }
+        let target = activeWorkingPath
+        statusMessage = L10n.s("Limpiando .DS_Store y archivos ._…", "Cleaning .DS_Store and ._ files…")
+        Task { [weak self] in
+            let removed = await Task.detached(priority: .userInitiated) {
+                VolumeHygienePolicy().purgeDSStoreAndAppleDouble(
+                    in: URL(fileURLWithPath: target),
+                    recursive: true
+                )
+            }.value
+            guard let self else { return }
+            self.reload(preserveSelection: true)
+            if self.dualPaneEnabled { self.reloadSecondary(preserveSelection: true) }
+            self.statusMessage = removed == 0
+                ? L10n.s("Unidad limpia (sin .DS_Store ni ._)", "Drive already clean (no .DS_Store or ._ files)")
+                : L10n.s("Eliminados \(removed) archivos basura (.DS_Store / ._)", "Removed \(removed) macOS junk files (.DS_Store / ._)")
+        }
     }
 
     func cancelPathOmnibox() {
@@ -4353,6 +4475,10 @@ final class BrowserModel: ObservableObject {
 
     func promptRename() {
         guard ensureLicenseAllowsWrite() else { return }
+        if activeSelectedEntries.count > 1 {
+            promptBatchRename()
+            return
+        }
         guard !showRenameDialog else { return }
         guard let entry = activeSelectedEntries.first else {
             statusMessage = L10n.s("Selecciona un ítem para renombrar", "Select an item to rename")
@@ -4363,6 +4489,62 @@ final class BrowserModel: ObservableObject {
         nameDraft = parts.base
         renamePreservedExtension = parts.ext
         showRenameDialog = true
+    }
+
+    func promptBatchRename() {
+        guard ensureLicenseAllowsWrite() else { return }
+        guard !showBatchRenameSheet else { return }
+        let targets = activeSelectedEntries
+        guard !targets.isEmpty else {
+            statusMessage = L10n.s("Selecciona archivos para renombrado masivo", "Select items for batch rename")
+            return
+        }
+        batchRenameTargetEntries = targets
+        batchRenameDraftPreview = []
+        showBatchRenameSheet = true
+    }
+
+    func cancelBatchRename() {
+        showBatchRenameSheet = false
+        batchRenameTargetEntries = []
+        batchRenameDraftPreview = []
+    }
+
+    func commitBatchRename() {
+        guard ensureLicenseAllowsWrite() else { return }
+        let actionable = batchRenameDraftPreview.filter(\.canApply)
+        let hasConflicts = batchRenameDraftPreview.contains { $0.conflict != nil }
+        guard !hasConflicts, !actionable.isEmpty else { return }
+
+        let intoSecondary = activeIsSecondary
+        let executor = BatchRenameExecutor()
+        do {
+            let tx = try executor.execute(previewItems: batchRenameDraftPreview)
+            pushUndo(.batchRenamed(tx))
+            let newPaths = Set(tx.appliedPairs.map(\.renamedURL.path))
+            showBatchRenameSheet = false
+            batchRenameTargetEntries = []
+            batchRenameDraftPreview = []
+            reload()
+            if dualPaneEnabled { reloadSecondary() }
+            if intoSecondary {
+                secondarySelectedIDs = newPaths
+                secondarySelectionFocusID = newPaths.first
+            } else {
+                selectedIDs = newPaths
+                selectionFocusID = newPaths.first
+                selectionAnchorID = newPaths.first
+            }
+            statusMessage = L10n.s(
+                "Renombrados \(tx.appliedPairs.count) elementos · ⌘Z deshace",
+                "Renamed \(tx.appliedPairs.count) items · ⌘Z undoes"
+            )
+        } catch {
+            statusMessage = L10n.s(
+                "No se pudo renombrar el lote: \(error.localizedDescription)",
+                "Batch rename failed: \(error.localizedDescription)"
+            )
+        }
     }
 
     /// Como Finder: editar solo el nombre; la última extensión se conserva.
@@ -4964,6 +5146,15 @@ final class BrowserModel: ObservableObject {
                     ? L10n.s("No se pudo deshacer la copia", "Could not undo copy")
                     : L10n.s("Deshecho: \(trashed) copia(s) a la Papelera", "Undone: \(trashed) copy/copies moved to Trash")
 
+            case .batchRenamed(let tx):
+                let reverted = try BatchRenameExecutor().undo(tx)
+                reload()
+                if dualPaneEnabled { reloadSecondary() }
+                statusMessage = L10n.s(
+                    "Deshecho renombrado masivo (\(reverted.appliedPairs.count) elementos)",
+                    "Undone batch rename (\(reverted.appliedPairs.count) items)"
+                )
+
             case .merged(let created, let sourceOriginalPath, let sourceTrashPath, let replacements):
                 let fm = FileManager.default
                 var removedCopies = 0
@@ -5205,13 +5396,11 @@ final class BrowserModel: ObservableObject {
             }
 
             if Task.isCancelled { return }
-            let folderMeasurement = FolderSizer.measureDirectoryDetailed(at: path)
-            if !folderMeasurement.isComplete { incomplete = true }
 
             await MainActor.run {
                 guard self.currentPath == path else { return }
                 self.entries = updated
-                self.folderTotalBytes = max(folderMeasurement.bytes, total)
+                self.folderTotalBytes = total
                 self.sizeMeasurementsIncomplete = incomplete
                 self.isMeasuringSizes = false
                 self.objectWillChange.send()

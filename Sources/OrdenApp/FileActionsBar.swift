@@ -95,7 +95,13 @@ struct FileActionsBar: View {
             pipe
 
             group {
-                chip(L10n.s("Renombrar", "Rename"), L10n.s("Nombre", "Name"), "pencil", help: L10n.s("Renombrar (panel activo)", "Rename (active pane)"), enabled: browser.activeSelectedEntries.count == 1) {
+                chip(
+                    browser.activeSelectedEntries.count > 1 ? L10n.s("Renombrado masivo", "Batch Rename") : L10n.s("Renombrar", "Rename"),
+                    browser.activeSelectedEntries.count > 1 ? L10n.s("Lote", "Batch") : L10n.s("Nombre", "Name"),
+                    browser.activeSelectedEntries.count > 1 ? "pencil.and.list.clipboard" : "pencil",
+                    help: L10n.s("Renombrar o renombrado masivo (panel activo)", "Rename or batch rename (active pane)"),
+                    enabled: browser.activeHasSelection
+                ) {
                     browser.promptRename()
                 }
                 chip(L10n.s("Duplicar", "Duplicate"), L10n.s("Dup", "Dup"), "plus.square.on.square", help: L10n.s("Duplicar · ⌘D", "Duplicate · ⌘D"), enabled: browser.activeHasSelection) {

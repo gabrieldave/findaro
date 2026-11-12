@@ -344,7 +344,7 @@ final class AppUpdateChecker: ObservableObject {
             version: version,
             tag: "v\(version)",
             dmgURL: url,
-            notesURL: URL(string: "https://ordena.iareal.net/")!,
+            notesURL: URL(string: "https://findaro.iareal.net/")!,
             sha256: sha,
             expectedBundleID: expectedBundle
         )

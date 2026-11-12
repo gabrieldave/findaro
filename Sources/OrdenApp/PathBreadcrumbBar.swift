@@ -1,37 +1,141 @@
 import SwiftUI
+import AppKit
 import OrdenCore
 
-/// Omnibox: breadcrumbs clicables o campo de ruta editable (⌘E / clic en lápiz).
+@MainActor
+private struct OmniboxPathTextField: NSViewRepresentable {
+    @Binding var text: String
+    var placeholder: String
+    var onSubmit: () -> Void
+    var onCancel: () -> Void
+    var onTab: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeNSView(context: Context) -> NSTextField {
+        let tf = NSTextField(string: text)
+        tf.placeholderString = placeholder
+        tf.isBordered = false
+        tf.drawsBackground = false
+        tf.focusRingType = .none
+        tf.font = .monospacedSystemFont(ofSize: 12.5, weight: .medium)
+        tf.lineBreakMode = .byTruncatingHead
+        tf.delegate = context.coordinator
+        context.coordinator.field = tf
+
+        DispatchQueue.main.async {
+            guard let win = tf.window else { return }
+            win.makeFirstResponder(tf)
+            if let editor = tf.currentEditor() {
+                let len = (tf.stringValue as NSString).length
+                editor.selectedRange = NSRange(location: len, length: 0)
+            }
+        }
+        return tf
+    }
+
+    func updateNSView(_ nsView: NSTextField, context: Context) {
+        context.coordinator.parent = self
+        nsView.placeholderString = placeholder
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+            if let editor = nsView.currentEditor() {
+                let len = (text as NSString).length
+                editor.selectedRange = NSRange(location: len, length: 0)
+            }
+        }
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: OmniboxPathTextField
+        weak var field: NSTextField?
+
+        init(_ parent: OmniboxPathTextField) {
+            self.parent = parent
+        }
+
+        func controlTextDidChange(_ obj: Notification) {
+            guard let tf = obj.object as? NSTextField else { return }
+            if parent.text != tf.stringValue {
+                parent.text = tf.stringValue
+            }
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            if commandSelector == #selector(NSResponder.insertTab(_:)) {
+                parent.onTab()
+                let updated = parent.text
+                if control.stringValue != updated {
+                    control.stringValue = updated
+                }
+                let end = (updated as NSString).length
+                textView.setSelectedRange(NSRange(location: end, length: 0))
+                return true
+            }
+            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+                parent.onSubmit()
+                return true
+            }
+            if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+                parent.onCancel()
+                return true
+            }
+            return false
+        }
+    }
+}
+
 struct PathBreadcrumbBar: View {
     @EnvironmentObject private var browser: BrowserModel
-    @FocusState private var omniboxFocused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
             if browser.pathOmniboxEditing {
-                Image(systemName: "magnifyingglass")
+                Image(systemName: "terminal.fill")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(OrdenTheme.accent)
-                TextField(L10n.s("Ruta o ~/carpeta", "Path or ~/folder"), text: $browser.pathOmniboxDraft)
-                    .textFieldStyle(.plain)
-                    .font(.system(.callout, design: .monospaced))
-                    .focused($omniboxFocused)
-                    .onSubmit { browser.submitPathOmnibox() }
-                    .onExitCommand { browser.cancelPathOmnibox() }
-                    .frame(minWidth: 220, maxWidth: 480)
+
+                OmniboxPathTextField(
+                    text: $browser.pathOmniboxDraft,
+                    placeholder: L10n.s("Ruta o ~/carpeta (Tab autocompleta)", "Path or ~/folder (Tab autocompletes)"),
+                    onSubmit: { browser.submitPathOmnibox() },
+                    onCancel: { browser.cancelPathOmnibox() },
+                    onTab: { _ = browser.autocompletePathOmnibox() }
+                )
+                .frame(minWidth: 210, maxWidth: 420, minHeight: 20, maxHeight: 20)
+
+                if let topMatch = browser.pathOmniboxSuggestions.first {
+                    Button {
+                        browser.pathOmniboxDraft = topMatch.path + "/"
+                    } label: {
+                        Text("⇥ " + topMatch.lastPathComponent)
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .lineLimit(1)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(OrdenTheme.accent.opacity(0.16), in: Capsule())
+                            .foregroundStyle(OrdenTheme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .help(L10n.s("Pulsa Tab o haz clic para completar", "Press Tab or click to autocomplete"))
+                }
+
                 Button(L10n.s("Ir", "Go")) { browser.submitPathOmnibox() }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.mini)
                     .tint(OrdenTheme.accent)
-                    .keyboardShortcut(.defaultAction)
+
                 Button("Esc") { browser.cancelPathOmnibox() }
                     .buttonStyle(.borderless)
                     .controlSize(.mini)
-                    .keyboardShortcut(.cancelAction)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 2) {
-                        ForEach(Array(browser.pathSegments.enumerated()), id: \.offset) { index, segment in
+                        let segments = browser.activePathSegments
+                        ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
                             if index > 0 {
                                 Image(systemName: "chevron.forward")
                                     .font(.caption2.weight(.semibold))
@@ -45,7 +149,7 @@ struct PathBreadcrumbBar: View {
                                     .lineLimit(1)
                             }
                             .buttonStyle(.plain)
-                            .foregroundStyle(index == browser.pathSegments.count - 1 ? .primary : OrdenTheme.textSecondary)
+                            .foregroundStyle(index == segments.count - 1 ? .primary : OrdenTheme.textSecondary)
                             .help(segment.path)
                         }
                     }
@@ -63,7 +167,19 @@ struct PathBreadcrumbBar: View {
                         .foregroundStyle(OrdenTheme.accent)
                 }
                 .buttonStyle(.borderless)
-                .help(L10n.s("Editar ruta · ⌘E (Enter confirma) · o ⌘3 diálogo", "Edit path · ⌘E (Enter confirms) · or ⌘3 dialog"))
+                .help(L10n.s("Barra de ruta editable · ⌘L (Tab autocompleta, Enter confirma)", "Editable path bar · ⌘L (Tab autocompletes, Enter confirms)"))
+            }
+
+            if browser.isExternalOrNetworkActiveVolume && !browser.pathOmniboxEditing {
+                Button {
+                    browser.cleanMacOSJunkInActiveFolder()
+                } label: {
+                    Image(systemName: "sparkles.rectangle.stack")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(OrdenTheme.warning)
+                }
+                .buttonStyle(.borderless)
+                .help(L10n.s("Unidad externa/red: limpiar basura .DS_Store y ._", "External/network drive: clean .DS_Store & ._ junk"))
             }
 
             if browser.flattenFolderView {
@@ -81,16 +197,11 @@ struct PathBreadcrumbBar: View {
         .overlay(
             RoundedRectangle(cornerRadius: OrdenTheme.radiusControl, style: .continuous)
                 .strokeBorder(
-                    omniboxFocused || browser.pathOmniboxEditing
+                    browser.pathOmniboxEditing
                         ? OrdenTheme.accent.opacity(0.55)
                         : OrdenTheme.hairline,
                     lineWidth: 1
                 )
         )
-        .onChange(of: browser.pathOmniboxEditing) { _, editing in
-            if editing {
-                DispatchQueue.main.async { omniboxFocused = true }
-            }
-        }
     }
 }

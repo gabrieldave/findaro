@@ -41,6 +41,16 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <string>${VERSION}</string>
   <key>CFBundleVersion</key>
   <string>${BUILD}</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>15.0</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Findaro usa reconocimiento de voz local para el asistente push-to-talk.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Findaro usa el micrófono solo mientras mantienes el botón de dictado.</string>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Findaro asks Finder to empty the Trash and restore items from it.</string>
 </dict>
 </plist>
 PLIST

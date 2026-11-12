@@ -315,6 +315,8 @@ private struct FindaroCommands: Commands {
             Button(L10n.s("Arriba", "Enclosing Folder")) { browser()?.goUp() }
                 .keyboardShortcut(.upArrow, modifiers: .command)
             Button(L10n.s("Ir a carpeta…", "Go to Folder…")) { browser()?.promptGoToFolder() }
+            Button(L10n.s("Barra de ruta editable", "Editable Path Bar")) { browser()?.beginPathOmnibox() }
+                .keyboardShortcut("l", modifiers: .command)
             Button(L10n.s("Editar ruta (omnibox)", "Edit Path (Omnibox)")) { browser()?.beginPathOmnibox() }
                 .keyboardShortcut("e", modifiers: .command)
             Divider()
@@ -355,6 +357,8 @@ private struct FindaroCommands: Commands {
                 .keyboardShortcut("t", modifiers: [.command, .option])
             Button(L10n.s("Renombrar", "Rename")) { browser()?.promptRename() }
                 .keyboardShortcut("r", modifiers: .control)
+            Button(L10n.s("Renombrado masivo…", "Batch Rename…")) { browser()?.promptBatchRename() }
+                .keyboardShortcut("r", modifiers: [.control, .shift])
             Button(L10n.s("Duplicar", "Duplicate")) { browser()?.duplicateSelection() }
             Divider()
             Button(L10n.s("Seleccionar todos", "Select All")) { browser()?.selectAllVisible() }
@@ -384,6 +388,9 @@ private struct FindaroCommands: Commands {
                 ThumbnailStore.shared.clearAll()
                 browser()?.reload()
                 browser()?.statusMessage = L10n.s("Caché de miniaturas limpia", "Thumbnail cache cleared")
+            }
+            Button(L10n.s("Limpiar .DS_Store y ._ aquí", "Clean .DS_Store & ._ Here")) {
+                browser()?.cleanMacOSJunkInActiveFolder()
             }
             Button(L10n.s("Buscar actualizaciones…", "Check for Updates…")) {
                 Task { await AppUpdateChecker.shared.check(interactive: true) }

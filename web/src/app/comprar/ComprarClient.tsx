@@ -99,8 +99,8 @@ function ComprarInner() {
       ? "🛡️ 100% secure payment with Stripe. No subscriptions or hidden fees. Referral program: share your link to give friends a discount on their purchase."
       : "🛡️ Pago 100% seguro con Stripe. Sin suscripciones ni cobros ocultos. ¿Tienes amigos? Al comprar recibirás tu enlace de recomendación para compartir un descuento directo.",
     footerNote: isEn
-      ? "Findaro for macOS · 14-day satisfaction guarantee"
-      : "Findaro para macOS · Garantía de satisfacción de 14 días",
+      ? "14-day free trial without card + 14-day no-questions-asked money-back guarantee."
+      : "14 días de prueba gratis sin tarjeta + Garantía de reembolso de 14 días sin preguntas.",
     terms: isEn ? "Terms of Service" : "Términos de Servicio",
     privacy: isEn ? "Privacy" : "Privacidad",
     refund: isEn ? "Refund Policy" : "Política de Reembolso",
@@ -388,6 +388,22 @@ function ComprarInner() {
         </form>
 
         <p className={styles.note}>{t.securityNote}</p>
+
+        <div
+          style={{
+            marginTop: 14,
+            padding: "10px 14px",
+            borderRadius: "10px",
+            background: "rgba(34, 197, 94, 0.1)",
+            border: "1px solid rgba(34, 197, 94, 0.28)",
+            color: "#86efac",
+            fontSize: "13px",
+            fontWeight: 600,
+            textAlign: "center",
+          }}
+        >
+          ✓ {t.footerNote}
+        </div>
 
         <footer
           style={{

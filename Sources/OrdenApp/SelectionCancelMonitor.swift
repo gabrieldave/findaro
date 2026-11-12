@@ -314,12 +314,16 @@ enum SelectionCancelMonitor {
                 }
                 if browser.explorerKeyboardProfile {
                     browser.openSelection()
-                } else if browser.selectedIDs.count == 1 {
+                } else if browser.activeHasSelection {
                     browser.promptRename()
                 }
                 return nil
             }
 
+            if hit("files.batchRename") {
+                browser.promptBatchRename()
+                return nil
+            }
             if hit("files.rename") || hit("files.renameF2") {
                 browser.promptRename()
                 return nil

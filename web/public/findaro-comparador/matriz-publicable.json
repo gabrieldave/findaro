@@ -374,7 +374,7 @@
   {
     "id": 32,
     "grupo": "Navegación",
-    "funcion": "Ruta editable/omnibox y breadcrumbs",
+    "funcion": "Barra de ruta editable (⌘L + Tab autocompletado) y breadcrumbs",
     "findaro": "Sí",
     "finder": "Similar",
     "forklift": "Sí",
@@ -565,9 +565,9 @@
   },
   {
     "id": 48,
-    "grupo": "Competencia fuerte",
-    "funcion": "Renombrado masivo con reglas y expresiones",
-    "findaro": "N/D",
+    "grupo": "Archivos",
+    "funcion": "Renombrado masivo Pro (transaccional en 2 fases, Regex y ⌘Z)",
+    "findaro": "Sí",
     "finder": "N/D",
     "forklift": "Sí",
     "pathfinder": "Sí",
@@ -598,5 +598,29 @@
     "qspace": "Sí",
     "commander": "Sí",
     "bloom": "Sí"
+  },
+  {
+    "id": 51,
+    "grupo": "Visualización",
+    "funcion": "Motor de lista AppKit ultrarrápido (120 fps)",
+    "findaro": "Sí",
+    "finder": "Sí",
+    "forklift": "Sí",
+    "pathfinder": "Similar",
+    "qspace": "Sí",
+    "commander": "Similar",
+    "bloom": "Sí"
+  },
+  {
+    "id": 52,
+    "grupo": "Archivos",
+    "funcion": "Higiene en unidades externas y SMB/NAS (limpieza 1 clic de .DS_Store y ._*)",
+    "findaro": "Sí",
+    "finder": "N/D",
+    "forklift": "N/D",
+    "pathfinder": "N/D",
+    "qspace": "N/D",
+    "commander": "N/D",
+    "bloom": "N/D"
   }
 ]

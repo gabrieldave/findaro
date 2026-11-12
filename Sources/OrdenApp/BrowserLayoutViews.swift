@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ImageIO
 import OrdenCore
 
 // MARK: - Selector tipo Finder
@@ -323,18 +324,30 @@ struct IconsBrowserView: View {
         }
 
         let cols = colCount
+        let stepX = cellW + spacing
+        let stepY = cellH + spacing
+        let totalRows = (entries.count + cols - 1) / cols
+        let minCol = max(0, Int(floor((rect.minX - gridPadding) / stepX)))
+        let maxCol = min(cols - 1, Int(floor((rect.maxX - gridPadding) / stepX)))
+        let minRow = max(0, Int(floor((rect.minY - gridPadding) / stepY)))
+        let maxRow = min(totalRows - 1, Int(floor((rect.maxY - gridPadding) / stepY)))
+
         var hits = Set<String>()
-        for (idx, entry) in entries.enumerated() {
-            let row = idx / cols
-            let col = idx % cols
-            let cell = CGRect(
-                x: gridPadding + CGFloat(col) * (cellW + spacing),
-                y: gridPadding + CGFloat(row) * (cellH + spacing),
-                width: cellW,
-                height: cellH
-            )
-            if cell.intersects(rect) {
-                hits.insert(entry.id)
+        if minRow <= maxRow && minCol <= maxCol {
+            for row in minRow...maxRow {
+                for col in minCol...maxCol {
+                    let idx = row * cols + col
+                    guard idx < entries.count else { continue }
+                    let cell = CGRect(
+                        x: gridPadding + CGFloat(col) * stepX,
+                        y: gridPadding + CGFloat(row) * stepY,
+                        width: cellW,
+                        height: cellH
+                    )
+                    if cell.intersects(rect) {
+                        hits.insert(entries[idx].id)
+                    }
+                }
             }
         }
         browser.applyMarqueeSelection(hitIDs: hits, base: marqueeBase, additive: marqueeAdditive)
@@ -342,23 +355,22 @@ struct IconsBrowserView: View {
 
     private func iconEntry(at point: CGPoint) -> FileEntry? {
         let entries = browser.visibleEntries
-        guard !entries.isEmpty else { return nil }
         let cols = colCount
-        guard cols > 0 else { return nil }
-        for (idx, entry) in entries.enumerated() {
-            let row = idx / cols
-            let col = idx % cols
-            let cell = CGRect(
-                x: gridPadding + CGFloat(col) * (cellW + spacing),
-                y: gridPadding + CGFloat(row) * (cellH + spacing),
-                width: cellW,
-                height: cellH
-            )
-            if cell.contains(point) {
-                return entry
-            }
-        }
-        return nil
+        guard !entries.isEmpty, cols > 0 else { return nil }
+        let stepX = cellW + spacing
+        let stepY = cellH + spacing
+        let relX = point.x - gridPadding
+        let relY = point.y - gridPadding
+        guard relX >= 0, relY >= 0 else { return nil }
+        let col = Int(floor(relX / stepX))
+        let row = Int(floor(relY / stepY))
+        guard col >= 0, col < cols, row >= 0 else { return nil }
+        let idx = row * cols + col
+        guard idx < entries.count else { return nil }
+        let localX = relX - CGFloat(col) * stepX
+        let localY = relY - CGFloat(row) * stepY
+        guard localX <= cellW, localY <= cellH else { return nil }
+        return entries[idx]
     }
 }
 
@@ -758,7 +770,7 @@ struct GalleryBrowserView: View {
             Divider().opacity(0.35)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+                LazyHStack(spacing: 10) {
                     ForEach(browser.visibleEntries) { entry in
                         GalleryThumb(entry: entry, focused: focusEntry?.id == entry.id)
                     }
@@ -801,13 +813,36 @@ struct GalleryBrowserView: View {
     }
 }
 
+private func decodeGalleryCGThumbnail(atPath path: String, maxPixelSize: Int) -> CGImage? {
+    let url = URL(fileURLWithPath: path) as CFURL
+    let srcOpts: [CFString: Any] = [kCGImageSourceShouldCache: false]
+    guard let source = CGImageSourceCreateWithURL(url, srcOpts as CFDictionary) else { return nil }
+    let thumbOpts: [CFString: Any] = [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceCreateThumbnailWithTransform: true,
+        kCGImageSourceShouldCacheImmediately: true,
+        kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+    ]
+    return CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOpts as CFDictionary)
+}
+
+@MainActor
+private enum GalleryImageCache {
+    static let cache: NSCache<NSString, NSImage> = {
+        let c = NSCache<NSString, NSImage>()
+        c.countLimit = 400
+        return c
+    }()
+}
+
 private struct GalleryPreview: View {
     @EnvironmentObject private var browser: BrowserModel
     let entry: FileEntry
+    @State private var loadedImage: NSImage?
 
     var body: some View {
         VStack(spacing: 12) {
-            if let image = NSImage(contentsOfFile: entry.path), !entry.isDirectory {
+            if let image = loadedImage, !entry.isDirectory {
                 Image(nsImage: image)
                     .resizable()
                     .scaledToFit()
@@ -825,6 +860,26 @@ private struct GalleryPreview: View {
                     .multilineTextAlignment(.center)
             }
         }
+        .task(id: entry.path) {
+            guard !entry.isDirectory else {
+                loadedImage = nil
+                return
+            }
+            let key = "preview:\(entry.path)" as NSString
+            if let cached = GalleryImageCache.cache.object(forKey: key) {
+                loadedImage = cached
+                return
+            }
+            loadedImage = nil
+            let path = entry.path
+            let cg = await Task.detached(priority: .utility) {
+                decodeGalleryCGThumbnail(atPath: path, maxPixelSize: 1400)
+            }.value
+            guard !Task.isCancelled, let cg else { return }
+            let img = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+            GalleryImageCache.cache.setObject(img, forKey: key)
+            loadedImage = img
+        }
     }
 }
 
@@ -832,6 +887,7 @@ private struct GalleryThumb: View {
     @EnvironmentObject private var browser: BrowserModel
     let entry: FileEntry
     let focused: Bool
+    @State private var loadedImage: NSImage?
 
     private var isSelected: Bool {
         browser.selectedIDs.contains(entry.id)
@@ -849,7 +905,7 @@ private struct GalleryThumb: View {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .fill(Color.primary.opacity(0.06))
                             .frame(width: 64, height: 52)
-                        if let image = NSImage(contentsOfFile: entry.path), !entry.isDirectory {
+                        if let image = loadedImage, !entry.isDirectory {
                             Image(nsImage: image)
                                 .resizable()
                                 .scaledToFill()
@@ -882,6 +938,26 @@ private struct GalleryThumb: View {
             in: RoundedRectangle(cornerRadius: 10, style: .continuous)
         )
         .contextMenu { entryContextMenu(entry) }
+        .task(id: entry.path) {
+            guard !entry.isDirectory else {
+                loadedImage = nil
+                return
+            }
+            let key = "thumb:\(entry.path)" as NSString
+            if let cached = GalleryImageCache.cache.object(forKey: key) {
+                loadedImage = cached
+                return
+            }
+            loadedImage = nil
+            let path = entry.path
+            let cg = await Task.detached(priority: .utility) {
+                decodeGalleryCGThumbnail(atPath: path, maxPixelSize: 128)
+            }.value
+            guard !Task.isCancelled, let cg else { return }
+            let img = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+            GalleryImageCache.cache.setObject(img, forKey: key)
+            loadedImage = img
+        }
     }
 }
 
@@ -914,9 +990,19 @@ private struct EntryContextMenuButtons: View {
                 Button(L10n.s("Añadir a Favoritos", "Add to Favorites")) { browser.addFavorite(entry.path) }
             }
         }
-        Button(L10n.s("Renombrar", "Rename")) {
-            browser.selectOnly(entry.id)
+        Button(browser.selectedIDs.count > 1 ? L10n.s("Renombrado masivo…", "Batch Rename…") : L10n.s("Renombrar", "Rename")) {
+            if !browser.selectedIDs.contains(entry.id) {
+                browser.selectOnly(entry.id)
+            }
             browser.promptRename()
+        }
+        if browser.selectedIDs.count <= 1 {
+            Button(L10n.s("Renombrado masivo…", "Batch Rename…")) {
+                if !browser.selectedIDs.contains(entry.id) {
+                    browser.selectOnly(entry.id)
+                }
+                browser.promptBatchRename()
+            }
         }
         Button(L10n.s("Comprimir", "Compress")) {
             if !browser.selectedIDs.contains(entry.id) {

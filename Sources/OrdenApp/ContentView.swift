@@ -139,7 +139,7 @@ struct ContentView: View {
             if browser.explorerKeyboardProfile {
                 browser.openSelection()
             } else {
-                guard browser.selectedIDs.count == 1 else { return .ignored }
+                guard browser.activeHasSelection else { return .ignored }
                 browser.promptRename()
             }
             return .handled
@@ -1573,7 +1573,18 @@ struct FileBrowserPane: View {
 
             Divider().opacity(0.35)
 
-            ScrollViewReader { proxy in
+            if browser.useNativeAppKitList {
+                NativeAppKitListView(
+                    browser: browser,
+                    pane: pane,
+                    rows: layoutRows,
+                    columns: visibleListColumns,
+                    rowHeight: rowHeight,
+                    isCompact: metrics.isCompact
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(Array(layoutRows.enumerated()), id: \.element.id) { index, row in
@@ -1660,9 +1671,10 @@ struct FileBrowserPane: View {
                         proxy.scrollTo(newFocus, anchor: nil)
                     }
                 }
-                .onChange(of: paneEntries.map(\.id)) { _, _ in
+                .onChange(of: browser.entriesRevision) { _, _ in
                     FileDragArmMonitor.shared.invalidateFrames()
                 }
+            }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -2045,9 +2057,16 @@ struct FileRowButton: View {
                     }
                 }
             }
-            Button(L10n.s("Renombrar", "Rename")) {
-                ensureSelectedAlone()
+            let activeCount = isSecondary ? browser.secondarySelectedIDs.count : browser.selectedIDs.count
+            Button(activeCount > 1 ? L10n.s("Renombrado masivo…", "Batch Rename…") : L10n.s("Renombrar", "Rename")) {
+                ensureInSelection()
                 browser.promptRename()
+            }
+            if activeCount <= 1 {
+                Button(L10n.s("Renombrado masivo…", "Batch Rename…")) {
+                    ensureInSelection()
+                    browser.promptBatchRename()
+                }
             }
             Button(L10n.s("Duplicar", "Duplicate")) {
                 ensureInSelection()
@@ -2407,6 +2426,10 @@ private struct BrowserDialogsModifier: ViewModifier {
                     .environmentObject(browser)
                     .interactiveDismissDisabled()
             }
+            .sheet(isPresented: $browser.showBatchRenameSheet) {
+                BatchRenameSheet()
+                    .environmentObject(browser)
+            }
             .sheet(isPresented: $browser.showGoToFolderDialog) {
                 GoToFolderSheet()
                     .environmentObject(browser)
@@ -2669,6 +2692,18 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L10n.s("Vista plana", "Flat Folder View"))
                         Text(L10n.s("Lista archivos de subcarpetas sin jerarquía", "Lists files in subfolders without hierarchy"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Toggle(isOn: Binding(
+                    get: { browser.useNativeAppKitList },
+                    set: { browser.setUseNativeAppKitList($0) }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.s("Motor ultrarrápido AppKit (120 fps)", "Ultra-fast AppKit Engine (120 fps)"))
+                        Text(L10n.s("Usa NSTableView nativo en vista lista para carpetas grandes", "Uses native NSTableView in list view for large folders"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

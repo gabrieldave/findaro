@@ -16,15 +16,15 @@
     finder: isEn ? "Apple Finder" : "Finder de Apple",
   };
   const selections = {
-    esencial: [13, 11, 12, 15, 17, 18, 8, 3, 22, 34],
-    seguridad: [11, 12, 13, 14, 15, 16, 42],
+    esencial: [51, 48, 32, 52, 13, 11, 12, 8, 3, 22],
+    seguridad: [11, 12, 13, 14, 15, 16, 42, 48],
     ia: [15, 16, 17, 18, 19, 20, 21],
     transferencias: [3, 4, 5, 6, 7, 8, 9, 10, 13],
     productividad: [
-      22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+      51, 48, 32, 52, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 33, 34, 35, 36, 37, 38, 39, 40,
       41, 42, 43, 44, 45,
     ],
-    rival: [46, 47, 48, 49, 50],
+    rival: [46, 47, 49, 50],
   };
   const newNames = {
     11: "Integridad SHA-256 de las transferencias",
@@ -36,8 +36,12 @@
     8: "Cortar ⌘X y pegar ⌘V",
     3: "Doble panel Origen y Destino",
     22: "Búsqueda en subcarpetas",
+    32: "Barra de ruta editable (⌘L + Tab)",
     34: "Perfil de teclado tipo Windows",
     46: "Conexiones FTP / SFTP / servicios remotos",
+    48: "Renombrado masivo Pro (⌘Z transaccional)",
+    51: "Motor de lista AppKit ultrarrápido (120 fps)",
+    52: "Higiene en unidades externas y SMB/NAS",
   };
   const descriptions = {
     11: "Comprueba que los archivos transferidos conservan su contenido.",
@@ -49,13 +53,17 @@
     8: "El flujo familiar de Explorer aplicado a la bandeja de FINDARO.",
     3: "Mantén a la vista la carpeta de origen y la de destino.",
     22: "El buscador integrado recorre nombres de archivos en subcarpetas.",
+    32: "Navega por teclado a cualquier ruta con autocompletado instantáneo por Tab.",
     34: "Adaptación para quien viene de Windows.",
     46: "Una fortaleza de varios rivales que no figura en el inventario de FINDARO.",
+    48: "Renombrado en 2 fases con Buscar/Reemplazar, Secuencia, Mayúsculas, Regex y ⌘Z.",
+    51: "Renderizado nativo NSTableView para carpetas con decenas de miles de archivos.",
+    52: "Limpieza en 1 clic de basura .DS_Store y archivos fantasma ._* en USB y NAS.",
   };
 
   if (isEn) {
-    Object.assign(newNames, {"1": "Native macOS application (Swift)", "2": "Apple Silicon native (M1/M2/M3/M4)", "3": "Dual synchronized panes (source/destination)", "4": "Dedicated move/copy actions between panes", "5": "50/50 split panes with visible focus", "6": "Instant directory swap between panes", "7": "Drag & drop from Finder or between panes", "8": "True ⌘X cut & paste with clipboard tray", "9": "Visual clipboard tray before committing changes", "10": "Transfer queue with real-time speed & progress", "11": "SHA-256 cryptographic verification before & after copy/move", "12": "Automatic batch rollback on transfer failure", "13": "Smart Merge with visual diff of new, identical, & conflicting files", "14": "Post-merge verification and undo", "15": "User confirmation before destructive or write operations", "16": "Strict path policy boundary for agent operations", "17": "Optional private on-device chat with Ollama", "18": "Voice with Apple's speech recognition on your Mac (⌃Space and mic button)", "19": "Content search via local agent", "20": "AI actions: organize, create, copy, move and rename", "21": "Works without installing Ollama", "22": "Recursive search by name across subfolders", "23": "Filter by category and file type", "24": "Filter downloaded or added today", "25": "Largest files first", "26": "Dedicated search shortcuts by type and date", "27": "Instant filter in active folder", "28": "Persistent search history", "29": "Four views: list, icons, columns, and gallery", "30": "One-click Trash restore to original path", "31": "Native multi-selection (⌘, ⇧, marquee) and direct drag & drop", "32": "Editable path bar / omnibox and breadcrumbs", "33": "Customizable keyboard shortcuts", "34": "Windows Explorer keyboard profile", "35": "Global hotkey to toggle FINDARO", "36": "Persistent favorites with fixed sidebar", "37": "FSEvents: live updates when files change", "38": "Quick Look and instant preview", "39": "ZIP: compress and extract", "40": "TAR extraction", "41": "Create file/folder, rename, duplicate", "42": "Undo move, copy, and Smart Merge via ⌘Z", "43": "Send selection to Dropover", "44": "Toggle hidden files visibility", "45": "App with native auto-update channel", "46": "Built-in FTP/SFTP/WebDAV/S3 remote connections", "47": "Two-way bidirectional folder sync", "48": "Batch file renaming with rules and regex", "49": "Browse archive files as virtual folders", "50": "Embedded terminal and remote operations"}, {"3":"Source / Destination dual panes","8":"Cut ⌘X and paste ⌘V","11":"SHA-256 transfer integrity","12":"Batch recovery after transfer failure","13":"Smart Merge with conflict preview","15":"Approval before AI changes files","17":"Optional local AI with Ollama","18":"Local push-to-talk voice","22":"Search inside subfolders","34":"Windows-style keyboard shortcuts","46":"FTP / SFTP / remote connections"});
-    Object.assign(descriptions, {"3":"Keep source and destination folders visible together.","8":"A visible tray for familiar Windows-style file cutting.","11":"Checks that transferred files retain their contents.","12":"Attempts to roll back the transfer batch after an error.","13":"Previews new, identical and conflicting items before merging.","15":"The assistant requests approval before writing changes.","17":"Optional local AI. All file management works without it.","18":"Dictation and commands without a remote voice server.","22":"Recursive filename search across nested folders.","34":"Helpful controls for people coming from Windows.","46":"An advantage of several alternatives not offered by FINDARO."});
+    Object.assign(newNames, {"1": "Native macOS application (Swift)", "2": "Apple Silicon native (M1/M2/M3/M4)", "3": "Dual synchronized panes (source/destination)", "4": "Dedicated move/copy actions between panes", "5": "50/50 split panes with visible focus", "6": "Instant directory swap between panes", "7": "Drag & drop from Finder or between panes", "8": "True ⌘X cut & paste with clipboard tray", "9": "Visual clipboard tray before committing changes", "10": "Transfer queue with real-time speed & progress", "11": "SHA-256 cryptographic verification before & after copy/move", "12": "Automatic batch rollback on transfer failure", "13": "Smart Merge with visual diff of new, identical, & conflicting files", "14": "Post-merge verification and undo", "15": "User confirmation before destructive or write operations", "16": "Strict path policy boundary for agent operations", "17": "Optional private on-device chat with Ollama", "18": "Voice with Apple's speech recognition on your Mac (⌃Space and mic button)", "19": "Content search via local agent", "20": "AI actions: organize, create, copy, move and rename", "21": "Works without installing Ollama", "22": "Recursive search by name across subfolders", "23": "Filter by category and file type", "24": "Filter downloaded or added today", "25": "Largest files first", "26": "Dedicated search shortcuts by type and date", "27": "Instant filter in active folder", "28": "Persistent search history", "29": "Four views: list, icons, columns, and gallery", "30": "One-click Trash restore to original path", "31": "Native multi-selection (⌘, ⇧, marquee) and direct drag & drop", "32": "Command Path Bar (⌘L + Tab autocomplete) & breadcrumbs", "33": "Customizable keyboard shortcuts", "34": "Windows Explorer keyboard profile", "35": "Global hotkey to toggle FINDARO", "36": "Persistent favorites with fixed sidebar", "37": "FSEvents: live updates when files change", "38": "Quick Look and instant preview", "39": "ZIP: compress and extract", "40": "TAR extraction", "41": "Create file/folder, rename, duplicate", "42": "Undo move, copy, and Smart Merge via ⌘Z", "43": "Send selection to Dropover", "44": "Toggle hidden files visibility", "45": "App with native auto-update channel", "46": "Built-in FTP/SFTP/WebDAV/S3 remote connections", "47": "Two-way bidirectional folder sync", "48": "Batch Rename Pro (2-phase transactional, Regex & ⌘Z)", "49": "Browse archive files as virtual folders", "50": "Embedded terminal and remote operations", "51": "Ultra-Fast AppKit List Engine (120 fps)", "52": "External & SMB Drive Hygiene (.DS_Store & ._* 1-click purge)"}, {"3":"Source / Destination dual panes","8":"Cut ⌘X and paste ⌘V","11":"SHA-256 transfer integrity","12":"Batch recovery after transfer failure","13":"Smart Merge with conflict preview","15":"Approval before AI changes files","17":"Optional local AI with Ollama","18":"Local push-to-talk voice","22":"Search inside subfolders","32":"Command Path Bar (⌘L + Tab)","34":"Windows-style keyboard shortcuts","46":"FTP / SFTP / remote connections","48":"Batch Rename Pro (⌘Z Transactional)","51":"Ultra-Fast AppKit List Engine (120 fps)","52":"External & SMB Drive Hygiene"});
+    Object.assign(descriptions, {"3":"Keep source and destination folders visible together.","8":"A visible tray for familiar Windows-style file cutting.","11":"Checks that transferred files retain their contents.","12":"Attempts to roll back the transfer batch after an error.","13":"Previews new, identical and conflicting items before merging.","15":"The assistant requests approval before writing changes.","17":"Optional local AI. All file management works without it.","18":"Dictation and commands without a remote voice server.","22":"Recursive filename search across nested folders.","32":"Jump anywhere via keyboard with instant Tab directory autocomplete.","34":"Helpful controls for people coming from Windows.","46":"An advantage of several alternatives not offered by FINDARO.","48":"2-phase batch renaming with Find/Replace, Sequence, Case, Regex & ⌘Z undo.","51":"Native NSTableView rendering handles tens of thousands of files smoothly.","52":"1-click purge of .DS_Store and ._* phantom files on USB and SMB/NAS drives."});
   }
 
   const rival = root.querySelector("#rival");
@@ -114,10 +122,10 @@
       rows.appendChild(item);
     }
     count.textContent =
-      subset.length + (isEn ? " of 50 documented features" : " de 50 características de la matriz documental");
+      subset.length + (isEn ? " of " + features.length + " documented features" : " de " + features.length + " características de la matriz documental");
     fullButton.textContent = expanded
       ? (isEn ? "Back to summary" : "Volver a la comparación resumida")
-      : (isEn ? "View all 50 features" : "Ver las 50 características");
+      : (isEn ? "View all " + features.length + " features" : "Ver las " + features.length + " características");
     fullButton.setAttribute("aria-pressed", String(expanded));
     fullButton.setAttribute("aria-expanded", String(expanded));
     root.querySelectorAll("[data-cat]").forEach((btn) => {

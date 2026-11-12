@@ -29,17 +29,40 @@ BIN="$(swift build -c release --show-bin-path)/Orden"
   exit 1
 }
 
-mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
+mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources/en.lproj" "$APP_DIR/Contents/Resources/es.lproj"
 cp "$BIN" "$APP_DIR/Contents/MacOS/${PRODUCT_NAME}"
 chmod +x "$APP_DIR/Contents/MacOS/${PRODUCT_NAME}"
 cp "$ROOT/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
+
+cat > "$APP_DIR/Contents/Resources/en.lproj/InfoPlist.strings" << 'STRINGS'
+CFBundleDisplayName = "Findaro";
+CFBundleName = "Findaro";
+NSHumanReadableCopyright = "Copyright © 2026 Findaro. All rights reserved.";
+NSSpeechRecognitionUsageDescription = "Findaro uses on-device speech recognition for the push-to-talk assistant.";
+NSMicrophoneUsageDescription = "Findaro uses your microphone only while holding the dictation button.";
+NSAppleEventsUsageDescription = "Findaro asks Finder to empty the Trash and restore items from it.";
+STRINGS
+
+cat > "$APP_DIR/Contents/Resources/es.lproj/InfoPlist.strings" << 'STRINGS'
+CFBundleDisplayName = "Findaro";
+CFBundleName = "Findaro";
+NSHumanReadableCopyright = "Copyright © 2026 Findaro. Todos los derechos reservados.";
+NSSpeechRecognitionUsageDescription = "Findaro usa reconocimiento de voz local para el asistente push-to-talk.";
+NSMicrophoneUsageDescription = "Findaro usa el micrófono solo mientras mantienes el botón de dictado.";
+NSAppleEventsUsageDescription = "Findaro le pide a Finder vaciar la Papelera y restaurar elementos desde ella.";
+STRINGS
 
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleDevelopmentRegion</key><string>es</string>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>es</string>
+  </array>
   <key>CFBundleExecutable</key><string>${PRODUCT_NAME}</string>
   <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>

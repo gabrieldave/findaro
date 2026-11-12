@@ -13,3 +13,8 @@ DerivedData/
 
 web/node_modules/
 web/.next/
+node_modules/
+.env*
+secrets.env
+*.pem
+*.key

@@ -45,9 +45,15 @@ final class BrowserWindowSession: ObservableObject {
     }
 
     private func bindBrowserUpdates(for tab: TabItem) {
-        browserBags[tab.id] = tab.browser.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
-        }
+        let b = tab.browser
+        let p1 = b.$currentPath.map { _ in () }
+        let p2 = b.$secondaryPath.map { _ in () }
+        let p3 = b.$focusedPane.map { _ in () }
+        let p4 = b.$dualPaneEnabled.map { _ in () }
+        browserBags[tab.id] = Publishers.Merge4(p1, p2, p3, p4)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
     }
 
     func selectTab(_ id: UUID) {

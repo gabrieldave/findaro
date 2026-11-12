@@ -8,20 +8,37 @@ export const dynamic = "force-dynamic";
 
 export const GET = handle(async (req) => {
   const url = new URL(req.url);
+  const direct = url.searchParams.get("direct") === "1";
   const token = url.searchParams.get("token") || "";
-  if (!token) return fail("Token requerido", 401);
 
-  const row = await consumeDownloadToken(token);
-  if (!row) return fail("Enlace inválido o agotado", 403);
+  if (direct) {
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      "anon";
+    const day = new Date().toISOString().slice(0, 10);
+    await recordEvent({
+      name: "download_requested",
+      subjectType: "direct_trial",
+      subjectId: ip.slice(0, 64),
+      occurrenceKey: day,
+      props: { mode: "direct_trial" },
+    });
+  } else {
+    if (!token) return fail("Token requerido", 401);
 
-  // Registrar evento download_click deduplicado por token_id + día (T-06)
-  await recordEvent({
-    name: "download_requested",
-    subjectType: "download_token",
-    subjectId: row.id,
-    occurrenceKey: String(row.used_count),
-    props: { usedCount: row.used_count },
-  });
+    const row = await consumeDownloadToken(token);
+    if (!row) return fail("Enlace inválido o agotado", 403);
+
+    // Registrar evento download_click deduplicado por token_id + día (T-06)
+    await recordEvent({
+      name: "download_requested",
+      subjectType: "download_token",
+      subjectId: row.id,
+      occurrenceKey: String(row.used_count),
+      props: { usedCount: row.used_count },
+    });
+  }
 
   const dmgUrl = await resolveDmgUpstreamUrl();
   const upstream = await fetch(dmgUrl, { redirect: "follow", cache: "no-store" });
