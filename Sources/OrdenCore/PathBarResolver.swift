@@ -1,5 +1,149 @@
 import Foundation
 
+import Foundation
+
+public struct BreadcrumbSegment: Identifiable, Equatable, Sendable {
+    public var id: String { path }
+    public let title: String
+    public let path: String
+    public let isHome: Bool
+    public let isExternalVolume: Bool
+    public let iconName: String?
+
+    public init(
+        title: String,
+        path: String,
+        isHome: Bool = false,
+        isExternalVolume: Bool = false,
+        iconName: String? = nil
+    ) {
+        self.title = title
+        self.path = path
+        self.isHome = isHome
+        self.isExternalVolume = isExternalVolume
+        self.iconName = iconName
+    }
+}
+
+public struct BreadcrumbResolver: Sendable {
+    public init() {}
+
+    public static func segments(
+        for url: URL,
+        homeURL: URL = FileManager.default.homeDirectoryForCurrentUser
+    ) -> [BreadcrumbSegment] {
+        segments(for: url.standardizedFileURL.path, homePath: homeURL.standardizedFileURL.path)
+    }
+
+    public static func segments(
+        for rawPath: String,
+        homePath: String = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+    ) -> [BreadcrumbSegment] {
+        let path = (rawPath as NSString).standardizingPath
+        guard !path.isEmpty else { return [] }
+
+        let normalizedHome = (homePath as NSString).standardizingPath
+
+        // 1. Caso: Dentro de la carpeta personal (~)
+        if path == normalizedHome {
+            return [
+                BreadcrumbSegment(
+                    title: "~",
+                    path: normalizedHome,
+                    isHome: true,
+                    isExternalVolume: false,
+                    iconName: "house.fill"
+                )
+            ]
+        } else if path.hasPrefix(normalizedHome + "/") {
+            var segments: [BreadcrumbSegment] = [
+                BreadcrumbSegment(
+                    title: "~",
+                    path: normalizedHome,
+                    isHome: true,
+                    isExternalVolume: false,
+                    iconName: "house.fill"
+                )
+            ]
+            let relative = String(path.dropFirst(normalizedHome.count + 1))
+            var accumulated = normalizedHome
+            for component in relative.split(separator: "/") {
+                accumulated += "/" + component
+                segments.append(
+                    BreadcrumbSegment(
+                        title: String(component),
+                        path: accumulated,
+                        isHome: false,
+                        isExternalVolume: false,
+                        iconName: nil
+                    )
+                )
+            }
+            return segments
+        }
+
+        // 2. Caso: Unidad externa o recurso de red (/Volumes/...)
+        if path.hasPrefix("/Volumes/") && path != "/Volumes" {
+            let relative = String(path.dropFirst("/Volumes/".count))
+            let parts = relative.split(separator: "/")
+            if let volumeName = parts.first {
+                var accumulated = "/Volumes/" + volumeName
+                var segments: [BreadcrumbSegment] = [
+                    BreadcrumbSegment(
+                        title: String(volumeName),
+                        path: accumulated,
+                        isHome: false,
+                        isExternalVolume: true,
+                        iconName: "externaldrive.fill"
+                    )
+                ]
+                for component in parts.dropFirst() {
+                    accumulated += "/" + component
+                    segments.append(
+                        BreadcrumbSegment(
+                            title: String(component),
+                            path: accumulated,
+                            isHome: false,
+                            isExternalVolume: false,
+                            iconName: nil
+                        )
+                    )
+                }
+                return segments
+            }
+        }
+
+        // 3. Caso: Raíz del sistema u otras rutas absolutas
+        var segments: [BreadcrumbSegment] = [
+            BreadcrumbSegment(
+                title: "/",
+                path: "/",
+                isHome: false,
+                isExternalVolume: false,
+                iconName: "internaldrive"
+            )
+        ]
+        if path == "/" {
+            return segments
+        }
+
+        var accumulated = ""
+        for component in path.split(separator: "/") {
+            accumulated += "/" + component
+            segments.append(
+                BreadcrumbSegment(
+                    title: String(component),
+                    path: accumulated,
+                    isHome: false,
+                    isExternalVolume: false,
+                    iconName: nil
+                )
+            )
+        }
+        return segments
+    }
+}
+
 public enum PathResolutionResult: Sendable, Equatable {
     case directory(URL)
     case fileParent(directory: URL, targetFile: URL)

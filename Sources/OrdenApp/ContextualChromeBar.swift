@@ -8,6 +8,9 @@ struct ContextualChromeBar: View {
     @Environment(\.ordenMetrics) private var metrics
     @Environment(\.ordenWindowWidth) private var windowWidth
 
+    @State private var selectionCopiedPathFeedback = false
+    @State private var idleCopiedPathFeedback = false
+
     private var detailWidth: CGFloat {
         max(320, metrics.detailWidth > 1 ? metrics.detailWidth : (windowWidth - metrics.sidebarWidth))
     }
@@ -257,6 +260,41 @@ struct ContextualChromeBar: View {
             }
 
             Button {
+                let path = browser.activeWorkingPath
+                let text = NSEvent.modifierFlags.contains(.option)
+                    ? PathFormatter.shellEscaped(for: [path])
+                    : path
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(text, forType: .string)
+                idleCopiedPathFeedback = true
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_200_000_000)
+                    idleCopiedPathFeedback = false
+                }
+            } label: {
+                chipLabel(
+                    (showLabels && detailWidth >= 620) ? L10n.s("Ruta", "Path") : nil,
+                    idleCopiedPathFeedback ? "checkmark" : "doc.on.doc"
+                )
+            }
+            .buttonStyle(.bordered)
+            .tint(idleCopiedPathFeedback ? .green : nil)
+            .help(L10n.s("Copiar ruta de carpeta (⌥⌘C) · ⌥ = escapar para Terminal", "Copy folder path (⌥⌘C) · ⌥ = escape for Terminal"))
+
+            if DropoverBridge.isInstalled {
+                Button {
+                    browser.sendOutboundToDropover()
+                } label: {
+                    chipLabel(
+                        (showLabels && detailWidth >= 680) ? "Dropover" : nil,
+                        "tray.and.arrow.up.fill"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .help(L10n.s("Enviar carpeta a Dropover (⌥⇧D)", "Send folder to Dropover (⌥⇧D)"))
+            }
+
+            Button {
                 browser.cleanMacOSJunkInActiveFolder()
             } label: {
                 chipLabel(
@@ -333,7 +371,41 @@ struct ContextualChromeBar: View {
             iconAction(L10n.s("Vista rápida", "Quick Look"), "eye", showLabels) {
                 browser.openPreviewExplicitly()
             }
-            iconAction(L10n.s("Copiar", "Copy"), "doc.on.doc", showLabels) {
+
+            // Botón directo Ruta / Copiar ruta
+            Button {
+                let isOption = NSEvent.modifierFlags.contains(.option)
+                browser.copySelectedPaths(shellEscaped: isOption)
+                selectionCopiedPathFeedback = true
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_200_000_000)
+                    selectionCopiedPathFeedback = false
+                }
+            } label: {
+                chipLabel(
+                    detailWidth >= 620 ? L10n.s("Ruta", "Path") : nil,
+                    selectionCopiedPathFeedback ? "checkmark" : "doc.on.doc"
+                )
+            }
+            .buttonStyle(.bordered)
+            .tint(selectionCopiedPathFeedback ? .green : nil)
+            .help(L10n.s("Copiar ruta (⌥⌘C) · ⌥ = escapar para Terminal", "Copy Path (⌥⌘C) · ⌥ = escape for Terminal"))
+
+            // Botón directo Dropover
+            if DropoverBridge.isInstalled {
+                Button {
+                    browser.sendOutboundToDropover()
+                } label: {
+                    chipLabel(
+                        detailWidth >= 680 ? "Dropover" : nil,
+                        "tray.and.arrow.up.fill"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .help(L10n.s("Enviar a Dropover (⌥⇧D)", "Send to Dropover (⌥⇧D)"))
+            }
+
+            iconAction(L10n.s("Copiar", "Copy"), "plus.square.on.square", showLabels) {
                 browser.addSelectionToShelf(intent: .copy)
             }
             .help(L10n.s("Copiar a bandeja · ⌘C", "Copy to tray · ⌘C"))

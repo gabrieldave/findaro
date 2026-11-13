@@ -54,12 +54,7 @@ struct SecondaryBrowserPane: View {
 
             // Tap en ruta/ayuda enfoca Destino; no envolver los botones (SwiftUI se come el clic).
             VStack(alignment: .leading, spacing: 4) {
-                Text(shortPath(browser.secondaryPath))
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .help(browser.secondaryPath)
+                PathBreadcrumbBar(pane: .secondary)
                 Text(L10n.s("Misma lista que Origen · ⌘+clic naranja · Arrastra ↔ · Tab cambia panel", "Same features as Origin · ⌘+click orange · Drag ↔ · Tab swaps pane"))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)

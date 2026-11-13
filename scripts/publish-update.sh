@@ -6,6 +6,36 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+load_secrets_env() {
+  local f=""
+  local repo_root
+  repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  for candidate in "${VIBESYSTEMS_SECRETS_FILE:-}" "$HOME/Documents/VibeSystems/secrets.env" "$HOME/.config/vibesystems/secrets.env" "$repo_root/secrets.env"; do
+    if [[ -n "$candidate" && -f "$candidate" ]]; then
+      f="$candidate"
+      break
+    fi
+  done
+  if [[ -n "$f" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      local trimmed
+      trimmed="$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+      [[ -z "$trimmed" || "$trimmed" =~ ^# ]] && continue
+      if [[ "$trimmed" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+        local key="${trimmed%%=*}"
+        local val="${trimmed#*=}"
+        if [[ "$val" =~ ^\"(.*)\"$ ]]; then
+          val="${BASH_REMATCH[1]}"
+        elif [[ "$val" =~ ^\'(.*)\'$ ]]; then
+          val="${BASH_REMATCH[1]}"
+        fi
+        export "$key"="$val"
+      fi
+    done < "$f"
+  fi
+}
+load_secrets_env
+
 VERSION="$(grep -E '^VERSION=' scripts/package-app.sh | head -1 | cut -d= -f2 | tr -d '"')"
 ARCH="$(uname -m)"
 PRODUCT_NAME="Findaro"

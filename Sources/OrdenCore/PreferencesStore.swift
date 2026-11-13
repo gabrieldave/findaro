@@ -41,6 +41,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
     public var locationsCollapsed: Bool
     /// Usar motor nativo AppKit (`NSTableView`) en la vista de lista.
     public var useNativeAppKitList: Bool
+    /// Ocultar icono del Dock (modo accesorio/menú barra). Default false en primer arranque para facilitar TCC.
+    public var hideDockIcon: Bool
 
     public init(
         schemaVersion: Int = 20,
@@ -64,7 +66,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         listColumns: [ListColumn] = ListColumn.defaultVisible,
         colorTheme: AppColorTheme = .midnightBlue,
         locationsCollapsed: Bool = false,
-        useNativeAppKitList: Bool = true
+        useNativeAppKitList: Bool = true,
+        hideDockIcon: Bool = false
     ) {
         self.schemaVersion = schemaVersion
         self.globalRule = globalRule
@@ -88,6 +91,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         self.colorTheme = colorTheme
         self.locationsCollapsed = locationsCollapsed
         self.useNativeAppKitList = useNativeAppKitList
+        self.hideDockIcon = hideDockIcon
     }
 
     /// Override de carpeta si existe; si no, el global (estilo Descargas por defecto).
@@ -105,7 +109,8 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         case schemaVersion, globalRule, folderOverrides, favorites, lastPath, viewMode, showRowPaths,
              explorerKeyboardProfile, showHiddenFiles, flattenFolderView, assistantShortcuts,
              ollamaEnabled, ollamaModel, viewTemplates, keyboardHotkeyOverrides, globalHotkeyFolderPath,
-             appLanguage, smartFolders, listColumns, colorTheme, locationsCollapsed, useNativeAppKitList
+             appLanguage, smartFolders, listColumns, colorTheme, locationsCollapsed, useNativeAppKitList,
+             hideDockIcon
     }
 
     public init(from decoder: Decoder) throws {
@@ -139,6 +144,7 @@ public struct OrdenPreferences: Codable, Equatable, Sendable {
         colorTheme = decodedTheme.normalizedForStorage
         locationsCollapsed = try c.decodeIfPresent(Bool.self, forKey: .locationsCollapsed) ?? false
         useNativeAppKitList = try c.decodeIfPresent(Bool.self, forKey: .useNativeAppKitList) ?? true
+        hideDockIcon = try c.decodeIfPresent(Bool.self, forKey: .hideDockIcon) ?? false
     }
 }
 

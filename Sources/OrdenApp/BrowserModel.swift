@@ -176,6 +176,8 @@ final class BrowserModel: ObservableObject {
     @Published var showHiddenFiles: Bool
     /// Vista plana de archivos bajo la carpeta.
     @Published var flattenFolderView: Bool
+    /// Ocultar icono del Dock (modo accesorio/menú barra).
+    @Published var hideDockIcon: Bool
     /// Omnibox: editar ruta en la barra de breadcrumbs.
     @Published var pathOmniboxEditing = false
     @Published var pathOmniboxDraft = ""
@@ -335,6 +337,7 @@ final class BrowserModel: ObservableObject {
         self.explorerKeyboardProfile = store.preferences.explorerKeyboardProfile
         self.showHiddenFiles = store.preferences.showHiddenFiles
         self.flattenFolderView = store.preferences.flattenFolderView
+        self.hideDockIcon = store.preferences.hideDockIcon
         self.assistantShortcuts = store.preferences.assistantShortcuts
         self.viewTemplates = store.preferences.viewTemplates
         self.smartFolders = store.preferences.smartFolders
@@ -406,6 +409,7 @@ final class BrowserModel: ObservableObject {
         self.explorerKeyboardProfile = prefs.explorerKeyboardProfile
         self.showHiddenFiles = prefs.showHiddenFiles
         self.flattenFolderView = prefs.flattenFolderView
+        self.hideDockIcon = prefs.hideDockIcon
         // Una carpeta inteligente abierta se ve en Lista aunque la preferencia sea Columnas.
         self.viewMode = (activeSmartFolder != nil && prefs.viewMode == .columns) ? .list : prefs.viewMode
         if !prefs.folderOverrides.keys.contains(currentPath) {
@@ -1256,6 +1260,40 @@ final class BrowserModel: ObservableObject {
             statusMessage = L10n.s("1 seleccionado — \(name)", "1 selected — \(name)")
         } else {
             statusMessage = L10n.s("\(n) seleccionados", "\(n) selected")
+        }
+    }
+
+    func openFolder(_ url: URL, pane: PaneFocus = .primary) {
+        openFolder(path: url.standardizedFileURL.path, pane: pane)
+    }
+
+    func openFolder(path: String, pane: PaneFocus = .primary) {
+        if pane == .secondary {
+            navigateSecondary(to: path)
+        } else {
+            navigate(to: path)
+        }
+    }
+
+    var isListingSubpathResults: Bool {
+        activeSmartFolder != nil || flattenFolderView || showDeepSearchPanel
+    }
+
+    func isListingSubpaths(for pane: PaneFocus) -> Bool {
+        if pane == .secondary { return false }
+        return isListingSubpathResults
+    }
+
+    func setHideDockIcon(_ hide: Bool) {
+        hideDockIcon = hide
+        store.update { $0.hideDockIcon = hide }
+        applyDockIconPolicy(hide: hide)
+    }
+
+    func applyDockIconPolicy(hide: Bool) {
+        NSApp.setActivationPolicy(hide ? .accessory : .regular)
+        if !hide {
+            NSApp.activate(ignoringOtherApps: true)
         }
     }
 
@@ -4067,24 +4105,35 @@ final class BrowserModel: ObservableObject {
         statusMessage = L10n.s("Ruta copiada: \(entry.path)", "Path copied: \(entry.path)")
     }
 
-    func copySelectedPaths() {
-        let paths = selectedEntries.map(\.path)
-        guard !paths.isEmpty else {
-            // Si no hay selección, copia la carpeta actual.
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(currentPath, forType: .string)
-            statusMessage = L10n.s("Ruta de carpeta copiada", "Folder path copied")
-            return
-        }
+    func copySelectedPaths(shellEscaped: Bool = false) {
+        let selected = activeSelectedEntries.map(\.path)
+        let paths = selected.isEmpty ? [activeWorkingPath] : selected
+        let formatted = shellEscaped
+            ? PathFormatter.shellEscaped(for: paths)
+            : PathFormatter.posixLines(for: paths)
+
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(paths.joined(separator: "\n"), forType: .string)
-        statusMessage = paths.count == 1 ? L10n.s("Ruta copiada", "Path copied") : L10n.s("\(paths.count) rutas copiadas", "\(paths.count) paths copied")
+        NSPasteboard.general.setString(formatted, forType: .string)
+
+        if selected.isEmpty {
+            statusMessage = shellEscaped
+                ? L10n.s("Ruta de carpeta escapada para Terminal", "Folder path escaped for Terminal")
+                : L10n.s("Ruta de carpeta copiada", "Folder path copied")
+        } else {
+            statusMessage = paths.count == 1
+                ? (shellEscaped ? L10n.s("Ruta escapada para Terminal", "Path escaped for Terminal") : L10n.s("Ruta copiada", "Path copied"))
+                : (shellEscaped ? L10n.s("\(paths.count) rutas escapadas para Terminal", "\(paths.count) paths escaped for Terminal") : L10n.s("\(paths.count) rutas copiadas", "\(paths.count) paths copied"))
+        }
     }
 
-    func copyCurrentFolderPath() {
+    func copyCurrentFolderPath(shellEscaped: Bool = false) {
+        let path = activeWorkingPath
+        let text = shellEscaped ? PathFormatter.shellEscaped(for: [path]) : path
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(currentPath, forType: .string)
-        statusMessage = L10n.s("Ruta de carpeta copiada", "Folder path copied")
+        NSPasteboard.general.setString(text, forType: .string)
+        statusMessage = shellEscaped
+            ? L10n.s("Ruta de carpeta escapada para Terminal", "Folder path escaped for Terminal")
+            : L10n.s("Ruta de carpeta copiada", "Folder path copied")
     }
 
     /// Botón «Vista rápida» / ojito: SIEMPRE abre (nunca toggle).
@@ -5226,62 +5275,56 @@ final class BrowserModel: ObservableObject {
         return shelf.map(\.path).filter { FileManager.default.fileExists(atPath: $0) }
     }
 
-    /// Mete la selección (o bandeja) en una burbuja de Dropover para arrastrar a Terminal, Cursor, etc.
+    /// Mete la selección (o la carpeta activa si no hay selección) en una burbuja de Dropover.
     func sendOutboundToDropover() {
-        let paths = outboundPaths
+        var paths = outboundPaths
+        if paths.isEmpty {
+            let current = activeWorkingPath
+            if FileManager.default.fileExists(atPath: current) {
+                paths = [current]
+            }
+        }
         guard !paths.isEmpty else {
-            statusMessage = L10n.s("Selecciona archivos o llena la bandeja", "Select files or add items to clipboard tray")
+            statusMessage = L10n.s("Selecciona archivos o abre una carpeta válida", "Select files or open a valid folder")
             return
         }
-        let dropoverURL: URL? =
-            NSWorkspace.shared.urlForApplication(withBundleIdentifier: "me.damir.dropover-mac")
-            ?? {
-                let fallback = URL(fileURLWithPath: "/Applications/Dropover.app", isDirectory: true)
-                return FileManager.default.fileExists(atPath: fallback.path) ? fallback : nil
-            }()
-        guard let dropoverURL else {
-            statusMessage = L10n.s("No encontré Dropover.app en /Applications", "Dropover.app not found in /Applications")
+
+        guard DropoverBridge.isInstalled else {
+            statusMessage = L10n.s("No encontré Dropover.app instalado", "Dropover.app is not installed")
             return
         }
 
         let urls = paths.map { URL(fileURLWithPath: $0) }
-        let config = NSWorkspace.OpenConfiguration()
-        config.activates = true
-        NSWorkspace.shared.open(urls, withApplicationAt: dropoverURL, configuration: config) { _, error in
-            Task { @MainActor in
-                if let error {
-                    self.statusMessage = L10n.s(
-                        "Dropover: \(error.localizedDescription)",
-                        "Dropover: \(error.localizedDescription)"
-                    )
-                } else {
-                    self.statusMessage = paths.count == 1
-                        ? L10n.s("En Dropover — arrástralo a Terminal o Cursor", "In Dropover — drag to Terminal or other apps")
-                        : L10n.s("\(paths.count) en Dropover — arrástralos a otra app", "\(paths.count) in Dropover — drag to other apps")
-                }
+        DropoverBridge.send(urls: urls) { [weak self] success, error in
+            guard let self else { return }
+            if let error {
+                self.statusMessage = "Dropover: \(error.localizedDescription)"
+            } else {
+                self.statusMessage = paths.count == 1
+                    ? L10n.s("En Dropover — arrástralo a Terminal o Cursor", "In Dropover — drag to Terminal or other apps")
+                    : L10n.s("\(paths.count) en Dropover — arrástralos a otra app", "\(paths.count) in Dropover — drag to other apps")
             }
         }
     }
 
-    /// Copia rutas POSIX entrecomilladas (útil en Terminal / pegar en Cursor).
-    func copyOutboundPaths() {
-        let paths = outboundPaths
+    /// Copia rutas POSIX (opcionalmente escapadas para Terminal).
+    func copyOutboundPaths(shellEscaped: Bool = false) {
+        var paths = outboundPaths
+        if paths.isEmpty {
+            paths = [activeWorkingPath]
+        }
         guard !paths.isEmpty else {
             statusMessage = L10n.s("Nada seleccionado para copiar rutas", "No items selected to copy paths")
             return
         }
-        let quoted = paths.map { path -> String in
-            if path.contains(" ") || path.contains("'") {
-                let escaped = path.replacingOccurrences(of: "'", with: "'\\''")
-                return "'\(escaped)'"
-            }
-            return path
-        }.joined(separator: " ")
+        let formatted = shellEscaped
+            ? PathFormatter.shellEscaped(for: paths)
+            : PathFormatter.posixLines(for: paths)
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(quoted, forType: .string)
+        NSPasteboard.general.setString(formatted, forType: .string)
         statusMessage = paths.count == 1
-            ? "Ruta copiada — ⌘V en Terminal o Cursor"
-            : "\(paths.count) rutas copiadas"
+            ? (shellEscaped ? L10n.s("Ruta escapada para Terminal", "Path escaped for Terminal") : L10n.s("Ruta copiada", "Path copied"))
+            : (shellEscaped ? L10n.s("\(paths.count) rutas escapadas para Terminal", "\(paths.count) paths escaped for Terminal") : L10n.s("\(paths.count) rutas copiadas", "\(paths.count) paths copied"))
     }
 
     func importDroppedFiles(providers: [NSItemProvider]) -> Bool {

@@ -950,6 +950,16 @@ struct NativeAppKitListView: NSViewRepresentable {
             let selectedCount = sec ? b.secondarySelectedIDs.count : b.selectedIDs.count
 
             let menu = NSMenu()
+            menu.addItem(ClosureMenuItem(title: L10n.s("Copiar ruta", "Copy Path")) {
+                ensureIncluded()
+                b.copySelectedPaths()
+            })
+            menu.addItem(ClosureMenuItem(title: L10n.s("Enviar a Dropover", "Send to Dropover")) {
+                ensureIncluded()
+                b.sendOutboundToDropover()
+            })
+            menu.addItem(.separator())
+
             menu.addItem(ClosureMenuItem(title: L10n.s("Abrir", "Open")) {
                 ensureAlone()
                 if sec { b.openSecondaryEntry(entry) } else { b.open(entry) }

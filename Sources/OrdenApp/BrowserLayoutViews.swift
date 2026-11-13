@@ -974,6 +974,21 @@ private struct EntryContextMenuButtons: View {
     let entry: FileEntry
 
     var body: some View {
+        Button(L10n.s("Copiar ruta", "Copy Path")) {
+            if !browser.selectedIDs.contains(entry.id) {
+                browser.selectOnly(entry.id)
+            }
+            browser.copySelectedPaths()
+        }
+        if DropoverBridge.isInstalled {
+            Button(L10n.s("Enviar a Dropover", "Send to Dropover")) {
+                if !browser.selectedIDs.contains(entry.id) {
+                    browser.selectOnly(entry.id)
+                }
+                browser.sendOutboundToDropover()
+            }
+        }
+        Divider()
         Button(L10n.s("Abrir", "Open")) {
             browser.selectOnly(entry.id)
             browser.activateEntry(entry)

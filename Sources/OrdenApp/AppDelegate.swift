@@ -8,8 +8,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        let hideDock = PreferencesStore.shared.preferences.hideDockIcon
+        NSApp.setActivationPolicy(hideDock ? .accessory : .regular)
+        if !hideDock {
+            NSApp.activate(ignoringOtherApps: true)
+        }
         // Un solo monitor local de teclado (no en onAppear SwiftUI → remount multi-monitor).
         SelectionCancelMonitor.installAtAppLevel()
         // No traer al frente ventanas fantasma: solo exploradores registrados / candidatas.

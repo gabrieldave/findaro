@@ -283,12 +283,7 @@ struct ContentView: View {
                                 }
                                 // Tap en ruta/ayuda enfoca Origen; no envolver botones (bloqueaba Mover/Copiar).
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(shortPath(browser.currentPath))
-                                        .font(.caption.monospaced())
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                        .truncationMode(.middle)
-                                        .help(browser.currentPath)
+                                    PathBreadcrumbBar(pane: .primary)
                                     Text(L10n.s("Misma lista · naranja · Arrastra ↔ · Swap intercambia carpetas", "Same list · orange · Drag ↔ · Swap exchanges folders"))
                                         .font(.caption2)
                                         .foregroundStyle(.tertiary)
@@ -1568,6 +1563,12 @@ struct FileBrowserPane: View {
 
     private var listBrowser: some View {
         VStack(spacing: 0) {
+            if !browser.dualPaneEnabled {
+                PathBreadcrumbBar(pane: pane)
+                    .padding(.horizontal, 4)
+                    .padding(.bottom, 4)
+            }
+
             header
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -1849,7 +1850,10 @@ struct FileBrowserPane: View {
         // Sin maxWidth infinity el HStack se queda al ancho intrínseco y las cabeceras
         // quedan a la izquierda mientras las filas sí empujan las columnas a la derecha.
         HStack(spacing: metrics.isCompact ? 8 : 12) {
-            Text(L10n.s("Nombre / ruta", "Name / Path"))
+            let nameTitle = browser.isListingSubpaths(for: pane)
+                ? L10n.s("Nombre / ruta", "Name / Path")
+                : L10n.s("Nombre", "Name")
+            Text(nameTitle)
                 .frame(minWidth: 220, maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, 12)
                 .layoutPriority(1)
@@ -2033,6 +2037,17 @@ struct FileRowButton: View {
         .folderDropTarget(entry: entry)
         .fileDragArmPress(entry: entry, browser: browser)
         .contextMenu {
+            Button(L10n.s("Copiar ruta", "Copy Path")) {
+                ensureInSelection()
+                browser.copySelectedPaths()
+            }
+            if DropoverBridge.isInstalled {
+                Button(L10n.s("Enviar a Dropover", "Send to Dropover")) {
+                    ensureInSelection()
+                    browser.sendOutboundToDropover()
+                }
+            }
+            Divider()
             Button(L10n.s("Abrir", "Open")) {
                 ensureSelectedAlone()
                 if isSecondary {
@@ -2286,11 +2301,7 @@ private struct BrowserToolbarModifier: ViewModifier {
                 .labelStyle(.iconOnly)
             }
             ToolbarItem(placement: .principal) {
-                HStack(spacing: 10) {
-                    ViewModePicker()
-                    PathBreadcrumbBar()
-                        .frame(minWidth: 240, maxWidth: 540)
-                }
+                ViewModePicker()
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
@@ -2640,6 +2651,19 @@ struct SettingsView: View {
                                 _ = DefaultFileViewerManager.disable()
                             }
                         }
+                    ))
+                    .toggleStyle(.switch)
+                }
+
+                settingsRow(
+                    icon: "dock.rectangle",
+                    tint: .purple,
+                    title: L10n.s("Ocultar icono del Dock", "Hide Dock Icon"),
+                    subtitle: L10n.s("Mantiene Findaro en el menú superior y atajo global", "Keeps Findaro in menu bar and global hotkey")
+                ) {
+                    Toggle("", isOn: Binding(
+                        get: { browser.hideDockIcon },
+                        set: { browser.setHideDockIcon($0) }
                     ))
                     .toggleStyle(.switch)
                 }
@@ -3003,6 +3027,14 @@ struct SettingsView: View {
                     Task { await AppUpdateChecker.shared.check(interactive: true) }
                 } label: {
                     Label(L10n.s("Buscar actualizaciones…", "Check for Updates…"), systemImage: "arrow.triangle.2.circlepath")
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
+
+                Button {
+                    AboutWindowController.show()
+                } label: {
+                    Label(L10n.s("Acerca de Findaro…", "About Findaro…"), systemImage: "info.circle")
                         .frame(maxWidth: .infinity)
                 }
                 .controlSize(.large)

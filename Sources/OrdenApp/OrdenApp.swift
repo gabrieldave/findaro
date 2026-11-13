@@ -53,6 +53,57 @@ struct OrdenApp: App {
                 .environmentObject(settingsBrowser)
                 .findaroThemed()
         }
+
+        MenuBarExtra("Findaro", systemImage: "folder.fill.badge.gearshape") {
+            FindaroMenuBarExtraContent()
+        }
+    }
+}
+
+private struct FindaroMenuBarExtraContent: View {
+    @Environment(\.openWindow) private var openWindow
+    @State private var hideDockIcon: Bool = PreferencesStore.shared.preferences.hideDockIcon
+
+    var body: some View {
+        Button(L10n.s("Abrir Findaro", "Open Findaro")) {
+            if let window = NSApp.windows.first(where: { !FindaroWindowRegistry.isSettingsWindow($0) && $0.canBecomeKey }) {
+                window.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+            } else {
+                openWindow(id: "browser")
+            }
+        }
+
+        Divider()
+
+        Toggle(L10n.s("Ocultar icono del Dock", "Hide Dock Icon"), isOn: Binding(
+            get: { hideDockIcon },
+            set: { newValue in
+                hideDockIcon = newValue
+                PreferencesStore.shared.update { $0.hideDockIcon = newValue }
+                NSApp.setActivationPolicy(newValue ? .accessory : .regular)
+                if !newValue {
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+            }
+        ))
+
+        Divider()
+
+        Button(L10n.s("Acerca de Findaro", "About Findaro")) {
+            AboutWindowController.show()
+        }
+
+        Button(L10n.s("Ajustes…", "Settings…")) {
+            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+
+        Divider()
+
+        Button(L10n.s("Salir de Findaro", "Quit Findaro")) {
+            NSApp.terminate(nil)
+        }
     }
 }
 
@@ -302,6 +353,8 @@ private struct FindaroCommands: Commands {
             .keyboardShortcut("v", modifiers: .command)
             Button(L10n.s("Copiar ruta", "Copy Path")) { browser()?.copySelectedPaths() }
                 .keyboardShortcut("c", modifiers: [.command, .option])
+            Button(L10n.s("Enviar a Dropover", "Send to Dropover")) { browser()?.sendOutboundToDropover() }
+                .keyboardShortcut("d", modifiers: [.option, .shift])
         }
         CommandGroup(replacing: .textEditing) {
             Button(L10n.s("Seleccionar todos", "Select All")) {
