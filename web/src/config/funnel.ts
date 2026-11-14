@@ -12,12 +12,12 @@ export type CheckoutTier = "solo" | "personal" | "family";
 
 export const funnel = {
   product: "Findaro",
-  version: "0.1.165",
-  build: 157,
+  version: "0.1.166",
+  build: 158,
   minMacOS: "15",
   teamId: "YH6W55MP95",
   /** SHA-256 del .dmg publicado. Vacío = no se muestra en la web. */
-  sha256: "482e15722fcec741cfa51e8d3ed17b4a08ab0713bfb50226b3bfe6140f7c6dea",
+  sha256: "d7637aadd3443b5d1bd086ad6023657639e00138e748d896f043180bd52fb2e8",
   /** ID del video de YouTube (solo el ID, no la URL). Vacío = se muestra el recorrido con capturas reales. */
   youtubeTutorialId: "",
   /** Sin "+" ni espacios, formato wa.me. Canal solo para dudas rápidas. */
@@ -111,7 +111,7 @@ const en = {
     langLabel: "Language",
   },
   hero: {
-    eyebrow: "Findaro 0.1.165 · macOS 15+ · Apple Silicon",
+    eyebrow: "Findaro 0.1.166 · macOS 15+ · Apple Silicon",
     title: "Merge two folders without losing a single file.",
     sub: "Findaro is a native Mac file manager with two panes, a ⌘X that really cuts, and a Smart Merge that shows every conflict before it copies, checks each file with SHA-256 and rolls back on its own if anything fails halfway.",
     primary: "Download free for 14 days",
@@ -389,7 +389,7 @@ const es: Copy = {
     langLabel: "Idioma",
   },
   hero: {
-    eyebrow: "Findaro 0.1.165 · macOS 15+ · Apple Silicon",
+    eyebrow: "Findaro 0.1.166 · macOS 15+ · Apple Silicon",
     title: "Junta dos carpetas sin perder un solo archivo.",
     sub: "Findaro es un gestor de archivos nativo para Mac con dos paneles, un ⌘X que corta de verdad y un Smart Merge que te enseña cada conflicto antes de copiar, verifica cada archivo con SHA-256 y revierte solo si algo falla a medias.",
     primary: "Descargar gratis 14 días",

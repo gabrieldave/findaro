@@ -45,6 +45,60 @@ PY
 
 VERSION="$(grep -E '^VERSION=' scripts/package-app.sh | head -1 | cut -d= -f2 | tr -d '"')"
 BUILD="$(grep -E '^BUILD=' scripts/package-app.sh | head -1 | cut -d= -f2 | tr -d '"')"
+
+# ---------------------------------------------------------------------------
+# CANDADO ANTI-VERSIÓN-REPETIDA (monotónico) — OBLIGATORIO.
+# UpdateFeed.isVersion compara SOLO CFBundleShortVersionString (ignora build):
+# republicar una VERSION ya viva deja congelados a los clientes que ya la tienen.
+# La VERSION local debe ser ESTRICTAMENTE mayor que la publicada en el feed vivo.
+# Escape consciente: FORCE_REPUBLISH=1 (solo para corregir un release roto).
+# ---------------------------------------------------------------------------
+LIVE_FEED_URL="${FINDARO_LIVE_FEED_URL:-https://ordena.iareal.net/downloads/latest.json}"
+FORCE_REPUBLISH="${FORCE_REPUBLISH:-0}"
+
+if [[ "$FORCE_REPUBLISH" != "1" ]]; then
+  LIVE_VERSION="$(curl -fsSL --max-time 25 -H 'Cache-Control: no-cache' \
+    "${LIVE_FEED_URL}?t=$(date +%s)" 2>/dev/null \
+    | python3 -c 'import json,sys; print(json.load(sys.stdin).get("version",""))' 2>/dev/null || true)"
+
+  if [[ -z "$LIVE_VERSION" ]]; then
+    echo "ERROR BLOQUEANTE: no pude leer la version publicada en ${LIVE_FEED_URL} (fail-closed)." >&2
+    echo "  Si el fallo es del servidor, republica de forma consciente con FORCE_REPUBLISH=1." >&2
+    exit 1
+  fi
+
+  if ! python3 - "$VERSION" "$LIVE_VERSION" <<'PY'
+import sys
+
+
+def parse(v):
+    out = []
+    for p in v.strip().split("."):
+        try:
+            out.append(int(p))
+        except ValueError:
+            out.append(0)
+    return out
+
+
+local_v, live_v = parse(sys.argv[1]), parse(sys.argv[2])
+n = max(len(local_v), len(live_v))
+local_v += [0] * (n - len(local_v))
+live_v += [0] * (n - len(live_v))
+sys.exit(0 if local_v > live_v else 1)
+PY
+  then
+    echo "ERROR BLOQUEANTE: VERSION local debe ser estrictamente mayor que la version publicada en ordena.iareal.net/downloads/latest.json" >&2
+    echo "  local : ${VERSION} (build ${BUILD})" >&2
+    echo "  live  : ${LIVE_VERSION}" >&2
+    echo "  Accion: sube VERSION (+1 patch) y BUILD (+1) en scripts/package-app.sh." >&2
+    echo "  (FORCE_REPUBLISH=1 solo para corregir un release roto, nunca para reusar version.)" >&2
+    exit 1
+  fi
+
+  echo "==> Candado OK: ${VERSION} (build ${BUILD}) > ${LIVE_VERSION} publicado."
+fi
+
 ARCH="$(uname -m)"
 PRODUCT_NAME="Findaro"
 LEGACY_NAME="Ordena"

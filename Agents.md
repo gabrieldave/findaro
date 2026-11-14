@@ -60,3 +60,23 @@ Siempre que el CEO pida diseñar código o cambios técnicos en un chat (`Carbon
 3. **Instrucciones precisas de implementación y código clave** (sin omitir imports ni tipos).
 4. **Restricción explícita:** Qué archivos o funciones NO debe tocar OpenCode.
 5. **Comando de verificación en terminal** para confirmar compilación limpia.
+---
+
+## 5. Regla obligatoria de releases y auto-update (monotónico)
+
+> Aplica a **Findaro** y **Ordena**. Vinculante para cualquier IA (`[EJECUTOR OPENCODE]` incluido).
+
+1. **Cada mínimo cambio exige subir versión.** Cualquier modificación en `Sources/`, `Resources/` o
+   `web/` que deba llegar a las Macs de los clientes requiere incrementar **`CFBundleShortVersionString`**
+   (+1 patch, p. ej. `0.1.165` → `0.1.166`) **y** **`CFBundleVersion`** (+1 build, p. ej. `157` → `158`)
+   en `scripts/package-app.sh`, respecto de la versión **publicada en vivo** en
+   `https://ordena.iareal.net/downloads/latest.json`.
+2. **Por qué:** `UpdateFeed.isVersion` compara únicamente `CFBundleShortVersionString` (el campo `build`
+   se ignora). Republicar la misma versión **congela** a todos los clientes que ya la tienen instalada.
+3. **Candado automático:** `scripts/publish-update.sh` aborta con código 1 si `VERSION` local es menor o
+   igual a la `version` viva del feed. Único escape consciente: `FORCE_REPUBLISH=1` (solo para corregir
+   un release roto, nunca para reutilizar número de versión).
+4. **Tag inmutable:** cada release publicado debe llevar `git tag -a v<VERSION>` y subirse con `--tags`.
+5. **Orden de release:** bump versión → `scripts/publish-update.sh` (firma + notariza + sube + purga CDN)
+   → sincronizar `web/` (version, build, SHA-256 post-staple) → `npm run typecheck && npm run build` →
+   commit + tag + push → deploy Coolify → verificar `latest.json` en vivo y `/api/health`.
