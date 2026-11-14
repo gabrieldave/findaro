@@ -25,8 +25,10 @@ export const GET = handle(async (req) => {
     paid_at: Date | null;
     promo_slot: boolean | null;
     stripe_session_id: string | null;
+    license_id: string | null;
     license_key: string | null;
     license_plan: string | null;
+    license_tier: string | null;
     license_seats: number | null;
     license_revoked: boolean | null;
     active_macs: number;
@@ -35,7 +37,7 @@ export const GET = handle(async (req) => {
     `SELECT c.id, c.email, c.name, c.referral_code, c.created_at,
             o.id AS order_id, o.amount_usd, o.status, o.paid_at, o.promo_slot,
             o.stripe_session_id,
-            l.license_key, l.plan AS license_plan, l.seats AS license_seats, l.revoked AS license_revoked,
+            l.id AS license_id, l.license_key, l.plan AS license_plan, COALESCE(l.tier, l.plan) AS license_tier, l.seats AS license_seats, l.revoked AS license_revoked,
             COALESCE(act.cnt, 0)::int AS active_macs,
             COALESCE(ref.cnt, 0)::int AS referred_count
      FROM customers c
@@ -115,6 +117,10 @@ export const GET = handle(async (req) => {
      LIMIT 20`,
   );
 
+  const proLicensesRes = await query<{ cnt: string }>(
+    `SELECT COUNT(*)::text AS cnt FROM licenses WHERE plan = 'pro' AND revoked = false`,
+  );
+
   const pendingRefs = await query<{ cnt: string; amount: string }>(
     `SELECT COUNT(*)::text AS cnt,
             COALESCE(SUM(commission_amount_usd), 0)::text AS amount
@@ -132,6 +138,8 @@ export const GET = handle(async (req) => {
     revenueUsd: Number(revenue.rows[0]?.revenue_usd || 0),
     paidOrders,
     paidOrdersByTier,
+    proLicenses: Number(proLicensesRes.rows[0]?.cnt || 0),
+    totalCustomers: rows.length,
     activeTrials: Number(trials.rows[0]?.active_trials || 0),
     trafficBySource,
     pendingReferrals: {

@@ -1,13 +1,15 @@
+import { funnel } from "@/config/funnel";
 import { query } from "./db";
 
 /**
- * Escalera comercial FINDARO (pago único):
- * - solo     → UI "Personal" · 1 Mac · $29
- * - personal → UI "Pro"      · 2 Macs · $39  (tier histórico en BD; no renombrar)
- * - family   → UI "Familiar" · 5 Macs · $59
+ * Escalera comercial FINDARO (pago único de por vida, precios FIJOS):
+ * - solo     → UI "Solo"   · 1 Mac  · $29
+ * - personal → UI "Pro"    · 2 Macs · $39  (tier histórico en BD; no renombrar) · antes $59
+ * - family   → UI "Family" · 5 Macs · $59  · antes $79
  *
- * Los importes se pueden sobreescribir por entorno sin romper el build
- * si falta alguna variable (fallback a los defaults).
+ * Los defaults salen de src/config/funnel.ts (misma fuente que la landing).
+ * Se pueden sobreescribir por entorno, pero el precio YA NO sube solo por conteo
+ * de ventas: lo que ve el cliente es lo que cobra Stripe.
  */
 export type LicenseTier = "solo" | "personal" | "family";
 
@@ -23,6 +25,8 @@ export type TierInfo = {
   descriptionEn: string;
   badgeEs?: string;
   badgeEn?: string;
+  /** Precio regular tachado (Founder Launch Price). null = sin tachado. */
+  compareAtUsd: number | null;
 };
 
 function envUsd(key: string, fallback: number): number {
@@ -32,9 +36,14 @@ function envUsd(key: string, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-const SOLO_PRICE = envUsd("FINDARO_PRICE_SOLO_USD", envUsd("STRIPE_PRICE_PERSONAL_USD", 29));
-const PRO_PRICE = envUsd("FINDARO_PRICE_PRO_USD", 39);
-const FAMILY_PRICE = envUsd("FINDARO_PRICE_FAMILY_USD", 59);
+const FUNNEL_TIER = Object.fromEntries(funnel.pricing.tiers.map((t) => [t.checkoutTier, t])) as Record<
+  LicenseTier,
+  (typeof funnel.pricing.tiers)[number]
+>;
+
+const SOLO_PRICE = envUsd("FINDARO_PRICE_SOLO_USD", envUsd("STRIPE_PRICE_PERSONAL_USD", FUNNEL_TIER.solo.price));
+const PRO_PRICE = envUsd("FINDARO_PRICE_PRO_USD", FUNNEL_TIER.personal.price);
+const FAMILY_PRICE = envUsd("FINDARO_PRICE_FAMILY_USD", FUNNEL_TIER.family.price);
 
 /** Si es "0"/"false", el tier Personal ($29) no se ofrece en checkout (los otros siguen). */
 export function isSoloTierEnabled(): boolean {
@@ -48,14 +57,15 @@ export function isSoloTierEnabled(): boolean {
 export const TIERS: Record<LicenseTier, TierInfo> = {
   solo: {
     tier: "solo",
-    name: "Personal",
-    nameEn: "Personal",
+    name: "Solo",
+    nameEn: "Solo",
     seats: 1,
     priceUsd: SOLO_PRICE,
     discountedUsd: Math.max(1, SOLO_PRICE - 3),
     referralDiscountUsd: 3,
     description: "1 Mac · De por vida · Actualizaciones automáticas",
     descriptionEn: "1 Mac · Lifetime license · Automatic updates",
+    compareAtUsd: FUNNEL_TIER.solo.compareAt,
   },
   personal: {
     tier: "personal",
@@ -67,19 +77,21 @@ export const TIERS: Record<LicenseTier, TierInfo> = {
     referralDiscountUsd: 4,
     description: "2 Macs · De por vida · Ideal escritorio + MacBook",
     descriptionEn: "2 Macs · Lifetime · Ideal for desktop + MacBook",
-    badgeEs: "Mejor Valor",
-    badgeEn: "Most Popular",
+    badgeEs: "Recomendado",
+    badgeEn: "Recommended",
+    compareAtUsd: FUNNEL_TIER.personal.compareAt,
   },
   family: {
     tier: "family",
-    name: "Familiar / Studio",
-    nameEn: "Family / Studio",
+    name: "Family",
+    nameEn: "Family",
     seats: 5,
     priceUsd: FAMILY_PRICE,
     discountedUsd: Math.max(1, FAMILY_PRICE - 6),
     referralDiscountUsd: 6,
     description: "5 Macs · De por vida · Soporte prioritario",
     descriptionEn: "5 Macs · Lifetime license · Priority support",
+    compareAtUsd: FUNNEL_TIER.family.compareAt,
   },
 };
 
@@ -93,20 +105,12 @@ export function referralDiscountForTier(tier: LicenseTier): number {
   return TIERS[tier]?.referralDiscountUsd ?? 4;
 }
 
-/** Importes permitidos por tier (base + referido + post-promo) para validación n8n/servidor. */
+/** Importes permitidos por tier (base + referido) para validación n8n/servidor. Precios fijos. */
 export function allowedAmountsForTier(tier: LicenseTier): number[] {
   const info = TIERS[tier];
   const base = info.priceUsd;
   const withRef = Math.max(1, base - info.referralDiscountUsd);
-  if (tier === "solo") {
-    return Array.from(new Set([base, withRef]));
-  }
-  if (tier === "family") {
-    // Promo vigente: 59/53; post-promo: 79/73 (regular+20 ± referido)
-    return Array.from(new Set([base, withRef, base + 20, withRef + 20]));
-  }
-  // personal/Pro: promo 39/35; post-promo sube a regular histórico 59/55
-  return Array.from(new Set([base, withRef, 59, 55]));
+  return Array.from(new Set([base, withRef]));
 }
 
 export type PromoOffer = {
@@ -123,62 +127,39 @@ export type PromoOffer = {
 };
 
 export async function currentOffer(tier: LicenseTier = "personal"): Promise<PromoOffer> {
-  const { rows } = await query<{
-    sold_count: number;
-    promo_limit: number;
-    promo_price: string;
-    regular_price: string;
-  }>("SELECT sold_count, promo_limit, promo_price, regular_price FROM promo_state WHERE id = 1");
-  const row = rows[0];
-  if (!row) {
-    const defaultEn = `Lifetime from $${TIERS.solo.priceUsd} · Pro $${TIERS.personal.priceUsd} (2 Macs) · Family $${TIERS.family.priceUsd}`;
-    const defaultEs = `Desde $${TIERS.solo.priceUsd} · Pro $${TIERS.personal.priceUsd} (2 Macs) · Familiar $${TIERS.family.priceUsd}`;
-    return {
-      amountUsd: TIERS[tier].priceUsd,
-      isPromo: true,
-      remaining: 1000,
-      soldCount: 0,
-      promoLimit: 1000,
-      regularPrice: 59,
-      label: defaultEn,
-      labelEn: defaultEn,
-      labelEs: defaultEs,
-      tiers: TIERS,
-    };
+  // Precio fijo por tier. promo_state solo se lee para estadísticas internas (soldCount);
+  // ya no cambia el importe ni genera urgencia artificial en la web.
+  let sold = 0;
+  let limit = 0;
+  try {
+    const { rows } = await query<{ sold_count: number; promo_limit: number }>(
+      "SELECT sold_count, promo_limit FROM promo_state WHERE id = 1",
+    );
+    if (rows[0]) {
+      sold = Number(rows[0].sold_count) || 0;
+      limit = Number(rows[0].promo_limit) || 0;
+    }
+  } catch {
+    // Sin BD (build/preview): seguimos con los precios fijos.
   }
-  const sold = Number(row.sold_count);
-  const limit = Number(row.promo_limit);
-  const promo = Number(row.promo_price);
-  const regular = Number(row.regular_price);
-  const isPromo = sold < limit;
-  const remaining = Math.max(0, limit - sold);
-
-  // Solo siempre a su precio de entrada.
-  // Pro (personal): durante promo usa promo_price ($39); al agotarse sube a regular ($59).
-  // Familiar: durante promo = regular ($59); post-promo = regular+20 ($79).
-  let basePrice: number;
-  if (tier === "solo") {
-    basePrice = TIERS.solo.priceUsd;
-  } else if (isPromo) {
-    basePrice = tier === "family" ? regular : promo;
-  } else {
-    basePrice = tier === "family" ? regular + 20 : regular;
-  }
-
-  const labelEn = isPromo
-    ? `Launch price: $${basePrice} USD (${TIERS[tier].seats} Mac${TIERS[tier].seats === 1 ? "" : "s"})`
-    : `Lifetime License: $${basePrice} USD (${TIERS[tier].seats} Mac${TIERS[tier].seats === 1 ? "" : "s"})`;
-  const labelEs = isPromo
-    ? `Precio de lanzamiento: $${basePrice} USD (${TIERS[tier].seats} Mac${TIERS[tier].seats === 1 ? "" : "s"})`
-    : `Licencia de por vida: $${basePrice} USD (${TIERS[tier].seats} Mac${TIERS[tier].seats === 1 ? "" : "s"})`;
+  const info = TIERS[tier];
+  const basePrice = info.priceUsd;
+  const compareAt = info.compareAtUsd;
+  const seatsLabel = `${info.seats} Mac${info.seats === 1 ? "" : "s"}`;
+  const labelEn = compareAt
+    ? `Founder launch price: $${basePrice} USD (was $${compareAt}) · ${seatsLabel}`
+    : `Lifetime license: $${basePrice} USD · ${seatsLabel}`;
+  const labelEs = compareAt
+    ? `Precio de fundador: $${basePrice} USD (antes $${compareAt}) · ${seatsLabel}`
+    : `Licencia de por vida: $${basePrice} USD · ${seatsLabel}`;
 
   return {
     amountUsd: basePrice,
-    isPromo,
-    remaining,
+    isPromo: compareAt != null,
+    remaining: Math.max(0, limit - sold),
     soldCount: sold,
     promoLimit: limit,
-    regularPrice: regular,
+    regularPrice: compareAt ?? basePrice,
     label: labelEn,
     labelEn,
     labelEs,

@@ -14,3 +14,12 @@ body {
 a {
   color: inherit;
 }
+
+/* Landing luminosa (Mesa de luz): evita el fondo oscuro al hacer overscroll. */
+html:has([data-landing]),
+html:has([data-landing]) body,
+html:has([data-light]),
+html:has([data-light]) body {
+  background: #f7f8fa;
+  color: #1a1d24;
+}

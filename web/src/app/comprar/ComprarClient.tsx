@@ -3,28 +3,28 @@
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import styles from "../marketing.module.css";
+import { funnel } from "@/config/funnel";
+import { readClientLang, writeClientLang, type Lang } from "@/lib/lang";
+import styles from "../light.module.css";
 import ui from "./comprar.module.css";
 
 type TierKey = "solo" | "personal" | "family";
 
-type Offer = {
-  amountUsd: number;
-  isPromo: boolean;
-  remaining: number;
-  promoLimit: number;
-  regularPrice: number;
-  label: string;
-};
+const REFERRAL_DISCOUNT: Record<TierKey, number> = { solo: 3, personal: 4, family: 6 };
 
-const TIER_META: Record<
-  TierKey,
-  { seats: number; price: number; discount: number; discounted: number }
-> = {
-  solo: { seats: 1, price: 29, discount: 3, discounted: 26 },
-  personal: { seats: 2, price: 39, discount: 4, discounted: 35 },
-  family: { seats: 5, price: 59, discount: 6, discounted: 53 },
-};
+/** Precios fijos desde src/config/funnel.ts (misma fuente que la landing y que lib/pricing.ts). */
+const TIER_META = Object.fromEntries(
+  funnel.pricing.tiers.map((tier) => [
+    tier.checkoutTier,
+    {
+      seats: tier.seats,
+      price: tier.price,
+      compareAt: tier.compareAt as number | null,
+      discount: REFERRAL_DISCOUNT[tier.checkoutTier],
+      discounted: Math.max(1, tier.price - REFERRAL_DISCOUNT[tier.checkoutTier]),
+    },
+  ]),
+) as Record<TierKey, { seats: number; price: number; compareAt: number | null; discount: number; discounted: number }>;
 
 /** Acepta ?tier=solo|personal|pro|family desde la landing. "pro" es alias UI de "personal". */
 function tierFromParam(raw: string | null): TierKey {
@@ -46,13 +46,9 @@ function ComprarInner() {
   const paramLang = searchParams.get("lang");
   const paramTier = searchParams.get("tier");
 
-  const [lang, setLang] = useState<"es" | "en">(() => {
+  const [lang, setLang] = useState<Lang>(() => {
     if (paramLang === "en" || paramLang === "es") return paramLang;
-    if (typeof document !== "undefined") {
-      const match = document.cookie.match(/findaro_lang=(en|es)/);
-      if (match) return match[1] as "es" | "en";
-    }
-    return "en";
+    return readClientLang() ?? "en";
   });
 
   // Pro ($39) por defecto: escalón de mejor valor. La landing puede preseleccionar con ?tier=.
@@ -60,7 +56,6 @@ function ComprarInner() {
   const [referralCode, setReferralCode] = useState(urlRef);
   const [refValid, setRefValid] = useState(false);
   const [refStatus, setRefStatus] = useState<"idle" | "valid" | "invalid">("idle");
-  const [offer, setOffer] = useState<Offer | null>(null);
   const [soloEnabled, setSoloEnabled] = useState(true);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -73,11 +68,9 @@ function ComprarInner() {
   const finalPrice = hasDiscount ? meta.discounted : meta.price;
 
   const handleToggleLang = () => {
-    const nextLang = isEn ? "es" : "en";
+    const nextLang: Lang = isEn ? "es" : "en";
     setLang(nextLang);
-    if (typeof document !== "undefined") {
-      document.cookie = `findaro_lang=${nextLang}; path=/; max-age=31536000`;
-    }
+    writeClientLang(nextLang);
   };
 
   const t = {
@@ -85,22 +78,25 @@ function ComprarInner() {
     sub: isEn
       ? "Pay once, keep it forever. Free updates and all future features included. No subscription, no tokens, no cloud."
       : "Pagas una vez y es tuya para siempre. Actualizaciones y nuevas funciones incluidas. Sin suscripción, sin tokens, sin nube.",
-    soloTier: "Personal",
+    soloTier: "Solo",
     proTier: isEn ? "Pro · Desktop + MacBook" : "Pro · Escritorio + MacBook",
-    familyTier: isEn ? "Family / Studio" : "Familiar / Studio",
+    familyTier: "Family",
     soloDesc: isEn ? "1 Mac lifetime" : "1 Mac de por vida",
     proDesc: isEn ? "2 Macs lifetime" : "2 Macs de por vida",
     familyDesc: isEn ? "5 Macs · priority support" : "5 Macs · soporte prioritario",
     perMac: (v: string) => (isEn ? `${v} per Mac` : `${v} por Mac`),
-    popular: isEn ? "The smart buy" : "La compra inteligente",
+    popular: isEn ? "Recommended" : "Recomendado",
+    launch: isEn
+      ? `Founder launch price: Pro $${TIER_META.personal.price} (was $${TIER_META.personal.compareAt}) · Family $${TIER_META.family.price} (was $${TIER_META.family.compareAt})`
+      : `Precio de fundador: Pro $${TIER_META.personal.price} (antes $${TIER_META.personal.compareAt}) · Family $${TIER_META.family.price} (antes $${TIER_META.family.compareAt})`,
     tiersLabel: isEn ? "Choose your license" : "Elige tu licencia",
     anchor: isEn ? (
       <>
-        A subscription like Path Finder: <s>$32/year</s> → <b>$96 over 3 years</b>. FINDARO Pro: <b>$39 once</b>, for 2 Macs.
+        A yearly subscription like Path Finder: <s>~${funnel.savings.pathFinderYearMin}–{funnel.savings.pathFinderYearMax}/year</s> → <b>~${funnel.savings.pathFinderYearMin * 3}–{funnel.savings.pathFinderYearMax * 3} over 3 years</b>. Findaro Pro: <b>${funnel.savings.findaroPro} once</b>, for 2 Macs.
       </>
     ) : (
       <>
-        Una suscripción como Path Finder: <s>$32/año</s> → <b>$96 en 3 años</b>. FINDARO Pro: <b>$39 una vez</b>, para 2 Macs.
+        Una suscripción anual como Path Finder: <s>~${funnel.savings.pathFinderYearMin}–{funnel.savings.pathFinderYearMax}/año</s> → <b>~${funnel.savings.pathFinderYearMin * 3}–{funnel.savings.pathFinderYearMax * 3} en 3 años</b>. Findaro Pro: <b>${funnel.savings.findaroPro} una vez</b>, para 2 Macs.
       </>
     ),
     refValidMsg: (code: string, discount: number) =>
@@ -126,12 +122,13 @@ function ComprarInner() {
       ? ["✓ 14-Day Free Trial (No Card)", "✓ 14-Day Money-Back Guarantee", "✓ One-time payment"]
       : ["✓ 14 días gratis sin tarjeta", "✓ Reembolso 14 días sin preguntas", "✓ Pago único"],
     securityNote: isEn
-      ? "🛡️ 100% secure payment with Stripe. No subscriptions or hidden fees. After purchase you get a referral link to give friends a discount."
-      : "🛡️ Pago 100% seguro con Stripe. Sin suscripciones ni cobros ocultos. Al comprar recibirás tu enlace de recomendación para compartir un descuento.",
+      ? "Secure payment with Stripe. No subscription, no hidden fees. After you buy, you get a referral link that gives your friends a discount."
+      : "Pago seguro con Stripe. Sin suscripción ni cobros ocultos. Al comprar recibes un enlace de recomendación que les da un descuento a tus amigos.",
     terms: isEn ? "Terms of Service" : "Términos de Servicio",
     privacy: isEn ? "Privacy" : "Privacidad",
     refund: isEn ? "Refund Policy" : "Política de Reembolso",
     contact: isEn ? "Contact" : "Contacto",
+    support: isEn ? "Support" : "Soporte",
   };
 
   useEffect(() => {
@@ -182,7 +179,6 @@ function ComprarInner() {
       .then((r) => r.json())
       .then((j) => {
         if (j.ok) {
-          setOffer(j.data);
           if (typeof j.data?.soloEnabled === "boolean") {
             setSoloEnabled(j.data.soloEnabled);
             if (!j.data.soloEnabled && selectedTier === "solo") {
@@ -191,7 +187,7 @@ function ComprarInner() {
           }
         }
       })
-      .catch(() => setOffer(null));
+      .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -257,7 +253,7 @@ function ComprarInner() {
         {badge ? <span className={ui.badge}>{badge}</span> : null}
         <span className={ui.tierName}>{title}</span>
         <span className={ui.tierPrice}>
-          {discounted ? <s>${m.price}</s> : null}${price}
+          {discounted ? <s>${m.price}</s> : m.compareAt ? <s>${m.compareAt}</s> : null}${price}
           <small>USD</small>
         </span>
         <span className={ui.tierDesc}>{desc}</span>
@@ -269,24 +265,21 @@ function ComprarInner() {
   return (
     <main className={styles.page}>
       <div className={`${styles.card} ${ui.card}`}>
-        <div className={ui.header}>
-          <p className={styles.brand} style={{ margin: 0 }}>FINDARO</p>
-          <button type="button" onClick={handleToggleLang} className={ui.langBtn}>
-            🌐 {isEn ? "Español" : "English"}
+        <div className={styles.top}>
+          <Link className={styles.brand} href={isEn ? "/" : "/es"}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-mark.png" alt="" width={28} height={28} />
+            Findaro
+          </Link>
+          <button type="button" onClick={handleToggleLang} className={styles.langBtn} lang={isEn ? "es" : "en"}>
+            {isEn ? "ES" : "EN"}
           </button>
         </div>
 
         <h1 className={ui.title}>{t.title}</h1>
         <p className={styles.sub}>{t.sub}</p>
 
-        {offer && (
-          <p className={ui.ladder}>
-            ⚡️{" "}
-            {isEn
-              ? `Lifetime ladder: $29 / $39 / $59 · ${offer.remaining} launch seats left`
-              : `Escalera de por vida: $29 / $39 / $59 · quedan ${offer.remaining} cupos de lanzamiento`}
-          </p>
-        )}
+        <p className={ui.ladder}>{t.launch}</p>
 
         <div
           role="radiogroup"
@@ -360,6 +353,8 @@ function ComprarInner() {
           <span>·</span>
           <Link href={`/reembolso?lang=${lang}`}>{t.refund}</Link>
           <span>·</span>
+          <Link href={`/soporte?lang=${lang}`}>{t.support}</Link>
+          <span>·</span>
           <a href={isEn ? "mailto:support@findaro.iareal.net" : "mailto:soporte@findaro.iareal.net"}>{t.contact}</a>
         </footer>
       </div>
@@ -369,7 +364,7 @@ function ComprarInner() {
 
 export default function ComprarClient() {
   return (
-    <Suspense fallback={<main className={styles.page}><p>Loading…</p></main>}>
+    <Suspense fallback={<main className={styles.page} />}>
       <ComprarInner />
     </Suspense>
   );

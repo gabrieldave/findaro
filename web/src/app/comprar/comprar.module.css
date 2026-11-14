@@ -1,47 +1,32 @@
-/* FINDARO /comprar · Apple Cupertino v2 (complementa marketing.module.css) */
+/* FINDARO /comprar · línea visual "Mesa de luz" (complementa light.module.css) */
 .card {
-  width: min(640px, 100%);
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-
-.langBtn {
-  min-height: 36px;
-  padding: 0 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  background: rgba(56, 189, 248, 0.12);
-  color: #38bdf8;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+  width: min(660px, 100%);
 }
 
 .title {
-  margin: 12px 0 0;
-  font-size: clamp(26px, 6vw, 34px);
-  line-height: 1.1;
-  letter-spacing: -0.025em;
+  margin: 22px 0 0;
+  font-size: clamp(28px, 6vw, 38px);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
 }
 
 .ladder {
-  margin: 12px 0 0;
-  color: #38bdf8;
-  font-size: 13px;
-  font-weight: 500;
+  display: inline-block;
+  margin: 14px 0 0;
+  padding: 7px 11px;
+  border-radius: 9px;
+  background: #f1faf6;
+  border: 1px solid #cfeee1;
+  color: #0b7a55;
+  font: 500 12px/1.4 var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 .tiers {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin: 30px 0 18px;
+  margin: 28px 0 18px;
 }
 
 .tiersTwo {
@@ -55,72 +40,74 @@
   gap: 4px;
   min-width: 0;
   padding: 16px 14px 14px;
-  border-radius: 14px;
-  border: 1px solid #334155;
-  background: rgba(15, 23, 42, 0.6);
-  color: #fff;
+  border-radius: 16px;
+  border: 1px solid #e2e5ea;
+  background: #fff;
+  color: #1a1d24;
   text-align: left;
   font: inherit;
   cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .tier:hover {
-  border-color: #475569;
+  border-color: #c9ced6;
 }
 
 .tier:focus-visible {
-  outline: 2px solid #22d3ee;
+  outline: 2px solid #0e9f6e;
   outline-offset: 3px;
 }
 
 .tierSelected {
-  border: 2px solid #60a5fa;
+  border: 2px solid #1a1d24;
   padding: 15px 13px 13px;
-  background: rgba(37, 99, 235, 0.14);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 14px 30px -18px rgba(26, 29, 36, 0.45);
 }
 
 .tierPro {
-  background: radial-gradient(ellipse 90% 70% at 50% 0, rgba(37, 99, 235, 0.22), transparent 70%), rgba(15, 23, 42, 0.7);
+  background: linear-gradient(#fff, #f6fbf9);
+}
+
+.tierPro.tierSelected {
+  border-color: #0e9f6e;
+  box-shadow: 0 16px 34px -18px rgba(14, 159, 110, 0.5);
 }
 
 .tierFamily.tierSelected {
-  border-color: #a855f7;
-  background: rgba(168, 85, 247, 0.12);
-  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.1);
+  border-color: #1a1d24;
 }
 
 .badge {
   position: absolute;
   top: -10px;
   left: 12px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #93c5fd, #c4b5fd);
-  color: #0b1220;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: #0e9f6e;
+  color: #fff;
+  font: 500 10.5px/1 var(--font-mono), monospace;
   white-space: nowrap;
 }
 
 .tierName {
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 700;
 }
 
 .tierPrice {
-  font-size: 26px;
-  font-weight: 800;
+  font-size: 28px;
+  font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
 .tierPrice small {
   margin-left: 4px;
-  color: #94a3b8;
+  color: #646b78;
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0;
@@ -128,40 +115,40 @@
 
 .tierPrice s {
   margin-right: 6px;
-  color: #64748b;
-  font-size: 15px;
-  font-weight: 600;
+  color: #8a909b;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .tierDesc {
-  color: #94a3b8;
+  color: #646b78;
   font-size: 12.5px;
   line-height: 1.35;
 }
 
 .tierPer {
-  color: #cbd5e1;
-  font-size: 12.5px;
-  font-weight: 600;
+  color: #1a1d24;
+  font: 500 11.5px/1.3 var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 .anchor {
   margin: 0 0 18px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #d4d4d8;
+  background: #f2f4f7;
+  border: 1px solid #e2e5ea;
+  color: #454b57;
   font-size: 13.5px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .anchor b {
-  color: #fff;
+  color: #1a1d24;
 }
 
 .anchor s {
-  color: #71717a;
+  color: #8a909b;
 }
 
 .alertOk,
@@ -173,15 +160,15 @@
 }
 
 .alertOk {
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  color: #4ade80;
+  background: #f1faf6;
+  border: 1px solid #cfeee1;
+  color: #0b7a55;
 }
 
 .alertErr {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #f87171;
+  background: #fdf0f0;
+  border: 1px solid #f6caca;
+  color: #b4262b;
 }
 
 .seal {
@@ -197,9 +184,9 @@
 .seal li {
   padding: 6px 12px;
   border-radius: 999px;
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  color: #86efac;
+  background: #f1faf6;
+  border: 1px solid #cfeee1;
+  color: #0b7a55;
   font-size: 12.5px;
   font-weight: 600;
 }
@@ -207,17 +194,17 @@
 .footer {
   margin-top: 24px;
   padding-top: 16px;
-  border-top: 1px solid #1e293b;
+  border-top: 1px solid #e2e5ea;
   display: flex;
   justify-content: center;
   gap: 8px 12px;
   flex-wrap: wrap;
-  font-size: 12px;
-  color: #64748b;
+  font-size: 12.5px;
+  color: #8a909b;
 }
 
 .footer a {
-  color: #94a3b8;
+  color: #646b78;
   text-decoration: underline;
 }
 

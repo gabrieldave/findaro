@@ -3,6 +3,7 @@ import { fulfillPaidOrder } from "@/lib/fulfill";
 import { detectLanguageFromHeaders } from "@/lib/geo";
 import { limitByIp } from "@/lib/ratelimit";
 import { VERIFY_GATEWAY_URL } from "@/lib/site";
+import { langFromCookieHeader } from "@/lib/lang";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,8 +21,7 @@ export const POST = handle(async (req) => {
   } | null;
 
   const cookieHeader = req.headers.get("cookie") || "";
-  const cookieLangMatch = cookieHeader.match(/(?:^|;\s*)findaro_lang=(en|es)/);
-  const lang = detectLanguageFromHeaders(req.headers, cookieLangMatch?.[1], body?.lang);
+  const lang = detectLanguageFromHeaders(req.headers, langFromCookieHeader(cookieHeader), body?.lang);
 
   const sessionId = (body?.sessionId || "").trim();
   if (!sessionId || !STRIPE_SESSION_REGEX.test(sessionId)) {

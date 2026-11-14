@@ -1,8 +1,11 @@
-import { ok } from "@/lib/api";
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export function GET() {
-  return ok({ status: "healthy", app: "findaro", ts: Date.now() });
+  return NextResponse.json(
+    { ok: true, app: "findaro", version: "0.1.165", status: "healthy" },
+    { status: 200 },
+  );
 }

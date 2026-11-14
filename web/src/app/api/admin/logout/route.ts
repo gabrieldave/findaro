@@ -8,8 +8,8 @@ export const POST = handle(async (req) => {
   const res = ok({ loggedOut: true });
   res.cookies.set("findaro_admin", "", {
     httpOnly: true,
-    secure: true,
-    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
     path: "/",
     maxAge: 0,
   });

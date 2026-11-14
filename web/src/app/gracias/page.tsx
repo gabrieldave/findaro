@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import styles from "../marketing.module.css";
+import { readClientLang } from "@/lib/lang";
 
 type ConfirmData = {
   downloadUrl: string;
@@ -22,8 +23,8 @@ function GraciasInner() {
   const [lang, setLang] = useState<"es" | "en">(() => {
     if (paramLang === "en" || paramLang === "es") return paramLang;
     if (typeof document !== "undefined") {
-      const match = document.cookie.match(/findaro_lang=(en|es)/);
-      if (match) return match[1] as "es" | "en";
+      const saved = readClientLang();
+      if (saved) return saved;
     }
     return "en"; // Global default: English
   });

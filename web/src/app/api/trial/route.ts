@@ -6,6 +6,7 @@ import { detectLanguageFromHeaders } from "@/lib/geo";
 import { issueTrialLicense, TRIAL_DAYS } from "@/lib/license";
 import { PUBLIC_APP_URL } from "@/lib/site";
 import { hit, limitByIp, tooMany } from "@/lib/ratelimit";
+import { langFromCookieHeader } from "@/lib/lang";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,8 +26,7 @@ export const POST = handle(async (req) => {
   } | null;
 
   const cookieHeader = req.headers.get("cookie") || "";
-  const cookieLangMatch = cookieHeader.match(/(?:^|;\s*)findaro_lang=(en|es)/);
-  const lang = detectLanguageFromHeaders(req.headers, cookieLangMatch?.[1], body?.lang);
+  const lang = detectLanguageFromHeaders(req.headers, langFromCookieHeader(cookieHeader), body?.lang);
   const isEn = lang === "en";
 
   const email = (body?.email || "").trim().toLowerCase();

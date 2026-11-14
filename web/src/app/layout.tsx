@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { cookies, headers } from "next/headers";
 import { detectLanguageFromHeaders } from "@/lib/geo";
+import { LANG_HEADER, langFromCookieStore, parseLang } from "@/lib/lang";
 import { PUBLIC_APP_URL } from "@/lib/site";
 import "./globals.css";
 
@@ -9,23 +10,16 @@ const base = PUBLIC_APP_URL.replace(/\/$/, "");
 export const metadata: Metadata = {
   metadataBase: new URL(base),
   title: {
-    default: "FINDARO — Local AI Native File Manager for macOS",
-    template: "%s · FINDARO",
+    default: "Findaro — Native file manager for macOS",
+    template: "%s · Findaro",
   },
   description:
-    "Local AI native file manager for macOS. Dual panes, Smart Merge, on-device semantic search. 14-day free trial — no credit card. Lifetime: Personal $29 · Pro $39 · Family $59.",
+    "Native file manager for macOS: two panes, real ⌘X, Smart Merge with SHA-256 checks, 2-phase batch rename, local voice and AI. 14-day free trial, no card. One payment: Solo $29 · Pro $39 · Family $59.",
   applicationName: "FINDARO",
   robots: {
     index: true,
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large" },
-  },
-  alternates: {
-    languages: {
-      en: `${base}/?lang=en`,
-      es: `${base}/?lang=es`,
-      "x-default": `${base}/?lang=en`,
-    },
   },
   openGraph: {
     type: "website",
@@ -33,7 +27,7 @@ export const metadata: Metadata = {
     title: "FINDARO — Local AI Native File Manager for macOS",
     description:
       "On-device AI file manager for Mac. 14-day free trial, no credit card. Lifetime licenses from $29.",
-    url: `${base}/?lang=en`,
+    url: `${base}/`,
     images: [{ url: "/og.png", width: 1200, height: 630, alt: "FINDARO" }],
     locale: "en_US",
     alternateLocale: ["es_ES"],
@@ -67,10 +61,13 @@ export default async function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const headerList = await headers();
   const cookieStore = await cookies();
-  const lang = detectLanguageFromHeaders(headerList, cookieStore.get("findaro_lang")?.value, null);
+  // El middleware fija x-findaro-lang (es en /es, en en /, cookie/país en el resto).
+  const lang =
+    parseLang(headerList.get(LANG_HEADER)) ??
+    detectLanguageFromHeaders(headerList, langFromCookieStore(cookieStore), null);
 
   return (
-    <html lang={lang}>
+    <html lang={lang} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

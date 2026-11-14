@@ -81,6 +81,25 @@ export function signAdminCookie(email: string): string {
   return Buffer.from(`${payload}|${sig}`).toString("base64url");
 }
 
+export function isAllowedAdminEmail(email: string): boolean {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return false;
+  const rawList = (process.env.ADMIN_ALLOWED_EMAILS || "").trim();
+  if (rawList) {
+    const allowedSet = new Set(
+      rawList
+        .split(/[,;\s]+/)
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    return allowedSet.has(normalized);
+  }
+  const single = (process.env.ADMIN_EMAIL || "david.del.rio.colin@gmail.com")
+    .trim()
+    .toLowerCase();
+  return normalized === single;
+}
+
 export function verifyAdminCookie(raw: string | undefined): string | null {
   if (!raw) return null;
   try {
@@ -99,8 +118,7 @@ export function verifyAdminCookie(raw: string | undefined): string | null {
     if (expectedBuf.length !== providedBuf.length) return null;
     if (!timingSafeEqual(expectedBuf, providedBuf)) return null;
 
-    const allowed = (process.env.ADMIN_EMAIL || "").toLowerCase();
-    if (allowed && email.toLowerCase() !== allowed) return null;
+    if (!isAllowedAdminEmail(email)) return null;
     return email;
   } catch {
     return null;

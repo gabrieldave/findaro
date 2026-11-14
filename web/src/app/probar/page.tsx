@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import styles from "../marketing.module.css";
+import { mono, sans } from "@/components/landing/fonts";
+import styles from "../light.module.css";
 import ProbarClient from "./ProbarClient";
 
 type Props = { searchParams: Promise<{ lang?: string }> };
@@ -31,8 +32,10 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
 export default function ProbarPage() {
   return (
-    <Suspense fallback={<main className={styles.page}><p>Loading…</p></main>}>
-      <ProbarClient />
-    </Suspense>
+    <div className={`${sans.variable} ${mono.variable}`} data-light="">
+      <Suspense fallback={<main className={styles.page} />}>
+        <ProbarClient />
+      </Suspense>
+    </div>
   );
 }

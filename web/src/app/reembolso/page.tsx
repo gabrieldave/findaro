@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { detectLanguageFromHeaders } from "@/lib/geo";
 import styles from "../marketing.module.css";
+import { langFromCookieStore } from "@/lib/lang";
 
 type PageProps = {
   searchParams: Promise<{ lang?: string }>;
@@ -12,7 +13,7 @@ async function resolveLang(searchParams: Promise<{ lang?: string }>): Promise<"e
   const sp = await searchParams;
   const headerList = await headers();
   const cookieStore = await cookies();
-  return detectLanguageFromHeaders(headerList, cookieStore.get("findaro_lang")?.value, sp?.lang);
+  return detectLanguageFromHeaders(headerList, langFromCookieStore(cookieStore), sp?.lang);
 }
 
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
