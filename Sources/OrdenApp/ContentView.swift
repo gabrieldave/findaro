@@ -301,7 +301,7 @@ struct ContentView: View {
                                         if paths.isEmpty {
                                             browser.transferSecondarySelectionToPrimary(copy: copy)
                                         } else {
-                                            _ = browser.dropPathsOnPrimary(paths, copy: copy)
+                                            _ = browser.dropPathsOnPane(paths, pane: .primary, optionHeld: copy)
                                         }
                                     }
                                 }
@@ -403,7 +403,8 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(OrdenTheme.windowFill)
         .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
-            browser.importDroppedFiles(providers: providers)
+            // Drop sobre el panel → carpeta abierta del panel enfocado (nunca a la Bandeja).
+            browser.handleDropInPane(providers: providers, pane: browser.focusedPane)
         }
     }
 

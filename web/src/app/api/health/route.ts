@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export function GET() {
   return NextResponse.json(
-    { ok: true, app: "findaro", version: "0.1.166", status: "healthy" },
+    { ok: true, app: "findaro", version: "0.1.167", status: "healthy" },
     { status: 200 },
   );
 }

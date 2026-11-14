@@ -880,17 +880,17 @@ struct NativeAppKitListView: NSViewRepresentable {
             proposedRow row: Int,
             proposedDropOperation dropOperation: NSTableView.DropOperation
         ) -> NSDragOperation {
-            let op: NSDragOperation = NSEvent.modifierFlags.contains(.option) ? .copy : .move
+            let dest = dropDestination(row: row, dropOperation: dropOperation)
             if dropOperation == .on,
                rows.indices.contains(row),
                case .entry(let target) = rows[row],
                target.isDirectory {
                 browser.folderDropTargetPath = target.path
-                return op
+            } else {
+                browser.folderDropTargetPath = nil
+                tableView.setDropRow(-1, dropOperation: .on)
             }
-            browser.folderDropTargetPath = nil
-            tableView.setDropRow(-1, dropOperation: .on)
-            return op
+            return dragOperation(for: info, destination: dest)
         }
 
         func tableView(
@@ -907,23 +907,44 @@ struct NativeAppKitListView: NSViewRepresentable {
                 return false
             }
             let paths = urls.map(\.path)
+            // Sobre una subcarpeta → esa subcarpeta; sobre el lienzo → carpeta abierta del panel.
+            let dest = dropDestination(row: row, dropOperation: dropOperation)
+            let copy = dragOperation(for: info, destination: dest) == .copy
+            browser.focusPane(pane)
+            // Transferencia DIRECTA al directorio destino (nunca a la Bandeja).
+            browser.dropPaths(paths, intoFolder: dest, copy: copy)
+            if isSecondary {
+                browser.reloadSecondary()
+            }
+            return true
+        }
+
+        /// Destino real del drop: subcarpeta bajo el cursor o carpeta abierta del panel.
+        private func dropDestination(row: Int, dropOperation: NSTableView.DropOperation) -> String {
             if dropOperation == .on,
                rows.indices.contains(row),
                case .entry(let target) = rows[row],
                target.isDirectory {
-                browser.dropPaths(paths, intoFolder: target.path)
-                return true
+                return target.path
             }
-            let copy = NSEvent.modifierFlags.contains(.option)
-            if browser.dualPaneEnabled {
-                if isSecondary {
-                    return browser.dropPathsOnSecondary(paths, copy: copy)
-                } else {
-                    return browser.dropPathsOnPrimary(paths, copy: copy)
-                }
-            }
-            browser.addPathsToShelf(paths, intent: copy ? .copy : .move)
-            return true
+            return browser.currentFolderPath(for: pane)
+        }
+
+        /// Política Mover/Copiar según ⌥, ⌘, volumen y máscara del origen.
+        private func dragOperation(for info: any NSDraggingInfo, destination: String) -> NSDragOperation {
+            let urls = info.draggingPasteboard.readObjects(
+                forClasses: [NSURL.self],
+                options: [.urlReadingFileURLsOnly: true]
+            ) as? [URL] ?? []
+            guard let first = urls.first else { return .copy }
+            let isInternal = info.draggingSource is NSTableView
+            let intent = FolderDropPolicy.intent(
+                optionHeld: NSEvent.modifierFlags.contains(.option),
+                commandHeld: NSEvent.modifierFlags.contains(.command),
+                sourceAllowsMove: isInternal || info.draggingSourceOperationMask.contains(.move),
+                sameVolume: FolderDropPolicy.sameVolume(first.path, destination)
+            )
+            return intent == .copy ? .copy : .move
         }
 
         private func buildContextMenu(forRow rowIdx: Int) -> NSMenu? {

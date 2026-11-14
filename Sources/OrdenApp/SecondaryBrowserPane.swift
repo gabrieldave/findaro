@@ -19,7 +19,7 @@ struct SecondaryBrowserPane: View {
                         if paths.isEmpty {
                             browser.transferPrimarySelectionToSecondary(copy: copy)
                         } else {
-                            _ = browser.dropPathsOnSecondary(paths, copy: copy)
+                            _ = browser.dropPathsOnPane(paths, pane: .secondary, optionHeld: copy)
                         }
                     }
                 }

@@ -1678,6 +1678,29 @@ final class BrowserModel: ObservableObject {
         transferPaths(paths, toDirectory: currentPath, copy: copy, clearPrimary: false, clearSecondary: false)
     }
 
+    /// Drop desde SwiftUI sobre un panel concreto aplicando la política Mover/Copiar
+    /// (⌥ = copiar, ⌘ = mover entre volúmenes, otro volumen sin ⌘ = copiar).
+    /// Nunca envía a la Bandeja: transfiere directo a la carpeta del panel.
+    @discardableResult
+    func dropPathsOnPane(_ paths: [String], pane: PaneFocus, optionHeld: Bool) -> Bool {
+        guard !paths.isEmpty else { return false }
+        let dest = currentFolderPath(for: pane)
+        let intent = FolderDropPolicy.intent(
+            optionHeld: optionHeld,
+            commandHeld: NSEvent.modifierFlags.contains(.command),
+            sourceAllowsMove: true,
+            sameVolume: FolderDropPolicy.sameVolume(paths[0], dest)
+        )
+        let copy = intent == .copy
+        if dualPaneEnabled {
+            return pane == .secondary
+                ? dropPathsOnSecondary(paths, copy: copy)
+                : dropPathsOnPrimary(paths, copy: copy)
+        }
+        dropPaths(paths, intoFolder: dest, copy: copy)
+        return true
+    }
+
     @discardableResult
     private func transferPaths(
         _ paths: [String],
@@ -3055,9 +3078,28 @@ final class BrowserModel: ObservableObject {
     // MARK: - Favoritos (accesos directos)
 
     func isFavorite(_ path: String) -> Bool {
-        let target = (path as NSString).standardizingPath
-        return store.preferences.favorites.contains {
-            ($0 as NSString).standardizingPath == target
+        FavoritesPolicy.contains(store.preferences.favorites, path: path)
+    }
+
+    /// Carpeta abierta de un panel concreto (sin depender de la selección).
+    func currentFolderPath(for pane: PaneFocus) -> String {
+        dualPaneEnabled && pane == .secondary ? secondaryPath : currentPath
+    }
+
+    /// ¿La carpeta abierta de ese panel ya está en Favoritos? (estrella de la barra de ruta)
+    func isCurrentFolderFavorite(pane: PaneFocus) -> Bool {
+        isFavorite(currentFolderPath(for: pane))
+    }
+
+    /// Toggle limpio desde la estrella: añade o quita la carpeta ACTUAL del panel.
+    /// No requiere ningún archivo/carpeta seleccionado.
+    func toggleCurrentFolderFavorite(pane: PaneFocus) {
+        let path = currentFolderPath(for: pane)
+        guard !path.isEmpty else { return }
+        if isFavorite(path) {
+            removeFavorite(path)
+        } else {
+            addFavorite(path)
         }
     }
 
@@ -3067,7 +3109,7 @@ final class BrowserModel: ObservableObject {
             statusMessage = L10n.s("Solo se pueden favoritar carpetas", "Only folders can be added to Favorites")
             return
         }
-        let standardized = (path as NSString).standardizingPath
+        let standardized = FavoritesPolicy.canonical(path)
         if isFavorite(standardized) {
             statusMessage = L10n.s("Ya está en Favoritos", "Already in Favorites")
             return
@@ -3078,9 +3120,9 @@ final class BrowserModel: ObservableObject {
     }
 
     func removeFavorite(_ path: String) {
-        let target = (path as NSString).standardizingPath
+        let target = FavoritesPolicy.canonical(path)
         store.update { prefs in
-            prefs.favorites.removeAll { ($0 as NSString).standardizingPath == target }
+            prefs.favorites.removeAll { FavoritesPolicy.canonical($0) == target }
         }
         objectWillChange.send()
         statusMessage = L10n.s("Quitado de Favoritos", "Removed from Favorites")
@@ -5335,16 +5377,41 @@ final class BrowserModel: ObservableObject {
     }
 
     /// Suelta archivos/carpetas DENTRO de una carpeta destino (no a la bandeja).
-    /// ⌥ = copiar; sin ⌥ = mover.
+    /// ⌥ = copiar; sin ⌥ = mover (o la intención explícita recibida del drop).
     @discardableResult
     func handleDropIntoFolder(providers: [NSItemProvider], folderPath: String) -> Bool {
-        collectDroppedPaths(providers) { paths in
-            self.dropPaths(paths, intoFolder: folderPath)
+        DualPaneDrop.handle(providers) { paths, optionCopy in
+            guard !paths.isEmpty else { return }
+            let intent = FolderDropPolicy.intent(
+                optionHeld: optionCopy,
+                commandHeld: NSEvent.modifierFlags.contains(.command),
+                sourceAllowsMove: true,
+                sameVolume: FolderDropPolicy.sameVolume(paths[0], folderPath)
+            )
+            self.dropPaths(paths, intoFolder: folderPath, copy: intent == .copy)
         }
         return true
     }
 
-    func dropPaths(_ paths: [String], intoFolder folderPath: String) {
+    /// Drop sobre el área de un panel (lista/iconos/columnas/galería, con o sin filas):
+    /// transfiere DIRECTO a la carpeta abierta del panel — nunca a la Bandeja.
+    @discardableResult
+    func handleDropInPane(providers: [NSItemProvider], pane: PaneFocus) -> Bool {
+        DualPaneDrop.handle(providers) { paths, optionCopy in
+            guard !paths.isEmpty else { return }
+            let dest = self.currentFolderPath(for: pane)
+            let intent = FolderDropPolicy.intent(
+                optionHeld: optionCopy,
+                commandHeld: NSEvent.modifierFlags.contains(.command),
+                sourceAllowsMove: true,
+                sameVolume: FolderDropPolicy.sameVolume(paths[0], dest)
+            )
+            self.dropPaths(paths, intoFolder: dest, copy: intent == .copy)
+        }
+        return true
+    }
+
+    func dropPaths(_ paths: [String], intoFolder folderPath: String, copy copyOverride: Bool? = nil) {
         let dest = (folderPath as NSString).standardizingPath
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: dest, isDirectory: &isDir), isDir.boolValue else {
@@ -5352,14 +5419,8 @@ final class BrowserModel: ObservableObject {
             return
         }
 
-        let copy = NSEvent.modifierFlags.contains(.option)
-        let unique = Array(Set(paths.map { ($0 as NSString).standardizingPath }))
-            .filter { path in
-                if path == dest { return false }
-                // No meter una carpeta dentro de sí misma / descendiente
-                if dest.hasPrefix(path + "/") { return false }
-                return true
-            }
+        let copy = copyOverride ?? NSEvent.modifierFlags.contains(.option)
+        let unique = FolderDropPolicy.filteredPaths(paths, destination: dest)
         guard !unique.isEmpty else {
             statusMessage = L10n.s("No se puede soltar ahí", "Cannot drop items here")
             return

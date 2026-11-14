@@ -112,6 +112,11 @@ struct PathBreadcrumbBar: View {
         BreadcrumbResolver.segments(for: currentFolderPath)
     }
 
+    /// Estado en vivo de Favoritos para la carpeta abierta de este panel.
+    private var isCurrentFavorite: Bool {
+        browser.isFavorite(currentFolderPath)
+    }
+
     private var isEditingOmnibox: Bool {
         browser.pathOmniboxEditing && (browser.focusedPane == pane || !browser.dualPaneEnabled)
     }
@@ -265,6 +270,25 @@ struct PathBreadcrumbBar: View {
 
     private var trailingQuickActions: some View {
         HStack(spacing: 4) {
+            // Estrella de Favoritos: siempre visible, opera sobre la carpeta ABIERTA
+            // de este panel (sin necesidad de seleccionar nada).
+            Button {
+                browser.toggleCurrentFolderFavorite(pane: pane)
+            } label: {
+                Image(systemName: isCurrentFavorite ? "star.fill" : "star")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(isCurrentFavorite ? Color.orange : OrdenTheme.textSecondary)
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(isCurrentFavorite
+                  ? L10n.s("Quitar de Favoritos", "Remove from Favorites")
+                  : L10n.s("Añadir carpeta actual a Favoritos", "Add current folder to Favorites"))
+            .accessibilityLabel(isCurrentFavorite
+                                ? L10n.s("Quitar de Favoritos", "Remove from Favorites")
+                                : L10n.s("Añadir carpeta actual a Favoritos", "Add current folder to Favorites"))
+
             if isExternalVolume && !isEditingOmnibox {
                 Button {
                     browser.cleanMacOSJunkInActiveFolder()
