@@ -85,22 +85,20 @@ export function middleware(request: NextRequest) {
   const queryLang = parseLang(searchParams.get("lang"));
   const currentCookie = parseLang(request.cookies.get(LANG_COOKIE)?.value);
   const legacyCookie = parseLang(request.cookies.get(LEGACY_LANG_COOKIE)?.value);
-  const cookieLang = currentCookie ?? legacyCookie;
   const isLandingEn = pathname === "/";
   const isLandingEs = pathname === "/es" || pathname === "/es/";
 
-  // 2. Landing: primero la cookie `findaro-lang`, después CF-IPCountry.
+  // 2. Landing: preferencia explícita (?lang / cookie `findaro-lang`) → país (CF-IPCountry)
+  //    → Accept-Language. La cookie antigua `findaro_lang` NO cuenta como preferencia:
+  //    la escribía el propio sitio en cada visita y dejaba a LatAm clavado en inglés.
   if (isLandingEn || isLandingEs) {
-    const explicit = queryLang ?? cookieLang;
-    let target: Lang = isLandingEs ? "es" : "en";
-    if (explicit) {
-      target = explicit;
-    } else if (isLandingEn && !isBot) {
-      // Sin preferencia guardada: los países hispanohablantes van a /es.
-      target = geoLang(request) ?? acceptLang(request);
-    }
+    const explicit = queryLang ?? currentCookie;
+    const detected = geoLang(request);
+    const current: Lang = isLandingEs ? "es" : "en";
+    // Sin país conocido (XX/T1) en /es: se respeta la campaña y no se expulsa a inglés.
+    const target: Lang = explicit ?? detected ?? (isLandingEs ? "es" : acceptLang(request));
 
-    const needsMove = !isBot && ((isLandingEn && target === "es") || (isLandingEs && target === "en"));
+    const needsMove = !isBot && target !== current;
     if (needsMove || queryLang) {
       const url = withoutLangParam(request.nextUrl);
       url.pathname = target === "es" ? "/es" : "/";
@@ -116,7 +114,7 @@ export function middleware(request: NextRequest) {
     ? "es"
     : isLandingEn
       ? "en"
-      : (queryLang ?? cookieLang ?? geoLang(request) ?? acceptLang(request));
+      : (queryLang ?? currentCookie ?? geoLang(request) ?? acceptLang(request));
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(LANG_HEADER, pageLang);
 
@@ -124,10 +122,9 @@ export function middleware(request: NextRequest) {
 
   if (queryLang) {
     setLangCookie(res, queryLang);
-  } else if (!currentCookie && legacyCookie) {
-    // Migración de la cookie anterior `findaro_lang` → `findaro-lang`.
-    setLangCookie(res, legacyCookie);
   }
+  // Solo se retira la cookie antigua: no se migra como preferencia para que la
+  // geolocalización vuelva a mandar en la próxima visita.
   if (legacyCookie) res.cookies.delete(LEGACY_LANG_COOKIE);
 
   persistAttribution(request, res);
