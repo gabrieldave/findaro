@@ -44,8 +44,8 @@ private struct AboutView: View {
     @State private var copiedNotice = false
 
     private var versionString: String {
-        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.165"
-        let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "157"
+        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.168"
+        let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "160"
         return "\(v) (\(b))"
     }
 

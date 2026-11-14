@@ -1767,7 +1767,7 @@ final class BrowserModel: ObservableObject {
     ) {
         let job = TransferQueue.Job(paths: paths, destinationDir: dest, move: move)
         transferProgressFraction = 0
-        transferProgressLabel = move ? "Moviendo…" : "Copiando…"
+        transferProgressLabel = move ? L10n.s("Moviendo…", "Moving…") : L10n.s("Copiando…", "Copying…")
         statusMessage = transferProgressLabel
         Task { @MainActor in
             do {
@@ -5439,18 +5439,28 @@ final class BrowserModel: ObservableObject {
                 if copy {
                     self.pushUndo(.copied(created: pairs.map(\.to)))
                 } else {
-                    self.shelf.removeAll { rest.contains(($0.path as NSString).standardizingPath) }
+                    let movedStandardized = Set(rest.map { ($0 as NSString).standardizingPath })
+                    self.shelf.removeAll { movedStandardized.contains(($0.path as NSString).standardizingPath) }
                     self.selectedIDs = []
+                    self.secondarySelectedIDs.subtract(movedStandardized)
                     self.pushUndo(.moved(pairs: pairs))
                 }
                 self.folderDropTargetPath = nil
                 self.clearArmedFileDrag()
                 self.reload()
+                if self.dualPaneEnabled {
+                    self.reloadSecondary()
+                }
                 let name = URL(fileURLWithPath: dest).lastPathComponent
                 self.statusMessage = copy
-                    ? "Copiados \(pairs.count) → \(name) · ⌘Z deshace"
-                    : "Movidos \(pairs.count) → \(name) · ⌘Z deshace"
+                    ? L10n.s("Copiados \(pairs.count) → \(name) · ⌘Z deshace", "Copied \(pairs.count) → \(name) · ⌘Z undoes")
+                    : L10n.s("Movidos \(pairs.count) → \(name) · ⌘Z deshace", "Moved \(pairs.count) → \(name) · ⌘Z undoes")
             case .failure(let error):
+                self.folderDropTargetPath = nil
+                self.reload()
+                if self.dualPaneEnabled {
+                    self.reloadSecondary()
+                }
                 self.statusMessage = error.localizedDescription
             }
         }

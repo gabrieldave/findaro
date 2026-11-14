@@ -1504,57 +1504,66 @@ struct FileBrowserPane: View {
     @State private var listContentWidth: CGFloat = 900
 
     var body: some View {
-        Group {
-            if let error = paneError {
-                if !isSecondary, browser.isViewingTrash {
-                    TrashPermissionUnavailable(errorText: error)
-                } else {
+        VStack(spacing: 6) {
+            // Barra de ruta SIEMPRE visible arriba en 1 panel (vacío, Lista, Iconos, Columnas y Galería).
+            // En Doble Panel la dibuja cada panel (no se duplica).
+            if !browser.dualPaneEnabled {
+                PathBreadcrumbBar(pane: pane)
+            }
+
+            Group {
+                if let error = paneError {
+                    if !isSecondary, browser.isViewingTrash {
+                        TrashPermissionUnavailable(errorText: error)
+                    } else {
+                        ContentUnavailableView(
+                            L10n.s("No se pudo abrir", "Could Not Open"),
+                            systemImage: "exclamationmark.folder",
+                            description: Text(error)
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                } else if paneEntries.isEmpty, !isSecondary, browser.smartFolderLoading {
+                    VStack(spacing: 10) {
+                        ProgressView()
+                        Text(L10n.s("Buscando en subcarpetas…", "Searching subfolders…"))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                } else if paneEntries.isEmpty && (isSecondary || browser.viewMode != .columns) {
                     ContentUnavailableView(
-                        L10n.s("No se pudo abrir", "Could Not Open"),
-                        systemImage: "exclamationmark.folder",
-                        description: Text(error)
+                        L10n.s("Vacío", "Empty"),
+                        systemImage: "folder",
+                        description: Text(isSecondary
+                            ? L10n.s("Suelta archivos aquí o usa «Mover →»", "Drop files here or click «Move →»")
+                            : L10n.s("No hay elementos con este filtro.", "No items match this filter."))
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-            } else if paneEntries.isEmpty, !isSecondary, browser.smartFolderLoading {
-                VStack(spacing: 10) {
-                    ProgressView()
-                    Text(L10n.s("Buscando en subcarpetas…", "Searching subfolders…"))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            } else if paneEntries.isEmpty && (isSecondary || browser.viewMode != .columns) {
-                ContentUnavailableView(
-                    L10n.s("Vacío", "Empty"),
-                    systemImage: "folder",
-                    description: Text(isSecondary
-                        ? L10n.s("Suelta archivos aquí o usa «Mover →»", "Drop files here or click «Move →»")
-                        : L10n.s("No hay elementos con este filtro.", "No items match this filter."))
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(OrdenTheme.panelFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    browser.cancelSelectionFromBackgroundTap(activating: pane)
-                }
-            } else if isSecondary {
-                // Destino: misma lista que Origen (naranja, casillas, menú…).
-                listBrowser
-            } else {
-                switch browser.viewMode {
-                case .list:
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        browser.cancelSelectionFromBackgroundTap(activating: pane)
+                    }
+                } else if isSecondary {
+                    // Destino: misma lista que Origen (naranja, casillas, menú…).
                     listBrowser
-                case .icons:
-                    IconsBrowserView()
-                case .columns:
-                    ColumnsBrowserView()
-                case .gallery:
-                    GalleryBrowserView()
+                } else {
+                    switch browser.viewMode {
+                    case .list:
+                        listBrowser
+                    case .icons:
+                        IconsBrowserView()
+                    case .columns:
+                        ColumnsBrowserView()
+                    case .gallery:
+                        GalleryBrowserView()
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: browser.selectionCancelToken) { _, _ in
@@ -1564,12 +1573,6 @@ struct FileBrowserPane: View {
 
     private var listBrowser: some View {
         VStack(spacing: 0) {
-            if !browser.dualPaneEnabled {
-                PathBreadcrumbBar(pane: pane)
-                    .padding(.horizontal, 4)
-                    .padding(.bottom, 4)
-            }
-
             header
                 .fixedSize(horizontal: false, vertical: true)
 
